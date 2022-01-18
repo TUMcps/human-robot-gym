@@ -1,0 +1,3 @@
+Thu Jan 13 18:23:19 2022
+ERROR: Rank-defficient Hessian in HessianDirect
+

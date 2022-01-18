@@ -1,0 +1,45 @@
+<mujoco model="arm">
+  <asset>
+    <mesh name="L_Shoulder" file="meshes/L_Shoulder.stl"/>
+    <mesh name="L_Elbow" file="meshes/L_Elbow.stl"/>
+    <mesh name="L_Wrist" file="meshes/L_Wrist.stl"/>
+    <mesh name="L_Hand" file="meshes/L_Hand.stl"/>
+  </asset>
+  <worldbody>
+    <body>
+      <body name="object">
+        <body name="L_Shoulder" pos="0.0 0.0 0.0" quat="1.0000 0.0000 0.0000 0.0000">
+        <!--<body name="L_Shoulder" pos="0.1724 0.2260 -0.0149" quat="1.0000 0.0000 0.0000 0.0000">-->
+            <joint name="L_Shoulder_z" type="hinge" pos="0.1724 0.2260 -0.0149" axis="0.0000 0.0000 1.0000" range="-180.0000 180.0000"/>
+            <joint name="L_Shoulder_y" type="hinge" pos="0.1724 0.2260 -0.0149" axis="0.0000 1.0000 0.0000" range="-180.0000 180.0000"/>
+            <joint name="L_Shoulder_x" type="hinge" pos="0.1724 0.2260 -0.0149" axis="1.0000 0.0000 0.0000" range="-180.0000 180.0000"/>
+            <geom group="1" type="mesh" mesh="L_Shoulder" contype="0" conaffinity="1"/>
+            <!--<body name="L_Elbow" pos="0.4320 0.2132 -0.0424" quat="1.0000 0.0000 0.0000 0.0000">-->
+            <body name="L_Elbow" pos="0.0 0.0 0.0" quat="1.0000 0.0000 0.0000 0.0000">
+                <joint name="L_Elbow_z" type="hinge" pos="0.4320 0.2132 -0.0424" axis="0.0000 0.0000 1.0000" range="-720.0000 720.0000"/>
+                <joint name="L_Elbow_y" type="hinge" pos="0.4320 0.2132 -0.0424" axis="0.0000 1.0000 0.0000" range="-720.0000 720.0000"/>
+                <joint name="L_Elbow_x" type="hinge" pos="0.4320 0.2132 -0.0424" axis="1.0000 0.0000 0.0000" range="-720.0000 720.0000"/>
+                <geom group="1" type="mesh" mesh="L_Elbow" contype="0" conaffinity="1"/>
+                <!--<body name="L_Wrist" pos="0.6813 0.2222 -0.0435" quat="1.0000 0.0000 0.0000 0.0000">-->
+                <body name="L_Wrist" pos="0.0 0.0 0.0" quat="1.0000 0.0000 0.0000 0.0000">
+                    <joint name="L_Wrist_z" type="hinge" pos="0.6813 0.2222 -0.0435" axis="0.0000 0.0000 1.0000" range="-180.0000 180.0000"/>
+                    <joint name="L_Wrist_y" type="hinge" pos="0.6813 0.2222 -0.0435" axis="0.0000 1.0000 0.0000" range="-180.0000 180.0000"/>
+                    <joint name="L_Wrist_x" type="hinge" pos="0.6813 0.2222 -0.0435" axis="1.0000 0.0000 0.0000" range="-180.0000 180.0000"/>
+                    <geom group="1" type="mesh" mesh="L_Wrist" contype="0" conaffinity="1"/>
+                    <!--<body name="L_Hand" pos="0.7653 0.2140 -0.0585" quat="1.0000 0.0000 0.0000 0.0000">-->
+                    <body name="L_Hand" pos="0.0 0.0 0.0" quat="1.0000 0.0000 0.0000 0.0000">
+                        <joint name="L_Hand_z" type="hinge" pos="0.7653 0.2140 -0.0585" axis="0.0000 0.0000 1.0000" range="-180.0000 180.0000"/>
+                        <joint name="L_Hand_y" type="hinge" pos="0.7653 0.2140 -0.0585" axis="0.0000 1.0000 0.0000" range="-180.0000 180.0000"/>
+                        <joint name="L_Hand_x" type="hinge" pos="0.7653 0.2140 -0.0585" axis="1.0000 0.0000 0.0000" range="-180.0000 180.0000"/>
+                        <geom group="1" type="mesh" mesh="L_Hand" contype="0" conaffinity="1"/>
+                    </body>
+                </body>
+            </body>
+        </body>
+      </body>
+      <site rgba="0 0 0 0" size="0.005" pos="0.0 0.0 -0.10" name="bottom_site"/>
+      <site rgba="0 0 0 0" size="0.005" pos="0.0 0.0 0.0" name="top_site"/>
+      <site rgba="0 0 0 0" size="0.005" pos="0.11 0.11 0.0" name="horizontal_radius_site"/>
+    </body>
+  </worldbody>
+</mujoco>

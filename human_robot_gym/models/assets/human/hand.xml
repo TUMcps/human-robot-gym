@@ -1,0 +1,19 @@
+<mujoco model="hand">
+  <asset>
+    <mesh file="meshes/LeftHand_corrected.stl" name="hand_mesh"/>
+    <texture file="../textures/bread.png" type="2d" name="tex-bread" />
+    <material name="bread" reflectance="0.7" texrepeat="15 15" texture="tex-bread" texuniform="true"/>
+  </asset>
+  <worldbody>
+    <body mocap="true">
+      <body name="object">
+        <body name="hand" pos="0.0 0.0 0.0" quat="1.0000 0.0000 0.0000 0.0000" mocap="true">
+            <geom pos="0.0 0.0 0.0" mesh="hand_mesh" type="mesh" material="bread" solimp="0.998 0.998 0.001" solref="0.001 1" density="100" friction="0.95 0.3 0.1" group="0" condim="4" contype="0" conaffinity="1"/>
+        </body>
+      </body>
+      <site rgba="0 0 0 0" size="0.005" pos="0.0 0.0 -0.10" name="bottom_site"/>
+      <site rgba="0 0 0 0" size="0.005" pos="0.0 0.0 0.0" name="top_site"/>
+      <site rgba="0 0 0 0" size="0.005" pos="0.11 0.11 0.0" name="horizontal_radius_site"/>
+    </body>
+  </worldbody>
+</mujoco>
