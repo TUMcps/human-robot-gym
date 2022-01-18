@@ -1,0 +1,9 @@
+/.vscode
+/devel
+/build
+/models
+/runs
+/wandb
+__pycache__/
+*.py[cod]
+*.egg-info/
