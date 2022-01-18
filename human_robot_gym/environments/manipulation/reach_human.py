@@ -20,7 +20,7 @@ from scipy.spatial.transform import Rotation
 
 class ReachHuman(SingleArmEnv):
     """
-    This class corresponds to the reaching task for a single robot arm.
+    This class corresponds to the reaching task for a single robot arm in a human environment.
 
     Args:
         robots (str or list of str): Specification for specific robot arm(s) to be instantiated within this env
@@ -185,14 +185,35 @@ class ReachHuman(SingleArmEnv):
 
         self.obj_names = ["Human"]
 
-        # load animation
-        
-        pkl_file = open(xml_path_completion('human/animations/62_01.pkl'), 'rb')
-        self.human_animation = pickle.load(pkl_file)
-        pkl_file.close()
+        # Human animation definition
+        human_animation_list = ["62_01", 
+                                "62_03", 
+                                "62_03", 
+                                "62_07", 
+                                "62_09", 
+                                "62_10", 
+                                "62_12", 
+                                "62_13", 
+                                "62_14", 
+                                "62_15", 
+                                "62_16", 
+                                "62_18", 
+                                "62_19", 
+                                "62_20", 
+                                "62_21",]
+        self.human_animations = []
+        for animation_name in human_animation_list:
+            try:
+                pkl_file = open(xml_path_completion('human/animations/{}.pkl'.format(animation_name)), 'rb')
+                self.human_animations.append(pickle.load(pkl_file))
+                pkl_file.close()
+            except Exception as e:
+                print("Error while loading human animation {}: {}".format(pkl_file, e))
         self.base_human_pos_offset = [1.0, 0.0, 0.29]
+        self.human_base_quat = Rotation.from_quat([-0.5, -0.5, 0.5, 0.5])
         self.human_animation_freq = 120
         self.low_level_time = int(0)
+        self.human_animation_id = 0
 
         # object placement initializer
         self.placement_initializer = placement_initializer
@@ -522,41 +543,43 @@ class ReachHuman(SingleArmEnv):
 
     def _control_human(self):
         """
-        Set human joint positions according to mocap.
+        Set the human joint positions according to the human animation files.
         """
+        # Convert low level time to human animation time
         self.control_time = math.floor(self.low_level_time/self.human_animation_step_length)
-        self.control_time = self.control_time % (self.human_animation["Pelvis_pos_x"].shape[0]-1)
+        # Check if current animation is finished
+        if self.control_time > self.human_animations[self.human_animation_id]["Pelvis_pos_x"].shape[0]-1:
+            # Rotate to next human animation
+            self.human_animation_id = self.human_animation_id+1 if self.human_animation_id < len(self.human_animations)-2 else 0
+            self.control_time = 0
         
+        # Get the root bone position and rotation
         # These settings are adjusted to fit the CMU motion capture BVH files!
-        human_pos = [-self.human_animation["Pelvis_pos_z"][self.control_time] + self.human_pos_offset[0],
-                     -self.human_animation["Pelvis_pos_x"][self.control_time] + self.human_pos_offset[1],
-                     self.human_animation["Pelvis_pos_y"][self.control_time] + self.human_pos_offset[2]]
+        human_pos = [-self.human_animations[self.human_animation_id]["Pelvis_pos_z"][self.control_time] + self.human_pos_offset[0],
+                     -self.human_animations[self.human_animation_id]["Pelvis_pos_x"][self.control_time] + self.human_pos_offset[1],
+                     self.human_animations[self.human_animation_id]["Pelvis_pos_y"][self.control_time] + self.human_pos_offset[2]]
         rot = Rotation.from_euler('zyx', 
-                [self.human_animation["Pelvis_rot_z"][self.control_time], 
-                 -self.human_animation["Pelvis_rot_x"][self.control_time],
-                 -self.human_animation["Pelvis_rot_y"][self.control_time]], degrees=False)
-        base_quat = Rotation.from_quat([-0.5, -0.5, 0.5, 0.5])
-        human_rot = base_quat.__mul__(rot)
+                [self.human_animations[self.human_animation_id]["Pelvis_rot_z"][self.control_time], 
+                 -self.human_animations[self.human_animation_id]["Pelvis_rot_x"][self.control_time],
+                 -self.human_animations[self.human_animation_id]["Pelvis_rot_y"][self.control_time]], degrees=False)
+        # Multiply animation rotation with base rotation
+        human_rot = self.human_base_quat.__mul__(rot)
         human_quat = human_rot.as_quat()
-
-
+        # Set base position and rotation
         human_body_id = self.sim.model.body_name2id(self.human.root_body)
         self.sim.model.body_pos[human_body_id] = human_pos
         self.sim.model.body_quat[human_body_id] = human_quat
-        ### STILL BUGGY! USE HUMAN QUAT?
-        #self.sim.model.body_quat[human_body_id] = human_quat
-        
-
+        # Set rotation of all other joints
         for joint_element in self.human.joint_elements:
             joint_name = joint_element + "_x"
-            
-            self.sim.data.set_joint_qpos(self.human.naming_prefix + joint_name, self.human_animation[joint_name][self.control_time])
+            self.sim.data.set_joint_qpos(self.human.naming_prefix + joint_name, 
+                self.human_animations[self.human_animation_id][joint_name][self.control_time])
             joint_name = joint_element + "_y"
-            self.sim.data.set_joint_qpos(self.human.naming_prefix + joint_name, self.human_animation[joint_name][self.control_time])
+            self.sim.data.set_joint_qpos(self.human.naming_prefix + joint_name, 
+                self.human_animations[self.human_animation_id][joint_name][self.control_time])
             joint_name = joint_element + "_z"
-            self.sim.data.set_joint_qpos(self.human.naming_prefix + joint_name, self.human_animation[joint_name][self.control_time])
-        #self.sim.data.set_joint_qpos("Human_L_Knee_y", 0.1 * self.timestep)
-        #self.sim.data.set_joint_qpos("Human_L_Shoulder_y", 0.7853)
+            self.sim.data.set_joint_qpos(self.human.naming_prefix + joint_name, 
+                self.human_animations[self.human_animation_id][joint_name][self.control_time])
 
     @property
     def _visualizations(self):
