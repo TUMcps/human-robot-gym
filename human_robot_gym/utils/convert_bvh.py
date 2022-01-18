@@ -1,12 +1,30 @@
-import pickle
+import argparse
+import os
 import numpy as np
+import pickle
 
 from bvh import Bvh
-from human_robot_gym.utils.mjcf_utils import xml_path_completion
+
 
 if __name__ == "__main__":
-    path = xml_path_completion('human/animations/62_01_no_hand.bvh')
-    path = "/home/jakob/OneDrive/Promotion/Work/CMU_motion_cap/cmuconvert-daz-60-75/61/test.bvh"
+    ## Load in arguments
+    parser = argparse.ArgumentParser(description = 
+        'Convert a BVH motion capture file to a usable animation and save the animation as a pickle file.')
+    parser.add_argument('path', help='Path to bvh file. Has to end in .bvh', type=str)
+    parser.add_argument('--save_path', '-s', help='Path to save the pickle file. Has to end in .pkl', type=str)
+    args = parser.parse_args()
+    path = args.path
+    file_name, file_extension = os.path.splitext(path)
+    assert file_extension == '.bvh', "BVH file has to end in .bvh"
+    assert os.path.isfile(path), "BVH file does not exist!"
+    save_path = args.save_path
+    if save_path is not None:
+        _, file_extension = os.path.splitext(save_path)
+        assert file_extension == '.pkl', "File to save pkl has to end in .pkl"
+    else:
+        save_path = file_name + '.pkl'
+
+    ## Load BVH file
     with open(path) as f:
         mocap = Bvh(f.read())
     mocap.get_joint_channels_index("hip")
@@ -64,6 +82,6 @@ if __name__ == "__main__":
             data[joint_name + "_y"] = np.zeros(data["Pelvis_pos_x"].shape)
             data[joint_name + "_z"] = np.zeros(data["Pelvis_pos_x"].shape)
     
-    output = open(xml_path_completion('human/animations/test.pkl'), 'wb')
+    output = open(save_path, 'wb')
     pickle.dump(data, output)
     output.close()
