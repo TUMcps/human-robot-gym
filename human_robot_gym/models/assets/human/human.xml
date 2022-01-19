@@ -35,7 +35,7 @@
     <body>
         <body name="object">
             <!-- quat="-0.5 -0.5 0.5 0.5" -->
-            <body name="Pelvis" pos="0.0 0.0 0.0" quat="1.0000 0.0000 0.0000 0.0000">
+            <body name="Pelvis" pos="0.0 0.0 0.0" quat="0.0000 0.0000 0.0000 1.0000">
                 <inertial pos="0 0 0" mass="1" diaginertia="1 1 1" />
                 <geom group="1" type="mesh" mesh="Pelvis" contype="0" conaffinity="1"/>
                 <body name="L_Hip" pos="0.0 0.0 0.0" quat="1.0000 0.0000 0.0000 0.0000">

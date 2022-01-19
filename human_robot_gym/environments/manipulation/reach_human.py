@@ -14,7 +14,7 @@ from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import UniformRandomSampler
 
 from human_robot_gym.models.objects.human.human import HumanObject
-from human_robot_gym.utils.mjcf_utils import xml_path_completion
+from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat
 
 from scipy.spatial.transform import Rotation
 
@@ -209,11 +209,13 @@ class ReachHuman(SingleArmEnv):
                 pkl_file.close()
             except Exception as e:
                 print("Error while loading human animation {}: {}".format(pkl_file, e))
-        self.base_human_pos_offset = [1.0, 0.0, 0.29]
-        self.human_base_quat = Rotation.from_quat([-0.5, -0.5, 0.5, 0.5])
+        self.base_human_pos_offset = [1.0, 0.0, 0.28]
+        # Input to scipy: quat = [x, y, z, w]
+        self.human_base_quat = Rotation.from_quat([ 0, 0.7071068, -0.7071068, 0  ])
         self.human_animation_freq = 120
         self.low_level_time = int(0)
         self.human_animation_id = 0
+        self.animation_start_time = 0
 
         # object placement initializer
         self.placement_initializer = placement_initializer
@@ -443,8 +445,8 @@ class ReachHuman(SingleArmEnv):
             self.placement_initializer = UniformRandomSampler(
                 name="ObjectSampler",
                 mujoco_objects=self.human,
-                x_range=[-0.2, 0.2],
-                y_range=[-0.2, 0.2],
+                x_range=[-0.0, 0.0],
+                y_range=[-0.0, 0.0],
                 rotation=(0, 0),
                 rotation_axis="x",
                 ensure_object_boundary_in_range=False,
@@ -526,6 +528,9 @@ class ReachHuman(SingleArmEnv):
         """
         super()._reset_internal()
 
+        self.animation_start_time = 0
+        self.low_level_time = 0
+
         # Reset all object positions using initializer sampler if we're not directly loading from an xml
         if not self.deterministic_reset:
 
@@ -546,25 +551,24 @@ class ReachHuman(SingleArmEnv):
         Set the human joint positions according to the human animation files.
         """
         # Convert low level time to human animation time
-        self.control_time = math.floor(self.low_level_time/self.human_animation_step_length)
+        control_time = math.floor(self.low_level_time/self.human_animation_step_length)
+        animation_time = control_time - self.animation_start_time
         # Check if current animation is finished
-        if self.control_time > self.human_animations[self.human_animation_id]["Pelvis_pos_x"].shape[0]-1:
+        if animation_time > self.human_animations[self.human_animation_id]["Pelvis_pos_x"].shape[0]-1:
             # Rotate to next human animation
             self.human_animation_id = self.human_animation_id+1 if self.human_animation_id < len(self.human_animations)-2 else 0
-            self.control_time = 0
+            animation_time = 0
+            self.animation_start_time = control_time
         
         # Get the root bone position and rotation
         # These settings are adjusted to fit the CMU motion capture BVH files!
-        human_pos = [-self.human_animations[self.human_animation_id]["Pelvis_pos_z"][self.control_time] + self.human_pos_offset[0],
-                     -self.human_animations[self.human_animation_id]["Pelvis_pos_x"][self.control_time] + self.human_pos_offset[1],
-                     self.human_animations[self.human_animation_id]["Pelvis_pos_y"][self.control_time] + self.human_pos_offset[2]]
-        rot = Rotation.from_euler('zyx', 
-                [self.human_animations[self.human_animation_id]["Pelvis_rot_z"][self.control_time], 
-                 -self.human_animations[self.human_animation_id]["Pelvis_rot_x"][self.control_time],
-                 -self.human_animations[self.human_animation_id]["Pelvis_rot_y"][self.control_time]], degrees=False)
+        human_pos = [self.human_animations[self.human_animation_id]["Pelvis_pos_x"][animation_time] + self.human_pos_offset[0],
+                     self.human_animations[self.human_animation_id]["Pelvis_pos_y"][animation_time] + self.human_pos_offset[1],
+                     self.human_animations[self.human_animation_id]["Pelvis_pos_z"][animation_time] + self.human_pos_offset[2]]
+        rot = Rotation.from_quat(self.human_animations[self.human_animation_id]["Pelvis_quat"][animation_time])
         # Multiply animation rotation with base rotation
         human_rot = self.human_base_quat.__mul__(rot)
-        human_quat = human_rot.as_quat()
+        human_quat = rot_to_quat(human_rot)
         # Set base position and rotation
         human_body_id = self.sim.model.body_name2id(self.human.root_body)
         self.sim.model.body_pos[human_body_id] = human_pos
@@ -573,13 +577,13 @@ class ReachHuman(SingleArmEnv):
         for joint_element in self.human.joint_elements:
             joint_name = joint_element + "_x"
             self.sim.data.set_joint_qpos(self.human.naming_prefix + joint_name, 
-                self.human_animations[self.human_animation_id][joint_name][self.control_time])
+                self.human_animations[self.human_animation_id][joint_name][animation_time])
             joint_name = joint_element + "_y"
             self.sim.data.set_joint_qpos(self.human.naming_prefix + joint_name, 
-                self.human_animations[self.human_animation_id][joint_name][self.control_time])
+                self.human_animations[self.human_animation_id][joint_name][animation_time])
             joint_name = joint_element + "_z"
             self.sim.data.set_joint_qpos(self.human.naming_prefix + joint_name, 
-                self.human_animations[self.human_animation_id][joint_name][self.control_time])
+                self.human_animations[self.human_animation_id][joint_name][animation_time])
 
     @property
     def _visualizations(self):

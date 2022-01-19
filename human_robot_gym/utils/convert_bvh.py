@@ -4,6 +4,7 @@ import numpy as np
 import pickle
 
 from bvh import Bvh
+from scipy.spatial.transform import Rotation
 
 
 if __name__ == "__main__":
@@ -62,11 +63,13 @@ if __name__ == "__main__":
         channel_dict[channel_name] = base_idx + i
 
     data["Pelvis_pos_x"] = frames[:, channel_dict["Xposition"]]/100
-    data["Pelvis_pos_y"] = frames[:, channel_dict["Yposition"]]/100
-    data["Pelvis_pos_z"] = frames[:, channel_dict["Zposition"]]/100
-    data["Pelvis_rot_x"] = np.clip(np.radians(frames[:, channel_dict["Xrotation"]]), -1.56, 1.56)
-    data["Pelvis_rot_y"] = np.clip(np.radians(frames[:, channel_dict["Yrotation"]]), -1.56, 1.56)
-    data["Pelvis_rot_z"] = np.clip(np.radians(frames[:, channel_dict["Zrotation"]]), -1.56, 1.56)
+    data["Pelvis_pos_y"] = -frames[:, channel_dict["Zposition"]]/100
+    data["Pelvis_pos_z"] = frames[:, channel_dict["Yposition"]]/100
+    rot = Rotation.from_euler('ZYX', 
+            np.swapaxes(np.array([frames[:, channel_dict["Zrotation"]], -frames[:, channel_dict["Yrotation"]], -frames[:, channel_dict["Xrotation"]]]), 0, 1), 
+            degrees=True)
+    data["Pelvis_quat"] = rot.as_quat()
+
     for joint_name in mujoco_to_mocap_names:
         if mujoco_to_mocap_names[joint_name] is not None:
             mocap_name = mujoco_to_mocap_names[joint_name]

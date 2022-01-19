@@ -3,7 +3,11 @@
 import os
 import human_robot_gym
 
-def xml_path_completion(xml_path):
+from typing import List
+
+from scipy.spatial.transform import Rotation
+
+def xml_path_completion(xml_path: str) -> str:
     """
     Takes in a local xml path and returns a full path.
         if @xml_path is absolute, do nothing
@@ -20,3 +24,10 @@ def xml_path_completion(xml_path):
     else:
         full_path = os.path.join(human_robot_gym.models.assets_root, xml_path)
     return full_path
+
+def rot_to_quat(rot: Rotation) -> List:
+    """
+    Convert a scipy rotation to a mujoco conform quaternion (w, x, y, z).
+    """
+    quat = rot.as_quat()
+    return [quat[3], quat[0], quat[1], quat[2]]
