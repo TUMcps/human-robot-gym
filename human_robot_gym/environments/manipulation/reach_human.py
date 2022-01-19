@@ -4,6 +4,7 @@ from typing import Dict, Union, List
 import numpy as np
 import pickle
 import math
+import json
 
 from mujoco_py import load_model_from_path
 
@@ -186,7 +187,8 @@ class ReachHuman(SingleArmEnv):
         self.obj_names = ["Human"]
 
         # Human animation definition
-        human_animation_list = ["62_01", 
+        """
+        self.human_animation_names = ["62_01", 
                                 "62_03", 
                                 "62_03", 
                                 "62_07", 
@@ -201,17 +203,27 @@ class ReachHuman(SingleArmEnv):
                                 "62_19", 
                                 "62_20", 
                                 "62_21",]
+        """
+        self.human_animation_names = ["62_07"]
+        self.animation_info = {}
+        with open(xml_path_completion('human/animations/animation_info.json')) as json_file:
+            self.animation_info = json.load(json_file)
         self.human_animations = []
-        for animation_name in human_animation_list:
+        for animation_name in self.human_animation_names:
             try:
                 pkl_file = open(xml_path_completion('human/animations/{}.pkl'.format(animation_name)), 'rb')
                 self.human_animations.append(pickle.load(pkl_file))
                 pkl_file.close()
+                if animation_name not in self.animation_info:
+                    self.animation_info[animation_name] = {
+                        "position_offset": [0.0, 0.0, 0.0],
+                        "orientation_quat": [0.0, 0.0, 0.0, 1.0]}
             except Exception as e:
                 print("Error while loading human animation {}: {}".format(pkl_file, e))
-        self.base_human_pos_offset = [1.0, 0.0, 0.28]
+        
+        self.base_human_pos_offset = [0.0, 0.0, 0.0]
         # Input to scipy: quat = [x, y, z, w]
-        self.human_base_quat = Rotation.from_quat([ 0, 0.7071068, -0.7071068, 0  ])
+        self.human_base_quat = Rotation.from_quat([ 0, 0.7071068, -0.7071068, 0  ]) # Rotation.from_quat([ 0.0, 0.0, 0.0, 1  ])
         self.human_animation_freq = 120
         self.low_level_time = int(0)
         self.human_animation_id = 0
@@ -560,14 +572,24 @@ class ReachHuman(SingleArmEnv):
             animation_time = 0
             self.animation_start_time = control_time
         
-        # Get the root bone position and rotation
+        ## Root bone transformation
+        animation_pos = [self.human_animations[self.human_animation_id]["Pelvis_pos_x"][animation_time],
+                         self.human_animations[self.human_animation_id]["Pelvis_pos_y"][animation_time],
+                         self.human_animations[self.human_animation_id]["Pelvis_pos_z"][animation_time]]
+        animation_offset = self.animation_info[self.human_animation_names[self.human_animation_id]]["position_offset"]
         # These settings are adjusted to fit the CMU motion capture BVH files!
-        human_pos = [self.human_animations[self.human_animation_id]["Pelvis_pos_x"][animation_time] + self.human_pos_offset[0],
-                     self.human_animations[self.human_animation_id]["Pelvis_pos_y"][animation_time] + self.human_pos_offset[1],
-                     self.human_animations[self.human_animation_id]["Pelvis_pos_z"][animation_time] + self.human_pos_offset[2]]
+        # I have no idea why we it is [-x, -z, -y], but it works!!
+        human_pos = [ -(animation_pos[0] + self.human_pos_offset[0] + animation_offset[0]),
+                      -(animation_pos[2] + self.human_pos_offset[2] + animation_offset[2]),
+                      -(animation_pos[1] + self.human_pos_offset[1] + animation_offset[1])]
+        # Base rotation (without animation)
+        animation_offset_rot = Rotation.from_quat(self.animation_info[self.human_animation_names[self.human_animation_id]]["orientation_quat"])
+        human_rot = self.human_base_quat.__mul__(animation_offset_rot)
+        # Apply rotation to position
+        human_pos = human_rot.apply(human_pos)
+        # Animation rotation
         rot = Rotation.from_quat(self.human_animations[self.human_animation_id]["Pelvis_quat"][animation_time])
-        # Multiply animation rotation with base rotation
-        human_rot = self.human_base_quat.__mul__(rot)
+        human_rot = human_rot.__mul__(rot)
         human_quat = rot_to_quat(human_rot)
         # Set base position and rotation
         human_body_id = self.sim.model.body_name2id(self.human.root_body)

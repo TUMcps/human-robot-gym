@@ -1,0 +1,18 @@
+{
+    "test": {
+        "position_offset": [0.0, 0.0, 0.0],
+        "orientation_quat": [ 0, 0, 0, 1 ]
+    },
+    "62_01": {
+        "position_offset": [0.0, 1.0, -0.51],
+        "orientation_quat": [ 0, 0.7071068, 0, 0.7071068 ]
+    },
+    "62_03": {
+        "position_offset": [-0.3, 0.0, -0.51],
+        "orientation_quat": [ 0, 1, 0, 0 ]
+    },
+    "62_07": {
+        "position_offset": [-0.3, 0.0, -0.51],
+        "orientation_quat": [ 0, 1, 0, 0 ]
+    },
+}
