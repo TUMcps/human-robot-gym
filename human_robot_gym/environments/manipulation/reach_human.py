@@ -187,7 +187,6 @@ class ReachHuman(SingleArmEnv):
         self.obj_names = ["Human"]
 
         # Human animation definition
-        """
         self.human_animation_names = ["62_01", 
                                 "62_03", 
                                 "62_03", 
@@ -203,8 +202,6 @@ class ReachHuman(SingleArmEnv):
                                 "62_19", 
                                 "62_20", 
                                 "62_21",]
-        """
-        self.human_animation_names = ["62_07"]
         self.animation_info = {}
         with open(xml_path_completion('human/animations/animation_info.json')) as json_file:
             self.animation_info = json.load(json_file)
@@ -223,7 +220,7 @@ class ReachHuman(SingleArmEnv):
         
         self.base_human_pos_offset = [0.0, 0.0, 0.0]
         # Input to scipy: quat = [x, y, z, w]
-        self.human_base_quat = Rotation.from_quat([ 0, 0.7071068, -0.7071068, 0  ]) # Rotation.from_quat([ 0.0, 0.0, 0.0, 1  ])
+        self.human_base_quat = Rotation.from_quat([ 0.7071068, 0, 0, 0.7071068  ]) # Rotation.from_quat([ 0.0, 0.0, 0.0, 1  ])
         self.human_animation_freq = 120
         self.low_level_time = int(0)
         self.human_animation_id = 0
@@ -578,10 +575,9 @@ class ReachHuman(SingleArmEnv):
                          self.human_animations[self.human_animation_id]["Pelvis_pos_z"][animation_time]]
         animation_offset = self.animation_info[self.human_animation_names[self.human_animation_id]]["position_offset"]
         # These settings are adjusted to fit the CMU motion capture BVH files!
-        # I have no idea why we it is [-x, -z, -y], but it works!!
-        human_pos = [ -(animation_pos[0] + self.human_pos_offset[0] + animation_offset[0]),
-                      -(animation_pos[2] + self.human_pos_offset[2] + animation_offset[2]),
-                      -(animation_pos[1] + self.human_pos_offset[1] + animation_offset[1])]
+        human_pos = [ (animation_pos[0] + self.human_pos_offset[0] + animation_offset[0]),
+                      (animation_pos[1] + self.human_pos_offset[1] + animation_offset[1]),
+                      (animation_pos[2] + self.human_pos_offset[2] + animation_offset[2])]
         # Base rotation (without animation)
         animation_offset_rot = Rotation.from_quat(self.animation_info[self.human_animation_names[self.human_animation_id]]["orientation_quat"])
         human_rot = self.human_base_quat.__mul__(animation_offset_rot)

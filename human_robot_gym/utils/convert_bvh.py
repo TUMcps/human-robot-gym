@@ -63,10 +63,10 @@ if __name__ == "__main__":
         channel_dict[channel_name] = base_idx + i
 
     data["Pelvis_pos_x"] = frames[:, channel_dict["Xposition"]]/100
-    data["Pelvis_pos_y"] = -frames[:, channel_dict["Zposition"]]/100
-    data["Pelvis_pos_z"] = frames[:, channel_dict["Yposition"]]/100
+    data["Pelvis_pos_y"] = frames[:, channel_dict["Yposition"]]/100
+    data["Pelvis_pos_z"] = frames[:, channel_dict["Zposition"]]/100
     rot = Rotation.from_euler('ZYX', 
-            np.swapaxes(np.array([frames[:, channel_dict["Zrotation"]], -frames[:, channel_dict["Yrotation"]], -frames[:, channel_dict["Xrotation"]]]), 0, 1), 
+            np.swapaxes(np.array([frames[:, channel_dict["Zrotation"]], frames[:, channel_dict["Yrotation"]], frames[:, channel_dict["Xrotation"]]]), 0, 1), 
             degrees=True)
     data["Pelvis_quat"] = rot.as_quat()
 
