@@ -5,8 +5,8 @@ project(safety_shield)
 add_compile_options(-std=c++17)
 
 ## Find catkin macros and libraries
-#find_package(reflexxes_type_iv REQUIRED)
-#find_package(SaRA REQUIRED)
+find_package(spdlog REQUIRED)
+find_package(SaRA REQUIRED)
 
 include_directories(
   include
@@ -15,22 +15,18 @@ include_directories(
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
     #src/safety_shield.cc 
-    #src/simulation_time_control.cc 
-    #src/long_term_traj.cc 
+    src/long_term_traj.cc 
     src/motion.cc 
     src/path.cc 
     #src/robot_reach.cc 
     #src/human_reach.cc
-    #src/verify.cc 
-    #src/verify_iso.cc 
+    src/verify_iso.cc 
     #src/advanced_verify_iso.cc
-    #src/control_command_translator.cc
-    #src/rviz_marker.cc
     )
 
 
 target_link_libraries(${PROJECT_NAME} SaRA)
-target_link_libraries(${PROJECT_NAME} reflexxes_type_iv)
+#target_link_libraries(${PROJECT_NAME} reflexxes_type_iv)
 
 install(TARGETS ${PROJECT_NAME} DESTINATION /usr/lib)
 #############
