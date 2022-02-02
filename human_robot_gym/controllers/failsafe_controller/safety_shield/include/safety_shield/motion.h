@@ -6,7 +6,7 @@
  * @copyright MIT License. Please see package.xml for further detail.
  */
 
-#include <ros/ros.h>
+#include <vector>
 
 #ifndef MOTION_H
 #define MOTION_H

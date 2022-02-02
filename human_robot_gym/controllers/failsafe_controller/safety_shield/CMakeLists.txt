@@ -17,7 +17,7 @@ add_library(${PROJECT_NAME}
     #src/safety_shield.cc 
     #src/simulation_time_control.cc 
     #src/long_term_traj.cc 
-    #src/motion.cc 
+    src/motion.cc 
     src/path.cc 
     #src/robot_reach.cc 
     #src/human_reach.cc
