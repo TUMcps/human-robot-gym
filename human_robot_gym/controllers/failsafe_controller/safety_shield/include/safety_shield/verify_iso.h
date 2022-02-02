@@ -11,13 +11,9 @@
 #include <algorithm>
 #include <vector>
 
-#include <ros/ros.h>
+#include "spdlog/spdlog.h" // https://github.com/gabime/spdlog
 
-#include "custom_robot_msgs/CapsuleArray.h"
-#include "custom_robot_msgs/StartGoalCapsuleArray.h"
-#include "custom_robot_msgs/PolycapsuleArray.h"
-#include "custom_robot_msgs/BoolHeadered.h"
-#include "global_library/global_library.h"
+#include <reach_lib.hpp>
 
 #ifndef VERIFY_ISO_H
 #define VERIFY_ISO_H
@@ -37,24 +33,12 @@ class VerifyISO : public Verify {
    * @brief Check a set of robot capsules if they collide with a set of human capsules
    * 
    * @param[in] robot_capsules The robot capsules
-   * @param[in] human_capsules The human capsules
+   * @param[in] human_capsules The human occupancy capsules
    * 
    * @returns Whether a collision between any two capsules of the robot and human set occured
    */
-  bool robotHumanCollision(const custom_robot_msgs::CapsuleArray* robot_capsules, 
-      const custom_robot_msgs::CapsuleArray* human_capsules);
-
-  /**
-   * @brief Verify if robot motion is safe
-   * Reads the reachable occupancy of the robot and of the human in the associated buffer and checks (and sends using the pub_safe publisher) if there is an intersection between them 
-   *
-   * @param robot_ra the reachable occupancy of the robot (list of capsules)
-   * @param human_ra the reachable occupancy of the human (list of polycapsules)
-   * 
-   * @returns Whether the robot movement is unsafe for the human
-   */
-  bool verify(const custom_robot_msgs::CapsuleArray* robot_ra, 
-      const custom_robot_msgs::PolycapsuleArray* human_ra);
+  bool robotHumanCollision(const std::vector<reach_lib::Capsule>& robot_capsules, 
+      const std::vector<reach_lib::Capsule>& human_capsules);
 
   /**
    * @brief Verify the robot motion againt the reachability analysis of the human in position, velocity, and acceleration
@@ -66,32 +50,10 @@ class VerifyISO : public Verify {
    * 
    * @returns Whether the robot movement is unsafe for the human
    */
-  bool verify_human_reach(const custom_robot_msgs::CapsuleArray* robot_capsules, 
-      const custom_robot_msgs::CapsuleArray* human_reach_capsules_P, 
-      const custom_robot_msgs::CapsuleArray* human_reach_capsules_V, 
-      const custom_robot_msgs::CapsuleArray* human_reach_capsules_A);
-
-  /**
-   * @brief Verify the robot motion againt the reachability analysis of the human in position, velocity, and acceleration
-   * 
-   * Wrapper function of `verify_human_reach` to use the more general `StartGoalCapsuleArray` message
-   * 
-   * @param[in] robot_capsules Reachable capsules of the robot
-   * @param[in] human_reach_capsules_P Reachable capsules of the human according to position approach
-   * @param[in] human_reach_capsules_V Reachable capsules of the human according to velocity approach
-   * @param[in] human_reach_capsules_A Reachable capsules of the human according to acceleration approach
-   * 
-   * @returns Whether the robot movement is unsafe for the human
-   */
-  bool verify_human_reach(const custom_robot_msgs::StartGoalCapsuleArray* robot_capsules, 
-    const custom_robot_msgs::CapsuleArray* human_reach_capsules_P, 
-    const custom_robot_msgs::CapsuleArray* human_reach_capsules_V, 
-    const custom_robot_msgs::CapsuleArray* human_reach_capsules_A) {
-      custom_robot_msgs::CapsuleArray robot_caps;
-      robot_caps.header = robot_capsules->header;
-      robot_caps.capsules = robot_capsules->capsules;
-      return verify_human_reach(&robot_caps, human_reach_capsules_P, human_reach_capsules_V, human_reach_capsules_A);
-  }
+  bool verify_human_reach(const std::vector<reach_lib::Capsule>& robot_capsules, 
+      reach_lib::ArticulatedPos& human_reach_capsules_P, 
+      reach_lib::ArticulatedVel& human_reach_capsules_V, 
+      reach_lib::ArticulatedAccel& human_reach_capsules_A);
 };
 } // namespace safety_shield
 

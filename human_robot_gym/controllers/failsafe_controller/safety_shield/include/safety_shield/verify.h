@@ -1,7 +1,7 @@
 // -*- lsst-c++ -*/
 /**
- * @file verify_iso.h
- * @brief Defines the verify ISO class
+ * @file verify.h
+ * @brief Defines the abstract verify class
  * @version 0.1
  * @copyright MIT License. Please see package.xml for further detail.
  */
@@ -50,10 +50,10 @@ class Verify {
    * 
    * @returns Whether the robot movement is unsafe for the human
    */
-  virtual bool verify_human_reach(const std::vector<reach_lib::Capsule>* robot_capsules, 
-    const reach_lib::ArticulatedPos* human_reach_capsules_P, 
-    const reach_lib::ArticulatedVel* human_reach_capsules_V, 
-    const reach_lib::ArticulatedAccel* human_reach_capsules_A) = 0;
+  virtual bool verify_human_reach(const std::vector<reach_lib::Capsule>& robot_capsules, 
+      reach_lib::ArticulatedPos& human_reach_capsules_P, 
+      reach_lib::ArticulatedVel& human_reach_capsules_V, 
+      reach_lib::ArticulatedAccel& human_reach_capsules_A) = 0;
 };
 } // namespace safety_shield
 
