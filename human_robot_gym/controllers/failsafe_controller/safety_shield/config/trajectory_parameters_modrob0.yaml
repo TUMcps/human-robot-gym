@@ -1,0 +1,21 @@
+robot_name: "modrob0"
+sample_time: 0.004
+
+#failsafe information
+buffer_time: 0.5
+max_s_stop: 0.2
+v_max_allowed: [1.89, 0.8, 3.05]
+a_max_allowed: [10, 10, 10]
+j_max_allowed: [400,400,400]
+# How are these defined?
+a_max_traj: [2, 2, 2]
+j_max_traj: [15, 15, 15]
+
+nb_joints: 3
+
+q1:
+- 0.000000000000
+q2:
+- 0.000000000000
+q3:
+- 0.000000000000

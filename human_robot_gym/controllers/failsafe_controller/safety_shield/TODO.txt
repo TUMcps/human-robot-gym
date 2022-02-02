@@ -1,0 +1,1 @@
+Remove global library and people detection. This should all be in safety shield.
