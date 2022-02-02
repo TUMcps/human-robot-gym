@@ -116,6 +116,14 @@ class Point {
   friend Point operator+ (const Point& p1, const Point& p2) {
     return Point(p1.x + p2.x, p1.y + p2.y, p1.z + p2.z);
   }
+
+  //! \brief Defines the '*' operator for a point
+  //!        where all coordinates are scaled by a factor.
+  //! \param p1 Point to scale
+  //! \param factor Factor to scale with
+  friend Point operator* (const Point& p1, double factor) {
+    return Point(p1.x * factor, p1.y * factor, p1.z * factor);
+  }
 };
 }  //  namespace point
 #endif  //  REACH_LIB_INCLUDE_POINT_HPP_

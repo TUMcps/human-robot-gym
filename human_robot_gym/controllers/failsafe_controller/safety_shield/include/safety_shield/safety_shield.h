@@ -13,34 +13,18 @@
 #include <time.h>
 #include <stdio.h>
 
-#include <ros/ros.h>
-#include <std_msgs/Empty.h>
-#include <gazebo/transport/transport.hh>
-#include <gazebo/msgs/msgs.hh>
-#include <gazebo/transport/TransportTypes.hh>
-#include <gazebo/gazebo_client.hh>
-
-#include "global_library/global_library.h"
-#include "custom_robot_msgs/Buffer.h"
-#include "custom_robot_msgs/PrevStepInfos.h"
-#include "custom_robot_msgs/BoolHeadered.h"
-#include "custom_robot_msgs/DoubleHeadered.h"
-#include "custom_robot_msgs/StartGoalMotion.h"
-#include "modrob_workstation/RobotConfigCommanded.h"
-#include "modrob_workstation/JointConfigCommanded.h"
-
-#include "reach_lib/Capsule.hpp"
+#include "reach_lib.hpp"
 
 #include "safety_shield/long_term_traj.h"
 #include "safety_shield/path.h"
 #include "safety_shield/motion.h"
 #include "safety_shield/robot_reach.h"
-#include "safety_shield/human_reach.h"
+//#include "safety_shield/human_reach.h"
 #include "safety_shield/verify.h"
 #include "safety_shield/verify_iso.h"
-#include "safety_shield/advanced_verify_iso.h"
-#include "safety_shield/control_command_translator.h"
-#include "safety_shield/rviz_marker.h"
+//#include "safety_shield/advanced_verify_iso.h"
+//#include "safety_shield/control_command_translator.h"
+//#include "safety_shield/rviz_marker.h"
 
 #include "ReflexxesAPI.h"
 #include "RMLPositionFlags.h"

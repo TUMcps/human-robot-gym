@@ -11,12 +11,11 @@
 #include <exception>
 
 #include <Eigen/Dense>
-#include <ros/ros.h>
+#include "spdlog/spdlog.h" 
 
-#include "custom_robot_msgs/StartGoalCapsuleArray.h"
-#include "custom_robot_msgs/CapsuleArray.h"
-#include "custom_robot_msgs/StartGoalMotion.h"
-#include "global_library/global_library.h"
+#include <reach_lib.hpp>
+
+#include "safety_shield/motion.h"
 
 #ifndef ROBOT_REACH_H
 #define ROBOT_REACH_H
@@ -28,16 +27,6 @@ namespace safety_shield {
  */
 class RobotReach {
  private:
-  /**
-   * @brief Simple data structure for capsules.
-   * A capsule is defined by two points (forming a line) and a radius. 
-   */ 
-  struct Capsule {
-    Eigen::Vector4d p1;
-    Eigen::Vector4d p2;
-    double r;
-  };
-
   /**
    * @brief the number of joints of the robot
    */
@@ -51,7 +40,7 @@ class RobotReach {
   /**
    * @brief The enclosing capsules 
    */
-  std::vector<Capsule> robot_capsules_;
+  std::vector<reach_lib::Capsule> robot_capsules_;
 
 public:
 
@@ -102,44 +91,37 @@ public:
     T = T * Rz;  
   }
 
+  Eigen::Vector4d pointToVector(const reach_lib::Point& p) {
+      Eigen::Vector4d vec;
+      vec << p.x, p.y, p.z, 1.0;
+      return vec;
+  }
+
+  reach_lib::Point vectorToPoint(const Eigen::Vector4d& vec) {
+      return reach_lib::Point(vec(0), vec(1), vec(2));
+  }
+
   /**
    * @brief Transform the capsule of joint n by the transformation matrix T.
    * @return a custom robot msg capsule
    */
-  custom_robot_msgs::Capsule transformCapsule(const int& n_joint, const Eigen::Matrix4d &T);
-
-  /**
-   * @brief calculate the start and goal segments of the robot given the start and goal joint angles 
-   * @param[in] q1 The joint angles at the start of the motion
-   * @param[in] q2 The joint angles at the end of the motion
-   * @param[in] s_diff  the total duration of the trajectory
-   * @param[out] start_segments The start segments vector to fill
-   * @param[out] goal_segments The goal segments vector to fill
-   */  
-  void calculateStartGoalSegements(const std::vector<double> &q1, const std::vector<double> &q2,
-                                   std::vector<custom_robot_msgs::Segment>& start_segments, 
-                                   std::vector<custom_robot_msgs::Segment>& goal_segments);
-
-  /**
-   * @brief calculate reachable capsules from start and goal segments
-   * @param[in] start_segments The segements at the begin of the motion
-   * @param[in] goal_segments The segments at the end of the motion
-   * @param[in] s_diff The traveled path distance
-   * @param[out] output_capsules The casule array to fill
-   */
-  void computeCapsulesFromStartGoalSegments(const std::vector<custom_robot_msgs::Segment>& start_segments, 
-                                            const std::vector<custom_robot_msgs::Segment>& goal_segments, 
-                                            double s_diff, 
-                                            std::vector<custom_robot_msgs::Capsule>& output_capsules);
+  reach_lib::Capsule transformCapsule(const int& n_joint, const Eigen::Matrix4d &T);
 
   /**
    * @brief Calculates the reachable set from the new desired start and goal joint position.
    * 
-   * Computes the reachable occupancy capsules of the robot to the ROS topic.
+   * Computes the reachable occupancy capsules of the robot.
+   * For a detailed proof of formality, please see: http://mediatum.ub.tum.de/doc/1443612/652879.pdf Chapter 3.4
    * 
-   * @returns Array of start goal capsules
+   * @param[in] start_config The configuration of the robot in the beginning of the trajectory
+   * @param[in] goal_config The configuration of the robot in the end of the trajectory
+   * @param[in] s_diff The difference in the trajectory time parameter s for the given path
+   * @param[in] alpha_i The maximum acceleration of each capsule point with resprect to the time parameter s for the given path
+   * 
+   * @returns Array of capsules
    */
-  custom_robot_msgs::StartGoalCapsuleArray* reach(const custom_robot_msgs::StartGoalMotion* potential_traj);
+  std::vector<reach_lib::Capsule> reach(Motion& start_config, Motion& goal_config,
+    double s_diff, std::vector<double> alpha_i);
 };
 } // namespace safety_shield 
 

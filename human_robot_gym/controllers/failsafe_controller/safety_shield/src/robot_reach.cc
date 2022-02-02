@@ -25,91 +25,61 @@ RobotReach::RobotReach(std::vector<double> transformation_matrices, int nb_joint
     }
     transformation_matrices_.push_back(transformation_matrix);
     // Fill capsules
-    Capsule capsule;
+    
+    Eigen::Vector4d p1;
+    Eigen::Vector4d p2;
     for (int i = 0; i < 3; i++) {
-      capsule.p1(i) = geom_par[7*joint + i];
-      capsule.p2(i) = geom_par[7*joint + 3 + i];
+      p1(i) = geom_par[7*joint + i];
+      p2(i) = geom_par[7*joint + 3 + i];
     }
-    capsule.p1(3) = 1;
-    capsule.p2(3) = 1;
-    capsule.r = geom_par[7*joint + 6];
+    reach_lib::Capsule capsule(vectorToPoint(p1), vectorToPoint(p2),geom_par[7*joint + 6]);
     robot_capsules_.push_back(capsule);
   }
-  ROS_INFO("Parameters created.");
+  spdlog::info("Parameters created.");
 }
 
 
-custom_robot_msgs::Capsule RobotReach::transformCapsule(const int& n_joint, const Eigen::Matrix4d &T) {
-  Eigen::Vector4d p1 = T * robot_capsules_[n_joint].p1;
-  Eigen::Vector4d p2 = T * robot_capsules_[n_joint].p2;
-  custom_robot_msgs::Capsule c;
-  c.segment.p.x = p1(0);
-  c.segment.p.y = p1(1);
-  c.segment.p.z = p1(2);
-  c.segment.q.x = p2(0);
-  c.segment.q.y = p2(1);
-  c.segment.q.z = p2(2);
-  c.radius = robot_capsules_[n_joint].r;
+reach_lib::Capsule RobotReach::transformCapsule(const int& n_joint, const Eigen::Matrix4d &T) {
+  Eigen::Vector4d p1 = T * pointToVector(robot_capsules_[n_joint].p1_);
+  Eigen::Vector4d p2 = T * pointToVector(robot_capsules_[n_joint].p2_);
+  reach_lib::Capsule c(
+    vectorToPoint(p1),
+    vectorToPoint(p2),
+    robot_capsules_[n_joint].r_);
   return c;
 }
 
-
-void RobotReach::computeCapsulesFromStartGoalSegments(const std::vector<custom_robot_msgs::Segment>& start_segments, 
-                                                 const std::vector<custom_robot_msgs::Segment>& goal_segments, 
-                                                 double s_diff, 
-                                                 std::vector<custom_robot_msgs::Capsule>& output_capsules) {
-  double epsilon = s_diff*s_diff/8;
-
-  for (int i = 0; i < nb_joints_; i++) { 
-    custom_robot_msgs::Capsule reachable_set;
-    reachable_set.segment.p = geometry_helpers::pointAdd(start_segments[i].p, goal_segments[i].p, 2);
-    reachable_set.segment.q = geometry_helpers::pointAdd(start_segments[i].q, goal_segments[i].q, 2);
-    reachable_set.radius = std::max(geometry_helpers::norm(geometry_helpers::fromSegmentToVector(reachable_set.segment.p, start_segments[i].p)), 
-                                    geometry_helpers::norm(geometry_helpers::fromSegmentToVector(reachable_set.segment.q, start_segments[i].q)))
-                            + epsilon + robot_capsules_[i].r;
-    output_capsules.push_back(reachable_set);
-  }
-}
-
-
-void RobotReach::calculateStartGoalSegements(const std::vector<double> &q1, const std::vector<double> &q2, 
-                                        std::vector<custom_robot_msgs::Segment>& start_segments, 
-                                        std::vector<custom_robot_msgs::Segment>& goal_segments) {
-  Eigen::Matrix4d T_before = transformation_matrices_[0];
-  Eigen::Matrix4d T_after = transformation_matrices_[0];
-
-  for (int i = 0; i < nb_joints_; i++) { 
-    // q before
-    forwardKinematic(q1[i], i, T_before);
-    // q after
-    forwardKinematic(q2[i], i, T_after);
-    // Capsule before
-    custom_robot_msgs::Capsule c_before = transformCapsule(i, T_before);
-    start_segments.push_back(c_before.segment);
-    // Capsule after
-    custom_robot_msgs::Capsule c_after = transformCapsule(i, T_after);
-    goal_segments.push_back(c_after.segment);
-  }
-}
-
-
-custom_robot_msgs::StartGoalCapsuleArray* RobotReach::reach(const custom_robot_msgs::StartGoalMotion* potential_traj) {
-  ROS_DEBUG_STREAM("RobotReach::reach");
+std::vector<reach_lib::Capsule> RobotReach::reach(Motion& start_config, Motion& goal_config, 
+  double s_diff, std::vector<double> alpha_i) {
   try{
-    std::vector<custom_robot_msgs::Segment> start_segments;
-    std::vector<custom_robot_msgs::Segment> goal_segments;
-    calculateStartGoalSegements(potential_traj->start_motion.q, potential_traj->goal_motion.q, start_segments, goal_segments);
-    double s_diff = potential_traj->goal_motion.s - potential_traj->start_motion.s;
-    custom_robot_msgs::StartGoalCapsuleArray* robot_ra(new custom_robot_msgs::StartGoalCapsuleArray());
-    robot_ra->starts = start_segments;
-    robot_ra->goals = goal_segments;
-    computeCapsulesFromStartGoalSegments(start_segments, goal_segments, s_diff, robot_ra->capsules);
-    robot_ra->header.frame_id = potential_traj->header.frame_id;
-    robot_ra->header.stamp = potential_traj->header.stamp;
-    return robot_ra;
+    Eigen::Matrix4d T_before = transformation_matrices_[0];
+    Eigen::Matrix4d T_after = transformation_matrices_[0];
+    std::vector<reach_lib::Capsule> reach_capsules;
+    std::vector<double> q1 = start_config.getAngle();
+    std::vector<double> q2 = goal_config.getAngle();
+    for (int i = 0; i < nb_joints_; i++) { 
+        // build capsule before
+        forwardKinematic(q1[i], i, T_before);
+        reach_lib::Capsule before = transformCapsule(i, T_before);
+        // build capsule after
+        forwardKinematic(q2[i], i, T_after);
+        reach_lib::Capsule after = transformCapsule(i, T_after);
+
+        // Caculate center of ball enclosing point p1 before and after
+        reach_lib::Point p_1_k = (before.p1_ + after.p1_) * 0.5;
+        // Caculate center of ball enclosing point p2 before and after
+        reach_lib::Point p_2_k = (before.p2_ + after.p2_) * 0.5;
+        // Calculate radius of ball enclosing point p1 before and after
+        double r_1 = reach_lib::Point::norm(before.p1_-after.p1_) / 2 + alpha_i[i] * s_diff*s_diff/8 + robot_capsules_[i].r_;
+        // Calculate radius of ball enclosing point p2 before and after
+        double r_2 = reach_lib::Point::norm(before.p2_-after.p2_) / 2 + alpha_i[i+1] * s_diff*s_diff/8 + robot_capsules_[i].r_;
+        // Enclosure capsule radius is max of ball around p1 and ball around p2 
+        reach_capsules.push_back(reach_lib::Capsule(p_1_k, p_2_k, std::max(r_1, r_2)));
+    }
+    return reach_capsules;
   } catch (const std::exception &exc) {
-    ROS_ERROR_STREAM("Exception in RobotReach::reach: " << exc.what());
-    return nullptr;
+    spdlog::error("Exception in RobotReach::reach: {}", exc.what());
+    return {};
   }
 }
 
