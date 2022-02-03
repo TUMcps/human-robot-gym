@@ -18,21 +18,13 @@ bool VerifyISO::robotHumanCollision(const std::vector<reach_lib::Capsule>& robot
 }
 
 bool VerifyISO::verify_human_reach(const std::vector<reach_lib::Capsule>& robot_capsules, 
-      reach_lib::ArticulatedPos& human_reach_capsules_P, 
-      reach_lib::ArticulatedVel& human_reach_capsules_V, 
-      reach_lib::ArticulatedAccel& human_reach_capsules_A) {
+      std::vector<std::vector<reach_lib::Capsule>> human_capsules) {
   try {
-    // If no collision occured, we are safe and don't have to check the rest.
-    if(!robotHumanCollision(robot_capsules, reach_lib::get_capsules(human_reach_capsules_P))) {
-      return true;
-    }
-    // If no collision occured, we are safe and don't have to check the rest.
-    if(!robotHumanCollision(robot_capsules, reach_lib::get_capsules(human_reach_capsules_V))) {
-      return true;
-    }
-    // If no collision occured, we are safe and don't have to check the rest.
-    if(!robotHumanCollision(robot_capsules, reach_lib::get_capsules(human_reach_capsules_A))) {
-      return true;
+    for (const auto& capsule_list : human_capsules) {
+      // If no collision occured, we are safe and don't have to check the rest.
+      if(!robotHumanCollision(robot_capsules, capsule_list)) {
+        return true;
+      }
     }
     return false;
   } catch (const std::exception &exc) {

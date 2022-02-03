@@ -11,33 +11,23 @@
 #include <vector>
 #include <map>
 #include <exception>
+#include <assert.h>
 
-#include <ros/ros.h>
-#include <std_msgs/Bool.h>
-#include <std_msgs/Int8.h>
+#include "spdlog/spdlog.h" 
 
-#include "custom_robot_msgs/CapsuleArray.h"
-#include "custom_robot_msgs/PositionsHeadered.h"
-//#include "custom_robot_msgs/DoubleHeadered.h"
-#include "reach_lib/Point.hpp"
-#include "reach_lib/Capsule.hpp"
-#include "reach_lib/Articulated_P.hpp"
-#include "reach_lib/Articulated_V.hpp"
-#include "reach_lib/Articulated_A.hpp"
+#include <reach_lib.hpp>
 
 
 #ifndef HUMAN_REACH_H
 #define HUMAN_REACH_H
 
 namespace safety_shield {
-/**
- * @brief Each body part has a proximal and a distal joint (They can be the same.)
- */
-typedef std::pair<int, int> jointPair;
-
 
 /**
  * @brief Class handling the reachability analysis of the human.
+ * 
+ * This class holds all three articulated models (pos, vel, accel) of the human, 
+ * and handels incoming measurements.
  */
 class HumanReach {
  private:
@@ -50,47 +40,32 @@ class HumanReach {
   /**
    * @brief Joint position measurements
    */
-  std::vector<Point> joint_pos_;
+  std::vector<reach_lib::Point> joint_pos_;
 
   /**
    * @brief Calculated velocities
    */
-  std::vector<Point> joint_vel_;
+  std::vector<reach_lib::Point> joint_vel_;
 
   /**
    * @brief Map the entries of body links to their proximal and distal joint.
    */
-  std::map<std::string, human_reach::jointPair> body_link_joints_;
+  std::map<std::string, reach_lib::jointPair> body_link_joints_;
 
   /**
    * @brief The object for calculating the position based reachable set.
    */
-  Articulated_P human_p_;
+  reach_lib::ArticulatedPos human_p_;
 
   /**
    * @brief The object for calculating the velocity based reachable set.
    */
-  Articulated_V human_v_;
+  reach_lib::ArticulatedVel human_v_;
 
   /**
    * @brief The object for calculating the acceleration based reachable set.
    */
-  Articulated_A human_a_;
-
-  /**
-   * @brief Maximal positional measurement error
-   */
-  double measurement_error_pos_ = 0.0;
-
-  /**
-   * @brief Maximal velocity measurement error
-   */
-  double measurement_error_vel_ = 0.0;
-
-  /**
-   * @brief Delay in measurement processing pipeline
-   */
-  double delay_ = 0.0;
+  reach_lib::ArticulatedAccel human_a_;
 
   /**
    * @brief We need two measurements for velocity calculation.
@@ -113,18 +88,19 @@ public:
    * @param[in] thickness Defines the thickness of the body parts (key: Name of body part, value: Thickness of body part)
    * @param[in] max_v The maximum velocity of the joints
    * @param[in] max_a The maximum acceleration of the joints
-   * @param[in] shoulder_ids The indices of the left and right shoulder joints 
-   * @param[in] elbow_ids The indices of the left and right elbow joints 
+   * @param[in] extremity_base_names The base joints of extremities, e.g., right / left shoulder, right / left hip socket
+   * @param[in] extremity_end_names The end joints of extremities, e.g., right / left hand, right / left foot --> Is used for thickness of extremities
+   * @param[in] extremity_length The max length of the extremities (related to extremity_base_names)
    * @param[in] wrist_names The name identifiers of the two hands
   */
   HumanReach(int n_joints_meas, 
-      std::map<std::string, human_reach::jointPair>& body_link_joints, 
-      std::map<std::string, double>& thickness, 
+      std::map<std::string, reach_lib::jointPair>& body_link_joints, 
+      const std::map<std::string, double>& thickness, 
       std::vector<double>& max_v, 
       std::vector<double>& max_a,
-      std::vector<double>& shoulder_ids, 
-      std::vector<double>& elbow_ids, 
-      std::vector<std::string>& wrist_names,
+      std::vector<std::string>& extremity_base_names, 
+      std::vector<std::string>& extremity_end_names, 
+      std::vector<double>& extremity_length, 
       double measurement_error_pos, 
       double measurement_error_vel, 
       double delay);
@@ -136,23 +112,51 @@ public:
 
   /**
    * @brief Update the joint measurements.
-   * @param[in] human_joint_pos The positions of the human joints and a header containing the simulation time.
+   * @param[in] human_joint_pos The positions of the human joints.
+   * @param[in] time The simulation time.
    */
-  void measurement(const custom_robot_msgs::PositionsHeaderedConstPtr& human_joint_pos);
+  void measurement(const std::vector<reach_lib::Point>& human_joint_pos, double time);
 
   /**
    * @brief Calculate reachability analysis for given breaking time.
-   * @param[in] t_command Current ROS time
-   * @param[in] t_brake Breaking time message
-   * @param[in] capsule_p reachable set for position approach
-   * @param[in] capsule_v reachable set for velocity approach
-   * @param[in] capsule_a reachable set for acceleration approach
+   * 
+   * Updates the values in human_p_, human_v_, human_a_.
+   * Get the values afterwards with the getter functions!
+   * 
+   * @param[in] t_command Current time
+   * @param[in] t_brake Time horizon of reachability analysis
    */
-  void humanReachabilityAnalysis(double t_command, double t_brake,
-      custom_robot_msgs::CapsuleArray& capsules_p, 
-      custom_robot_msgs::CapsuleArray& capsules_v, 
-      custom_robot_msgs::CapsuleArray& capsules_a);
+  void humanReachabilityAnalysis(double t_command, double t_brake);
 
+  /**
+   * @brief Get the Articulated Pos capsules
+   * 
+   * @return reach_lib::ArticulatedPos capsules
+   */
+  inline std::vector<reach_lib::Capsule> getArticulatedPosCapsules() {return reach_lib::get_capsules(human_p_);}
+
+  /**
+   * @brief Get the Articulated Vel capsules
+   * 
+   * @return reach_lib::ArticulatedVel capsules
+   */
+  inline std::vector<reach_lib::Capsule> getArticulatedVelCapsules() {return reach_lib::get_capsules(human_v_);}
+
+  /**
+   * @brief Get the Articulated Accel capsules
+   * 
+   * @return reach_lib::ArticulatedAccel capsules
+   */
+  inline std::vector<reach_lib::Capsule> getArticulatedAccelCapsules() {return reach_lib::get_capsules(human_a_);}
+
+  /**
+   * @brief Get the All Capsules of pos, vel, and accel
+   * 
+   * @return std::vector<std::vector<reach_lib::Capsule>> 
+   */
+  inline std::vector<std::vector<reach_lib::Capsule>> getAllCapsules() {
+      return {getArticulatedPosCapsules(), getArticulatedVelCapsules(), getArticulatedAccelCapsules()};
+  }
 };
 } // namespace safety_shield
 #endif // HUMAN_REACH_H

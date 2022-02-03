@@ -44,16 +44,12 @@ class Verify {
    * Pure virtual function.
    * 
    * @param[in] robot_capsules Reachable capsules of the robot
-   * @param[in] human_reach_capsules_P Reachable capsules of the human according to position approach
-   * @param[in] human_reach_capsules_V Reachable capsules of the human according to velocity approach
-   * @param[in] human_reach_capsules_A Reachable capsules of the human according to acceleration approach
+   * @param[in] human_capsules List of list of capsules. Each list of capsules corresponds to a human reachable set model.
    * 
    * @returns Whether the robot movement is unsafe for the human
    */
   virtual bool verify_human_reach(const std::vector<reach_lib::Capsule>& robot_capsules, 
-      reach_lib::ArticulatedPos& human_reach_capsules_P, 
-      reach_lib::ArticulatedVel& human_reach_capsules_V, 
-      reach_lib::ArticulatedAccel& human_reach_capsules_A) = 0;
+      std::vector<std::vector<reach_lib::Capsule>> human_capsules) = 0;
 };
 } // namespace safety_shield
 

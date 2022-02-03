@@ -57,6 +57,7 @@ namespace reach_lib {
 //! Base data types
 typedef point::Point Point;
 typedef systems::System System;
+typedef obstacles::articulated::jointPair jointPair;
 
 //! Occupancy containers
 typedef occupancy_containers::capsule::Capsule Capsule;

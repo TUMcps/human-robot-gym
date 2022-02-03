@@ -37,11 +37,14 @@ ArticulatedPos::ArticulatedPos(System system, std::map<std::string, jointPair> b
                                const std::vector<double>& max_v,
                                const std::vector<double>& length) :
                                Articulated(system, body_segment_map) {
+  assert(thickness.size() == max_v.size());
+  assert(thickness.size() == length.size());
   // Create a list of BodyPartsAccel that is later set as occpancy_
   std::vector<Extremity> body = {};
+  int i=0;
   for (const auto& it : body_segment_map) {
-    body.push_back(Extremity(it.first, thickness.at(it.second.first), length.at(it.second.first),
-                             max_v.at(it.second.first)));
+    body.push_back(Extremity(it.first, thickness[i], length[i], max_v[i]));
+    i++;
   }
   this->occupancy_ = body;
   // Initialize pointers

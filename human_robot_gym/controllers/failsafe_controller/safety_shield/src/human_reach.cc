@@ -2,73 +2,71 @@
 
 namespace safety_shield {
 
-HumanReach::HumanReach(int n_joints_meas, std::map<std::string, human_reach::jointPair>& body_link_joints, 
-                       std::map<std::string, double>& thickness, std::vector<double>& max_v, std::vector<double>& max_a,
-                       std::vector<double>& shoulder_ids, std::vector<double>& elbow_ids, std::vector<std::string>& wrist_names,
-                       double measurement_error_pos, double measurement_error_vel, double delay):
-  body_link_joints_(body_link_joints),
-  measurement_error_pos_(measurement_error_pos),
-  measurement_error_vel_(measurement_error_vel),
-  delay_(delay)
+HumanReach::HumanReach(int n_joints_meas, 
+      std::map<std::string, reach_lib::jointPair>& body_link_joints, 
+      const std::map<std::string, double>& thickness, 
+      std::vector<double>& max_v, 
+      std::vector<double>& max_a,
+      std::vector<std::string>& extremity_base_names, 
+      std::vector<std::string>& extremity_end_names, 
+      std::vector<double>& extremity_length,
+      double measurement_error_pos, 
+      double measurement_error_vel, 
+      double delay):
+  body_link_joints_(body_link_joints)
 {
-  human_p_ = Articulated_P(measurement_error_pos, measurement_error_vel, delay, body_link_joints, thickness, max_v, shoulder_ids, elbow_ids, wrist_names);
-  human_v_ = Articulated_V(measurement_error_pos, measurement_error_vel, delay, body_link_joints, thickness, max_v);
-  human_a_ = Articulated_A(measurement_error_pos, measurement_error_vel, delay, body_link_joints, thickness, max_v, max_a);
-  
+  reach_lib::System system(measurement_error_pos, measurement_error_vel, delay);
+  human_v_ = reach_lib::ArticulatedVel(system, body_link_joints, thickness, max_v);
+  human_a_ = reach_lib::ArticulatedAccel(system, body_link_joints, thickness, max_a);
+  // Create extremity map
+  std::map<std::string, reach_lib::jointPair> extremity_base_joints;
+  std::vector<double> extremity_max_v;
+  for (const std::string& extremity_base_name : extremity_base_names) {
+    extremity_base_joints[extremity_base_name] = body_link_joints[extremity_base_name];
+    extremity_max_v.push_back(max_v.at(body_link_joints.at(extremity_base_name).first));
+  }
+  assert(extremity_base_names.size() == extremity_end_names.size());
+  std::vector<double> extremity_thickness;
+  for (const std::string& extremity_end_name : extremity_end_names) {
+    extremity_thickness.push_back(thickness.at(extremity_end_name));
+  }
+  human_p_ = reach_lib::ArticulatedPos(system, extremity_base_joints, extremity_thickness, extremity_max_v, extremity_length);
+
   for (int i = 0; i < n_joints_meas; i++) {
-    joint_pos_.push_back(Point());
-    joint_vel_.push_back(Point());
+    joint_pos_.push_back(reach_lib::Point(0.0, 0.0, 0.0));
+    joint_vel_.push_back(reach_lib::Point(0.0, 0.0, 0.0));
   }
 }
 
-void HumanReach::measurement(const custom_robot_msgs::PositionsHeaderedConstPtr& human_joint_pos) {
-  //ROS_DEBUG_STREAM("HumanReach::measurement");
+void HumanReach::measurement(const std::vector<reach_lib::Point>& human_joint_pos, double time) {
   try {
-    for (int i = 0; i < human_joint_pos->data.size(); i++) {
-      Point new_point = Point(human_joint_pos->data[i].x, human_joint_pos->data[i].y, human_joint_pos->data[i].z);
-      // If more than 1 measurement, calculate velocity
-      if (last_meas_timestep_ != -1) {
-        Point diff = Point::diff(new_point, joint_pos_[i]);
-        double dt = human_joint_pos->header.stamp.toSec() - last_meas_timestep_;
-        joint_vel_[i] = Point(diff.x/dt, diff.y/dt, diff.z/dt);
-        has_second_meas_ = true;
+    if (last_meas_timestep_ != -1) {
+      double dt = time - last_meas_timestep_;
+      for (int i = 0; i < human_joint_pos.size(); i++) {
+        // If more than 1 measurement, calculate velocity
+        joint_vel_[i] = (human_joint_pos[i] - joint_pos_[i]) * (1/dt);
       } 
-      joint_pos_[i] = new_point;
+      has_second_meas_ = true;
     }
-  last_meas_timestep_ = human_joint_pos->header.stamp.toSec();
-  //ROS_INFO_STREAM("Human Mocap measurement received. Timestamp of meas was " << last_meas_timestep);
+    joint_pos_ = human_joint_pos;
+    last_meas_timestep_ = time;
+    //ROS_INFO_STREAM("Human Mocap measurement received. Timestamp of meas was " << last_meas_timestep);
   } catch (const std::exception &exc) {
-      ROS_ERROR_STREAM("Exception in HumanReach::measurement: " << exc.what());
+    spdlog::error("Exception in HumanReach::measurement: {}", exc.what());
   }
 }
 
 
-void HumanReach::humanReachabilityAnalysis(double t_command, double t_brake, 
-                                          custom_robot_msgs::CapsuleArray& capsules_p, 
-                                          custom_robot_msgs::CapsuleArray& capsules_v, 
-                                          custom_robot_msgs::CapsuleArray& capsules_a) {
-  ROS_DEBUG_STREAM("HumanReach::humanReachabilityAnalysis");
+void HumanReach::humanReachabilityAnalysis(double t_command, double t_brake) {
   try {
     // Time between reach command msg and last measurement plus the t_brake time.
     double t_reach = t_command-last_meas_timestep_ + t_brake;
     // Calculate reachable set
-    std::vector<Capsule> reach_p = human_p_.update(joint_pos_, t_reach);
-    capsules_p.header.stamp = ros::Time(t_command);
-    for (auto& cap : reach_p) {
-        capsules_p.capsules.push_back(cap.toCapsuleMsg());
-    }
-    std::vector<Capsule> reach_v = human_v_.update(joint_pos_, t_reach, joint_vel_);
-    capsules_v.header.stamp = ros::Time(t_command);
-    for (auto& cap : reach_v) {
-        capsules_v.capsules.push_back(cap.toCapsuleMsg());
-    }
-    std::vector<Capsule> reach_a = human_a_.update(joint_pos_, t_reach, joint_vel_);
-    capsules_a.header.stamp = ros::Time(t_command);
-    for (auto& cap : reach_a) {
-        capsules_a.capsules.push_back(cap.toCapsuleMsg());
-    }
+    human_p_.update(0.0, t_reach, joint_pos_, joint_vel_);
+    human_v_.update(0.0, t_reach, joint_pos_, joint_vel_);
+    human_a_.update(0.0, t_reach, joint_pos_, joint_vel_);
   } catch (const std::exception &exc) {
-      ROS_ERROR_STREAM("Exception in HumanReach::humanReachabilityAnalysis: " << exc.what());
+      spdlog::error("Exception in HumanReach::humanReachabilityAnalysis: {}", exc.what());
   }
 }
 

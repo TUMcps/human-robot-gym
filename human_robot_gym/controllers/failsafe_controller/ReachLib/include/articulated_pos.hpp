@@ -19,6 +19,7 @@ along with Foobar.  If not, see https://www.gnu.org/licenses/.
 #include <string>
 #include <utility>
 #include <vector>
+#include <assert.h>
 
 #include "articulated.hpp"
 #include "extremity.hpp"
@@ -49,11 +50,15 @@ class ArticulatedPos : public Articulated {
   ArticulatedPos() : Articulated() {}
 
   //! \brief Instantiates the position based model from joint pairs.
+  //! The sizes of body_segment_map_, thickness, max_v, and length must be equal.
   //! \param[in] system System parameters such as: delay and measurement errors
-  //! \param[in] body_segment_map_ An association between joints and body segments (extremities)
-  //! \param[in] thickness Defines the thickness of each extreity [extremity name, thickness]
-  //! \param[in] max_v Maximum velocity of each joint in order of body_segment_map
+  //! \param[in] body_segment_map_ An association between the base joints (e.g. l/r shoulder, l/r hip) of extremities and the body segments.
+  //! \param[in] thickness Defines the thickness of each extreity [extremity name, thickness]. 
+  //! This value should be equal to the thickness of the largest bone in the extremity chain. Usually the hand.
+  //! \param[in] max_v Maximum velocity of each joint in order of body_segment_map. 
+  //! This value should be the velocity of the base joint of the extremity, e.g. shoulder or hip
   //! \param[in] length Lengths of all extremities in order of body_segment_map
+  //! This value should be the length of the extremity chain, e.g. max length from shoulder to hand.
   ArticulatedPos(System system, std::map<std::string, jointPair> body_segment_map,
                  const std::vector<double>& thickness,
                  const std::vector<double>& max_v,
