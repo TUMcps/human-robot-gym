@@ -21,7 +21,7 @@ add_library(${PROJECT_NAME}
     src/motion.cc 
     src/path.cc 
     src/robot_reach.cc 
-    #src/human_reach.cc
+    src/human_reach.cc
     src/verify_iso.cc 
     #src/advanced_verify_iso.cc
     )

@@ -14,10 +14,11 @@ Motion::Motion(int nb_modules):
   }
 }
 
-Motion::Motion(double time, const std::vector<double> &q):
+Motion::Motion(double time, const std::vector<double> &q, double s):
     nb_modules_(q.size()),
     time_(time),
-    q_(q)
+    q_(q),
+    s_(s)
 {
   for (int i = 0; i < nb_modules_; i++){
     dq_.push_back(0.0);
@@ -26,11 +27,12 @@ Motion::Motion(double time, const std::vector<double> &q):
   }
 }
 
-Motion::Motion(double time, const std::vector<double> &q, const std::vector<double> &dq):
+Motion::Motion(double time, const std::vector<double> &q, const std::vector<double> &dq, double s):
     nb_modules_(q.size()),
     time_(time),
     q_(q),
-    dq_(dq)
+    dq_(dq),
+    s_(s)
 {
   for (int i = 0; i < nb_modules_; i++){
     ddq_.push_back(0.0);
@@ -39,12 +41,13 @@ Motion::Motion(double time, const std::vector<double> &q, const std::vector<doub
 }
 
 Motion::Motion(double time, const std::vector<double> &q, const std::vector<double> &dq, 
-    const std::vector<double> &ddq):
+    const std::vector<double> &ddq, double s):
     nb_modules_(q.size()),
     time_(time),
     q_(q),
     dq_(dq),
-    ddq_(ddq)
+    ddq_(ddq),
+    s_(s)
 {
   for (int i = 0; i < nb_modules_; i++){
     dddq_.push_back(0.0);
@@ -52,13 +55,14 @@ Motion::Motion(double time, const std::vector<double> &q, const std::vector<doub
 }
 
 Motion::Motion(double time, const std::vector<double> &q, const std::vector<double> &dq, 
-    const std::vector<double> &ddq, const std::vector<double> &dddq):
+    const std::vector<double> &ddq, const std::vector<double> &dddq, double s):
     nb_modules_(q.size()),
     time_(time),
     q_(q),
     dq_(dq),
     ddq_(ddq),
-    dddq_(dddq)
+    dddq_(dddq),
+    s_(s)
 {}
 
 } // namespace safety_shield

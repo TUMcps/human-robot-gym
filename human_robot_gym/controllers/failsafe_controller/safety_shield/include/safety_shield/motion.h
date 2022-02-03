@@ -29,6 +29,12 @@ class Motion {
   double time_;
 
   /**
+   * @brief Trajectory time
+   * 
+   */
+  double s_;
+
+  /**
    * @brief The joint angles
    */
   std::vector<double> q_;
@@ -74,8 +80,9 @@ class Motion {
    *
    * @param time the time 
    * @param q the angle
+   * @param s trajectory time parameter
   */
-  Motion(double time, const std::vector<double> &q);
+  Motion(double time, const std::vector<double> &q, double s=0.0);
   
   /**
    * @brief Construct a new Motion object
@@ -85,8 +92,9 @@ class Motion {
    * @param time the time 
    * @param q the angle
    * @param dq velocity
+   * @param s trajectory time parameter
   */
-  Motion(double time, const std::vector<double> &q, const std::vector<double> &dq);
+  Motion(double time, const std::vector<double> &q, const std::vector<double> &dq, double s=0.0);
 
   /**
    * @brief Construct a new Motion object
@@ -95,8 +103,10 @@ class Motion {
    * @param q angle
    * @param dq velocity
    * @param ddq acceleration 
+   * @param s trajectory time parameter
   */
-  Motion(double time, const std::vector<double> &q, const std::vector<double> &dq, const std::vector<double> &ddq);
+  Motion(double time, const std::vector<double> &q, const std::vector<double> &dq, 
+        const std::vector<double> &ddq, double s=0.0);
 
   /**
    * @brief Construct a new Motion object
@@ -106,8 +116,10 @@ class Motion {
    * @param dq velocity
    * @param ddq acceleration 
    * @param dddq jerk
+   * @param s trajectory time parameter
   */
-  Motion(double time, const std::vector<double> &q, const std::vector<double> &dq, const std::vector<double> &ddq, const std::vector<double> &dddq);
+  Motion(double time, const std::vector<double> &q, const std::vector<double> &dq, 
+        const std::vector<double> &ddq, const std::vector<double> &dddq, double s=0.0);
 
   /**
    * @brief Destroy the Motion object
@@ -126,6 +138,13 @@ class Motion {
    * @return the time of the motion
    */
   inline double getTime() { return time_; }
+
+  /**
+   * @brief Return the trajectory time variable
+   * 
+   * @return double 
+   */
+  inline double getS() { return s_; }
 
   /**
    * @brief Returns the angle of the motion
@@ -161,6 +180,13 @@ class Motion {
    * @param new_time the new motion's time
    */
   inline void setTime(double new_time) { time_ = new_time; }
+
+  /**
+   * @brief Set the s value of the motion
+   * 
+   * @param new_s New s value
+   */
+  inline void setS(double new_s) { s_ = new_s; }
 
   /**
    * @brief Sets the angle

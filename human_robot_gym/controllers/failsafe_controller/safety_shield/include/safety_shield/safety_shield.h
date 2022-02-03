@@ -12,6 +12,9 @@
 #include <vector>
 #include <time.h>
 #include <stdio.h>
+#include <assert.h>
+
+#include "spdlog/spdlog.h" 
 
 #include "reach_lib.hpp"
 
@@ -19,7 +22,7 @@
 #include "safety_shield/path.h"
 #include "safety_shield/motion.h"
 #include "safety_shield/robot_reach.h"
-//#include "safety_shield/human_reach.h"
+#include "safety_shield/human_reach.h"
 #include "safety_shield/verify.h"
 #include "safety_shield/verify_iso.h"
 //#include "safety_shield/advanced_verify_iso.h"
@@ -55,23 +58,18 @@ class SafetyShield {
   HumanReach* human_reach_;
 
   /**
-   * @brief Verify ISO object
-   * 
+   * @brief Verifier object
+   *  
    * Takes the robot and human capsules as input and checks them for collision.
    */
   Verify* verify_;
 
   /**
-   * @brief Translates the robot motion command to a ROS signal and sends it via a ROS topic.
+   * @brief The visualization of reachable sets
    * 
+   * TODO: Write a visualization for mujoco
    */
-  ControlCommandTranslator* translator_;
-
-  /**
-   * @brief The rviz visualization of reachable sets
-   * 
-   */
-  RvizMarker* rviz_;
+  //RvizMarker* rviz_;
 
   /**
    * @brief path to go back to the long term plan
@@ -149,7 +147,7 @@ class SafetyShield {
   /**
    * @brief The last published motion
    */
-  custom_robot_msgs::Motion next_motion_;
+  Motion next_motion_;
 
   /**
    * @brief The new long term goal 
@@ -195,6 +193,14 @@ class SafetyShield {
    * @brief maximum jerk along the long term plan
    */
   const std::vector<double> j_max_ltt_;
+
+  /**
+   * @brief maximum cartesian acceleration of robot joints (+ end effector!)
+   * 
+   * alpha_i_.size() = nb_joints_ + 1
+   * TODO: Calculate this as overapproximation.
+   */
+  std::vector<double> alpha_i_;
   
   /**
    * @brief the stored long_term_trajectory
@@ -228,17 +234,12 @@ class SafetyShield {
    * 
    * If the last starting position of the replanning is very close to this position, we can skip the replanning and use the previously planned trajectory.
    */
-  custom_robot_msgs::Motion last_replan_start_motion_;
-
-  /**
-   * @brief   motion publisher
-   */
-  ros::Publisher motion_pub_;
+  Motion last_replan_start_motion_;
 
   /**
    * @brief the time when the loop begins
    */
-  ros::Time cycle_begin_time_;
+  double cycle_begin_time_;
 
 
   //////// For replanning new trajectory //////
@@ -271,7 +272,7 @@ class SafetyShield {
    * @param trajectory the long term trajectory to interpolate from
    * @return the motion at point s in trajectory
    */
-  custom_robot_msgs::Motion interpolateFromTrajectory(double s, double ds, double dds, 
+  Motion interpolateFromTrajectory(double s, double ds, double dds, 
       const LongTermTraj& trajectory) const;
   
   /**
@@ -304,13 +305,7 @@ class SafetyShield {
    * @param is_safe Last recovery path + potential path are verified safe.
    * @return next motion
    */
-  custom_robot_msgs::Motion determineNextMotion(bool is_safe);
-
-  /**
-   * @brief Publish a motion command.
-   * @param[in] motion The motion command to publish
-   */ 
-  void publishMotion(const custom_robot_msgs::Motion& motion);
+  Motion determineNextMotion(bool is_safe);
 
   /**
    * @brief round a continuous time to a timestep
@@ -322,7 +317,7 @@ class SafetyShield {
   /** 
    * @brief Calculates and returns the current motion
    */
-  custom_robot_msgs::Motion getCurrentMotion();
+  Motion getCurrentMotion();
 
   /**
    * @brief Determines if the current motion is in the acceleration bounds for replanning
@@ -330,10 +325,13 @@ class SafetyShield {
    * @param current_motion current motion
    * @returns bool: if the current motion lies in the bounds for replanning
    */
-  bool checkCurrentMotionForReplanning(const custom_robot_msgs::Motion& current_motion);
+  bool checkCurrentMotionForReplanning(Motion& current_motion);
 
   /**
    * @brief Calculates a new trajectory from current joint state to desired goal state.
+   * @param start_q The current joint angles
+   * @param start_dq The current joint velocities
+   * @param start_ddq The current joint accelerations
    * @param goal_q The desired joint angles
    * @param goal_dq The desired joint velocity at the goal position
    * @return Long term trajectory
@@ -369,12 +367,9 @@ class SafetyShield {
    * @param a_max_path Maximal allowed relative path acceleration
    * @param j_max_path Maximal allowed relative path jerk
    * @param long_term_trajectory Fixed trajectory to execute (will be overwritten by new intended goals)
-   * @param motion_pub Publishes the robot motion to the ROS topic
    * @param robot_reach Robot reachable set calculation object
    * @param human_reach Human reachable set calculation object
    * @param verify Verification of reachable sets object
-   * @param translator Outputs the control command to the robot
-   * @param rviz Outputs the visualization to rviz
    */
   SafetyShield(bool activate_shield,
       int nb_joints, 
@@ -387,12 +382,14 @@ class SafetyShield {
       const std::vector<double> &a_max_path, 
       const std::vector<double> &j_max_path, 
       const LongTermTraj &long_term_trajectory, 
-      const ros::Publisher &motion_pub,
       RobotReach* robot_reach,
       HumanReach* human_reach,
-      Verify* verify,
-      ControlCommandTranslator* translator,
-      safety_shield::RvizMarker* rviz);
+      Verify* verify);
+
+  /**
+   * @TODO: Write constructor that creates human reach, robot reach, and verify object.
+   * 
+   */
 
   /**
    * @brief A SafetyShield destructor
@@ -403,22 +400,22 @@ class SafetyShield {
    * @brief Computes the new trajectory depending on dq and if the previous path is safe and publishes it
    * @param v is the previous path safe
    * @param prev_speed the velocity of the previous point
-   * @returns start and goal position, velocity, acceleration and time of the computed trajectory to execute.
+   * @returns goal position, velocity, acceleration and time of the computed trajectory to execute.
    */
-  custom_robot_msgs::StartGoalMotion computesPotentialTrajectory(bool v, const std::vector<double> &prev_speed);
+  Motion computesPotentialTrajectory(bool v, const std::vector<double> &prev_speed);
 
   /**
    * @brief Gets the information that the next simulation cycle (sample time) has started
-   * @param cycle_begin_time ROS timestep of begin of current cycle
+   * @param cycle_begin_time timestep of begin of current cycle
    */
-  void step(const ros::Time& cycle_begin_time);
+  void step(double cycle_begin_time);
 
   /**
    * @brief Calculates a new trajectory from current joint state to desired goal state.
    * Sets new trajectory as desired new long term trajectory.
    * @param goal_motion Desired joint angles and velocities
    */
-  void newLongTermTrajectory(const custom_robot_msgs::MotionConstPtr& goal_motion);
+  void newLongTermTrajectory(Motion& goal_motion);
 
   /**
    * @brief Function to convert RML vector to a std vector
