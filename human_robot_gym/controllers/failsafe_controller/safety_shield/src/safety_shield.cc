@@ -3,10 +3,18 @@
 
 namespace safety_shield {
 
+SafetyShield::SafetyShield():
+    max_s_stop_(0),
+    v_max_allowed_({0, 0, 0}),
+    a_max_allowed_({0, 0, 0}),
+    j_max_allowed_({0, 0, 0}),
+    a_max_ltt_({0, 0, 0}),
+    j_max_ltt_({0, 0, 0})
+    {}
+
 SafetyShield::SafetyShield(bool activate_shield,
       int nb_joints, 
       double sample_time, 
-      double t_buff, 
       double max_s_stop, 
       const std::vector<double> &v_max_allowed, 
       const std::vector<double> &a_max_allowed, 
@@ -47,9 +55,91 @@ SafetyShield::SafetyShield(bool activate_shield,
   
 }
 
+SafetyShield::SafetyShield(bool activate_shield,
+      int nb_joints, 
+      double sample_time, 
+      double max_s_stop,
+      const std::vector<double> &v_max_allowed, 
+      const std::vector<double> &a_max_allowed, 
+      const std::vector<double> &j_max_allowed, 
+      const std::vector<double> &a_max_path, 
+      const std::vector<double> &j_max_path,
+      const LongTermTraj &long_term_trajectory,
+      std::string robot_config_file,
+      std::string mocap_config_file):
+    max_s_stop_(max_s_stop),
+    activate_shield_(activate_shield),
+    nb_joints_(nb_joints),
+    sample_time_(sample_time),
+    v_max_allowed_(v_max_allowed),
+    a_max_allowed_(a_max_allowed),
+    j_max_allowed_(j_max_allowed),
+    a_max_ltt_(a_max_path),
+    j_max_ltt_(j_max_path),
+    long_term_trajectory_(long_term_trajectory)
+    {
 
-SafetyShield::~SafetyShield() {};
-
+    }
+/*
+SafetyShield::SafetyShield(bool activate_shield,
+      int nb_joints, 
+      double sample_time, 
+      double max_s_stop, 
+      const std::vector<double> &v_max_allowed, 
+      const std::vector<double> &a_max_allowed, 
+      const std::vector<double> &j_max_allowed, 
+      const std::vector<double> &a_max_path, 
+      const std::vector<double> &j_max_path, 
+      const LongTermTraj &long_term_trajectory,
+      std::string robot_config_file,
+      std::string mocap_config_file,
+      double init_x, 
+      double init_y, 
+      double init_z, 
+      double init_roll, 
+      double init_pitch, 
+      double init_yaw):
+    activate_shield_(activate_shield),
+    nb_joints_(nb_joints),
+    max_s_stop_(max_s_stop),
+    v_max_allowed_(v_max_allowed),
+    a_max_allowed_(a_max_allowed),
+    j_max_allowed_(j_max_allowed), 
+    a_max_ltt_(a_max_path), 
+    j_max_ltt_(j_max_path),
+    sample_time_(sample_time),
+    path_s_(0),
+    path_s_discrete_(0),
+    long_term_trajectory_(long_term_trajectory) 
+  {
+    YAML::Node robot_config = YAML::LoadFile(robot_config_file);
+    std::string robot_name = robot_config[0].first.as<std::string>();
+    spdlog::info(robot_name);
+    std::vector<double> transformation_matrices = robot_config[robot_name]["transformation_matrices"].as<std::vector<double>>();
+    for (const auto& it : transformation_matrices) {
+        spdlog::info("{}", it);
+    }
+    std::vector<double> enclosures = robot_config[robot_name]["enclosures"].as<std::vector<double>>();
+    for (const auto& it : enclosures) {
+        spdlog::info("{}", it);
+    }
+    robot_reach_ = new RobotReach(transformation_matrices, 
+      nb_joints, 
+      enclosures, 
+      init_x, init_y, init_z, 
+      init_roll, init_pitch, init_yaw);
+    sliding_window_k_ = (int) std::floor(max_s_stop_/sample_time_);
+    std::vector<double> prev_dq;
+    for(int i = 0; i < 6; i++) {
+        prev_dq.push_back(0.0);
+        alpha_i_.push_back(1.0);
+    }
+    alpha_i_.push_back(1.0);
+    is_safe_ = !activate_shield_;
+    computesPotentialTrajectory(is_safe_, prev_dq);
+    next_motion_ = determineNextMotion(is_safe_);
+  }
+*/
 
 bool SafetyShield::planSafetyShield(double pos, double vel, double acc, double ve, double a_max, double j_max, Path &path) {
   if (a_max < 0 || fabs(acc) > a_max) {

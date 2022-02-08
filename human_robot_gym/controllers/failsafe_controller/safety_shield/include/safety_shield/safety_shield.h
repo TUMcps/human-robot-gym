@@ -15,6 +15,7 @@
 #include <assert.h>
 
 #include "spdlog/spdlog.h" 
+#include <yaml-cpp/yaml.h>
 
 #include "reach_lib.hpp"
 
@@ -344,14 +345,22 @@ class SafetyShield {
    * @brief Default contructor
    * 
    */
-  SafetyShield():
-    max_s_stop_(0),
-    v_max_allowed_({0, 0, 0}),
-    a_max_allowed_({0, 0, 0}),
-    j_max_allowed_({0, 0, 0}),
-    a_max_ltt_({0, 0, 0}),
-    j_max_ltt_({0, 0, 0})
-  {}
+  SafetyShield();
+  
+
+// Just some tests
+  SafetyShield(bool activate_shield,
+      int nb_joints, 
+      double sample_time, 
+      double max_s_stop,
+      const std::vector<double> &v_max_allowed, 
+      const std::vector<double> &a_max_allowed, 
+      const std::vector<double> &j_max_allowed, 
+      const std::vector<double> &a_max_path, 
+      const std::vector<double> &j_max_path,
+      const LongTermTraj &long_term_trajectory,
+      std::string robot_config_file,
+      std::string mocap_config_file);
 
   /**
    * @brief Construct a new Safety Shield object
@@ -359,7 +368,6 @@ class SafetyShield {
    * @param activate_shield Wether to activate the safety functionality or not.
    * @param nb_joints Number of joints of the robot
    * @param sample_time Sample time of safety shield
-   * @param t_buff Length of the trajectory buffer
    * @param max_s_stop Maximal path length to stop the robot
    * @param v_max_allowed Maximal allowed joint speed
    * @param a_max_allowed Maximal allowed joint acceleration
@@ -374,7 +382,6 @@ class SafetyShield {
   SafetyShield(bool activate_shield,
       int nb_joints, 
       double sample_time, 
-      double t_buff, 
       double max_s_stop, 
       const std::vector<double> &v_max_allowed, 
       const std::vector<double> &a_max_allowed, 
@@ -389,12 +396,31 @@ class SafetyShield {
   /**
    * @TODO: Write constructor that creates human reach, robot reach, and verify object.
    * 
-   */
+   
+  SafetyShield(bool activate_shield,
+      int nb_joints, 
+      double sample_time, 
+      double max_s_stop, 
+      const std::vector<double> &v_max_allowed, 
+      const std::vector<double> &a_max_allowed, 
+      const std::vector<double> &j_max_allowed, 
+      const std::vector<double> &a_max_path, 
+      const std::vector<double> &j_max_path, 
+      const LongTermTraj &long_term_trajectory,
+      std::string robot_config_file,
+      std::string mocap_config_file,
+      double init_x, 
+      double init_y, 
+      double init_z, 
+      double init_roll, 
+      double init_pitch, 
+      double init_yaw);
+    */
 
   /**
    * @brief A SafetyShield destructor
    */
-  ~SafetyShield();
+  ~SafetyShield() {};
 
   /**
    * @brief Computes the new trajectory depending on dq and if the previous path is safe and publishes it
