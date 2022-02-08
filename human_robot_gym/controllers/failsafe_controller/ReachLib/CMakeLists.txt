@@ -18,7 +18,7 @@ include(GNUInstallDirs)
 file(GLOB SOURCES "src/*.cpp")
 #set(SOURCES src/Point.cpp src/Capsule.cpp)
 
-#Generate the shared library from the sources [SHARED]
+#Generate the shared library from the sources [SHARED / STATIC?]
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
 target_include_directories(${PROJECT_NAME} PUBLIC

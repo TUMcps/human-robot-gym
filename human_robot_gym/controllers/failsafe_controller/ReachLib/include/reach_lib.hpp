@@ -83,7 +83,7 @@ typedef obstacles::pedestrian::vel::PedestrianVel PedestrianVel;
 
 
 //! Extracting Capsules and Cylinders from occupancy models
-std::vector<Capsule> get_capsules (ArticulatedAccel a_accel) {
+inline std::vector<Capsule> get_capsules (ArticulatedAccel a_accel) {
   std::vector<Capsule> capsules;
   for (auto it : a_accel.get_occupancy()) {
     capsules.push_back(it.get_occupancy());
@@ -91,7 +91,7 @@ std::vector<Capsule> get_capsules (ArticulatedAccel a_accel) {
   return capsules;
 }
 
-std::vector<Capsule> get_capsules (ArticulatedVel a_vel) {
+inline std::vector<Capsule> get_capsules (ArticulatedVel a_vel) {
   std::vector<Capsule> capsules;
   for (auto& it : a_vel.get_occupancy()) {
     capsules.push_back(it.get_occupancy());
@@ -99,7 +99,7 @@ std::vector<Capsule> get_capsules (ArticulatedVel a_vel) {
   return capsules;
 }
 
-std::vector<Capsule> get_capsules (ArticulatedPos& a_pos) {
+inline std::vector<Capsule> get_capsules (ArticulatedPos& a_pos) {
   std::vector<Capsule> capsules;
   for (auto& it : a_pos.get_occupancy()) {
     capsules.push_back(it.get_occupancy());
@@ -107,7 +107,7 @@ std::vector<Capsule> get_capsules (ArticulatedPos& a_pos) {
   return capsules;
 }
 
-std::vector<Cylinder> get_cylinders (PedestrianAccel& p_accel) {
+inline std::vector<Cylinder> get_cylinders (PedestrianAccel& p_accel) {
   std::vector<Cylinder> cylinders;
   for (auto& it : p_accel.get_occupancy()) {
     cylinders.push_back(it.get_occupancy());
@@ -115,7 +115,7 @@ std::vector<Cylinder> get_cylinders (PedestrianAccel& p_accel) {
   return cylinders;
 }
 
-std::vector<Cylinder> get_cylinders (PedestrianVel& p_vel) {
+inline std::vector<Cylinder> get_cylinders (PedestrianVel& p_vel) {
   std::vector<Cylinder> cylinders;
   for (auto& it : p_vel.get_occupancy()) {
     cylinders.push_back(it.get_occupancy());
