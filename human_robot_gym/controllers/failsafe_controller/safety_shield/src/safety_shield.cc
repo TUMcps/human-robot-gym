@@ -56,41 +56,8 @@ SafetyShield::SafetyShield(bool activate_shield,
 }
 
 SafetyShield::SafetyShield(bool activate_shield,
-      int nb_joints, 
-      double sample_time, 
-      double max_s_stop,
-      const std::vector<double> &v_max_allowed, 
-      const std::vector<double> &a_max_allowed, 
-      const std::vector<double> &j_max_allowed, 
-      const std::vector<double> &a_max_path, 
-      const std::vector<double> &j_max_path,
-      const LongTermTraj &long_term_trajectory,
-      std::string robot_config_file,
-      std::string mocap_config_file):
-    max_s_stop_(max_s_stop),
-    activate_shield_(activate_shield),
-    nb_joints_(nb_joints),
-    sample_time_(sample_time),
-    v_max_allowed_(v_max_allowed),
-    a_max_allowed_(a_max_allowed),
-    j_max_allowed_(j_max_allowed),
-    a_max_ltt_(a_max_path),
-    j_max_ltt_(j_max_path),
-    long_term_trajectory_(long_term_trajectory)
-    {
-
-    }
-/*
-SafetyShield::SafetyShield(bool activate_shield,
-      int nb_joints, 
-      double sample_time, 
-      double max_s_stop, 
-      const std::vector<double> &v_max_allowed, 
-      const std::vector<double> &a_max_allowed, 
-      const std::vector<double> &j_max_allowed, 
-      const std::vector<double> &a_max_path, 
-      const std::vector<double> &j_max_path, 
-      const LongTermTraj &long_term_trajectory,
+      double sample_time,
+      std::string trajectory_config_file,
       std::string robot_config_file,
       std::string mocap_config_file,
       double init_x, 
@@ -100,34 +67,90 @@ SafetyShield::SafetyShield(bool activate_shield,
       double init_pitch, 
       double init_yaw):
     activate_shield_(activate_shield),
-    nb_joints_(nb_joints),
-    max_s_stop_(max_s_stop),
-    v_max_allowed_(v_max_allowed),
-    a_max_allowed_(a_max_allowed),
-    j_max_allowed_(j_max_allowed), 
-    a_max_ltt_(a_max_path), 
-    j_max_ltt_(j_max_path),
     sample_time_(sample_time),
     path_s_(0),
-    path_s_discrete_(0),
-    long_term_trajectory_(long_term_trajectory) 
+    path_s_discrete_(0)
   {
+    ///////////// Build robot reach
     YAML::Node robot_config = YAML::LoadFile(robot_config_file);
-    std::string robot_name = robot_config[0].first.as<std::string>();
-    spdlog::info(robot_name);
-    std::vector<double> transformation_matrices = robot_config[robot_name]["transformation_matrices"].as<std::vector<double>>();
-    for (const auto& it : transformation_matrices) {
-        spdlog::info("{}", it);
-    }
-    std::vector<double> enclosures = robot_config[robot_name]["enclosures"].as<std::vector<double>>();
-    for (const auto& it : enclosures) {
-        spdlog::info("{}", it);
-    }
+    std::string robot_name = robot_config["robot_name"].as<std::string>();
+    nb_joints_ = robot_config["nb_joints"].as<int>();
+    std::vector<double> transformation_matrices = robot_config["transformation_matrices"].as<std::vector<double>>();
+    std::vector<double> enclosures = robot_config["enclosures"].as<std::vector<double>>();
     robot_reach_ = new RobotReach(transformation_matrices, 
-      nb_joints, 
+      nb_joints_, 
       enclosures, 
       init_x, init_y, init_z, 
       init_roll, init_pitch, init_yaw);
+    ////////////// Setting trajectory variables
+    YAML::Node trajectory_config = YAML::LoadFile(trajectory_config_file);
+    max_s_stop_ = trajectory_config["max_s_stop"].as<double>();
+    v_max_allowed_ = trajectory_config["v_max_allowed"].as<std::vector<double>>();
+    a_max_allowed_ = trajectory_config["a_max_allowed"].as<std::vector<double>>();
+    j_max_allowed_ = trajectory_config["j_max_allowed"].as<std::vector<double>>();
+    a_max_ltt_ = trajectory_config["a_max_ltt"].as<std::vector<double>>();
+    j_max_ltt_ = trajectory_config["j_max_ltt"].as<std::vector<double>>();
+    std::vector<std::vector<double>> q_vals(nb_joints_);
+    for (int i=1; i <= nb_joints_; i++){
+        std::string qi = "q" + std::to_string(i);
+        q_vals[i-1] = trajectory_config[qi].as<std::vector<double>>();
+    }
+    // store the long term trajectory
+    std::vector<Motion> long_term_traj;
+    for(int i = 0; i < q_vals[0].size(); i++){
+        std::vector<double> angles(nb_joints_);
+        for(int j=0; j < nb_joints_; j++){
+            angles[j] = q_vals[j][i];
+        }
+        long_term_traj.push_back(Motion(i*sample_time_, angles));
+    }
+    long_term_trajectory_ = LongTermTraj(long_term_traj);
+    //////////// Build human reach
+    YAML::Node human_config = YAML::LoadFile(mocap_config_file);
+    double measurement_error_pos = human_config["measurement_error_pos"].as<double>();
+    double measurement_error_vel = human_config["measurement_error_vel"].as<double>();
+    double delay = human_config["delay"].as<double>();
+
+    std::vector<std::string> joint_name_vec = human_config["joint_names"].as<std::vector<std::string>>();
+    std::map<std::string, int> joint_names;
+    for(std::size_t i = 0; i < joint_name_vec.size(); ++i) {
+        joint_names[joint_name_vec[i]] = i;
+    }
+
+    std::vector<double> joint_v_max = human_config["joint_v_max"].as<std::vector<double>>();
+    std::vector<double> joint_a_max = human_config["joint_a_max"].as<std::vector<double>>();
+    // Build bodies
+    const YAML::Node& bodies = human_config["bodies"];
+    std::map<std::string, reach_lib::jointPair> body_link_joints;
+    std::map<std::string, double> thickness;
+    for (YAML::const_iterator it = bodies.begin(); it != bodies.end(); ++it) {
+      const YAML::Node& body = *it;
+      body_link_joints[body["name"].as<std::string>()] = reach_lib::jointPair(joint_names[body["proximal"].as<std::string>()], joint_names[body["distal"].as<std::string>()]);
+      thickness[body["name"].as<std::string>()] = body["thickness"].as<double>(); 
+    }
+    // Build extremities
+    const YAML::Node& extremities = human_config["extremities"];
+    std::vector<std::string> extremity_base_names;
+    std::vector<std::string> extremity_end_names; 
+    std::vector<double> extremity_length;
+    for (YAML::const_iterator it = extremities.begin(); it != extremities.end(); ++it) {
+      const YAML::Node& extremity = *it;
+      extremity_base_names.push_back(extremity["base"].as<std::string>());
+      extremity_end_names.push_back(extremity["end"].as<std::string>());
+      extremity_length.push_back(extremity["length"].as<double>());
+    }
+    human_reach_ = new HumanReach(joint_names.size(), 
+      body_link_joints, 
+      thickness, 
+      joint_v_max, 
+      joint_a_max,
+      extremity_base_names, 
+      extremity_end_names, 
+      extremity_length,
+      measurement_error_pos, 
+      measurement_error_vel, 
+      delay);
+    /////////// Other settings
     sliding_window_k_ = (int) std::floor(max_s_stop_/sample_time_);
     std::vector<double> prev_dq;
     for(int i = 0; i < 6; i++) {
@@ -139,7 +162,6 @@ SafetyShield::SafetyShield(bool activate_shield,
     computesPotentialTrajectory(is_safe_, prev_dq);
     next_motion_ = determineNextMotion(is_safe_);
   }
-*/
 
 bool SafetyShield::planSafetyShield(double pos, double vel, double acc, double ve, double a_max, double j_max, Path &path) {
   if (a_max < 0 || fabs(acc) > a_max) {

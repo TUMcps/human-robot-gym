@@ -10,6 +10,7 @@
 #include <math.h>
 #include <algorithm>
 #include <vector>
+#include <set>
 #include <time.h>
 #include <stdio.h>
 #include <assert.h>
@@ -26,9 +27,6 @@
 #include "safety_shield/human_reach.h"
 #include "safety_shield/verify.h"
 #include "safety_shield/verify_iso.h"
-//#include "safety_shield/advanced_verify_iso.h"
-//#include "safety_shield/control_command_translator.h"
-//#include "safety_shield/rviz_marker.h"
 
 #include "ReflexxesAPI.h"
 #include "RMLPositionFlags.h"
@@ -158,7 +156,7 @@ class SafetyShield {
   /**
    * @brief the maximum time to stop 
    */
-  const double max_s_stop_;
+  double max_s_stop_;
 
   /**
    * @brief the maximum time to stop in timesteps (discrete)
@@ -173,27 +171,27 @@ class SafetyShield {
   /**
    * @brief maximum velocity allowed
    */
-  const std::vector<double> v_max_allowed_;
+  std::vector<double> v_max_allowed_;
   
   /**
    * @brief maximum acceleration allowed
    */
-  const std::vector<double> a_max_allowed_;
+  std::vector<double> a_max_allowed_;
   
   /**
    * @brief maximum jerk allowed
    */
-  const std::vector<double> j_max_allowed_;
+  std::vector<double> j_max_allowed_;
   
   /**
    * @brief maximum acceleration along the long term plan
    */
-  const std::vector<double> a_max_ltt_;
+  std::vector<double> a_max_ltt_;
   
   /**
    * @brief maximum jerk along the long term plan
    */
-  const std::vector<double> j_max_ltt_;
+  std::vector<double> j_max_ltt_;
 
   /**
    * @brief maximum cartesian acceleration of robot joints (+ end effector!)
@@ -346,21 +344,6 @@ class SafetyShield {
    * 
    */
   SafetyShield();
-  
-
-// Just some tests
-  SafetyShield(bool activate_shield,
-      int nb_joints, 
-      double sample_time, 
-      double max_s_stop,
-      const std::vector<double> &v_max_allowed, 
-      const std::vector<double> &a_max_allowed, 
-      const std::vector<double> &j_max_allowed, 
-      const std::vector<double> &a_max_path, 
-      const std::vector<double> &j_max_path,
-      const LongTermTraj &long_term_trajectory,
-      std::string robot_config_file,
-      std::string mocap_config_file);
 
   /**
    * @brief Construct a new Safety Shield object
@@ -395,18 +378,10 @@ class SafetyShield {
 
   /**
    * @TODO: Write constructor that creates human reach, robot reach, and verify object.
-   * 
-   
+   */
   SafetyShield(bool activate_shield,
-      int nb_joints, 
-      double sample_time, 
-      double max_s_stop, 
-      const std::vector<double> &v_max_allowed, 
-      const std::vector<double> &a_max_allowed, 
-      const std::vector<double> &j_max_allowed, 
-      const std::vector<double> &a_max_path, 
-      const std::vector<double> &j_max_path, 
-      const LongTermTraj &long_term_trajectory,
+      double sample_time,
+      std::string trajectory_config_file,
       std::string robot_config_file,
       std::string mocap_config_file,
       double init_x, 
@@ -415,7 +390,6 @@ class SafetyShield {
       double init_roll, 
       double init_pitch, 
       double init_yaw);
-    */
 
   /**
    * @brief A SafetyShield destructor

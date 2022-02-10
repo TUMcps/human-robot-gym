@@ -63,8 +63,11 @@ class LongTermTraj {
    */
   LongTermTraj():
     current_pos_(0),
-    starting_index_(0)
-  {}
+    starting_index_(0),
+    length_(1)
+  {
+      long_term_traj_.push_back(Motion(1));
+  }
 
   /**
    * @brief Construct a new Long Term Traj object.
