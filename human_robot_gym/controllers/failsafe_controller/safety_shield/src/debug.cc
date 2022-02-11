@@ -1,11 +1,16 @@
 #include <string>
 #include <vector>
+#include <chrono>
+#include <type_traits>
+
+#include "reach_lib.hpp"
 
 #include "safety_shield/safety_shield.h"
 #include "safety_shield/human_reach.h"
 #include "safety_shield/robot_reach.h"
 #include "safety_shield/verify.h"
 #include "safety_shield/long_term_traj.h"
+#include "safety_shield/motion.h"
 
 int main () {
     bool activate_shield = true;
@@ -31,5 +36,24 @@ int main () {
       init_roll, 
       init_pitch, 
       init_yaw);
+
+    // Dummy human measurement
+    std::vector<reach_lib::Point> dummy_human_meas(21);
+    for (int i=0; i<21; i++) {
+      dummy_human_meas[i] = reach_lib::Point(0.0, 0.0, 0.0);
+    }
+    // Dummy goal motion
+    safety_shield::Motion dummy_goal_motion(6);
+    
+    //auto start_time = std::chrono::system_clock::now();
+    //double t = std::chrono::duration<double>(std::chrono::system_clock::now()-start_time).count();
+    double t = 0.0;
+    for (int i=0; i<100; i++) {
+      t += 0.001;
+      shield.humanMeasurement(dummy_human_meas, t);
+      t += 0.003;
+      shield.newLongTermTrajectory(dummy_goal_motion);
+      shield.step(t);
+    }
     return 0;
 }

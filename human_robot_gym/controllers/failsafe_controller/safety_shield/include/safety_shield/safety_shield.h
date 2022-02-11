@@ -406,7 +406,7 @@ class SafetyShield {
 
   /**
    * @brief Gets the information that the next simulation cycle (sample time) has started
-   * @param cycle_begin_time timestep of begin of current cycle
+   * @param cycle_begin_time timestep of begin of current cycle in seconds.
    */
   void step(double cycle_begin_time);
 
@@ -416,6 +416,15 @@ class SafetyShield {
    * @param goal_motion Desired joint angles and velocities
    */
   void newLongTermTrajectory(Motion& goal_motion);
+
+  /**
+   * @brief Receive a new human measurement
+   * @param[in] human_measurement A vector of human joint measurements.
+   * @param[in] time The timestep of the measurement in seconds.
+   */
+  inline void humanMeasurement(const std::vector<reach_lib::Point> human_measurement, double time) {
+    human_reach_->measurement(human_measurement, time);
+  }
 
   /**
    * @brief Function to convert RML vector to a std vector

@@ -150,6 +150,8 @@ SafetyShield::SafetyShield(bool activate_shield,
       measurement_error_pos, 
       measurement_error_vel, 
       delay);
+    ///////////// Build verifier
+    verify_ = new safety_shield::VerifyISO();
     /////////// Other settings
     sliding_window_k_ = (int) std::floor(max_s_stop_/sample_time_);
     std::vector<double> prev_dq;

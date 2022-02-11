@@ -65,7 +65,7 @@ double segmentsDistance(const Capsule& c1, const Capsule& c2) {
   }
 }
 
-inline double min_segment_distance(const Capsule& c1, const Capsule& c2) {
+double min_segment_distance(const Capsule& c1, const Capsule& c2) {
   // Calculate denominator
   Point A = c1.p2_ - c1.p1_;
   Point B = c2.p2_ - c2.p1_;
