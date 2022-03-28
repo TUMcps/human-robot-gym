@@ -10,10 +10,10 @@
 #include <algorithm>
 #include <exception>
 
-#include <Eigen/Dense>
+#include <eigen3/Eigen/Dense>
 #include "spdlog/spdlog.h" 
 
-#include <reach_lib.hpp>
+#include "SaRA/reach_lib.hpp"
 
 #include "safety_shield/motion.h"
 

@@ -18,7 +18,7 @@
 #include "spdlog/spdlog.h" 
 #include <yaml-cpp/yaml.h>
 
-#include "reach_lib.hpp"
+#include "SaRA/reach_lib.hpp"
 
 #include "safety_shield/long_term_traj.h"
 #include "safety_shield/path.h"
@@ -28,10 +28,10 @@
 #include "safety_shield/verify.h"
 #include "safety_shield/verify_iso.h"
 
-#include "ReflexxesAPI.h"
-#include "RMLPositionFlags.h"
-#include "RMLPositionInputParameters.h"
-#include "RMLPositionOutputParameters.h"
+#include "reflexxes_type_iv/ReflexxesAPI.h"
+#include "reflexxes_type_iv/RMLPositionFlags.h"
+#include "reflexxes_type_iv/RMLPositionInputParameters.h"
+#include "reflexxes_type_iv/RMLPositionOutputParameters.h"
 
 #ifndef safety_shield_H
 #define safety_shield_H
@@ -419,11 +419,26 @@ class SafetyShield {
 
   /**
    * @brief Receive a new human measurement
-   * @param[in] human_measurement A vector of human joint measurements.
+   * @param[in] human_measurement A vector of human joint measurements (list of reach_lib::Points)
    * @param[in] time The timestep of the measurement in seconds.
    */
   inline void humanMeasurement(const std::vector<reach_lib::Point> human_measurement, double time) {
     human_reach_->measurement(human_measurement, time);
+  }
+
+  /**
+   * @brief Receive a new human measurement. 
+   * Calls humanMeasurement(const std::vector<reach_lib::Point> human_measurement, double time).
+   * @param[in] human_measurement A vector of human joint measurements (list of list of doubles [x, y, z])
+   * @param[in] time The timestep of the measurement in seconds.
+   */
+  inline void humanMeasurement(const std::vector<std::vector<double>> human_measurement, double time) {
+    assert(human_measurement.size() > 0);
+    std::vector<reach_lib::Point> converted_vec;
+    for(int i = 0; i < human_measurement.size(); i++) {
+      converted_vec.push_back(reach_lib::Point(human_measurement[i][0], human_measurement[i][1], human_measurement[i][2]));
+    }
+    humanMeasurement(converted_vec, time);
   }
 
   /**
