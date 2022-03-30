@@ -407,8 +407,10 @@ class SafetyShield {
   /**
    * @brief Gets the information that the next simulation cycle (sample time) has started
    * @param cycle_begin_time timestep of begin of current cycle in seconds.
+   * 
+   * @return next motion to be executed
    */
-  void step(double cycle_begin_time);
+  Motion step(double cycle_begin_time);
 
   /**
    * @brief Calculates a new trajectory from current joint state to desired goal state.

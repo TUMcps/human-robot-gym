@@ -10,7 +10,9 @@ SafetyShield::SafetyShield():
     j_max_allowed_({0, 0, 0}),
     a_max_ltt_({0, 0, 0}),
     j_max_ltt_({0, 0, 0})
-    {}
+    {
+      spdlog::info("Safety shield created.");
+    }
 
 SafetyShield::SafetyShield(bool activate_shield,
       int nb_joints, 
@@ -52,7 +54,7 @@ SafetyShield::SafetyShield(bool activate_shield,
   is_safe_ = !activate_shield_;
   computesPotentialTrajectory(is_safe_, prev_dq);
   next_motion_ = determineNextMotion(is_safe_);
-  
+  spdlog::info("Safety shield created.");
 }
 
 SafetyShield::SafetyShield(bool activate_shield,
@@ -71,6 +73,7 @@ SafetyShield::SafetyShield(bool activate_shield,
     path_s_(0),
     path_s_discrete_(0)
   {
+    spdlog::info("Setting up safety shield.");
     ///////////// Build robot reach
     YAML::Node robot_config = YAML::LoadFile(robot_config_file);
     std::string robot_name = robot_config["robot_name"].as<std::string>();
@@ -82,6 +85,7 @@ SafetyShield::SafetyShield(bool activate_shield,
       enclosures, 
       init_x, init_y, init_z, 
       init_roll, init_pitch, init_yaw);
+    spdlog::info("Robot reach created.");
     ////////////// Setting trajectory variables
     YAML::Node trajectory_config = YAML::LoadFile(trajectory_config_file);
     max_s_stop_ = trajectory_config["max_s_stop"].as<double>();
@@ -105,6 +109,7 @@ SafetyShield::SafetyShield(bool activate_shield,
         long_term_traj.push_back(Motion(i*sample_time_, angles));
     }
     long_term_trajectory_ = LongTermTraj(long_term_traj);
+    spdlog::info("Long-term trajectory created.");
     //////////// Build human reach
     YAML::Node human_config = YAML::LoadFile(mocap_config_file);
     double measurement_error_pos = human_config["measurement_error_pos"].as<double>();
@@ -150,8 +155,10 @@ SafetyShield::SafetyShield(bool activate_shield,
       measurement_error_pos, 
       measurement_error_vel, 
       delay);
+    spdlog::info("Human reach created.");
     ///////////// Build verifier
     verify_ = new safety_shield::VerifyISO();
+    spdlog::info("Verification created.");
     /////////// Other settings
     sliding_window_k_ = (int) std::floor(max_s_stop_/sample_time_);
     std::vector<double> prev_dq;
@@ -163,6 +170,7 @@ SafetyShield::SafetyShield(bool activate_shield,
     is_safe_ = !activate_shield_;
     computesPotentialTrajectory(is_safe_, prev_dq);
     next_motion_ = determineNextMotion(is_safe_);
+    spdlog::info("Safety shield created.");
   }
 
 bool SafetyShield::planSafetyShield(double pos, double vel, double acc, double ve, double a_max, double j_max, Path &path) {
@@ -513,8 +521,9 @@ Motion SafetyShield::interpolateFromTrajectory(double s, double ds, double dds, 
 
 }
 
-void SafetyShield::step(double cycle_begin_time) {
+Motion SafetyShield::step(double cycle_begin_time) {
   //std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+  spdlog::info("Step called");
   cycle_begin_time_ = cycle_begin_time;
   try {
     // If the new LTT was processed at least once and is labeled safe, replace old LTT with new one.
@@ -579,6 +588,8 @@ void SafetyShield::step(double cycle_begin_time) {
     next_motion_ = determineNextMotion(is_safe_);
     //std::chrono::steady_clock::time_point publish_path = std::chrono::steady_clock::now();
     new_ltt_processed_ = true;
+    spdlog::info("Next motion get Time: {}", next_motion_.getTime());
+    return next_motion_;
   } catch (const std::exception &exc) {
     spdlog::error("Exception in SafetyShield::getNextCycle: {}", exc.what());
   }

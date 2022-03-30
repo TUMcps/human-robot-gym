@@ -38,4 +38,5 @@ class TestSafetyShield:
     shield.newLongTermTrajectory(motion)
 
   def test_step(self, shield):
-    shield.step(0.004)
+    motion = shield.step(0.004)
+    #assert(motion.getTime() == 0.004)

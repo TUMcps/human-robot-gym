@@ -35,7 +35,7 @@ RobotReach::RobotReach(std::vector<double> transformation_matrices, int nb_joint
     reach_lib::Capsule capsule(vectorToPoint(p1), vectorToPoint(p2),geom_par[7*joint + 6]);
     robot_capsules_.push_back(capsule);
   }
-  spdlog::info("Parameters created.");
+  spdlog::info("Robot reach parameters created.");
 }
 
 
