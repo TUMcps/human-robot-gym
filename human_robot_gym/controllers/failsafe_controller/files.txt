@@ -1,0 +1,14 @@
+/home/jakob/anaconda3/envs/robot-rl/lib/python3.6/site-packages/failsafe_controller-0.0.1-py3.6-linux-x86_64.egg/libSaRA.so.1
+/home/jakob/anaconda3/envs/robot-rl/lib/python3.6/site-packages/failsafe_controller-0.0.1-py3.6-linux-x86_64.egg/libSaRA.so.1.0.0
+/home/jakob/anaconda3/envs/robot-rl/lib/python3.6/site-packages/failsafe_controller-0.0.1-py3.6-linux-x86_64.egg/libSaRA.so
+/home/jakob/anaconda3/envs/robot-rl/lib/python3.6/site-packages/failsafe_controller-0.0.1-py3.6-linux-x86_64.egg/libreflexxes_type_iv.so
+/home/jakob/anaconda3/envs/robot-rl/lib/python3.6/site-packages/failsafe_controller-0.0.1-py3.6-linux-x86_64.egg/libreflexxes_type_iv.so.1
+/home/jakob/anaconda3/envs/robot-rl/lib/python3.6/site-packages/failsafe_controller-0.0.1-py3.6-linux-x86_64.egg/libreflexxes_type_iv.so.1.0.0
+/home/jakob/anaconda3/envs/robot-rl/lib/python3.6/site-packages/failsafe_controller-0.0.1-py3.6-linux-x86_64.egg/safety_shield_py.cpython-36m-x86_64-linux-gnu.so
+/home/jakob/anaconda3/envs/robot-rl/lib/python3.6/site-packages/failsafe_controller-0.0.1-py3.6-linux-x86_64.egg/EGG-INFO/PKG-INFO
+/home/jakob/anaconda3/envs/robot-rl/lib/python3.6/site-packages/failsafe_controller-0.0.1-py3.6-linux-x86_64.egg/EGG-INFO/not-zip-safe
+/home/jakob/anaconda3/envs/robot-rl/lib/python3.6/site-packages/failsafe_controller-0.0.1-py3.6-linux-x86_64.egg/EGG-INFO/SOURCES.txt
+/home/jakob/anaconda3/envs/robot-rl/lib/python3.6/site-packages/failsafe_controller-0.0.1-py3.6-linux-x86_64.egg/EGG-INFO/requires.txt
+/home/jakob/anaconda3/envs/robot-rl/lib/python3.6/site-packages/failsafe_controller-0.0.1-py3.6-linux-x86_64.egg/EGG-INFO/dependency_links.txt
+/home/jakob/anaconda3/envs/robot-rl/lib/python3.6/site-packages/failsafe_controller-0.0.1-py3.6-linux-x86_64.egg/EGG-INFO/native_libs.txt
+/home/jakob/anaconda3/envs/robot-rl/lib/python3.6/site-packages/failsafe_controller-0.0.1-py3.6-linux-x86_64.egg/EGG-INFO/top_level.txt

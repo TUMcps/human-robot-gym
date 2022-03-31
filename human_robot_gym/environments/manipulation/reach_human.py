@@ -19,6 +19,8 @@ from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat
 
 from scipy.spatial.transform import Rotation
 
+from human_robot_gym.controllers.failsafe_controller.failsafe_controller.failsafe_controller import FailsafeController
+
 class ReachHuman(SingleArmEnv):
     """
     This class corresponds to the reaching task for a single robot arm in a human environment.
@@ -171,6 +173,7 @@ class ReachHuman(SingleArmEnv):
         renderer="mujoco",
         renderer_config=None,
     ):
+        self.failsafe_controller = None
         # settings for table top
         self.table_full_size = table_full_size
         self.table_friction = table_friction
@@ -256,6 +259,11 @@ class ReachHuman(SingleArmEnv):
             renderer_config=renderer_config,
         )
 
+        # Override robot controller
+        self.failsafe_controller = FailsafeController(**self.robots[0].controller_config)
+        self._override_controller()
+        stop = 0
+
     def step(self, action):
         """
         Overrides base.py step function to create an GoalEnv.
@@ -287,6 +295,8 @@ class ReachHuman(SingleArmEnv):
         for i in range(int(self.control_timestep / self.model_timestep)):
             self._control_human()
             self.sim.forward()
+            # The first step i=0 is a policy step, the rest not.
+            # Only in a policy step, set_goal of controller will be called.
             self._pre_action(action, policy_step)
             self.sim.step()
             self._update_observables()
@@ -471,6 +481,10 @@ class ReachHuman(SingleArmEnv):
             mujoco_objects=self.human,
         )
 
+    def _override_controller(self):
+        """Manually override the controller with the failsafe controller."""
+        if self.failsafe_controller is not None:
+            self.robots[0].controller = self.failsafe_controller
 
     def _setup_references(self):
         """
@@ -536,6 +550,7 @@ class ReachHuman(SingleArmEnv):
         Resets simulation internal configurations.
         """
         super()._reset_internal()
+        self._override_controller()
 
         self.animation_start_time = 0
         self.low_level_time = 0
