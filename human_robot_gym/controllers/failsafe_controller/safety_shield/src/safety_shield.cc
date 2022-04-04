@@ -523,7 +523,7 @@ Motion SafetyShield::interpolateFromTrajectory(double s, double ds, double dds, 
 
 Motion SafetyShield::step(double cycle_begin_time) {
   //std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-  spdlog::info("Step called");
+  //spdlog::debug("Step called");
   cycle_begin_time_ = cycle_begin_time;
   try {
     // If the new LTT was processed at least once and is labeled safe, replace old LTT with new one.

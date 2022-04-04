@@ -260,8 +260,11 @@ class ReachHuman(SingleArmEnv):
         )
 
         # Override robot controller
-        self.use_failsafe = False
+        self.use_failsafe = True
         if self.use_failsafe:
+          self.robots[0].controller_config["kp"] = 10000
+          self.robots[0].controller_config["base_pos"] = self.robots[0].base_pos
+          self.robots[0].controller_config["base_orientation"] = self.robots[0].base_ori
           self.failsafe_controller = FailsafeController(**self.robots[0].controller_config)
         else:
           self.failsafe_controller = None
@@ -305,7 +308,7 @@ class ReachHuman(SingleArmEnv):
             self._update_observables()
             policy_step = False
             self.low_level_time += 1
-        
+        self._visualize_reachable_sets()
         # Note: this is done all at once to avoid floating point inaccuracies
         self.cur_time += self.control_timestep
 
@@ -571,7 +574,6 @@ class ReachHuman(SingleArmEnv):
             #for obj_pos, obj_quat, obj in object_placements.values():
             #    self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array(obj_quat)]))
         
-        
 
     def _control_human(self):
         """
@@ -621,6 +623,20 @@ class ReachHuman(SingleArmEnv):
             self.sim.data.set_joint_qpos(self.human.naming_prefix + joint_name, 
                 self.human_animations[self.human_animation_id][joint_name][animation_time])
 
+
+    def _visualize_reachable_sets(self):
+        """Visualize the robot and human reachable set.
+        """
+        if self.use_failsafe:
+            robot_capsules = self.robots[0].controller.get_robot_capsules()
+            for cap in robot_capsules:
+                self.viewer.viewer.add_marker(pos=cap.pos, type=3, size=cap.size, mat=cap.mat.flatten(), rgba=[0.0, 0.0, 1.0, 0.2], label="", shininess=0.0)
+            human_capsules = self.robots[0].controller.get_human_capsules()
+            for cap in human_capsules:
+                self.viewer.viewer.add_marker(pos=cap.pos, type=3, size=cap.size, mat=cap.mat.flatten(), rgba=[0.0, 1.0, 0.0, 0.2], label="", shininess=0.0)
+            #self.viewer.viewer.add_marker(pos=np.array([-0.5, 0, 1.5]), type=3, size=[0.1, 0.1, 0.7], mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], rgba=[0.0, 0.0, 1.0, 0.08], label="", shininess=0.0)
+
+
     @property
     def _visualizations(self):
         """
@@ -648,4 +664,4 @@ class ReachHuman(SingleArmEnv):
         # Color the gripper visualization site according to its distance to the goal
         ## TODO
         #if vis_settings["grippers"]:
-            #self._visualize_gripper_to_target(gripper=self.robots[0].gripper, target=self.cube)
+        #self._visualize_gripper_to_target(gripper=self.robots[0].gripper, target=self.cube)
