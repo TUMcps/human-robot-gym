@@ -240,6 +240,16 @@ class SafetyShield {
    */
   double cycle_begin_time_;
 
+  //////// Reachable sets of human and robot //////
+  /**
+   * @brief Vector of robot reachable set capsules (get updated in every step()).
+   */
+  std::vector<reach_lib::Capsule> robot_capsules_;
+
+  /**
+   * @brief Vector of human reachable set capsules (get updated in every step()).
+   */
+  std::vector<std::vector<reach_lib::Capsule>> human_capsules_;
 
   //////// For replanning new trajectory //////
   /**
@@ -337,6 +347,27 @@ class SafetyShield {
    */
   LongTermTraj calculateLongTermTrajectory(const std::vector<double>& start_q, const std::vector<double> start_dq, const std::vector<double> start_ddq,
       const std::vector<double>& goal_q, const std::vector<double> goal_dq);
+
+  /**
+   * @brief Convert a capsule to a vector containing [p1.x, p1.y, p1.z, p2.x, p2.y, p2.z, r]
+   * p1: Center point of half sphere 1
+   * p2: Center point of half sphere 2
+   * r: Radius of half spheres and cylinder
+   * 
+   * @param cap Capsule
+   * @return std::vector<double> 
+   */
+  inline std::vector<double> convertCapsule(const reach_lib::Capsule& cap) {
+    std::vector<double> capsule(7);
+    capsule[0] = cap.p1_.x;
+    capsule[1] = cap.p1_.y;
+    capsule[2] = cap.p1_.z;
+    capsule[3] = cap.p2_.x;
+    capsule[4] = cap.p2_.y;
+    capsule[5] = cap.p2_.z;
+    capsule[6] = cap.r_;
+    return capsule;
+  }
  
  public:
   /**
@@ -441,6 +472,41 @@ class SafetyShield {
       converted_vec.push_back(reach_lib::Point(human_measurement[i][0], human_measurement[i][1], human_measurement[i][2]));
     }
     humanMeasurement(converted_vec, time);
+  }
+
+  /**
+   * @brief Get the Robot Reach Capsules as a vector of [p1[0:3], p2[0:3], r]
+   * p1: Center point of half sphere 1
+   * p2: Center point of half sphere 2
+   * r: Radius of half spheres and cylinder
+   * 
+   * @return std::vector<std::vector<double>> Capsules
+   */
+  inline std::vector<std::vector<double>> getRobotReachCapsules() {
+    std::vector<std::vector<double>> capsules( robot_capsules_.size() , std::vector<double> (7));
+    for (int i = 0; i < robot_capsules_.size(); i++) {
+      capsules[i] = convertCapsule(robot_capsules_[i]);
+    }
+    return capsules;
+  }
+
+  /**
+   * @brief Get the Human Reach Capsules as a vector of [p1[0:3], p2[0:3], r]
+   * p1: Center point of half sphere 1
+   * p2: Center point of half sphere 2
+   * r: Radius of half spheres and cylinder
+   * 
+   * @param type Type of capsule. Select 0 for POS, 1 for VEL, and 2 for ACCEL
+   * 
+   * @return std::vector<std::vector<double>> Capsules
+   */
+  inline std::vector<std::vector<double>> getHumanReachCapsules(int type=1) {
+    assert(type >= 0 && type <= human_capsules_.size());
+    std::vector<std::vector<double>> capsules( human_capsules_[type].size() , std::vector<double> (7));
+    for (int i = 0; i < human_capsules_[type].size(); i++) {
+      capsules[i] = convertCapsule(human_capsules_[type][i]);
+    }
+    return capsules;
   }
 
   /**

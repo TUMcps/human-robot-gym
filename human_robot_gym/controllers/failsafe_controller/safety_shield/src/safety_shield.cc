@@ -572,23 +572,23 @@ Motion SafetyShield::step(double cycle_begin_time) {
     //std::chrono::steady_clock::time_point calc_path = std::chrono::steady_clock::now();
     if (activate_shield_) {
       // Compute the robot reachable set for the potential trajectory
-      std::vector<reach_lib::Capsule> robot_capsules = robot_reach_->reach(current_motion, goal_motion, (goal_motion.getS()-current_motion.getS()), alpha_i_);
+      robot_capsules_ = robot_reach_->reach(current_motion, goal_motion, (goal_motion.getS()-current_motion.getS()), alpha_i_);
       // Compute the human reachable sets for the potential trajectory
       // TODO: Right now goal motion has as time the breaking time of the motion. Change this to current time + breaking time
       human_reach_->humanReachabilityAnalysis(cycle_begin_time_, goal_motion.getTime());
-      std::vector<std::vector<reach_lib::Capsule>> human_capsules = human_reach_->getAllCapsules();
+      human_capsules_ = human_reach_->getAllCapsules();
       // TODO: Visualize human caps
       // Verify if the robot and human reachable sets are collision free
-      is_safe_ = verify_->verify_human_reach(robot_capsules, human_capsules);
+      is_safe_ = verify_->verify_human_reach(robot_capsules_, human_capsules_);
     } else {
       is_safe_ = true;
     }
     //std::chrono::steady_clock::time_point verify_path = std::chrono::steady_clock::now();
     // Select the next motion based on the verified safety
     next_motion_ = determineNextMotion(is_safe_);
+    next_motion_.setTime(cycle_begin_time);
     //std::chrono::steady_clock::time_point publish_path = std::chrono::steady_clock::now();
     new_ltt_processed_ = true;
-    spdlog::info("Next motion get Time: {}", next_motion_.getTime());
     return next_motion_;
   } catch (const std::exception &exc) {
     spdlog::error("Exception in SafetyShield::getNextCycle: {}", exc.what());
