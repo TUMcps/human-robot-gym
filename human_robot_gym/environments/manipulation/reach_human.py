@@ -260,9 +260,12 @@ class ReachHuman(SingleArmEnv):
         )
 
         # Override robot controller
-        self.failsafe_controller = FailsafeController(**self.robots[0].controller_config)
+        self.use_failsafe = False
+        if self.use_failsafe:
+          self.failsafe_controller = FailsafeController(**self.robots[0].controller_config)
+        else:
+          self.failsafe_controller = None
         self._override_controller()
-        stop = 0
 
     def step(self, action):
         """
