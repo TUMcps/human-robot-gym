@@ -128,8 +128,8 @@ class FailsafeController(JointPositionController):
         self.safety_shield = SafetyShield(
           activate_shield = True,
           sample_time = 0.004,
-          trajectory_config_file = dir_path + "/../safety_shield/config/trajectory_parameters_modrob1.yaml",
-          robot_config_file = dir_path + "/../safety_shield/config/robot_parameters_modrob1.yaml",
+          trajectory_config_file = dir_path + "/../safety_shield/config/trajectory_parameters_schunk.yaml",
+          robot_config_file = dir_path + "/../safety_shield/config/robot_parameters_schunk.yaml",
           mocap_config_file = dir_path + "/../safety_shield/config/cmu_mocap_no_hand.yaml",
           init_x = 0.0,
           init_y = 0.0,
