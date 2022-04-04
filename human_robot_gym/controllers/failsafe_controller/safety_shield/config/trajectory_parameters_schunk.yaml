@@ -1,27 +1,19 @@
 robot_name: "schunk"
-sample_time: 0.004
 
-#failsafe information
-buffer_time: 0.5
+# Failsafe information
 max_s_stop: 0.2
 v_max_allowed: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 a_max_allowed: [10, 10, 10, 10, 10, 10]
 j_max_allowed: [400, 400, 400, 400, 400, 400]
-# How are these defined?
-a_max_traj: [2, 2, 2, 2, 2, 2]
-j_max_traj: [15, 15, 15, 15, 15, 15]
+# Maximum long-term planning acc / jerk
+a_max_ltt: [2, 2, 2, 2, 2, 2]
+j_max_ltt: [15, 15, 15, 15, 15, 15]
 
 nb_joints: 6
 
-q1:
-- 0.000000000000
-q2:
-- 0.000000000000
-q3:
-- 0.000000000000
-q4:
-- 0.000000000000
-q5:
-- 0.000000000000
-q6:
-- 0.000000000000
+q1: [0.0]
+q2: [0.0]
+q3: [0.0]
+q4: [0.0]
+q5: [0.0]
+q6: [0.0]
