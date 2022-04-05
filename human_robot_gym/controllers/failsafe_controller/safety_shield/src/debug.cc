@@ -40,19 +40,21 @@ int main () {
     // Dummy human measurement
     std::vector<reach_lib::Point> dummy_human_meas(21);
     for (int i=0; i<21; i++) {
-      dummy_human_meas[i] = reach_lib::Point(0.0, 0.0, 0.0);
+      dummy_human_meas[i] = reach_lib::Point(10.0, 10.0, 0.0);
     }
-    // Dummy goal motion
-    safety_shield::Motion dummy_goal_motion(6);
-    
+
     //auto start_time = std::chrono::system_clock::now();
     //double t = std::chrono::duration<double>(std::chrono::system_clock::now()-start_time).count();
     double t = 0.0;
-    for (int i=0; i<100; i++) {
+    for (int i=0; i<10000; i++) {
       t += 0.001;
       shield.humanMeasurement(dummy_human_meas, t);
       t += 0.003;
-      shield.newLongTermTrajectory(dummy_goal_motion);
+      if (i % 100 == 0) {
+        std::vector<double> motion_vec{0.2*t, 0.0, 0.0, 0.0, 0.0, std::min(t, 3.1)};
+        safety_shield::Motion goal_motion(t, motion_vec);
+        shield.newLongTermTrajectory(goal_motion);
+      }
       shield.step(t);
     }
     return 0;

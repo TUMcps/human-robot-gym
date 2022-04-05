@@ -89,6 +89,8 @@ SafetyShield::SafetyShield(bool activate_shield,
     ////////////// Setting trajectory variables
     YAML::Node trajectory_config = YAML::LoadFile(trajectory_config_file);
     max_s_stop_ = trajectory_config["max_s_stop"].as<double>();
+    q_min_allowed_ = trajectory_config["q_min_allowed"].as<std::vector<double>>();
+    q_max_allowed_ = trajectory_config["q_max_allowed"].as<std::vector<double>>();
     v_max_allowed_ = trajectory_config["v_max_allowed"].as<std::vector<double>>();
     a_max_allowed_ = trajectory_config["a_max_allowed"].as<std::vector<double>>();
     j_max_allowed_ = trajectory_config["j_max_allowed"].as<std::vector<double>>();
@@ -430,6 +432,15 @@ Motion SafetyShield::computesPotentialTrajectory(bool v, const std::vector<doubl
   }
 }
 
+bool SafetyShield::checkMotionForJointLimits(Motion& motion) {
+  for (int i = 0; i < nb_joints_; i++) {
+    if (motion.getAngle()[i] < q_min_allowed_[i] || motion.getAngle()[i] > q_max_allowed_[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 
 Motion SafetyShield::determineNextMotion(bool is_safe) {
   Motion next_motion;
@@ -494,10 +505,6 @@ Motion SafetyShield::interpolateFromTrajectory(double s, double ds, double dds, 
     for (int i = 0 ; i < nb_joints_; i++) {
       // Linearly interpolate between lower and upper index of position
       double q_clamped = q1[i] + ind_mod * (q2[i] - q1[i]);
-      if (q_clamped < -max_q || q_clamped > max_q) {
-        spdlog::warn("Interpolated q value is outside of -pi and pi. q1 = {}, q2 = {}, ind_mod = {}.", q1[i], q2[i], ind_mod);
-        q_clamped = std::clamp(q_clamped, -max_q, max_q);
-      }
       q.push_back(q_clamped);
       // Calculate LTT velocity
       double v_max_int = (q2[i] - q1[i])/sample_time_;
@@ -522,8 +529,6 @@ Motion SafetyShield::interpolateFromTrajectory(double s, double ds, double dds, 
 }
 
 Motion SafetyShield::step(double cycle_begin_time) {
-  //std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-  //spdlog::debug("Step called");
   cycle_begin_time_ = cycle_begin_time;
   try {
     // If the new LTT was processed at least once and is labeled safe, replace old LTT with new one.
@@ -569,25 +574,26 @@ Motion SafetyShield::step(double cycle_begin_time) {
     }
     // Compute a new potential trajectory
     Motion goal_motion = computesPotentialTrajectory(is_safe_, next_motion_.getVelocity());
-    //std::chrono::steady_clock::time_point calc_path = std::chrono::steady_clock::now();
     if (activate_shield_) {
-      // Compute the robot reachable set for the potential trajectory
-      robot_capsules_ = robot_reach_->reach(current_motion, goal_motion, (goal_motion.getS()-current_motion.getS()), alpha_i_);
-      // Compute the human reachable sets for the potential trajectory
-      // TODO: Right now goal motion has as time the breaking time of the motion. Change this to current time + breaking time
-      human_reach_->humanReachabilityAnalysis(cycle_begin_time_, goal_motion.getTime());
-      human_capsules_ = human_reach_->getAllCapsules();
-      // TODO: Visualize human caps
-      // Verify if the robot and human reachable sets are collision free
-      is_safe_ = verify_->verify_human_reach(robot_capsules_, human_capsules_);
+      // Check motion for joint limits
+      if (!checkMotionForJointLimits(goal_motion)) {
+        is_safe_ = false;
+      } else {
+        // Compute the robot reachable set for the potential trajectory
+        robot_capsules_ = robot_reach_->reach(current_motion, goal_motion, (goal_motion.getS()-current_motion.getS()), alpha_i_);
+        // Compute the human reachable sets for the potential trajectory
+        // humanReachabilityAnalysis(t_command, t_brake)
+        human_reach_->humanReachabilityAnalysis(cycle_begin_time_, goal_motion.getTime());
+        human_capsules_ = human_reach_->getAllCapsules();
+        // Verify if the robot and human reachable sets are collision free
+        is_safe_ = verify_->verify_human_reach(robot_capsules_, human_capsules_);
+      }
     } else {
       is_safe_ = true;
     }
-    //std::chrono::steady_clock::time_point verify_path = std::chrono::steady_clock::now();
     // Select the next motion based on the verified safety
     next_motion_ = determineNextMotion(is_safe_);
     next_motion_.setTime(cycle_begin_time);
-    //std::chrono::steady_clock::time_point publish_path = std::chrono::steady_clock::now();
     new_ltt_processed_ = true;
     return next_motion_;
   } catch (const std::exception &exc) {
@@ -622,7 +628,7 @@ void SafetyShield::newLongTermTrajectory(Motion& goal_motion) {
     motion_dq.reserve(nb_joints_); 
     for (int i = 0; i < nb_joints_; i++) {
       // TODO: replace with config max min values
-      motion_q.push_back(std::clamp(goal_motion.getAngle()[i], -max_q, max_q));
+      motion_q.push_back(std::clamp(goal_motion.getAngle()[i], q_min_allowed_[i], q_max_allowed_[i]));
       motion_dq.push_back(std::clamp(goal_motion.getVelocity()[i], -v_max_allowed_[i], v_max_allowed_[i]));
     }
     new_goal_motion_ = Motion(cycle_begin_time_, motion_q, motion_dq);

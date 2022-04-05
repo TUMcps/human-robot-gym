@@ -202,6 +202,7 @@ class FailsafeController(JointPositionController):
             raise NotImplementedError
             #self.interpolator.set_goal(self.goal_qpos)
         
+        print(self.goal_qpos)
         motion = Motion(0.0, self.goal_qpos)
         self.safety_shield.newLongTermTrajectory(motion)
 
@@ -233,8 +234,8 @@ class FailsafeController(JointPositionController):
         self.joint_pos_dbg[self.dbg_c] = self.joint_pos
         self.dbg_c+=1
         if self.dbg_c == 1000:
-          plt.plot(np.arange(0, self.dbg_c), self.desired_pos_dbg[0:self.dbg_c, 1], label='desired pos')
-          plt.plot(np.arange(0, self.dbg_c), self.joint_pos_dbg[0:self.dbg_c, 1], label='joint pos')
+          plt.plot(np.arange(0, self.dbg_c), self.desired_pos_dbg[0:self.dbg_c, 5], label='desired pos')
+          plt.plot(np.arange(0, self.dbg_c), self.joint_pos_dbg[0:self.dbg_c, 5], label='joint pos')
           plt.xlabel("Step")
           plt.ylabel("Angle [rad]")
           plt.legend()

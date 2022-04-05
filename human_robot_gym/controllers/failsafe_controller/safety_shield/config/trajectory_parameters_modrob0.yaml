@@ -3,6 +3,8 @@ max_s_stop: 0.2
 
 # Failsafe information
 max_s_stop: 0.2
+q_min_allowed: [-3.1, -3.1, -3.1]
+q_max_allowed: [3.1, 3.1, 3.1]
 v_max_allowed: [1.0, 1.0, 1.0]
 a_max_allowed: [10, 10, 10]
 j_max_allowed: [400, 400, 400]

@@ -164,9 +164,14 @@ class SafetyShield {
   int sliding_window_k_;
 
   /**
-   * @brief Max angle (absolute)
+   * @brief Minimum angle (absolute)
    */
-  const double max_q = 3.1;
+  std::vector<double> q_min_allowed_;
+
+  /**
+   * @brief Maximum angle (absolute)
+   */
+  std::vector<double> q_max_allowed_;
 
   /**
    * @brief maximum velocity allowed
@@ -315,6 +320,15 @@ class SafetyShield {
    * @return next motion
    */
   Motion determineNextMotion(bool is_safe);
+
+  /**
+   * @brief Check a given motion if it exceeds the joint limits.
+   * 
+   * @param motion Motion to check
+   * @return true if path does NOT exceed joint limits
+   * @return false if path exceeds joint limits
+   */
+  bool checkMotionForJointLimits(Motion& motion);
 
   /**
    * @brief round a continuous time to a timestep
