@@ -31,16 +31,27 @@ To adapt our APIs to be compatible with OpenAI Gym's style, this script
 demonstrates how this can be easily achieved by using the GymWrapper.
 """
 
+import imp
 import robosuite as suite
 import time
 import numpy as np
 from robosuite.wrappers import GymWrapper
 from human_robot_gym.environments.manipulation.reach_human import ReachHuman
 import human_robot_gym.robots
+from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
+from robosuite.controllers import controller_factory, load_controller_config
 
 if __name__ == "__main__":
 
     # Notice how the environment is wrapped by the wrapper
+    controller_config = dict()
+    controller_conig_path = file_path_completion("controllers/failsafe_controller/config/failsafe.json")
+    robot_conig_path = file_path_completion("/home/jakob/Promotion/code/human-robot-gym/human_robot_gym/models/robots/config/schunk.json")
+    controller_config = load_controller_config(custom_fpath=controller_conig_path)
+    robot_config = load_controller_config(custom_fpath=robot_conig_path)
+    controller_config = merge_configs(controller_config, robot_config)
+    controller_configs = [controller_config]
+
     env = GymWrapper(
         suite.make(
             "ReachHuman",
@@ -51,7 +62,8 @@ if __name__ == "__main__":
             render_camera=None,
             reward_shaping=True,  # use dense rewards
             control_freq=20,  # control should happen fast enough so that simulation looks smooth
-            hard_reset=False
+            hard_reset=False,
+            controller_configs=controller_configs
         )
     )
 
@@ -60,7 +72,7 @@ if __name__ == "__main__":
         t1 = time.time()
         for t in range(1000):
             env.render()
-            action = np.array([0, 1, 0, 0, 0, 0, 0]) #env.action_space.sample()
+            action = np.array([0, 0, 0, 0, 0, 1, 0]) #env.action_space.sample()
             observation, reward, done, info = env.step(action)
             if done:
                 print("Episode finished after {} timesteps".format(t + 1))

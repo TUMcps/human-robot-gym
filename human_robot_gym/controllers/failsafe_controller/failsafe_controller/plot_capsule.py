@@ -51,7 +51,7 @@ class PlotCapsule:
         rot = Rotation.from_quat([x, y, z, w])
         self.mat = np.array(rot.as_matrix())
       else:
-        self.size = [0.0, 0.0, 0.0]
+        self.size = [r, r, 0.00001]
         self.mat = np.eye(3)
 
 

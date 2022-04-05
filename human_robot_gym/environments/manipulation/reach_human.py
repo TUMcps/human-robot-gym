@@ -262,7 +262,6 @@ class ReachHuman(SingleArmEnv):
         # Override robot controller
         self.use_failsafe = True
         if self.use_failsafe:
-          self.robots[0].controller_config["kp"] = 10000
           self.robots[0].controller_config["base_pos"] = self.robots[0].base_pos
           self.robots[0].controller_config["base_orientation"] = self.robots[0].base_ori
           self.failsafe_controller = FailsafeController(**self.robots[0].controller_config)

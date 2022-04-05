@@ -1,4 +1,4 @@
-import imp
+import os
 from robosuite.environments.base import make
 
 from .controllers.failsafe_controller.failsafe_controller.failsafe_controller import FailsafeController
@@ -30,3 +30,5 @@ __logo__ = """
   .                                 .   
                                         
 """
+
+human_robot_gym_root = os.path.dirname(__file__)
