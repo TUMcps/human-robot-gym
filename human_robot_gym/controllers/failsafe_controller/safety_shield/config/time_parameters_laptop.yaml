@@ -1,9 +1,0 @@
-step_control: false
-initial_max_update_rate: 8000
-speed_factor: 0.1
-max_max_update_rate: 10000
-max_delay_time: 0.5
-first_reduction_after: 10
-time_between_reductions: 1
-time_between_speedups: 10
-n_delays_queue: 20

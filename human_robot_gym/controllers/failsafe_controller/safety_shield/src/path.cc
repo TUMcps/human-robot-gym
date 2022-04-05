@@ -47,7 +47,6 @@ void Path::getFinalMotion(double& final_pos, double& final_vel, double& final_ac
   final_acc = acc_;
   double l_time = 0;
   for (int i = 0; i < 3; i++){
-    //ROS_DEBUG_STREAM("Get Final Motion iteration " << i << " pos = " << pos << " vel = " << vel << " acc = " << acc << " phases["<< i << "] = " << phases[i] << " phases["<< i+3 << "] = " << phases[i+3]);
     double dt = (phases_[i]-l_time);
     final_pos += final_vel*dt + final_acc*dt*dt/2 + phases_[i+3]*dt*dt*dt/6;
     final_vel += final_acc*dt + phases_[i+3]*dt*dt/2;
