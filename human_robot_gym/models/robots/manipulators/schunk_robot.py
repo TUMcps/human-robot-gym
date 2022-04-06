@@ -25,7 +25,7 @@ class Schunk(ManipulatorModel):
 
     @property
     def default_gripper(self):
-        return "PandaGripper"
+        return "RethinkGripper"
 
     @property
     def default_controller_config(self):

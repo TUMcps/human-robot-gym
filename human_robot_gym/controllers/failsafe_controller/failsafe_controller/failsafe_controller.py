@@ -155,9 +155,11 @@ class FailsafeController(JointPositionController):
         self.human_capsules = []
 
         # Debug path following
+        """
         self.desired_pos_dbg = np.zeros([1000, 6])
         self.joint_pos_dbg = np.zeros([1000, 6])
         self.dbg_c = 0
+        """
 
     def set_goal(self, action, set_qpos=None):
         """
@@ -230,17 +232,19 @@ class FailsafeController(JointPositionController):
         self.desired_motion = self.safety_shield.step(current_time)
         desired_qpos = self.desired_motion.getAngle()
         # Debug path following 
+        """
         self.desired_pos_dbg[self.dbg_c] = desired_qpos
         self.joint_pos_dbg[self.dbg_c] = self.joint_pos
         self.dbg_c+=1
         if self.dbg_c == 1000:
-          plt.plot(np.arange(0, self.dbg_c), self.desired_pos_dbg[0:self.dbg_c, 5], label='desired pos')
-          plt.plot(np.arange(0, self.dbg_c), self.joint_pos_dbg[0:self.dbg_c, 5], label='joint pos')
+          plt.plot(np.arange(0, self.dbg_c), self.desired_pos_dbg[0:self.dbg_c, 0], label='desired pos')
+          plt.plot(np.arange(0, self.dbg_c), self.joint_pos_dbg[0:self.dbg_c, 0], label='joint pos')
           plt.xlabel("Step")
           plt.ylabel("Angle [rad]")
           plt.legend()
           plt.show()
           self.dbg_c=0
+        """
 
         # torques = pos_err * kp + vel_err * kd
         position_error = desired_qpos - self.joint_pos
