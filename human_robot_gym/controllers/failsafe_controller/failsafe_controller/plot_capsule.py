@@ -44,11 +44,14 @@ class PlotCapsule:
         a_z = 0
         a_w = 1 + v2_z/norm
         norm_q = math.sqrt(math.pow(a_w, 2) + math.pow(a_x, 2) + math.pow(a_y, 2) + math.pow(a_z, 2))
-        w = a_w/norm_q
-        x = a_x/norm_q
-        y = a_y/norm_q
-        z = a_z/norm_q
-        rot = Rotation.from_quat([x, y, z, w])
+        if norm_q > 1e-6:
+          w = a_w/norm_q
+          x = a_x/norm_q
+          y = a_y/norm_q
+          z = a_z/norm_q
+          rot = Rotation.from_quat([x, y, z, w])
+        else:
+          rot = Rotation.from_quat([0, 0, 0, 1])
         self.mat = np.array(rot.as_matrix())
       else:
         self.size = [r, r, 0.00001]

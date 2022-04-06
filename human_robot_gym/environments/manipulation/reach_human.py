@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from ntpath import join
 from typing import Dict, Union, List
 
 import numpy as np
@@ -161,7 +162,7 @@ class ReachHuman(SingleArmEnv):
         render_collision_mesh=False,
         render_visual_mesh=True,
         render_gpu_device_id=-1,
-        control_freq=20,
+        control_freq=10,
         horizon=1000,
         ignore_done=False,
         hard_reset=True,
@@ -174,6 +175,7 @@ class ReachHuman(SingleArmEnv):
         renderer_config=None,
     ):
         self.failsafe_controller = None
+        self.control_sample_time = 0.004
         # settings for table top
         self.table_full_size = table_full_size
         self.table_friction = table_friction
@@ -264,6 +266,7 @@ class ReachHuman(SingleArmEnv):
         if self.use_failsafe:
           self.robots[0].controller_config["base_pos"] = self.robots[0].base_pos
           self.robots[0].controller_config["base_orientation"] = self.robots[0].base_ori
+          self.robots[0].controller_config["control_sample_time"] = self.control_sample_time
           self.failsafe_controller = FailsafeController(**self.robots[0].controller_config)
         else:
           self.failsafe_controller = None
@@ -297,13 +300,17 @@ class ReachHuman(SingleArmEnv):
 
         # Loop through the simulation at the model timestep rate until we're ready to take the next policy step
         # (as defined by the control frequency specified at the environment level)
-        for i in range(int(self.control_timestep / self.model_timestep)):
+        for i in range(int(self.control_timestep / self.control_sample_time)):
             self._control_human()
             self.sim.forward()
+            self._human_measurement()
+            self._set_human_measurement(self.human_measurement, self.sim.data.time)
             # The first step i=0 is a policy step, the rest not.
             # Only in a policy step, set_goal of controller will be called.
             self._pre_action(action, policy_step)
-            self.sim.step()
+            # Step the simulation n times
+            for n in range(int(self.control_sample_time/self.model_timestep)):
+              self.sim.step()
             self._update_observables()
             policy_step = False
             self.low_level_time += 1
@@ -491,6 +498,17 @@ class ReachHuman(SingleArmEnv):
         if self.failsafe_controller is not None:
             self.robots[0].controller = self.failsafe_controller
 
+    def _set_human_measurement(self, human_measurement, time):
+        """Set the human measurement in the failsafe controller.
+        
+        Args:
+          human_measurement (list[list[double]]): List of human measurements [x, y, z]-joint positions.
+              The order of joints is defined in `human.py`
+          time (double): Current time
+        """
+        if self.failsafe_controller is not None:
+            self.robots[0].controller.set_human_measurement(human_measurement, time)
+
     def _setup_references(self):
         """
         Sets up references to important components. A reference is typically an
@@ -498,22 +516,12 @@ class ReachHuman(SingleArmEnv):
         in a flatten array, which is how MuJoCo stores physical simulation data.
         """
         super()._setup_references()
+        if self.control_sample_time % self.model_timestep != 0:
+          self.control_sample_time = math.floor(self.control_sample_time/self.model_timestep) * self.model_timestep
 
-        self.model_freq = int(1/self.model_timestep)
-        self.human_animation_step_length = self.model_freq/self.human_animation_freq
+        control_freq = int(1/self.control_sample_time)
+        self.human_animation_step_length = control_freq/self.human_animation_freq
         assert self.human_animation_step_length >= 1, "No human animation frequency faster than {} Hz is allowed".format(self.model_freq)
-                
-        #self.human.reset_sim(self.sim)
-        #self.human.setup_references()
-        # Additional object references from this env
-        """
-        self.object_body_ids = dict()
-        self.object_body_ids["L_Shoulder"] = self.sim.model.body_name2id(self.human.L_Shoulder)
-        self.object_body_ids["L_Elbow"] = self.sim.model.body_name2id(self.human.L_Elbow)
-        self.object_body_ids["L_Wrist"] = self.sim.model.body_name2id(self.human.L_Wrist)
-        self.object_body_ids["L_Hand"] = self.sim.model.body_name2id(self.human.L_Hand)
-        """
-        #self.joint_qpos_adrs = [self.sim.model.get_joint_qpos_addr(self.human.joints[0])]
 
 
     def _setup_observables(self):
@@ -549,6 +557,7 @@ class ReachHuman(SingleArmEnv):
                 )
 
         return observables
+
 
     def _reset_internal(self):
         """
@@ -622,6 +631,13 @@ class ReachHuman(SingleArmEnv):
             self.sim.data.set_joint_qpos(self.human.naming_prefix + joint_name, 
                 self.human_animations[self.human_animation_id][joint_name][animation_time])
 
+    def _human_measurement(self):
+        """
+        Retrieve the human measurements and save them to self.human_measurement.
+        """ 
+        self.human_measurement = [self.sim.data.get_site_xpos("Human_" + joint_element)
+                                    for joint_element in self.human.joint_elements]
+
 
     def _visualize_reachable_sets(self):
         """Visualize the robot and human reachable set.
@@ -633,6 +649,38 @@ class ReachHuman(SingleArmEnv):
             human_capsules = self.robots[0].controller.get_human_capsules()
             for cap in human_capsules:
                 self.viewer.viewer.add_marker(pos=cap.pos, type=3, size=cap.size, mat=cap.mat.flatten(), rgba=[0.0, 1.0, 0.0, 0.2], label="", shininess=0.0)
+            for joint_element in self.human.joint_elements:
+                pos = self.sim.data.get_site_xpos("Human_" + joint_element)
+                self.viewer.viewer.add_marker(pos=pos, type=2, size=[0.05, 0.05, 0.05], mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], rgba=[1.0, 0.0, 0.0, 1.0], label="", shininess=0.0)
+            
+                #mat = self.sim.data.get_site_xmat("Human_" + joint_element)
+                #marker_pos = np.reshape(np.matmul(mat, pos), [3])
+            #control_time = math.floor(self.low_level_time/self.human_animation_step_length)
+            #animation_time = control_time - self.animation_start_time
+            """
+            marker_pos_pelvis = np.array(self.sim.data.get_site_xpos("Human_Pelvis"))
+            self.viewer.viewer.add_marker(pos=marker_pos_pelvis, type=2, size=[0.1, 0.1, 0.1], mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], rgba=[1.0, 0.0, 0.0, 1.0], label="", shininess=0.0)
+            marker_pos_torso = np.array(self.sim.data.get_site_xpos("Human_Torso"))
+            #torso_animation = [self.human_animations[self.human_animation_id]["Torso" + '_x'][animation_time], self.human_animations[self.human_animation_id]["Torso" + '_y'][animation_time], self.human_animations[self.human_animation_id]["Torso" + '_z'][animation_time]]
+            self.viewer.viewer.add_marker(pos=marker_pos_torso, type=2, size=[0.1, 0.1, 0.1], mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], rgba=[0.0, 0.0, 1.0, 1.0], label="", shininess=0.0)
+            marker_pos_l_hip = np.array(self.sim.data.get_site_xpos("Human_L_Hip"))
+            animation_offset_rot = Rotation.from_quat(self.animation_info[self.human_animation_names[self.human_animation_id]]["orientation_quat"])
+            human_rot = self.human_base_quat.__mul__(animation_offset_rot)
+            diff_L_Hip = [0.0677, -0.3147, 0.0214]
+            rot_diff_L_Hip = human_rot.apply(diff_L_Hip)
+            marker_pos_l_hip_t = marker_pos_l_hip + rot_diff_L_Hip
+            #marker_pos_l_hip[0] -= 0.0214
+            #marker_pos_l_hip[1] -= 0.0677
+            #marker_pos_l_hip[2] += -0.3147
+            #marker_pos_diff = marker_pos_pelvis-marker_pos_l_hip
+            #marker_pos_l_hip = [marker_pos_pelvis[0] + marker_pos_diff[1], marker_pos_pelvis[1] - marker_pos_diff[2], marker_pos_pelvis[2] + marker_pos_diff[0]]
+            #l_hip_animation = [self.human_animations[self.human_animation_id]["L_Hip" + '_x'][animation_time], self.human_animations[self.human_animation_id]["L_Hip" + '_y'][animation_time], self.human_animations[self.human_animation_id]["L_Hip" + '_z'][animation_time]]
+            self.viewer.viewer.add_marker(pos=marker_pos_l_hip, type=2, size=[0.1, 0.1, 0.1], mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], rgba=[0.0, 1.0, 0.0, 1.0], label="", shininess=0.0)
+            marker_pos_l_knee = np.array(self.sim.data.get_site_xpos("Human_L_Knee"))
+            self.viewer.viewer.add_marker(pos=marker_pos_l_knee, type=2, size=[0.1, 0.1, 0.1], mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], rgba=[0.0, 1.0, 0.0, 1.0], label="", shininess=0.0)
+            marker_pos_l_ankle = np.array(self.sim.data.get_site_xpos("Human_L_Ankle"))
+            """
+            stop=0
             #self.viewer.viewer.add_marker(pos=np.array([-0.5, 0, 1.5]), type=3, size=[0.1, 0.1, 0.7], mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], rgba=[0.0, 0.0, 1.0, 0.08], label="", shininess=0.0)
 
 

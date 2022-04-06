@@ -77,6 +77,8 @@ class FailsafeController(JointPositionController):
 
         policy_freq (int): Frequency at which actions from the robot policy are fed into this controller
 
+        control_sample_time (double): time in between two low-level controller steps
+
         qpos_limits (2-list of float or 2-list of Iterable of floats): Limits (rad) below and above which the magnitude
             of a calculated goal joint position will be clipped. Can be either be a 2-list (same min/max value for all
             joint dims), or a 2-list of list (specific min/max values for each dim)
@@ -109,6 +111,7 @@ class FailsafeController(JointPositionController):
         kp_limits=(0, 300),
         damping_ratio_limits=(0, 100),
         policy_freq=20,
+        control_sample_time=0.004,
         qpos_limits=None,
         interpolator=None,
         **kwargs,  # does nothing; used so no error raised when dict is passed with extra terms used previously
@@ -139,10 +142,10 @@ class FailsafeController(JointPositionController):
         rpy = rot.as_euler('XYZ')
         self.safety_shield = SafetyShield(
           activate_shield = True,
-          sample_time = 0.004,
+          sample_time = control_sample_time,
           trajectory_config_file = dir_path + "/../safety_shield/config/trajectory_parameters_schunk.yaml",
           robot_config_file = dir_path + "/../safety_shield/config/robot_parameters_schunk.yaml",
-          mocap_config_file = dir_path + "/../safety_shield/config/cmu_mocap_no_hand.yaml",
+          mocap_config_file = dir_path + "/../safety_shield/config/mujoco_mocap.yaml",
           init_x = base_pos[0],
           init_y = base_pos[1],
           init_z = base_pos[2],
@@ -204,9 +207,18 @@ class FailsafeController(JointPositionController):
             raise NotImplementedError
             #self.interpolator.set_goal(self.goal_qpos)
         
-        print(self.goal_qpos)
         motion = Motion(0.0, self.goal_qpos)
         self.safety_shield.newLongTermTrajectory(motion)
+
+    def set_human_measurement(self, human_measurement, time):
+        """Set the human measurement of the safety shield.
+        
+        Args:
+          human_measurement (list[list[double]]): List of human measurements [x, y, z]-joint positions.
+              The order of joints is defined in the motion capture config file.
+          time (double): Time of the human measurement
+        """
+        self.safety_shield.humanMeasurement(human_measurement, time)
 
     def run_controller(self):
         """
@@ -221,14 +233,8 @@ class FailsafeController(JointPositionController):
 
         # Update state
         self.update()
-
-        # Update human measurement of safety shield
-        dummy_meas = []
-        for i in range(21):
-          dummy_meas.append([10.0, 10.0, 10.0])
-        self.safety_shield.humanMeasurement(dummy_meas, 0.0)
         
-        current_time = 0.004 # TODO: Get current time from self.sim !!!
+        current_time = self.sim.data.time
         self.desired_motion = self.safety_shield.step(current_time)
         desired_qpos = self.desired_motion.getAngle()
         # Debug path following 

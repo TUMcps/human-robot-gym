@@ -61,7 +61,7 @@ if __name__ == "__main__":
             has_renderer=True,  # make sure we can render to the screen
             render_camera=None,
             reward_shaping=True,  # use dense rewards
-            control_freq=20,  # control should happen fast enough so that simulation looks smooth
+            control_freq=10,  # control should happen fast enough so that simulation looks smooth
             hard_reset=False,
             controller_configs=controller_configs
         )
@@ -72,7 +72,7 @@ if __name__ == "__main__":
         t1 = time.time()
         for t in range(1000):
             env.render()
-            action = np.array([0.05, 0, 0, 0, 0, 0, 0]) #env.action_space.sample()
+            action = env.action_space.sample() #np.array([0, 0, 0, 0, 0, 0, 0]) 
             observation, reward, done, info = env.step(action)
             if done:
                 print("Episode finished after {} timesteps".format(t + 1))
