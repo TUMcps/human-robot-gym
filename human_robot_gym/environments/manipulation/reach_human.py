@@ -138,6 +138,18 @@ class ReachHuman(SingleArmEnv):
             [multiple / a single] segmentation(s) to use for all cameras. A list of list of str specifies per-camera
             segmentation setting(s) to use.
 
+        use_failsafe_controller (bool): Whether or not the safety shield / failsafe controller should be active
+
+        visualize_failsafe_controller (bool): Whether or not the reachable sets of the failsafe controller should be visualized
+
+        control_sample_time (double): Control frequency of the failsafe controller
+
+        human_animation_names (list[str]): Human animations to play
+
+        base_human_pos_offset (list[double]): Base human animation offset
+
+        human_animation_freq (double): Speed of the human animation in fps.
+
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
@@ -173,9 +185,15 @@ class ReachHuman(SingleArmEnv):
         camera_segmentations=None,  # {None, instance, class, element}
         renderer="mujoco",
         renderer_config=None,
+        use_failsafe_controller=True,
+        visualize_failsafe_controller=False,
+        control_sample_time=0.004,
+        human_animation_names=["62_01", "62_03", "62_03", "62_07", "62_09", "62_10", "62_12", "62_13", "62_14", "62_15", "62_16", "62_18", "62_19", "62_20", "62_21"],
+        base_human_pos_offset=[0.0, 0.0, 0.0],
+        human_animation_freq=120,
     ):
         self.failsafe_controller = None
-        self.control_sample_time = 0.004
+        self.control_sample_time = control_sample_time
         # settings for table top
         self.table_full_size = table_full_size
         self.table_friction = table_friction
@@ -192,21 +210,7 @@ class ReachHuman(SingleArmEnv):
         self.obj_names = ["Human"]
 
         # Human animation definition
-        self.human_animation_names = ["62_01", 
-                                "62_03", 
-                                "62_03", 
-                                "62_07", 
-                                "62_09", 
-                                "62_10", 
-                                "62_12", 
-                                "62_13", 
-                                "62_14", 
-                                "62_15", 
-                                "62_16", 
-                                "62_18", 
-                                "62_19", 
-                                "62_20", 
-                                "62_21",]
+        self.human_animation_names = human_animation_names
         self.animation_info = {}
         with open(xml_path_completion('human/animations/animation_info.json')) as json_file:
             self.animation_info = json.load(json_file)
@@ -223,10 +227,10 @@ class ReachHuman(SingleArmEnv):
             except Exception as e:
                 print("Error while loading human animation {}: {}".format(pkl_file, e))
         
-        self.base_human_pos_offset = [0.0, 0.0, 0.0]
+        self.base_human_pos_offset = base_human_pos_offset
         # Input to scipy: quat = [x, y, z, w]
-        self.human_base_quat = Rotation.from_quat([ 0.7071068, 0, 0, 0.7071068  ]) # Rotation.from_quat([ 0.0, 0.0, 0.0, 1  ])
-        self.human_animation_freq = 120
+        self.human_base_quat = Rotation.from_quat([ 0.7071068, 0, 0, 0.7071068  ])
+        self.human_animation_freq = human_animation_freq
         self.low_level_time = int(0)
         self.human_animation_id = 0
         self.animation_start_time = 0
@@ -262,9 +266,10 @@ class ReachHuman(SingleArmEnv):
         )
 
         # Override robot controller
-        self.use_failsafe = True
+        self.use_failsafe_controller = use_failsafe_controller
+        self.visualize_failsafe_controller = visualize_failsafe_controller
         #self.control_timestep = 0.004
-        if self.use_failsafe:
+        if self.use_failsafe_controller:
           self.robots[0].controller_config["base_pos"] = self.robots[0].base_pos
           self.robots[0].controller_config["base_orientation"] = self.robots[0].base_ori
           self.robots[0].controller_config["control_sample_time"] = self.control_sample_time
@@ -318,7 +323,9 @@ class ReachHuman(SingleArmEnv):
             self._update_observables()
             policy_step = False
             self.low_level_time += 1
-        self._visualize_reachable_sets()
+
+        if self.visualize_failsafe_controller:
+            self._visualize_reachable_sets()
         # Note: this is done all at once to avoid floating point inaccuracies
         self.cur_time += self.control_timestep
 
@@ -650,7 +657,7 @@ class ReachHuman(SingleArmEnv):
     def _visualize_reachable_sets(self):
         """Visualize the robot and human reachable set.
         """
-        if self.use_failsafe:
+        if self.use_failsafe_controller:
             robot_capsules = self.robots[0].controller.get_robot_capsules()
             for cap in robot_capsules:
                 self.viewer.viewer.add_marker(pos=cap.pos, type=3, size=cap.size, mat=cap.mat.flatten(), rgba=[0.0, 0.0, 1.0, 0.2], label="", shininess=0.0)
