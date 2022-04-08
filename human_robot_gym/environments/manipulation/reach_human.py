@@ -194,6 +194,8 @@ class ReachHuman(SingleArmEnv):
     ):
         self.failsafe_controller = None
         self.control_sample_time = control_sample_time
+        self.use_failsafe_controller = use_failsafe_controller
+        self.visualize_failsafe_controller = visualize_failsafe_controller
         # settings for table top
         self.table_full_size = table_full_size
         self.table_friction = table_friction
@@ -266,16 +268,7 @@ class ReachHuman(SingleArmEnv):
         )
 
         # Override robot controller
-        self.use_failsafe_controller = use_failsafe_controller
-        self.visualize_failsafe_controller = visualize_failsafe_controller
-        #self.control_timestep = 0.004
-        if self.use_failsafe_controller:
-          self.robots[0].controller_config["base_pos"] = self.robots[0].base_pos
-          self.robots[0].controller_config["base_orientation"] = self.robots[0].base_ori
-          self.robots[0].controller_config["control_sample_time"] = self.control_sample_time
-          self.failsafe_controller = FailsafeController(**self.robots[0].controller_config)
-        else:
-          self.failsafe_controller = None
+        self._create_new_controller()
         self._override_controller()
 
     def step(self, action):
@@ -504,6 +497,16 @@ class ReachHuman(SingleArmEnv):
             mujoco_objects=self.human,
         )
 
+    def _create_new_controller(self):
+        """Manually override the controller with the failsafe controller."""
+        if self.use_failsafe_controller:
+            self.robots[0].controller_config["base_pos"] = self.robots[0].base_pos
+            self.robots[0].controller_config["base_orientation"] = self.robots[0].base_ori
+            self.robots[0].controller_config["control_sample_time"] = self.control_sample_time
+            self.failsafe_controller = FailsafeController(**self.robots[0].controller_config)
+        else:
+            self.failsafe_controller = None
+
     def _override_controller(self):
         """Manually override the controller with the failsafe controller."""
         if self.failsafe_controller is not None:
@@ -575,6 +578,8 @@ class ReachHuman(SingleArmEnv):
         Resets simulation internal configurations.
         """
         super()._reset_internal()
+
+        self._create_new_controller()
         self._override_controller()
 
         self.animation_start_time = 0

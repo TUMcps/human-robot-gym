@@ -73,7 +73,6 @@ SafetyShield::SafetyShield(bool activate_shield,
     path_s_(0),
     path_s_discrete_(0)
   {
-    spdlog::info("Setting up safety shield.");
     ///////////// Build robot reach
     YAML::Node robot_config = YAML::LoadFile(robot_config_file);
     std::string robot_name = robot_config["robot_name"].as<std::string>();
@@ -87,7 +86,6 @@ SafetyShield::SafetyShield(bool activate_shield,
       init_x, init_y, init_z, 
       init_roll, init_pitch, init_yaw,
       secure_radius);
-    spdlog::info("Robot reach created.");
     ////////////// Setting trajectory variables
     YAML::Node trajectory_config = YAML::LoadFile(trajectory_config_file);
     max_s_stop_ = trajectory_config["max_s_stop"].as<double>();
@@ -113,7 +111,6 @@ SafetyShield::SafetyShield(bool activate_shield,
         long_term_traj.push_back(Motion(i*sample_time_, angles));
     }
     long_term_trajectory_ = LongTermTraj(long_term_traj);
-    spdlog::info("Long-term trajectory created.");
     //////////// Build human reach
     YAML::Node human_config = YAML::LoadFile(mocap_config_file);
     double measurement_error_pos = human_config["measurement_error_pos"].as<double>();
@@ -159,10 +156,8 @@ SafetyShield::SafetyShield(bool activate_shield,
       measurement_error_pos, 
       measurement_error_vel, 
       delay);
-    spdlog::info("Human reach created.");
     ///////////// Build verifier
     verify_ = new safety_shield::VerifyISO();
-    spdlog::info("Verification created.");
     /////////// Other settings
     sliding_window_k_ = (int) std::floor(max_s_stop_/sample_time_);
     std::vector<double> prev_dq;

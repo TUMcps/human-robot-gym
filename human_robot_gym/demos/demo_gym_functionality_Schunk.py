@@ -63,9 +63,10 @@ if __name__ == "__main__":
             reward_shaping=True,  # use dense rewards
             control_freq=10,  # control should happen fast enough so that simulation looks smooth
             hard_reset=False,
+            horizon=100,
             controller_configs=controller_configs,
             use_failsafe_controller=True,
-            visualize_failsafe_controller=False,
+            visualize_failsafe_controller=True,
         )
     )
 
