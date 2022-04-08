@@ -33,6 +33,12 @@ class RobotReach {
   int nb_joints_;
 
   /**
+   * @brief Expands the radius of the robot capsules by this amount to
+   *  account for measurement and modelling errors.
+   */
+  double secure_radius_;
+
+  /**
    * @brief List of transforamtion matrices from joint to joint (fixed description, not including joint movements)
    */
   std::vector<Eigen::Matrix4d> transformation_matrices_;
@@ -61,12 +67,15 @@ public:
    * @param roll initial roll of base
    * @param pitch initial pitch of base
    * @param yaw initial yaw of base
+   * @param secure_radius Expand the radius of the robot capsules by this amount to
+   *  account for measurement and modelling errors.
    */
   RobotReach(std::vector<double> transformation_matrices, 
       int nb_joints, 
       std::vector<double> geom_par, 
       double x, double y, double z, 
-      double roll, double pitch, double yaw);
+      double roll, double pitch, double yaw,
+      double secure_radius);
 
   /**
    *  @brief A robot destructor

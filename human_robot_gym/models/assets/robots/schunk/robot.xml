@@ -1,20 +1,20 @@
 <mujoco model="schunk_lwa4p">
     <actuator>
         <!-- Physical limits of the actuator. -->
-        <motor ctrllimited="true" ctrlrange="-180.0 180.0" joint="joint1" name="torq_j1"/>
-        <motor ctrllimited="true" ctrlrange="-180.0 180.0" joint="joint2" name="torq_j2"/>
-        <motor ctrllimited="true" ctrlrange="-180.0 180.0" joint="joint3" name="torq_j3"/>
-        <motor ctrllimited="true" ctrlrange="-180.0 180.0" joint="joint4" name="torq_j4"/>
-        <motor ctrllimited="true" ctrlrange="-180.0 180.0" joint="joint5" name="torq_j5"/>
-        <motor ctrllimited="true" ctrlrange="-180.0 180.0" joint="joint6" name="torq_j6"/>
+        <motor ctrllimited="true" ctrlrange="-75.0 75.0" joint="joint1" name="torq_j1"/>
+        <motor ctrllimited="true" ctrlrange="-75.0 75.0" joint="joint2" name="torq_j2"/>
+        <motor ctrllimited="true" ctrlrange="-75.0 75.0" joint="joint3" name="torq_j3"/>
+        <motor ctrllimited="true" ctrlrange="-75.0 75.0" joint="joint4" name="torq_j4"/>
+        <motor ctrllimited="true" ctrlrange="-40.0 40.0" joint="joint5" name="torq_j5"/>
+        <motor ctrllimited="true" ctrlrange="-40.0 40.0" joint="joint6" name="torq_j6"/>
     </actuator>
     <asset>
         <mesh name="link0" file="meshes/arm_base_link.stl" />
-        <mesh name="link1" file="meshes/arm_1_link.stl" />
+        <mesh name="link1" file="meshes/arm_1_link_small.stl" />
         <mesh name="link2" file="meshes/arm_2_link.stl" />
-        <mesh name="link3" file="meshes/arm_3_link.stl" />
+        <mesh name="link3" file="meshes/arm_3_link_small.stl" />
         <mesh name="link4" file="meshes/arm_4_link.stl" />
-        <mesh name="link5" file="meshes/arm_5_link.stl" />
+        <mesh name="link5" file="meshes/arm_5_link_small.stl" />
         <mesh name="link6" file="meshes/arm_6_link.stl" />
     </asset>
     <worldbody>
@@ -30,33 +30,33 @@
             <!-- The position WAS pos="0 0 0.152". We needed to change it to prevent self-collision. -->
             <body name="link1" pos="0 0 0.154" quat="0 0 0 1">
                 <inertial pos="0 0 0" mass="0.29364" diaginertia="0.01 0.01 0.01" />
-                <joint name="joint1" pos="0 0 0" axis="0 0 1" limited="true" range="-2.947 2.947" damping="0.1"/>
-                <geom name="link_1_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0 0 0.8 1" mesh="link1" />
+                <joint name="joint1" pos="0 0 0" axis="0 0 1" limited="true" range="-2.947 2.947" damping="0.0001" frictionloss="0.0001"/>
+                <geom name="link_1_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0 0 0.8 0.5" mesh="link1" />
                 <geom name="link_1_collision" group="0" type="mesh" rgba="0 0 0.8 1" mesh="link1" />
-                <body name="link2" pos="0 0 0" quat="0.707105 0.707108 0 0">
+                <body name="link2" pos="0 -0.0005 0" quat="0.707105 0.707108 0 0">
                     <inertial pos="0 0 0" mass="1.68311" diaginertia="0.03 0.03 0.03" />
-                    <joint name="joint2" pos="0 0 0" axis="0 0 1" limited="true" range="-2.947 2.947" damping="0.1"/>
-                    <geom name="link_2_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.7 0.7 0.7 1" mesh="link2" />
+                    <joint name="joint2" pos="0 0 0" axis="0 0 1" limited="true" range="-2.947 2.947" damping="0.0001" frictionloss="0.0001"/>
+                    <geom name="link_2_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.7 0.7 0.7 0.5" mesh="link2" />
                     <geom name="link_2_collision" group="0" type="mesh" rgba="0.7 0.7 0.7 1" mesh="link2" />
                     <body name="link3" pos="0 0.35 0" quat="1.32679e-06 0 1 0">
                         <inertial pos="0 0 0" mass="2.1" diaginertia="0.03 0.03 0.03" />
-                        <joint name="joint3" pos="0 0 0" axis="0 0 1" limited="true" range="-2.694 2.694" damping="0.1"/>
-                        <geom name="link_3_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0 0 0.8 1" mesh="link3" />
+                        <joint name="joint3" pos="0 0 0" axis="0 0 1" limited="true" range="-2.694 2.694" damping="0.0001" frictionloss="0.0001"/>
+                        <geom name="link_3_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0 0 0.8 0.5" mesh="link3" />
                         <geom name="link_3_collision" group="0" type="mesh" rgba="0 0 0.8 1" mesh="link3" />
                         <body name="link4" pos="0 0 0" quat="9.38184e-07 -9.38187e-07 0.707105 0.707108">
                             <inertial pos="0 0 0" mass="1.68311" diaginertia="0.03 0.03 0.03" />
-                            <joint name="joint4" pos="0 0 0" axis="0 0 1" limited="true" range="-2.947 2.947" damping="0.1"/>
-                            <geom name="link_4_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.7 0.7 0.7 1" mesh="link4" />
+                            <joint name="joint4" pos="0 0 0" axis="0 0 1" limited="true" range="-2.947 2.947" damping="0.0001" frictionloss="0.0001"/>
+                            <geom name="link_4_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.7 0.7 0.7 0.5" mesh="link4" />
                             <geom name="link_4_collision" group="0" type="mesh" rgba="0.7 0.7 0.7 1" mesh="link4" />
                             <body name="link5" pos="0 0.005263 0.305" quat="9.38184e-07 9.38187e-07 0.707108 0.707105">
                                 <inertial pos="0 0 0" mass="0.807" diaginertia="0.03 0.03 0.03" />
-                                <joint name="joint5" pos="0 0 0" axis="0 0 1" limited="true" range="-2.947 2.947" damping="0.1"/>
-                                <geom name="link_5_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0 0 0.8 1" mesh="link5" />
+                                <joint name="joint5" pos="0 0 0" axis="0 0 1" limited="true" range="-2.947 2.947" damping="0.0001" frictionloss="0.0001"/>
+                                <geom name="link_5_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0 0 0.8 0.5" mesh="link5" />
                                 <geom name="link_5_collision" group="0" type="mesh" rgba="0 0 0.8 1" mesh="link5" />
                                 <body name="link6" pos="0 0 0" quat="0.707105 -0.707108 0 0">
                                     <inertial pos="0 0 0" mass="0.819" diaginertia="0.01 0.01 0.01" />
-                                    <joint name="joint6" pos="0 0 0" axis="0 0 1" limited="true" range="-2.947 2.947" damping="0.1"/>
-                                    <geom name="link_6_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.7 0.7 0.7 1" mesh="link6" />
+                                    <joint name="joint6" pos="0 0 0" axis="0 0 1" limited="true" range="-2.947 2.947" damping="0.0001" frictionloss="0.0001"/>
+                                    <geom name="link_6_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.7 0.7 0.7 0.5" mesh="link6" />
                                     <geom name="link_6_collision" group="0" type="mesh" rgba="0.7 0.7 0.7 1" mesh="link6" />
                                     <body name="right_hand" pos="0 0 0.08" quat="0.924 0 0 -0.383">
                                         <inertial pos="0 0 0" mass="0.5" diaginertia="0.05 0.05 0.05" />

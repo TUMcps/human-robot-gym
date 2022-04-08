@@ -263,6 +263,7 @@ class ReachHuman(SingleArmEnv):
 
         # Override robot controller
         self.use_failsafe = True
+        #self.control_timestep = 0.004
         if self.use_failsafe:
           self.robots[0].controller_config["base_pos"] = self.robots[0].base_pos
           self.robots[0].controller_config["base_orientation"] = self.robots[0].base_ori
@@ -301,16 +302,19 @@ class ReachHuman(SingleArmEnv):
         # Loop through the simulation at the model timestep rate until we're ready to take the next policy step
         # (as defined by the control frequency specified at the environment level)
         for i in range(int(self.control_timestep / self.control_sample_time)):
-            self._control_human()
             self.sim.forward()
             self._human_measurement()
             self._set_human_measurement(self.human_measurement, self.sim.data.time)
             # The first step i=0 is a policy step, the rest not.
             # Only in a policy step, set_goal of controller will be called.
             self._pre_action(action, policy_step)
+            #print(self.robots[0].controller.goal_qpos)
+            #print(self.robots[0].controller.joint_pos)
             # Step the simulation n times
             for n in range(int(self.control_sample_time/self.model_timestep)):
               self.sim.step()
+              self._control_human()
+              self.sim.forward()
             self._update_observables()
             policy_step = False
             self.low_level_time += 1
@@ -519,8 +523,8 @@ class ReachHuman(SingleArmEnv):
         if self.control_sample_time % self.model_timestep != 0:
           self.control_sample_time = math.floor(self.control_sample_time/self.model_timestep) * self.model_timestep
 
-        control_freq = int(1/self.control_sample_time)
-        self.human_animation_step_length = control_freq/self.human_animation_freq
+        simulation_step_freq = int(1/self.model_timestep)
+        self.human_animation_step_length = simulation_step_freq/self.human_animation_freq
         assert self.human_animation_step_length >= 1, "No human animation frequency faster than {} Hz is allowed".format(self.model_freq)
 
 
@@ -568,6 +572,7 @@ class ReachHuman(SingleArmEnv):
 
         self.animation_start_time = 0
         self.low_level_time = 0
+        self.animation_time = -1
 
         # Reset all object positions using initializer sampler if we're not directly loading from an xml
         if not self.deterministic_reset:
@@ -589,18 +594,21 @@ class ReachHuman(SingleArmEnv):
         """
         # Convert low level time to human animation time
         control_time = math.floor(self.low_level_time/self.human_animation_step_length)
-        animation_time = control_time - self.animation_start_time
+        # If the animation time would stay the same, there is no need to update the human.
+        if control_time - self.animation_start_time == self.animation_time:
+          return
+        self.animation_time = control_time - self.animation_start_time
         # Check if current animation is finished
-        if animation_time > self.human_animations[self.human_animation_id]["Pelvis_pos_x"].shape[0]-1:
+        if self.animation_time > self.human_animations[self.human_animation_id]["Pelvis_pos_x"].shape[0]-1:
             # Rotate to next human animation
             self.human_animation_id = self.human_animation_id+1 if self.human_animation_id < len(self.human_animations)-2 else 0
-            animation_time = 0
+            self.animation_time = 0
             self.animation_start_time = control_time
         
         ## Root bone transformation
-        animation_pos = [self.human_animations[self.human_animation_id]["Pelvis_pos_x"][animation_time],
-                         self.human_animations[self.human_animation_id]["Pelvis_pos_y"][animation_time],
-                         self.human_animations[self.human_animation_id]["Pelvis_pos_z"][animation_time]]
+        animation_pos = [self.human_animations[self.human_animation_id]["Pelvis_pos_x"][self.animation_time],
+                         self.human_animations[self.human_animation_id]["Pelvis_pos_y"][self.animation_time],
+                         self.human_animations[self.human_animation_id]["Pelvis_pos_z"][self.animation_time]]
         animation_offset = self.animation_info[self.human_animation_names[self.human_animation_id]]["position_offset"]
         # These settings are adjusted to fit the CMU motion capture BVH files!
         human_pos = [ (animation_pos[0] + self.human_pos_offset[0] + animation_offset[0]),
@@ -612,7 +620,7 @@ class ReachHuman(SingleArmEnv):
         # Apply rotation to position
         human_pos = human_rot.apply(human_pos)
         # Animation rotation
-        rot = Rotation.from_quat(self.human_animations[self.human_animation_id]["Pelvis_quat"][animation_time])
+        rot = Rotation.from_quat(self.human_animations[self.human_animation_id]["Pelvis_quat"][self.animation_time])
         human_rot = human_rot.__mul__(rot)
         human_quat = rot_to_quat(human_rot)
         # Set base position and rotation
@@ -623,13 +631,13 @@ class ReachHuman(SingleArmEnv):
         for joint_element in self.human.joint_elements:
             joint_name = joint_element + "_x"
             self.sim.data.set_joint_qpos(self.human.naming_prefix + joint_name, 
-                self.human_animations[self.human_animation_id][joint_name][animation_time])
+                self.human_animations[self.human_animation_id][joint_name][self.animation_time])
             joint_name = joint_element + "_y"
             self.sim.data.set_joint_qpos(self.human.naming_prefix + joint_name, 
-                self.human_animations[self.human_animation_id][joint_name][animation_time])
+                self.human_animations[self.human_animation_id][joint_name][self.animation_time])
             joint_name = joint_element + "_z"
             self.sim.data.set_joint_qpos(self.human.naming_prefix + joint_name, 
-                self.human_animations[self.human_animation_id][joint_name][animation_time])
+                self.human_animations[self.human_animation_id][joint_name][self.animation_time])
 
     def _human_measurement(self):
         """
@@ -649,39 +657,11 @@ class ReachHuman(SingleArmEnv):
             human_capsules = self.robots[0].controller.get_human_capsules()
             for cap in human_capsules:
                 self.viewer.viewer.add_marker(pos=cap.pos, type=3, size=cap.size, mat=cap.mat.flatten(), rgba=[0.0, 1.0, 0.0, 0.2], label="", shininess=0.0)
-            for joint_element in self.human.joint_elements:
-                pos = self.sim.data.get_site_xpos("Human_" + joint_element)
-                self.viewer.viewer.add_marker(pos=pos, type=2, size=[0.05, 0.05, 0.05], mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], rgba=[1.0, 0.0, 0.0, 1.0], label="", shininess=0.0)
+            # Visualize human joints
+            #for joint_element in self.human.joint_elements:
+            #    pos = self.sim.data.get_site_xpos("Human_" + joint_element)
+            #    self.viewer.viewer.add_marker(pos=pos, type=2, size=[0.05, 0.05, 0.05], mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], rgba=[1.0, 0.0, 0.0, 1.0], label="", shininess=0.0)
             
-                #mat = self.sim.data.get_site_xmat("Human_" + joint_element)
-                #marker_pos = np.reshape(np.matmul(mat, pos), [3])
-            #control_time = math.floor(self.low_level_time/self.human_animation_step_length)
-            #animation_time = control_time - self.animation_start_time
-            """
-            marker_pos_pelvis = np.array(self.sim.data.get_site_xpos("Human_Pelvis"))
-            self.viewer.viewer.add_marker(pos=marker_pos_pelvis, type=2, size=[0.1, 0.1, 0.1], mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], rgba=[1.0, 0.0, 0.0, 1.0], label="", shininess=0.0)
-            marker_pos_torso = np.array(self.sim.data.get_site_xpos("Human_Torso"))
-            #torso_animation = [self.human_animations[self.human_animation_id]["Torso" + '_x'][animation_time], self.human_animations[self.human_animation_id]["Torso" + '_y'][animation_time], self.human_animations[self.human_animation_id]["Torso" + '_z'][animation_time]]
-            self.viewer.viewer.add_marker(pos=marker_pos_torso, type=2, size=[0.1, 0.1, 0.1], mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], rgba=[0.0, 0.0, 1.0, 1.0], label="", shininess=0.0)
-            marker_pos_l_hip = np.array(self.sim.data.get_site_xpos("Human_L_Hip"))
-            animation_offset_rot = Rotation.from_quat(self.animation_info[self.human_animation_names[self.human_animation_id]]["orientation_quat"])
-            human_rot = self.human_base_quat.__mul__(animation_offset_rot)
-            diff_L_Hip = [0.0677, -0.3147, 0.0214]
-            rot_diff_L_Hip = human_rot.apply(diff_L_Hip)
-            marker_pos_l_hip_t = marker_pos_l_hip + rot_diff_L_Hip
-            #marker_pos_l_hip[0] -= 0.0214
-            #marker_pos_l_hip[1] -= 0.0677
-            #marker_pos_l_hip[2] += -0.3147
-            #marker_pos_diff = marker_pos_pelvis-marker_pos_l_hip
-            #marker_pos_l_hip = [marker_pos_pelvis[0] + marker_pos_diff[1], marker_pos_pelvis[1] - marker_pos_diff[2], marker_pos_pelvis[2] + marker_pos_diff[0]]
-            #l_hip_animation = [self.human_animations[self.human_animation_id]["L_Hip" + '_x'][animation_time], self.human_animations[self.human_animation_id]["L_Hip" + '_y'][animation_time], self.human_animations[self.human_animation_id]["L_Hip" + '_z'][animation_time]]
-            self.viewer.viewer.add_marker(pos=marker_pos_l_hip, type=2, size=[0.1, 0.1, 0.1], mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], rgba=[0.0, 1.0, 0.0, 1.0], label="", shininess=0.0)
-            marker_pos_l_knee = np.array(self.sim.data.get_site_xpos("Human_L_Knee"))
-            self.viewer.viewer.add_marker(pos=marker_pos_l_knee, type=2, size=[0.1, 0.1, 0.1], mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], rgba=[0.0, 1.0, 0.0, 1.0], label="", shininess=0.0)
-            marker_pos_l_ankle = np.array(self.sim.data.get_site_xpos("Human_L_Ankle"))
-            """
-            stop=0
-            #self.viewer.viewer.add_marker(pos=np.array([-0.5, 0, 1.5]), type=3, size=[0.1, 0.1, 0.7], mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], rgba=[0.0, 0.0, 1.0, 0.08], label="", shininess=0.0)
 
 
     @property

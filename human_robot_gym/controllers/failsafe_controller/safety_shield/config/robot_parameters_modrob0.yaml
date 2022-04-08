@@ -2,6 +2,8 @@ robot_name: modrob0
 
 nb_joints: 3
 
+secure_radius: 0.01
+
 transformation_matrices: [
   1, 0, 0, 0, 
   0, 1, 0, 0, 

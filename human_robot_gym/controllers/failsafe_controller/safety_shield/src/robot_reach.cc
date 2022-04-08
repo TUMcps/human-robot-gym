@@ -3,8 +3,9 @@
 namespace safety_shield {
 
 RobotReach::RobotReach(std::vector<double> transformation_matrices, int nb_joints, std::vector<double> geom_par, 
-    double x = 0, double y = 0, double z = 0, double roll = 0, double pitch = 0, double yaw = 0):
-  nb_joints_(nb_joints)
+    double x = 0, double y = 0, double z = 0, double roll = 0, double pitch = 0, double yaw = 0, double secure_radius=0.0):
+  nb_joints_(nb_joints),
+  secure_radius_(secure_radius)
 {
   Eigen::Matrix4d transformation_matrix;
   double cr = cos(roll); double sr = sin(roll);
@@ -32,7 +33,8 @@ RobotReach::RobotReach(std::vector<double> transformation_matrices, int nb_joint
       p1(i) = geom_par[7*joint + i];
       p2(i) = geom_par[7*joint + 3 + i];
     }
-    reach_lib::Capsule capsule(vectorToPoint(p1), vectorToPoint(p2),geom_par[7*joint + 6]);
+    double radius = geom_par[7*joint + 6];
+    reach_lib::Capsule capsule(vectorToPoint(p1), vectorToPoint(p2), radius);
     robot_capsules_.push_back(capsule);
   }
   spdlog::info("Robot reach parameters created.");
@@ -73,8 +75,10 @@ std::vector<reach_lib::Capsule> RobotReach::reach(Motion& start_config, Motion& 
         double r_1 = reach_lib::Point::norm(before.p1_-after.p1_) / 2 + alpha_i[i] * s_diff*s_diff/8 + robot_capsules_[i].r_;
         // Calculate radius of ball enclosing point p2 before and after
         double r_2 = reach_lib::Point::norm(before.p2_-after.p2_) / 2 + alpha_i[i+1] * s_diff*s_diff/8 + robot_capsules_[i].r_;
+        // Final radius is maximum of r_1 and r_2 plus the radius expansion for modelling errors. 
+        double radius = std::max(r_1, r_2) + secure_radius_;
         // Enclosure capsule radius is max of ball around p1 and ball around p2 
-        reach_capsules.push_back(reach_lib::Capsule(p_1_k, p_2_k, std::max(r_1, r_2)));
+        reach_capsules.push_back(reach_lib::Capsule(p_1_k, p_2_k, radius));
     }
     return reach_capsules;
   } catch (const std::exception &exc) {

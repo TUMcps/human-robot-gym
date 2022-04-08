@@ -237,7 +237,8 @@ class FailsafeController(JointPositionController):
         current_time = self.sim.data.time
         self.desired_motion = self.safety_shield.step(current_time)
         desired_qpos = self.desired_motion.getAngle()
-        # Debug path following 
+        # Debug path following -> How well is the robot following the desired trajectory.
+        # You can use this to tune your PID values
         """
         self.desired_pos_dbg[self.dbg_c] = desired_qpos
         self.joint_pos_dbg[self.dbg_c] = self.joint_pos
@@ -251,7 +252,6 @@ class FailsafeController(JointPositionController):
           plt.show()
           self.dbg_c=0
         """
-
         # torques = pos_err * kp + vel_err * kd
         position_error = desired_qpos - self.joint_pos
         vel_pos_error = -self.joint_vel
@@ -260,6 +260,7 @@ class FailsafeController(JointPositionController):
         # Return desired torques plus gravity compensations
         self.torques = np.dot(self.mass_matrix, desired_torque) + self.torque_compensation
 
+        self.torques = self.clip_torques(torques=self.torques)
         # Always run superclass call for any cleanups at the end
         self.new_update = True
 
