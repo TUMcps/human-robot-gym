@@ -125,7 +125,7 @@ class LongTermTraj {
   inline int getTrajectoryIndex(int index) const {
     int desired_pos = std::min(index-starting_index_, length_-1);
     if (desired_pos < current_pos_) {
-      spdlog::warn("In LongTermTraj::getNextMotionAtIndex: desired_pos ({:08d}) < current_pos({:08d})", desired_pos, current_pos_);
+      //spdlog::debug("In LongTermTraj::getNextMotionAtIndex: desired_pos ({:08d}) < current_pos({:08d})", desired_pos, current_pos_);
       desired_pos = current_pos_;
     }
     return desired_pos;
