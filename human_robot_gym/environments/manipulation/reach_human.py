@@ -270,6 +270,8 @@ class ReachHuman(SingleArmEnv):
         # Override robot controller
         self._create_new_controller()
         self._override_controller()
+        # Setup collision variables
+        self._setup_collision_info()
 
     def step(self, action):
         """
@@ -314,6 +316,7 @@ class ReachHuman(SingleArmEnv):
               self._control_human()
               self.sim.forward()
             self._update_observables()
+            collision = self._collision_detection()
             policy_step = False
             self.low_level_time += 1
 
@@ -414,6 +417,19 @@ class ReachHuman(SingleArmEnv):
         """
         return [0]
 
+    def _setup_collision_info(self):
+        """
+        Setup variables for collision detection.
+        """
+        # Robot links
+        self.robot_collision_geoms = {self.sim.model.geom_name2id(item) for item in self.robots[0].robot_model.contact_geoms}
+        # Gripper elements
+        for el in self.robots[0].gripper.contact_geoms:
+            self.robot_collision_geoms.add(self.sim.model.geom_name2id(el))
+        # Human elements
+        self.human_collision_geoms = {self.sim.model.geom_name2id(item) for item in self.human.contact_geoms}
+        
+
     def _collision_detection(self):
         """
         Detects collisions between robot and environment.
@@ -423,23 +439,42 @@ class ReachHuman(SingleArmEnv):
             - 1 for non-critical collision
             - 2 for critical collision
         """
-        print('number of contacts', self.sim.data.ncon)
         for i in range(self.sim.data.ncon):
             # Note that the contact array has more than `ncon` entries,
             # so be careful to only read the valid entries.
             contact = self.sim.data.contact[i]
-            print('contact', i)
-            print('dist', contact.dist)
-            print('geom1', contact.geom1, self.sim.model.geom_id2name(contact.geom1))
-            print('geom2', contact.geom2, self.sim.model.geom_id2name(contact.geom2))
-            # There's more stuff in the data structure
-            # See the mujoco documentation for more info!
-            geom2_body = self.sim.model.geom_bodyid[self.sim.data.contact[i].geom2]
-            print(' Contact force on geom2 body', self.sim.data.cfrc_ext[geom2_body])
-            print('norm', np.sqrt(np.sum(np.square(self.sim.data.cfrc_ext[geom2_body]))))
-            # Use internal functions to read out mj_contactForce
-            c_array = np.zeros(6, dtype=np.float64)
-            print('c_array', c_array)
+            if ((contact.geom1 in self.robot_collision_geoms) or 
+               (contact.geom2 in self.robot_collision_geoms)):
+                if ((contact.geom1 in self.robot_collision_geoms) and 
+                    (contact.geom2 in self.robot_collision_geoms)):
+                    print('Self-collision detected between ', self.sim.model.geom_id2name(contact.geom1), ' and ', self.sim.model.geom_id2name(contact.geom2))
+                elif ((contact.geom1 in self.human_collision_geoms) or 
+                    (contact.geom2 in self.human_collision_geoms)):
+                    print('Human-robot collision detected between ', self.sim.model.geom_id2name(contact.geom1), ' and ', self.sim.model.geom_id2name(contact.geom2))
+                    geom2_body = self.sim.model.geom_bodyid[self.sim.data.contact[i].geom2]
+                    print(' Contact force on geom2 body', self.sim.data.cfrc_ext[geom2_body])
+                    print('norm', np.sqrt(np.sum(np.square(self.sim.data.cfrc_ext[geom2_body]))))
+                    print("Speed of robot part:")
+                    ### !! This value is not correct since it rapidely changes BEFORE the collision
+                    # Ways to handle this:
+                    # 1) forward dynamic of the robot
+                    #   --> We need to do this anyway at some point to allow low speed driving
+                    # 2) save velocity of the last few timesteps
+                    #   It would be enough to only safe if the velocity of any robot part is larger than a threshold.
+                    if contact.geom1 in self.robot_collision_geoms:
+                        print(self.sim.data.geom_xvelp[contact.geom1])
+                        print(self.sim.data.geom_xvelr[contact.geom1])
+                    else:
+                        print(self.sim.data.geom_xvelp[contact.geom2])
+                        print(self.sim.data.geom_xvelr[contact.geom2])
+                    stop=0
+                else:
+                    print('Collision with static environment detected between ', self.sim.model.geom_id2name(contact.geom1), ' and ', self.sim.model.geom_id2name(contact.geom2))
+                    # There's more stuff in the data structure
+                    # See the mujoco documentation for more info!
+                    geom2_body = self.sim.model.geom_bodyid[self.sim.data.contact[i].geom2]
+                    print(' Contact force on geom2 body', self.sim.data.cfrc_ext[geom2_body])
+                    print('norm', np.sqrt(np.sum(np.square(self.sim.data.cfrc_ext[geom2_body]))))
         return self.sim.data.ncon > 0
 
     def _load_model(self):
