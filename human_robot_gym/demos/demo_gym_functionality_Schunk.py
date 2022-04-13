@@ -76,7 +76,7 @@ if __name__ == "__main__":
         t1 = time.time()
         for t in range(1000):
             env.render()
-            action =  np.array([0, 0.2, 0, 0, 0, 0, 0]) #env.action_space.sample()
+            action =  np.array([0, 0.3, 0, 0, 0, 0, 0]) #env.action_space.sample()
             observation, reward, done, info = env.step(action)
             if done:
                 print("Episode finished after {} timesteps".format(t + 1))

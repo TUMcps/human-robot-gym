@@ -6,8 +6,12 @@ import numpy as np
 import pickle
 import math
 import json
+from scipy.spatial.transform import Rotation
 
 from mujoco_py import load_model_from_path
+
+import pinocchio as pin
+from pinocchio.visualize import GepettoVisualizer
 
 from robosuite.environments.manipulation.single_arm_env import SingleArmEnv
 from robosuite.models.arenas import TableArena
@@ -16,9 +20,8 @@ from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import UniformRandomSampler
 
 from human_robot_gym.models.objects.human.human import HumanObject
-from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat
-
-from scipy.spatial.transform import Rotation
+from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat, find_robot_assets_folder
+from human_robot_gym.models import assets_root
 
 from human_robot_gym.controllers.failsafe_controller.failsafe_controller.failsafe_controller import FailsafeController
 
@@ -150,6 +153,8 @@ class ReachHuman(SingleArmEnv):
 
         human_animation_freq (double): Speed of the human animation in fps.
 
+        safe_vel (double): Safe cartesian velocity. The robot is allowed to move with this velocity in the vacinity of humans.
+
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
@@ -191,6 +196,7 @@ class ReachHuman(SingleArmEnv):
         human_animation_names=["62_01", "62_03", "62_03", "62_07", "62_09", "62_10", "62_12", "62_13", "62_14", "62_15", "62_16", "62_18", "62_19", "62_20", "62_21"],
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_freq=120,
+        safe_vel=0.001
     ):
         self.failsafe_controller = None
         self.control_sample_time = control_sample_time
@@ -201,6 +207,8 @@ class ReachHuman(SingleArmEnv):
         self.table_friction = table_friction
         # settings for table top (hardcoded since it's not an essential part of the environment)
         self.table_offset = np.array((0.0, 0.0, 0.8))
+        # Safe velocity
+        self.safe_vel = safe_vel
 
         # reward configuration
         self.reward_scale = reward_scale
@@ -266,12 +274,57 @@ class ReachHuman(SingleArmEnv):
             renderer=renderer,
             renderer_config=renderer_config,
         )
-
+        # Initialize pinocchio robot representation.
+        self.initialize_pinocchio()        
         # Override robot controller
         self._create_new_controller()
         self._override_controller()
         # Setup collision variables
         self._setup_collision_info()
+
+    def initialize_pinocchio(self):
+        """
+        Initialize the robot representation in pinocchio.
+        """
+        ## Setup robot representation in pinocchio. This is used for
+        # - Collision checking
+        # - Jacobian / Joint velocities
+        #robot_assets_folder = find_robot_assets_folder(self.robots[0].name)
+        robot_assets_folder = assets_root + "/robots/"
+        self.pin_model, self.pin_collision_model, self.pin_visual_model = pin.buildModelsFromUrdf(robot_assets_folder + self.robots[0].name.lower() + '/robot.urdf', 
+            package_dirs=robot_assets_folder, 
+            geometry_types=[pin.GeometryType.COLLISION, pin.GeometryType.VISUAL])
+        self.pin_data = self.pin_model.createData()
+        self.pin_local_world_aligned_frame = pin.ReferenceFrame(2)
+        ## Visualization only for debugging and testing.
+        #self.visualize_pinocchio_robot(self.pin_model, self.pin_collision_model, self.pin_visual_model, q)
+        
+
+    def visualize_pinocchio_robot(self, model, collision_model, visual_model, q):
+        """
+        Visualize pinocchio robot for debugging purposes.
+
+        Args:
+            model (pin.Model): Robot model
+            collision_model (pin.CollisionModel): Collision robot model
+            visual_model (pin.VisualModel): Visual robot model
+            q (np.array): Joint configuration
+        """
+        viz = GepettoVisualizer(model, collision_model, visual_model)
+ 
+        # Initialize the viewer.
+        try:
+            viz.initViewer()
+        except ImportError as err:
+            print("Error while initializing the viewer. It seems you should install gepetto-viewer")
+            print(err)
+        try:
+            viz.loadViewerModel("pinocchio")
+            viz.display(q)
+        except AttributeError as err:
+            print("Error while loading the viewer model. It seems you should start gepetto-viewer")
+            print(err)
+
 
     def step(self, action):
         """
@@ -315,8 +368,8 @@ class ReachHuman(SingleArmEnv):
               self.sim.step()
               self._control_human()
               self.sim.forward()
+              collision = self._collision_detection()
             self._update_observables()
-            collision = self._collision_detection()
             policy_step = False
             self.low_level_time += 1
 
@@ -439,6 +492,7 @@ class ReachHuman(SingleArmEnv):
             - 1 for non-critical collision
             - 2 for critical collision
         """
+        print(self.sim.data.qvel[self.robots[0].joint_indexes])
         for i in range(self.sim.data.ncon):
             # Note that the contact array has more than `ncon` entries,
             # so be careful to only read the valid entries.
@@ -451,22 +505,27 @@ class ReachHuman(SingleArmEnv):
                 elif ((contact.geom1 in self.human_collision_geoms) or 
                     (contact.geom2 in self.human_collision_geoms)):
                     print('Human-robot collision detected between ', self.sim.model.geom_id2name(contact.geom1), ' and ', self.sim.model.geom_id2name(contact.geom2))
-                    geom2_body = self.sim.model.geom_bodyid[self.sim.data.contact[i].geom2]
-                    print(' Contact force on geom2 body', self.sim.data.cfrc_ext[geom2_body])
-                    print('norm', np.sqrt(np.sum(np.square(self.sim.data.cfrc_ext[geom2_body]))))
-                    print("Speed of robot part:")
                     ### !! This value is not correct since it rapidely changes BEFORE the collision
                     # Ways to handle this:
                     # 1) forward dynamic of the robot
                     #   --> We need to do this anyway at some point to allow low speed driving
+                    vel_safe = self._check_robot_vel_safe(threshold=self.safe_vel, 
+                        q=self.sim.data.qpos[self.robots[0].joint_indexes], 
+                        dq=self.sim.data.qvel[self.robots[0].joint_indexes])
+                    if vel_safe:
+                        print("Robot at safe speed.")
+                    else:
+                        print("Robot too fast during collision!")
                     # 2) save velocity of the last few timesteps
                     #   It would be enough to only safe if the velocity of any robot part is larger than a threshold.
+                    """
                     if contact.geom1 in self.robot_collision_geoms:
                         print(self.sim.data.geom_xvelp[contact.geom1])
                         print(self.sim.data.geom_xvelr[contact.geom1])
                     else:
                         print(self.sim.data.geom_xvelp[contact.geom2])
                         print(self.sim.data.geom_xvelr[contact.geom2])
+                    """
                     stop=0
                 else:
                     print('Collision with static environment detected between ', self.sim.model.geom_id2name(contact.geom1), ' and ', self.sim.model.geom_id2name(contact.geom2))
@@ -476,6 +535,38 @@ class ReachHuman(SingleArmEnv):
                     print(' Contact force on geom2 body', self.sim.data.cfrc_ext[geom2_body])
                     print('norm', np.sqrt(np.sum(np.square(self.sim.data.cfrc_ext[geom2_body]))))
         return self.sim.data.ncon > 0
+
+    def _check_robot_vel_safe(self, threshold, q, dq):
+        """
+        Check if all robot joints have a lower cartesian velocity than the given threshold.
+
+        Args:
+            threshold (double): Maximal cartesian velocity allowes
+            q (np.array): Joint configuration
+            dq (np.array): Joint velocity
+
+        Returns:
+            True: Cartesian velocity of all joints lower than threshold
+            False: Cartesian velocity of any joint higher than threshold
+        """
+        # Append 0 for fake end joint.
+        q = np.append(q, 0.0)
+        dq = np.append(dq, 0.0)
+        # Computes the full model Jacobian, i.e. the stack of all motion subspace expressed in the world frame. 
+        # The result is accessible through data.J. 
+        # This function computes also the forwardKinematics of the model. 
+        pin.computeJointJacobians(self.pin_model, self.pin_data, q)
+        # Check velocity
+        joint_jacobians = []
+        v_joints = []
+        # +2: 1 for pinocchio base joint, 1 for fake end joint
+        for i in range(1, len(self.robots[0].joint_indexes) + 2):
+            joint_jacobian = pin.getJointJacobian(self.pin_model, self.pin_data, i, self.pin_local_world_aligned_frame)
+            v_joint = np.matmul(joint_jacobian, dq)
+            if np.any(np.abs(v_joint[0:3]) > threshold):
+                return False 
+        return True 
+
 
     def _load_model(self):
         """

@@ -2,11 +2,35 @@
 
 import os
 import human_robot_gym
+import robosuite
 
 from typing import List
 
 from scipy.spatial.transform import Rotation
 from copy import deepcopy
+
+def find_robot_assets_folder(robot_name: str) -> str:
+    """
+    Searches the human-robot-gym (first) and robosuite (second) models.assets package
+      for the given robot name and returns the folder if found.
+    
+    Args:
+        robot_name (str): name of the robot (must match folder name)
+
+    Returns:
+        str: Full (absolute) file path if path found. Otherwise, returns None.
+    """
+    robot_asset_folder_part = "robots/" + robot_name.lower() + '/'
+    robot_asset_folder_hrg = os.path.join(human_robot_gym.models.assets_root, robot_asset_folder_part)
+    robot_asset_folder_robosuite = os.path.join(robosuite.models.assets_root, robot_asset_folder_part)
+    if os.path.isdir(robot_asset_folder_hrg):
+        return robot_asset_folder_hrg
+    elif os.path.isdir(robot_asset_folder_robosuite):
+        return robot_asset_folder_robosuite
+    else:
+        print("Couldn't find robot assets folder!")
+        return None
+
 
 def file_path_completion(file_path: str) -> str:
     """
