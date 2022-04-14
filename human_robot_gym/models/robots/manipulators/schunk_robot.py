@@ -1,10 +1,9 @@
 import numpy as np
 
-from robosuite.models.robots.manipulators.manipulator_model import ManipulatorModel
+from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import PinocchioManipulatorModel
 from human_robot_gym.utils.mjcf_utils import xml_path_completion
 
-
-class Schunk(ManipulatorModel):
+class Schunk(PinocchioManipulatorModel):
     """
     Schunk is a sensitive single-arm robot designed by Schunk.
 
@@ -13,11 +12,14 @@ class Schunk(ManipulatorModel):
     """
 
     def __init__(self, idn=0):
-        super().__init__(xml_path_completion("robots/schunk/robot.xml"), idn=idn)
+        super().__init__(
+            fname = xml_path_completion("robots/schunk/robot.xml"),
+            urdf_file = xml_path_completion("robots/schunk/robot.urdf"), 
+            package_dirs = xml_path_completion("robots/"),
+            idn=idn)
 
         # Set joint damping
-        #TODO: Tune these values
-        self.set_joint_attribute(attrib="damping", values=np.array((0.1, 0.1, 0.1, 0.1, 0.1, 0.1)))
+        self.set_joint_attribute(attrib="damping", values=np.array((0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001)))
 
     @property
     def default_mount(self):

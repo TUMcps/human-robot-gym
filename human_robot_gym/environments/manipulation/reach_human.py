@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import enum
 from ntpath import join
 from typing import Dict, Union, List
 
@@ -24,6 +25,13 @@ from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat, f
 from human_robot_gym.models import assets_root
 
 from human_robot_gym.controllers.failsafe_controller.failsafe_controller.failsafe_controller import FailsafeController
+
+from enum import Enum
+class COLLISION_TYPE(Enum):
+    ROBOT = 1
+    HUMAN = 2
+    STATIC = 3
+
 
 class ReachHuman(SingleArmEnv):
     """
@@ -274,56 +282,12 @@ class ReachHuman(SingleArmEnv):
             renderer=renderer,
             renderer_config=renderer_config,
         )
-        # Initialize pinocchio robot representation.
-        self.initialize_pinocchio()        
+
         # Override robot controller
         self._create_new_controller()
         self._override_controller()
         # Setup collision variables
         self._setup_collision_info()
-
-    def initialize_pinocchio(self):
-        """
-        Initialize the robot representation in pinocchio.
-        """
-        ## Setup robot representation in pinocchio. This is used for
-        # - Collision checking
-        # - Jacobian / Joint velocities
-        #robot_assets_folder = find_robot_assets_folder(self.robots[0].name)
-        robot_assets_folder = assets_root + "/robots/"
-        self.pin_model, self.pin_collision_model, self.pin_visual_model = pin.buildModelsFromUrdf(robot_assets_folder + self.robots[0].name.lower() + '/robot.urdf', 
-            package_dirs=robot_assets_folder, 
-            geometry_types=[pin.GeometryType.COLLISION, pin.GeometryType.VISUAL])
-        self.pin_data = self.pin_model.createData()
-        self.pin_local_world_aligned_frame = pin.ReferenceFrame(2)
-        ## Visualization only for debugging and testing.
-        #self.visualize_pinocchio_robot(self.pin_model, self.pin_collision_model, self.pin_visual_model, q)
-        
-
-    def visualize_pinocchio_robot(self, model, collision_model, visual_model, q):
-        """
-        Visualize pinocchio robot for debugging purposes.
-
-        Args:
-            model (pin.Model): Robot model
-            collision_model (pin.CollisionModel): Collision robot model
-            visual_model (pin.VisualModel): Visual robot model
-            q (np.array): Joint configuration
-        """
-        viz = GepettoVisualizer(model, collision_model, visual_model)
- 
-        # Initialize the viewer.
-        try:
-            viz.initViewer()
-        except ImportError as err:
-            print("Error while initializing the viewer. It seems you should install gepetto-viewer")
-            print(err)
-        try:
-            viz.loadViewerModel("pinocchio")
-            viz.display(q)
-        except AttributeError as err:
-            print("Error while loading the viewer model. It seems you should start gepetto-viewer")
-            print(err)
 
 
     def step(self, action):
@@ -474,11 +438,16 @@ class ReachHuman(SingleArmEnv):
         """
         Setup variables for collision detection.
         """
-        # Robot links
-        self.robot_collision_geoms = {self.sim.model.geom_name2id(item) for item in self.robots[0].robot_model.contact_geoms}
-        # Gripper elements
-        for el in self.robots[0].gripper.contact_geoms:
-            self.robot_collision_geoms.add(self.sim.model.geom_name2id(el))
+        ## Collision information of robot links. 
+        # key = collision id, value = robot id
+        self.robot_collision_geoms = dict()
+        for i in range(len(self.robots)):
+            # Arm elements
+            for item in self.robots[i].robot_model.contact_geoms:
+                self.robot_collision_geoms[self.sim.model.geom_name2id(item)] = i
+            # Gripper elements
+            for el in self.robots[i].gripper.contact_geoms:
+                self.robot_collision_geoms[self.sim.model.geom_name2id(el)] = i
         # Human elements
         self.human_collision_geoms = {self.sim.model.geom_name2id(item) for item in self.human.contact_geoms}
         
@@ -492,55 +461,75 @@ class ReachHuman(SingleArmEnv):
             - 1 for non-critical collision
             - 2 for critical collision
         """
-        print(self.sim.data.qvel[self.robots[0].joint_indexes])
         for i in range(self.sim.data.ncon):
             # Note that the contact array has more than `ncon` entries,
             # so be careful to only read the valid entries.
             contact = self.sim.data.contact[i]
-            if ((contact.geom1 in self.robot_collision_geoms) or 
-               (contact.geom2 in self.robot_collision_geoms)):
-                if ((contact.geom1 in self.robot_collision_geoms) and 
-                    (contact.geom2 in self.robot_collision_geoms)):
+            if contact.geom1 in self.robot_collision_geoms:
+                contact_type1 = COLLISION_TYPE.ROBOT
+            elif contact.geom1 in self.human_collision_geoms:
+                contact_type1 = COLLISION_TYPE.HUMAN
+            else:
+                contact_type1 = COLLISION_TYPE.STATIC
+            if contact.geom2 in self.robot_collision_geoms:
+                contact_type2 = COLLISION_TYPE.ROBOT
+            elif contact.geom2 in self.human_collision_geoms:
+                contact_type2 = COLLISION_TYPE.HUMAN
+            else:
+                contact_type2 = COLLISION_TYPE.STATIC
+            if (contact_type1 == COLLISION_TYPE.ROBOT or 
+                contact_type2 == COLLISION_TYPE.ROBOT):
+                if (contact_type1 == COLLISION_TYPE.ROBOT and 
+                    contact_type2 == COLLISION_TYPE.ROBOT):
                     print('Self-collision detected between ', self.sim.model.geom_id2name(contact.geom1), ' and ', self.sim.model.geom_id2name(contact.geom2))
-                elif ((contact.geom1 in self.human_collision_geoms) or 
-                    (contact.geom2 in self.human_collision_geoms)):
+                elif (contact_type1 == COLLISION_TYPE.HUMAN or 
+                      contact_type2 == COLLISION_TYPE.HUMAN):
                     print('Human-robot collision detected between ', self.sim.model.geom_id2name(contact.geom1), ' and ', self.sim.model.geom_id2name(contact.geom2))
-                    ### !! This value is not correct since it rapidely changes BEFORE the collision
+                    ### This value may not be correct since it rapidely changes BEFORE the collision
                     # Ways to handle this:
                     # 1) forward dynamic of the robot
                     #   --> We need to do this anyway at some point to allow low speed driving
-                    vel_safe = self._check_robot_vel_safe(threshold=self.safe_vel, 
-                        q=self.sim.data.qpos[self.robots[0].joint_indexes], 
-                        dq=self.sim.data.qvel[self.robots[0].joint_indexes])
+                    """
+                    if contact_type1 == COLLISION_TYPE.ROBOT:
+                        robot_id = self.robot_collision_geoms[contact.geom1]
+                    else:
+                        robot_id = self.robot_collision_geoms[contact.geom2]
+                    vel_safe = self._check_robot_vel_safe(
+                        robot_id=robot_id,
+                        threshold=self.safe_vel, 
+                        q=self.sim.data.qpos[self.robots[robot_id].joint_indexes], 
+                        dq=self.sim.data.qvel[self.robots[robot_id].joint_indexes])
+                    
+                    """
+                    # 2) Use the velocity of the simulation 
+                    if contact_type1 == COLLISION_TYPE.ROBOT:
+                        print("Robot speed:")
+                        print(self.sim.data.geom_xvelp[contact.geom1])
+                        #print(self.sim.data.geom_xvelr[contact.geom1])
+                        vel_safe = self._check_vel_safe(self.sim.data.geom_xvelp[contact.geom1], self.safe_vel)
+                    else:
+                        vel_safe = self._check_vel_safe(self.sim.data.geom_xvelp[contact.geom2], self.safe_vel)
+
                     if vel_safe:
                         print("Robot at safe speed.")
                     else:
                         print("Robot too fast during collision!")
-                    # 2) save velocity of the last few timesteps
-                    #   It would be enough to only safe if the velocity of any robot part is larger than a threshold.
-                    """
-                    if contact.geom1 in self.robot_collision_geoms:
-                        print(self.sim.data.geom_xvelp[contact.geom1])
-                        print(self.sim.data.geom_xvelr[contact.geom1])
-                    else:
-                        print(self.sim.data.geom_xvelp[contact.geom2])
-                        print(self.sim.data.geom_xvelr[contact.geom2])
-                    """
                     stop=0
                 else:
                     print('Collision with static environment detected between ', self.sim.model.geom_id2name(contact.geom1), ' and ', self.sim.model.geom_id2name(contact.geom2))
                     # There's more stuff in the data structure
                     # See the mujoco documentation for more info!
                     geom2_body = self.sim.model.geom_bodyid[self.sim.data.contact[i].geom2]
-                    print(' Contact force on geom2 body', self.sim.data.cfrc_ext[geom2_body])
+                    print('Contact force on geom2 body', self.sim.data.cfrc_ext[geom2_body])
                     print('norm', np.sqrt(np.sum(np.square(self.sim.data.cfrc_ext[geom2_body]))))
         return self.sim.data.ncon > 0
 
-    def _check_robot_vel_safe(self, threshold, q, dq):
+    def _check_robot_vel_safe(self, robot_id, threshold, q, dq):
         """
         Check if all robot joints have a lower cartesian velocity than the given threshold.
-
+        This assumes that the robot model is of type PinocchioManipulatorModel.
         Args:
+            robot_id (int): Id of the robot to check
             threshold (double): Maximal cartesian velocity allowes
             q (np.array): Joint configuration
             dq (np.array): Joint velocity
@@ -549,24 +538,26 @@ class ReachHuman(SingleArmEnv):
             True: Cartesian velocity of all joints lower than threshold
             False: Cartesian velocity of any joint higher than threshold
         """
-        # Append 0 for fake end joint.
-        q = np.append(q, 0.0)
-        dq = np.append(dq, 0.0)
-        # Computes the full model Jacobian, i.e. the stack of all motion subspace expressed in the world frame. 
-        # The result is accessible through data.J. 
-        # This function computes also the forwardKinematics of the model. 
-        pin.computeJointJacobians(self.pin_model, self.pin_data, q)
-        # Check velocity
-        joint_jacobians = []
-        v_joints = []
+        v_joints = self.model.mujoco_robots[robot_id].get_joint_vel(q, dq)
         # +2: 1 for pinocchio base joint, 1 for fake end joint
-        for i in range(1, len(self.robots[0].joint_indexes) + 2):
-            joint_jacobian = pin.getJointJacobian(self.pin_model, self.pin_data, i, self.pin_local_world_aligned_frame)
-            v_joint = np.matmul(joint_jacobian, dq)
-            if np.any(np.abs(v_joint[0:3]) > threshold):
+        for v_joint in v_joints:
+            if not self._check_vel_safe(v_joint, threshold):
                 return False 
         return True 
 
+    def _check_vel_safe(self, v_arr, threshold):
+        """
+        Check if veloicty vector is safe.
+
+        Args: 
+            v_arr (array like): First three entries must be [v_x, v_y, v_z]
+            threshold (double): Velocity limit
+
+        Returns: 
+            True: velocity lower or equal than threshold
+            False: velocity higher than threshold
+        """
+        return np.all(np.abs(v_arr[0:3]) <= threshold)
 
     def _load_model(self):
         """
