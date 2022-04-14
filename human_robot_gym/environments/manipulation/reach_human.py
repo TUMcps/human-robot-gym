@@ -325,8 +325,6 @@ class ReachHuman(SingleArmEnv):
             # The first step i=0 is a policy step, the rest not.
             # Only in a policy step, set_goal of controller will be called.
             self._pre_action(action, policy_step)
-            #print(self.robots[0].controller.goal_qpos)
-            #print(self.robots[0].controller.joint_pos)
             # Step the simulation n times
             for n in range(int(self.control_sample_time/self.model_timestep)):
               self.sim.step()
@@ -565,8 +563,9 @@ class ReachHuman(SingleArmEnv):
         """
         super()._load_model()
         # Adjust base pose accordingly
-        xpos = self.robots[0].robot_model.base_xpos_offset["table"](self.table_full_size[0])
-        self.robots[0].robot_model.set_base_xpos(xpos)
+        for i in range(len(self.robots)):
+            xpos = self.robots[i].robot_model.base_xpos_offset["table"](self.table_full_size[0])
+            self.robots[i].robot_model.set_base_xpos(xpos)
 
         # load model for table top workspace
         mujoco_arena = TableArena(
@@ -617,17 +616,20 @@ class ReachHuman(SingleArmEnv):
     def _create_new_controller(self):
         """Manually override the controller with the failsafe controller."""
         if self.use_failsafe_controller:
-            self.robots[0].controller_config["base_pos"] = self.robots[0].base_pos
-            self.robots[0].controller_config["base_orientation"] = self.robots[0].base_ori
-            self.robots[0].controller_config["control_sample_time"] = self.control_sample_time
-            self.failsafe_controller = FailsafeController(**self.robots[0].controller_config)
+            self.failsafe_controller = []
+            for i in range(len(self.robots)):
+                self.robots[i].controller_config["base_pos"] = self.robots[i].base_pos
+                self.robots[i].controller_config["base_orientation"] = self.robots[i].base_ori
+                self.robots[i].controller_config["control_sample_time"] = self.control_sample_time
+                self.failsafe_controller[i] = FailsafeController(**self.robots[i].controller_config)
         else:
             self.failsafe_controller = None
 
     def _override_controller(self):
         """Manually override the controller with the failsafe controller."""
         if self.failsafe_controller is not None:
-            self.robots[0].controller = self.failsafe_controller
+            for i in range(len(self.robots)):
+                self.robots[i].controller = self.failsafe_controller[i]
 
     def _set_human_measurement(self, human_measurement, time):
         """Set the human measurement in the failsafe controller.
@@ -638,7 +640,8 @@ class ReachHuman(SingleArmEnv):
           time (double): Current time
         """
         if self.failsafe_controller is not None:
-            self.robots[0].controller.set_human_measurement(human_measurement, time)
+            for i in range(len(self.robots)):
+                self.robots[i].controller.set_human_measurement(human_measurement, time)
 
     def _setup_references(self):
         """
@@ -667,6 +670,7 @@ class ReachHuman(SingleArmEnv):
         # low-level object information
         if self.use_object_obs:
             # Get robot prefix and define observables modality
+            # TODO: Allow multi-robot here.
             pf = self.robots[0].robot_model.naming_prefix
             modality = "object"
 
@@ -780,17 +784,19 @@ class ReachHuman(SingleArmEnv):
         """Visualize the robot and human reachable set.
         """
         if self.use_failsafe_controller:
-            robot_capsules = self.robots[0].controller.get_robot_capsules()
-            for cap in robot_capsules:
-                self.viewer.viewer.add_marker(pos=cap.pos, type=3, size=cap.size, mat=cap.mat.flatten(), rgba=[0.0, 0.0, 1.0, 0.2], label="", shininess=0.0)
-            human_capsules = self.robots[0].controller.get_human_capsules()
-            for cap in human_capsules:
-                self.viewer.viewer.add_marker(pos=cap.pos, type=3, size=cap.size, mat=cap.mat.flatten(), rgba=[0.0, 1.0, 0.0, 0.2], label="", shininess=0.0)
-            # Visualize human joints
-            #for joint_element in self.human.joint_elements:
-            #    pos = self.sim.data.get_site_xpos("Human_" + joint_element)
-            #    self.viewer.viewer.add_marker(pos=pos, type=2, size=[0.05, 0.05, 0.05], mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], rgba=[1.0, 0.0, 0.0, 1.0], label="", shininess=0.0)
-            
+            for i in range(len(self.robots)):
+                robot_capsules = self.robots[i].controller.get_robot_capsules()
+                for cap in robot_capsules:
+                    self.viewer.viewer.add_marker(pos=cap.pos, type=3, size=cap.size, mat=cap.mat.flatten(), rgba=[0.0, 0.0, 1.0, 0.2], label="", shininess=0.0)
+                # These should 100% match for all robots.
+                human_capsules = self.robots[i].controller.get_human_capsules()
+                for cap in human_capsules:
+                    self.viewer.viewer.add_marker(pos=cap.pos, type=3, size=cap.size, mat=cap.mat.flatten(), rgba=[0.0, 1.0, 0.0, 0.2], label="", shininess=0.0)
+                # Visualize human joints
+                #for joint_element in self.human.joint_elements:
+                #    pos = self.sim.data.get_site_xpos("Human_" + joint_element)
+                #    self.viewer.viewer.add_marker(pos=pos, type=2, size=[0.05, 0.05, 0.05], mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], rgba=[1.0, 0.0, 0.0, 1.0], label="", shininess=0.0)
+                
 
 
     @property
