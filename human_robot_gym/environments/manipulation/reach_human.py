@@ -621,7 +621,7 @@ class ReachHuman(SingleArmEnv):
                 self.robots[i].controller_config["base_pos"] = self.robots[i].base_pos
                 self.robots[i].controller_config["base_orientation"] = self.robots[i].base_ori
                 self.robots[i].controller_config["control_sample_time"] = self.control_sample_time
-                self.failsafe_controller[i] = FailsafeController(**self.robots[i].controller_config)
+                self.failsafe_controller.append(FailsafeController(**self.robots[i].controller_config))
         else:
             self.failsafe_controller = None
 
