@@ -200,7 +200,10 @@ class FailsafeController(JointPositionController):
             scaled_delta = None
 
         self.goal_qpos = set_goal_position(
-            scaled_delta, self.desired_motion.getAngle(), position_limit=self.position_limits, set_pos=set_qpos
+            scaled_delta, 
+            self.joint_pos,#self.desired_motion.getAngle(), 
+            position_limit=self.position_limits, 
+            set_pos=set_qpos
         )
 
         if self.interpolator is not None:

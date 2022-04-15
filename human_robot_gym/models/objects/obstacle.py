@@ -99,12 +99,6 @@ class Box(ObstacleBase):
         viz.viewer[self.name].set_object(viz_box)
         viz.viewer[self.name].set_transform(self.T)
 
-    def set_transform(self, 
-                      translation: np.ndarray = NO_TRANSLATION,
-                      rotation: np.ndarray = NO_ROTATION):
-        # The base of coordinate system is on the buttom of the box.
-        super().set_transform(translation - np.array([0, 0, 0]), rotation)
-
 
 class Cylinder(ObstacleBase):
 

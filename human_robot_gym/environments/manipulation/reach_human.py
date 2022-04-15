@@ -346,13 +346,15 @@ class ReachHuman(SingleArmEnv):
         if self.done:
             raise ValueError("executing action in terminated episode")
 
-        # Check if the given action would lead to a direct collision with the environment.
+        ## Check if the given action would lead to a direct collision with the environment.
+        # Update obstacle positions
         for obs in self.obstacles:
-            joint_name = self.collision_obstacles_joints[obs.name][0]
-            posrot = self.sim.data.get_joint_qpos(joint_name)
-            pos = posrot[0:3]
-            rot = quat2mat(posrot[3:7])
-            self.collision_obstacles_joints[obs.name][1].set_transform(pos, rot)
+            if obs.name in self.collision_obstacles_joints:
+                joint_name = self.collision_obstacles_joints[obs.name][0]
+                posrot = self.sim.data.get_joint_qpos(joint_name)
+                pos = posrot[0:3]
+                rot = quat2mat(posrot[3:7])
+                self.collision_obstacles_joints[obs.name][1].set_transform(pos, rot)
 
         if self.visualize_pinocchio:
             self.visualize_pin(viz=self.pin_viz)
@@ -536,7 +538,7 @@ class ReachHuman(SingleArmEnv):
             if robot_model.check_collision(q, collision_obstacle):
                 return False
         # Self-collision
-        return not (robot_model.has_self_collision(q, 0.01))
+        return not (robot_model.has_self_collision(q, 0.010))
 
     def _collision_detection(self):
         """
@@ -720,22 +722,32 @@ class ReachHuman(SingleArmEnv):
 
         ## OBSTACLES
         # Obstacles are elements that the robot should avoid.
-        safety_margin = 0.02
-        l = np.array([0.4, 0.4, 0.4])
-        box = BoxObject(
-            name = "Box",
-            size = l*0.5,
-            rgba = [0.5, 0.5, 0.5, 1],
-        )
-        self.obstacles = [box]
+        safety_margin = 0.05
+        # Box example
+        # l = np.array([0.4, 0.4, 0.4])
+        # box = BoxObject(
+        #     name = "Table",
+        #     size = l*0.5,
+        #     rgba = [0.5, 0.5, 0.5, 1],
+        # )
+        self.obstacles = []
         # Obstacles should also have a collision object
-        coll_box = human_robot_gym.models.objects.obstacle.Box(
-            name = "Box",
-            x = l[0]+safety_margin, y = l[1]+safety_margin, z = l[2]+safety_margin
+        coll_table = human_robot_gym.models.objects.obstacle.Box(
+            name = "Table",
+            x = self.table_full_size[0]+safety_margin, 
+            y = self.table_full_size[1]+safety_margin, 
+            z = self.table_offset[2]+safety_margin,
+            translation = np.array([self.table_offset[0], self.table_offset[1], (self.table_offset[2]+safety_margin) / 2])
         )
-        self.collision_obstacles = [coll_box]
+        coll_base = human_robot_gym.models.objects.obstacle.Cylinder(
+            name = "Base",
+            r = 0.2+safety_margin, 
+            z = 0.91,
+            translation = np.array([-0.46, 0, 0.455])
+        )
+        self.collision_obstacles = [coll_table, coll_base]
         # Matches sim joint names to the collision obstacles
-        self.collision_obstacles_joints["Box"] = (box.joints[0], coll_box)
+        #self.collision_obstacles_joints["Box"] = (box.joints[0], coll_box)
         # Placement sampler for obstacles
         if self.obstacle_placement_initializer is not None:
             self.obstacle_placement_initializer.reset()
