@@ -1,5 +1,6 @@
 from collections import OrderedDict
 import enum
+import imp
 from ntpath import join
 from typing import Dict, Union, List
 
@@ -17,14 +18,18 @@ from pinocchio.visualize import GepettoVisualizer
 from robosuite.environments.manipulation.single_arm_env import SingleArmEnv
 from robosuite.models.arenas import TableArena
 from robosuite.models.tasks import ManipulationTask
+from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import UniformRandomSampler
+from robosuite.utils.transform_utils import quat2mat
+from robosuite.utils.control_utils import set_goal_position
 
 from human_robot_gym.models.objects.human.human import HumanObject
 from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat, find_robot_assets_folder
 from human_robot_gym.models import assets_root
-
+from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import PinocchioManipulatorModel
 from human_robot_gym.controllers.failsafe_controller.failsafe_controller.failsafe_controller import FailsafeController
+import human_robot_gym.models.objects.obstacle
 
 from enum import Enum
 class COLLISION_TYPE(Enum):
@@ -85,8 +90,18 @@ class ReachHuman(SingleArmEnv):
 
         reward_shaping (bool): if True, use dense rewards, else use sparse rewards.
 
-        placement_initializer (ObjectPositionSampler): if provided, will
+        object_placement_initializer (ObjectPositionSampler): if provided, will
             be used to place objects on every reset, else a UniformRandomSampler
+            is used by default.
+            Objects are elements that can and should be manipulated.
+
+        obstacle_placement_initializer (ObjectPositionSampler): if provided, will
+            be used to place obstacles on every reset, else a UniformRandomSampler
+            is used by default.
+            Obstacles are elements that should be avoided.
+
+        human_placement_initializer (ObjectPositionSampler): if provided, will
+            be used to place the human on every reset, else a UniformRandomSampler
             is used by default.
 
         has_renderer (bool): If true, render the simulation state in
@@ -153,6 +168,8 @@ class ReachHuman(SingleArmEnv):
 
         visualize_failsafe_controller (bool): Whether or not the reachable sets of the failsafe controller should be visualized
 
+        visualize_pinocchio (bool): Whether or pinocchios (collision prevention static env) should be visualized
+
         control_sample_time (double): Control frequency of the failsafe controller
 
         human_animation_names (list[str]): Human animations to play
@@ -180,7 +197,9 @@ class ReachHuman(SingleArmEnv):
         use_object_obs=True,
         reward_scale=1.0,
         reward_shaping=False,
-        placement_initializer=None,
+        object_placement_initializer=None,
+        obstacle_placement_initializer=None,
+        human_placement_initializer=None,
         has_renderer=False,
         has_offscreen_renderer=True,
         render_camera="frontview",
@@ -200,6 +219,7 @@ class ReachHuman(SingleArmEnv):
         renderer_config=None,
         use_failsafe_controller=True,
         visualize_failsafe_controller=False,
+        visualize_pinocchio=False,
         control_sample_time=0.004,
         human_animation_names=["62_01", "62_03", "62_03", "62_07", "62_09", "62_10", "62_12", "62_13", "62_14", "62_15", "62_16", "62_18", "62_19", "62_20", "62_21"],
         base_human_pos_offset=[0.0, 0.0, 0.0],
@@ -225,7 +245,9 @@ class ReachHuman(SingleArmEnv):
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
 
-        self.obj_names = ["Human"]
+        self.objects = []
+        self.obstacles = []
+        self.collision_obstacles_joints = dict()
 
         # Human animation definition
         self.human_animation_names = human_animation_names
@@ -254,7 +276,15 @@ class ReachHuman(SingleArmEnv):
         self.animation_start_time = 0
 
         # object placement initializer
-        self.placement_initializer = placement_initializer
+        self.object_placement_initializer = object_placement_initializer
+        self.obstacle_placement_initializer = obstacle_placement_initializer
+        self.human_placement_initializer = human_placement_initializer
+
+        # Pinocchio visualizer
+        self.visualize_pinocchio = visualize_pinocchio
+        if self.visualize_pinocchio:
+            self.pin_viz = pin.visualize.MeshcatVisualizer()
+            self.pin_viz.initViewer()
 
         super().__init__(
             robots=robots,
@@ -286,6 +316,14 @@ class ReachHuman(SingleArmEnv):
         # Override robot controller
         self._create_new_controller()
         self._override_controller()
+        # Set the correct position of the robot model if pinocchio is used.
+        for robot in self.robots:
+            if isinstance(robot.robot_model, PinocchioManipulatorModel):
+                rot = quat2mat(robot.base_ori)
+                trans = np.eye(4)
+                trans[0:3, 0:3] = rot 
+                trans[0:3, 3] = robot.base_pos
+                robot.robot_model.set_base_placement(trans)
         # Setup collision variables
         self._setup_collision_info()
 
@@ -307,6 +345,38 @@ class ReachHuman(SingleArmEnv):
         """
         if self.done:
             raise ValueError("executing action in terminated episode")
+
+        # Check if the given action would lead to a direct collision with the environment.
+        for obs in self.obstacles:
+            joint_name = self.collision_obstacles_joints[obs.name][0]
+            posrot = self.sim.data.get_joint_qpos(joint_name)
+            pos = posrot[0:3]
+            rot = quat2mat(posrot[3:7])
+            self.collision_obstacles_joints[obs.name][1].set_transform(pos, rot)
+
+        if self.visualize_pinocchio:
+            self.visualize_pin(viz=self.pin_viz)
+
+        for robot in self.robots:
+            if robot.has_gripper:
+                arm_action = action[: robot.controller.control_dim]
+            else:
+                arm_action = action
+            scaled_delta = robot.controller.scale_action(arm_action)
+            goal_qpos = set_goal_position(
+                delta = scaled_delta, 
+                current_position = self.sim.data.qpos[robot.joint_indexes],
+                position_limit = robot.controller.position_limits
+            )
+            if isinstance(robot.robot_model, PinocchioManipulatorModel):
+                if not self._check_action_safety(robot.robot_model, goal_qpos):
+                    ## There are several ways to handle unsafe actions
+                    # 1) Replace with zero action.
+                    action = np.zeros([len(action)])
+                    # 2) Sample new action from env
+                    # 3) Sample random closeby actions and select closest safest
+                    # 4) Project to safe action
+                    print("Action would not be safe!")               
 
         self.timestep += 1
 
@@ -449,6 +519,24 @@ class ReachHuman(SingleArmEnv):
         # Human elements
         self.human_collision_geoms = {self.sim.model.geom_name2id(item) for item in self.human.contact_geoms}
         
+    def _check_action_safety(self, robot_model, q):
+        """
+        Checks if the robot would collide with the environment in the end 
+        position of the given action.
+
+        Args:
+            q (np.array): Joint configuration
+
+        Returns:
+            True: Robot would NOT collide with the static environment
+            False: Robot would collide with the static environment
+        """
+        # Collision with env
+        for collision_obstacle in self.collision_obstacles:
+            if robot_model.check_collision(q, collision_obstacle):
+                return False
+        # Self-collision
+        return not (robot_model.has_self_collision(q, 0.01))
 
     def _collision_detection(self):
         """
@@ -579,22 +667,46 @@ class ReachHuman(SingleArmEnv):
         # Modify default agentview camera
         mujoco_arena.set_camera(
             camera_name="agentview",
-            pos=[0.0, -2, 2],
+            pos=[0.0, -1.5, 1.5],
             quat=[-0.0705929, 0.0705929, 0.7035742, 0.7035742],
         )
 
+        ## OBJECTS
+        # Objects are elements that can be moved around and manipulated.
+        # Create objects
+        self.objects = []
+        # Placement sampler for objects
+        bin_x_half = self.table_full_size[0] / 2 - 0.05
+        bin_y_half = self.table_full_size[1] / 2 - 0.05
+        if self.object_placement_initializer is not None:
+            self.object_placement_initializer.reset()
+            self.object_placement_initializer.add_objects(self.objects)
+        else:
+            self.object_placement_initializer = UniformRandomSampler(
+                name="ObjectSampler",
+                mujoco_objects=self.objects,
+                x_range=[-bin_x_half, bin_x_half],
+                y_range=[-bin_y_half, bin_y_half],
+                rotation=(0, 0),
+                rotation_axis="z",
+                ensure_object_boundary_in_range=False,
+                ensure_valid_placement=False,
+                reference_pos=self.table_offset,
+                z_offset=0.0,
+            )
+
+        ## HUMAN
         # Initialize human
         self.human = HumanObject(
             name="Human"
         )
-
-        # Create placement initializer
-        if self.placement_initializer is not None:
-            self.placement_initializer.reset()
-            self.placement_initializer.add_objects(self.human)
+        # Placement sampler for human
+        if self.human_placement_initializer is not None:
+            self.human_placement_initializer.reset()
+            self.human_placement_initializer.add_objects(self.human)
         else:
-            self.placement_initializer = UniformRandomSampler(
-                name="ObjectSampler",
+            self.human_placement_initializer = UniformRandomSampler(
+                name="HumanSampler",
                 mujoco_objects=self.human,
                 x_range=[-0.0, 0.0],
                 y_range=[-0.0, 0.0],
@@ -606,12 +718,49 @@ class ReachHuman(SingleArmEnv):
                 z_offset=0.0,
             )
 
+        ## OBSTACLES
+        # Obstacles are elements that the robot should avoid.
+        safety_margin = 0.02
+        l = np.array([0.4, 0.4, 0.4])
+        box = BoxObject(
+            name = "Box",
+            size = l*0.5,
+            rgba = [0.5, 0.5, 0.5, 1],
+        )
+        self.obstacles = [box]
+        # Obstacles should also have a collision object
+        coll_box = human_robot_gym.models.objects.obstacle.Box(
+            name = "Box",
+            x = l[0]+safety_margin, y = l[1]+safety_margin, z = l[2]+safety_margin
+        )
+        self.collision_obstacles = [coll_box]
+        # Matches sim joint names to the collision obstacles
+        self.collision_obstacles_joints["Box"] = (box.joints[0], coll_box)
+        # Placement sampler for obstacles
+        if self.obstacle_placement_initializer is not None:
+            self.obstacle_placement_initializer.reset()
+            self.obstacle_placement_initializer.add_objects(self.human)
+        else:
+            self.obstacle_placement_initializer = UniformRandomSampler(
+                name="ObstacleSampler",
+                mujoco_objects=self.obstacles,
+                x_range=[0.0, 0.0],
+                y_range=[-0.0, 0.0],
+                rotation=(0, 0),
+                rotation_axis="x",
+                ensure_object_boundary_in_range=False,
+                ensure_valid_placement=True,
+                reference_pos=self.table_offset,
+                z_offset=0.1,
+            )
+
         # task includes arena, robot, and objects of interest
         self.model = ManipulationTask(
             mujoco_arena=mujoco_arena,
             mujoco_robots=[robot.robot_model for robot in self.robots],
-            mujoco_objects=self.human,
+            mujoco_objects=[self.human] + self.objects + self.obstacles,
         )
+
 
     def _create_new_controller(self):
         """Manually override the controller with the failsafe controller."""
@@ -711,14 +860,23 @@ class ReachHuman(SingleArmEnv):
         if not self.deterministic_reset:
 
             # Sample from the placement initializer for all objects
-            object_placements = self.placement_initializer.sample()
-
+            human_placements = self.human_placement_initializer.sample()
+            object_placements = self.object_placement_initializer.sample()
+            obstacle_placements = self.obstacle_placement_initializer.sample()
             # We know we're only setting a single object (the door), so specifically set its pose
-            human_pos, human_quat, _ = object_placements[self.human.name]
+            human_pos, human_quat, _ = human_placements[self.human.name]
             self.human_pos_offset = [self.base_human_pos_offset[i] + human_pos[i] for i in range(3)]
             # Loop through all objects and reset their positions
-            #for obj_pos, obj_quat, obj in object_placements.values():
-            #    self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array(obj_quat)]))
+            for obj_pos, obj_quat, obj in object_placements.values():
+                self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array(obj_quat)]))
+            # Loop through all obstacles and reset their positions
+            for obs_pos, obs_quat, obs in obstacle_placements.values():
+                self.sim.data.set_joint_qpos(obs.joints[0], np.concatenate([np.array(obs_pos), np.array(obs_quat)]))    
+                if obs.name in self.collision_obstacles_joints:
+                    self.collision_obstacles_joints[obs.name][1].set_transform(
+                        translation = np.array(obs_pos),
+                        rotation = quat2mat(obs_quat)
+                    )
         
 
     def _control_human(self):
@@ -810,20 +968,22 @@ class ReachHuman(SingleArmEnv):
         vis_set = super()._visualizations
         return vis_set
 
-    def visualize(self, vis_settings):
+    def visualize_pin(self, viz: pin.visualize.MeshcatVisualizer = None) -> pin.visualize.MeshcatVisualizer:
         """
-        In addition to super call, visualize gripper site proportional to the distance to the cube.
-
-        Args:
-            vis_settings (dict): Visualization keywords mapped to T/F, determining whether that specific
-                component should be visualized. Should have "grippers" keyword as well as any other relevant
-                options specified.
+        Plots the scenario in a Meshcat visualizer.
+        Calls the "visualize" function for each Object in the scenario. As Objects are the high-level representation
+        of "things" in the Environment, this visualization function uses their high-level plotting functionalities, so
+        visual meshes etc. will be chosen if available.
         """
-        # Run superclass method first
-        super().visualize(vis_settings=vis_settings)
-        #self.human.visualize(vis_settings=vis_settings)
+        if viz is None:
+            viz = pin.visualize.MeshcatVisualizer()
+            viz.initViewer()
 
-        # Color the gripper visualization site according to its distance to the goal
-        ## TODO
-        #if vis_settings["grippers"]:
-        #self._visualize_gripper_to_target(gripper=self.robots[0].gripper, target=self.cube)
+        for obs in self.collision_obstacles:
+            obs.visualize(viz)
+
+        for robot in self.robots:
+            robot.robot_model.visualize(viz)
+
+        return viz
+

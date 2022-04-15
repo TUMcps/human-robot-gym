@@ -68,6 +68,8 @@ if __name__ == "__main__":
             controller_configs=controller_configs,
             use_failsafe_controller=True,
             visualize_failsafe_controller=True,
+            visualize_pinocchio=True,
+            base_human_pos_offset=[-1.0, 0.0, 0.0]
         )
     )
 
@@ -76,7 +78,7 @@ if __name__ == "__main__":
         t1 = time.time()
         for t in range(1000):
             env.render()
-            action =  np.array([0, 0.3, 0, 0, 0, 0, 0]) #env.action_space.sample()
+            action =  np.array([0, -0.05, -0.1, 0.1, 0.1, 0, 0]) #np.array([0, 0.01, 0, 0, 0, 0, 0]) #env.action_space.sample()
             observation, reward, done, info = env.step(action)
             if done:
                 print("Episode finished after {} timesteps".format(t + 1))
