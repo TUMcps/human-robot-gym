@@ -47,6 +47,9 @@ class HumanEnv(SingleArmEnv):
             (e.g: "Sawyer" would generate one arm; ["Panda", "Panda", "Sawyer"] would generate three robot arms)
             Note: Must be a single single-arm robot!
 
+        robot_base_offset (list[double] or list[list[double]]): Offset (x, y, z) of robot bases. If more than one
+            robot is loaded, provide a list of list of doubles, one for each robot.
+
         env_configuration (str): Specifies how to position the robots within the environment (default is "default").
             For most single arm environments, this argument has no impact on the robot setup.
 
@@ -79,16 +82,6 @@ class HumanEnv(SingleArmEnv):
         use_camera_obs (bool): if True, every observation includes rendered image(s)
 
         use_object_obs (bool): if True, include object information in the observation.
-
-        object_placement_initializer (ObjectPositionSampler): if provided, will
-            be used to place objects on every reset, else a UniformRandomSampler
-            is used by default.
-            Objects are elements that can and should be manipulated.
-
-        obstacle_placement_initializer (ObjectPositionSampler): if provided, will
-            be used to place obstacles on every reset, else a UniformRandomSampler
-            is used by default.
-            Obstacles are elements that should be avoided.
 
         human_placement_initializer (ObjectPositionSampler): if provided, will
             be used to place the human on every reset, else a UniformRandomSampler
@@ -179,16 +172,13 @@ class HumanEnv(SingleArmEnv):
     def __init__(
         self,
         robots,
+        robot_base_offset = None,
         env_configuration="default",
         controller_configs=None,
         gripper_types="default",
         initialization_noise="default",
         use_camera_obs=True,
         use_object_obs=True,
-        reward_scale=1.0,
-        reward_shaping=False,
-        object_placement_initializer=None,
-        obstacle_placement_initializer=None,
         human_placement_initializer=None,
         has_renderer=False,
         has_offscreen_renderer=True,
@@ -217,6 +207,10 @@ class HumanEnv(SingleArmEnv):
         safe_vel=0.001,
         self_collision_safety=0.01
     ):
+        self.mujoco_arena = None
+        # Robot base offset
+        self.robot_base_offset = np.array(robot_base_offset)
+        # Failsafe controller settings
         self.failsafe_controller = None
         self.control_sample_time = control_sample_time
         self.use_failsafe_controller = use_failsafe_controller
@@ -256,10 +250,6 @@ class HumanEnv(SingleArmEnv):
         self.low_level_time = int(0)
         self.human_animation_id = 0
         self.animation_start_time = 0
-
-        # object placement initializer
-        self.object_placement_initializer = object_placement_initializer
-        self.obstacle_placement_initializer = obstacle_placement_initializer
         self.human_placement_initializer = human_placement_initializer
 
         # Pinocchio visualizer
@@ -629,27 +619,24 @@ class HumanEnv(SingleArmEnv):
         """
         return np.all(np.abs(v_arr[0:3]) <= threshold)
 
-    def _load_model(self):
+    def _setup_arena(self):
         """
-        Loads an xml model, puts it in self.model
-        """
-        super()._load_model()
-        # Adjust base pose accordingly
-        for i in range(len(self.robots)):
-            xpos = self.robots[i].robot_model.base_xpos_offset["table"](self.table_full_size[0])
-            self.robots[i].robot_model.set_base_xpos(xpos)
+        Setup the mujoco arena. Override this to create custom arenas.
 
+        Must define self.mujoco_arena.
+        Define self.objects and self.obstacles here.
+        """
         # load model for table top workspace
-        mujoco_arena = TableArena(
-            table_full_size=self.table_full_size,
-            table_offset=self.table_offset,
+        self.mujoco_arena = TableArena(
+            table_full_size=[1, 1, 0.05],
+            table_offset=[0.0, 0.0, 0.8],
         )
 
         # Arena always gets set to zero origin
-        mujoco_arena.set_origin([0, 0, 0])
+        self.mujoco_arena.set_origin([0, 0, 0])
 
         # Modify default agentview camera
-        mujoco_arena.set_camera(
+        self.mujoco_arena.set_camera(
             camera_name="agentview",
             pos=[0.0, -1.5, 1.5],
             quat=[-0.0705929, 0.0705929, 0.7035742, 0.7035742],
@@ -675,33 +662,9 @@ class HumanEnv(SingleArmEnv):
                 rotation_axis="z",
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=False,
-                reference_pos=self.table_offset,
+                reference_pos=0.8,
                 z_offset=0.0,
             )
-
-        ## HUMAN
-        # Initialize human
-        self.human = HumanObject(
-            name="Human"
-        )
-        # Placement sampler for human
-        if self.human_placement_initializer is not None:
-            self.human_placement_initializer.reset()
-            self.human_placement_initializer.add_objects(self.human)
-        else:
-            self.human_placement_initializer = UniformRandomSampler(
-                name="HumanSampler",
-                mujoco_objects=self.human,
-                x_range=[-0.0, 0.0],
-                y_range=[-0.0, 0.0],
-                rotation=(0, 0),
-                rotation_axis="x",
-                ensure_object_boundary_in_range=False,
-                ensure_valid_placement=True,
-                reference_pos=self.table_offset,
-                z_offset=0.0,
-            )
-
         ## OBSTACLES
         # Obstacles are elements that the robot should avoid.
         safety_margin = 0.05
@@ -748,9 +711,48 @@ class HumanEnv(SingleArmEnv):
                 z_offset=0.1,
             )
 
+
+    def _load_model(self):
+        """
+        Loads an xml model, puts it in self.model
+        """
+        super()._load_model()
+        # Adjust base pose accordingly
+        for i in range(len(self.robots)):
+            if self.robot_base_offset.dim == 2:
+                xpos = self.robot_base_offset[i]
+            else:
+                xpos = self.robot_base_offset
+            self.robots[i].robot_model.set_base_xpos(xpos)
+
+        self._setup_arena()
+        assert self.mujoco_arena is not None
+        ## HUMAN
+        # Initialize human
+        self.human = HumanObject(
+            name="Human"
+        )
+        # Placement sampler for human
+        if self.human_placement_initializer is not None:
+            self.human_placement_initializer.reset()
+            self.human_placement_initializer.add_objects(self.human)
+        else:
+            self.human_placement_initializer = UniformRandomSampler(
+                name="HumanSampler",
+                mujoco_objects=self.human,
+                x_range=[-0.0, 0.0],
+                y_range=[-0.0, 0.0],
+                rotation=(0, 0),
+                rotation_axis="x",
+                ensure_object_boundary_in_range=False,
+                ensure_valid_placement=True,
+                reference_pos=[0.0, 0.0, 0.0],
+                z_offset=0.0,
+            )
+
         # task includes arena, robot, and objects of interest
         self.model = ManipulationTask(
-            mujoco_arena=mujoco_arena,
+            mujoco_arena=self.mujoco_arena,
             mujoco_robots=[robot.robot_model for robot in self.robots],
             mujoco_objects=[self.human] + self.objects + self.obstacles,
         )
@@ -949,7 +951,6 @@ class HumanEnv(SingleArmEnv):
                 #    pos = self.sim.data.get_site_xpos("Human_" + joint_element)
                 #    self.viewer.viewer.add_marker(pos=pos, type=2, size=[0.05, 0.05, 0.05], mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], rgba=[1.0, 0.0, 0.0, 1.0], label="", shininess=0.0)
                 
-
 
     @property
     def _visualizations(self):
