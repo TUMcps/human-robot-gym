@@ -170,6 +170,8 @@ class HumanEnv(SingleArmEnv):
 
         safe_vel (double): Safe cartesian velocity. The robot is allowed to move with this velocity in the vacinity of humans.
 
+        self_collision_safety (double): Safe distance for self collision detection
+
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
@@ -212,13 +214,15 @@ class HumanEnv(SingleArmEnv):
         human_animation_names=["62_01", "62_03", "62_03", "62_07", "62_09", "62_10", "62_12", "62_13", "62_14", "62_15", "62_16", "62_18", "62_19", "62_20", "62_21"],
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_freq=120,
-        safe_vel=0.001
+        safe_vel=0.001,
+        self_collision_safety=0.01
     ):
         self.failsafe_controller = None
         self.control_sample_time = control_sample_time
         self.use_failsafe_controller = use_failsafe_controller
         self.visualize_failsafe_controller = visualize_failsafe_controller
         self.safe_vel = safe_vel
+        self.self_collision_safety = self_collision_safety
 
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
@@ -516,7 +520,7 @@ class HumanEnv(SingleArmEnv):
             if robot_model.check_collision(q, collision_obstacle):
                 return False
         # Self-collision
-        return not (robot_model.has_self_collision(q, 0.010))
+        return not (robot_model.has_self_collision(q, self.self_collision_safety))
 
     def _collision_detection(self):
         """
