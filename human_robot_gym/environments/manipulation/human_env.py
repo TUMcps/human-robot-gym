@@ -33,9 +33,11 @@ import human_robot_gym.models.objects.obstacle
 
 from enum import Enum
 class COLLISION_TYPE(Enum):
+    NULL = 0
     ROBOT = 1
-    HUMAN = 2
-    STATIC = 3
+    STATIC = 2
+    HUMAN = 3
+    HUMAN_CRIT = 4
 
 
 class HumanEnv(SingleArmEnv):
@@ -258,6 +260,10 @@ class HumanEnv(SingleArmEnv):
             self.pin_viz = pin.visualize.MeshcatVisualizer()
             self.pin_viz.initViewer()
 
+        # RL memory
+        self.has_collision = False
+        self.collision_type = COLLISION_TYPE.NULL
+
         super().__init__(
             robots=robots,
             env_configuration=env_configuration,
@@ -394,12 +400,12 @@ class HumanEnv(SingleArmEnv):
         achieved_goal = self._get_achieved_goal_from_obs(observations)
         desired_goal = self._get_desired_goal_from_obs(observations)
         reward = self._compute_reward(desired_goal, achieved_goal, info)
-        self.done = self._compute_done(desired_goal, achieved_goal, info)
+        done = self._compute_done(desired_goal, achieved_goal, info)
 
         if self.viewer is not None and self.renderer != "mujoco":
             self.viewer.update()
 
-        return observations, reward, self.done, info
+        return observations, reward, done, info
 
     def _get_info(self) -> Dict:
         """
@@ -407,9 +413,19 @@ class HumanEnv(SingleArmEnv):
 
         Returns
             - info dict containing of
-                * 
+                * collision: if there was a collision or not
+                * collision_type: type of collision
+                * timeout: if timeout was reached
+                * failsafe_intervention: if the failsafe controller intervened 
+                    in this step or not
         """
-        return {}
+        info = {
+            "collision": self.has_collision,
+            "collision_type": self.collision_type,
+            "timeout": (self.timestep >= self.horizon),
+            "failsafe_intervention": False # TODO: Log failsafe interventions.
+        }
+        return info
 
     def _compute_reward(self,
         achieved_goal: Union[List[float], List[List[float]]], 
@@ -427,7 +443,12 @@ class HumanEnv(SingleArmEnv):
         Returns:
             - reward (list of rewards)
         """
-        return 0
+        if isinstance(info, Dict):
+            # Only one sample
+            return self.reward(achieved_goal, desired_goal, info)
+        else:
+            rewards = [self.reward(a_g, d_g, i) for (a_g, d_g, i) in zip(achieved_goal, desired_goal, info)]
+            return rewards
 
     def _compute_done(self,
         achieved_goal: Union[List[float], List[List[float]]], 
@@ -445,8 +466,29 @@ class HumanEnv(SingleArmEnv):
         Returns:
             - done (list of dones)
         """
-        done = (self.timestep >= self.horizon) and not self.ignore_done
-        return done
+        if isinstance(info, Dict):
+            # Only one sample
+            return self._check_done(achieved_goal, desired_goal, info)
+        else:
+            return [self._check_done(a_g, d_g, i) for (a_g, d_g, i) in zip(achieved_goal, desired_goal, info)]
+
+    def _check_done(self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict) -> bool:
+        """
+        Compute the done flag based on the achieved goal, the desired goal, and
+        the info dict.
+
+        This function can only be called for one sample.
+        Args:
+            - achieved_goal: observation of robot state that is relevant for goal
+            - desired_goal: the desired goal
+            - info: dictionary containing additional information like collision
+        Returns:
+            - done
+        """
+        return info["collision"]
 
     def _get_achieved_goal_from_obs(self,
         observation: Union[List[float], Dict]
@@ -517,10 +559,10 @@ class HumanEnv(SingleArmEnv):
         Detects collisions between robot and environment.
 
         Returns:
-            - 0 for no collision
-            - 1 for non-critical collision
-            - 2 for critical collision
+            CollisionType
         """
+        self.has_collision = False 
+        self.collision_type = COLLISION_TYPE.NULL
         for i in range(self.sim.data.ncon):
             # Note that the contact array has more than `ncon` entries,
             # so be careful to only read the valid entries.
@@ -542,6 +584,8 @@ class HumanEnv(SingleArmEnv):
                 if (contact_type1 == COLLISION_TYPE.ROBOT and 
                     contact_type2 == COLLISION_TYPE.ROBOT):
                     print('Self-collision detected between ', self.sim.model.geom_id2name(contact.geom1), ' and ', self.sim.model.geom_id2name(contact.geom2))
+                    self.has_collision = True 
+                    self.collision_type = COLLISION_TYPE.ROBOT
                 elif (contact_type1 == COLLISION_TYPE.HUMAN or 
                       contact_type2 == COLLISION_TYPE.HUMAN):
                     print('Human-robot collision detected between ', self.sim.model.geom_id2name(contact.geom1), ' and ', self.sim.model.geom_id2name(contact.geom2))
@@ -571,18 +615,19 @@ class HumanEnv(SingleArmEnv):
                         vel_safe = self._check_vel_safe(self.sim.data.geom_xvelp[contact.geom2], self.safe_vel)
 
                     if vel_safe:
+                        self.has_collision = True 
+                        self.collision_type = COLLISION_TYPE.HUMAN
                         print("Robot at safe speed.")
                     else:
+                        self.has_collision = True 
+                        self.collision_type = COLLISION_TYPE.HUMAN_CRIT
                         print("Robot too fast during collision!")
                     stop=0
                 else:
                     print('Collision with static environment detected between ', self.sim.model.geom_id2name(contact.geom1), ' and ', self.sim.model.geom_id2name(contact.geom2))
-                    # There's more stuff in the data structure
-                    # See the mujoco documentation for more info!
-                    geom2_body = self.sim.model.geom_bodyid[self.sim.data.contact[i].geom2]
-                    print('Contact force on geom2 body', self.sim.data.cfrc_ext[geom2_body])
-                    print('norm', np.sqrt(np.sum(np.square(self.sim.data.cfrc_ext[geom2_body]))))
-        return self.sim.data.ncon > 0
+                    self.has_collision = True 
+                    self.collision_type = COLLISION_TYPE.STATIC
+        return self.collision_type
 
     def _check_robot_vel_safe(self, robot_id, threshold, q, dq):
         """
@@ -825,7 +870,11 @@ class HumanEnv(SingleArmEnv):
                     obs_cache[f"{pf}eef_pos"] if f"{pf}eef_pos" in obs_cache else np.zeros(3)
                 )
 
-            sensors = [gripper_pos]
+            @sensor(modality=modality)
+            def human_joint_pos(obs_cache):
+                return np.concatenate([self.sim.data.get_site_xpos("Human_" + joint_element) for joint_element in self.human.obs_joint_elements], axis=-1)
+
+            sensors = [gripper_pos, human_joint_pos]
             names = [s.__name__ for s in sensors]
 
             # Create observables

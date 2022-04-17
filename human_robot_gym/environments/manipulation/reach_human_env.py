@@ -1,5 +1,5 @@
 # Super env
-from human_robot_gym.environments.manipulation.human_env import HumanEnv
+from human_robot_gym.environments.manipulation.human_env import HumanEnv, COLLISION_TYPE
 
 from collections import OrderedDict
 import enum
@@ -93,6 +93,10 @@ class ReachHuman(HumanEnv):
             If None, environment reward remains unnormalized
 
         reward_shaping (bool): if True, use dense rewards, else use sparse rewards.
+
+        goal_dist (double): Distance threshold for reaching the goal.
+
+        collision_reward (double): Reward to be given in the case of a collision.
 
         object_placement_initializer (ObjectPositionSampler): if provided, will
             be used to place objects on every reset, else a UniformRandomSampler
@@ -204,6 +208,8 @@ class ReachHuman(HumanEnv):
         use_object_obs=True,
         reward_scale=1.0,
         reward_shaping=False,
+        goal_dist = 0.01,
+        collision_reward = -10,
         object_placement_initializer=None,
         obstacle_placement_initializer=None,
         human_placement_initializer=None,
@@ -242,6 +248,8 @@ class ReachHuman(HumanEnv):
         # reward configuration
         self.reward_scale = reward_scale
         self.reward_shaping = reward_shaping
+        self.collision_reward = collision_reward
+        self.goal_dist = goal_dist
         # object placement initializer
         self.object_placement_initializer = object_placement_initializer
         self.obstacle_placement_initializer = obstacle_placement_initializer
@@ -287,52 +295,110 @@ class ReachHuman(HumanEnv):
             self_collision_safety=self_collision_safety,
         )
 
+    def step(self, action):
+        """
+        Overrides base.py step function to create an GoalEnv.
+        Takes a step in simulation with control command @action.
+        Args:
+            action (np.array): Action to execute within the environment
+        Returns:
+            4-tuple:
+                - (OrderedDict) observations from the environment
+                - (float) reward from the environment
+                - (bool) whether the current episode is completed or not
+                - (dict) misc information
+        Raises:
+            ValueError: [Steps past episode termination]
+        """
+        obs, reward, done, info = super().step(action)
+        return obs, reward, done, info
+
     def _get_info(self) -> Dict:
         """
         Return the info dictionary of this step.
 
         Returns
             - info dict containing of
-                * 
+                * collision: if there was a collision or not
+                * collision_type: type of collision
+                * timeout: if timeout was reached
+                * failsafe_intervention: if the failsafe controller intervened 
+                    in this step or not
         """
-        return {}
-
-    def _compute_reward(self,
-        achieved_goal: Union[List[float], List[List[float]]], 
-        desired_goal: Union[List[float], List[List[float]]], 
-        info: Union[Dict, List[Dict]]) -> Union[float, List[float]]: 
+        info = super()._get_info()
+        # Add more info if wanted
+        # info["my_cool_info"] = 0
+        return info
+    
+    def reward(self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict) -> float:
         """
         Compute the reward based on the achieved goal, the desired goal, and
         the info dict.
 
-        This function can either be called for one sample or a list of samples.
+        if self.reward_shaping, we use a dense reward, otherwise a sparse reward.
+
+        This function can only be called for one sample.
         Args:
             - achieved_goal: observation of robot state that is relevant for goal
             - desired_goal: the desired goal
             - info: dictionary containing additional information like collision
         Returns:
-            - reward (list of rewards)
+            - reward
         """
-        return 0
+        reward = 0.0
+        if info["collision"]:
+            return self.collision_reward
+        # sparse completion reward
+        if self._check_success(achieved_goal, desired_goal):
+            reward = 1.0 
+        # use a shaping reward
+        if self.reward_shaping:
+            dist = np.sqrt(np.sum(achieved_goal-desired_goal))
+            reward -= dist * 0.1
+        # Scale reward if requested
+        if self.reward_scale is not None:
+            reward *= self.reward_scale / 1.0
+        return reward
 
-    def _compute_done(self,
-        achieved_goal: Union[List[float], List[List[float]]], 
-        desired_goal: Union[List[float], List[List[float]]], 
-        info: Union[Dict, List[Dict]]) -> Union[bool, List[bool]]: 
+    def _check_success(self,
+        achieved_goal: List[float],
+        desired_goal: List[float]) -> bool:
+        """
+        Check if the desired goal was reached
+
+        if self.reward_shaping, we use a dense reward, otherwise a sparse reward.
+
+        This function can only be called for one sample.
+        Args:
+            - achieved_goal: observation of robot state that is relevant for goal
+            - desired_goal: the desired goal
+        Returns:
+            - True if success
+        """
+        dist = np.sqrt(np.sum([(a-g)**2 for (a, g) in zip(achieved_goal, desired_goal)]))
+        return dist <= self.goal_dist
+
+    def _check_done(self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict) -> bool:
         """
         Compute the done flag based on the achieved goal, the desired goal, and
         the info dict.
 
-        This function can either be called for one sample or a list of samples.
+        This function can only be called for one sample.
         Args:
             - achieved_goal: observation of robot state that is relevant for goal
             - desired_goal: the desired goal
             - info: dictionary containing additional information like collision
         Returns:
-            - done (list of dones)
+            - done
         """
-        done = (self.timestep >= self.horizon) and not self.ignore_done
-        return done
+        done = super()._check_done(achieved_goal, desired_goal, info)
+        return (done or (self._check_success(achieved_goal, desired_goal)))
 
     def _get_achieved_goal_from_obs(self,
         observation: Union[List[float], Dict]

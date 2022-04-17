@@ -52,3 +52,15 @@ class HumanObject(MujocoXMLObject):
             self.joint_names.append(self.naming_prefix + joint + "_x")
             self.joint_names.append(self.naming_prefix + joint + "_y")
             self.joint_names.append(self.naming_prefix + joint + "_z")
+        # Observables:
+        self.obs_joint_elements = [
+            "Torso",
+            "Chest",
+            "Head",
+            "L_Shoulder",
+            "R_Shoulder",
+            "L_Elbow",
+            "R_Elbow",
+            "L_Hand",
+            "R_Hand"
+        ]
