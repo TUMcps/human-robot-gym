@@ -1,0 +1,5 @@
+<launch>
+
+  <node type="safety_shield" name="safety_shield" pkg="safety_shield"/>
+	  
+</launch>

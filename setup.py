@@ -13,7 +13,7 @@ long_description = "".join(lines)
 
 setup(
     name="human_robot_gym",
-    packages=[package for package in find_packages() if package.startswith("human_gym")],
+    packages=[package for package in find_packages() if package.startswith("human_robot_gym")],
     install_requires=[
         "numpy>=1.20.0",
         "numba>=0.52.0,<=0.53.1",

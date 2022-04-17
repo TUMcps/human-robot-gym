@@ -1,0 +1,86 @@
+motion_capture:
+  # cutains information
+  measurement_error_pos: 0.0
+  measurement_error_vel: 0.0
+  delay: 0.0
+
+  # Names of joints in correct outputted order
+  joint_names: [
+    "abdomen", "chest", "head", "hip", "lButtock", 
+    "lCollar", "lFoot", "lForeArm", "lHand", "lIndex1",
+    "lIndex2", "lMid1", "lMid2", "lPinky1", "lPinky2",
+    "lRing1", "lRing2", "lShin", "lShldr", "lThigh",
+    "lThumb1", "lThumb2", "leftEye", "neck", "rButtock",
+    "rCollar", "rFoot", "rForeArm", "rHand", "rIndex1",
+    "rIndex2", "rMid1", "rMid2", "rPinky1", "rPinky2",
+    "rRing1", "rRing2", "rShin", "rShldr", "rThigh",
+    "rThumb1", "rThumb2", "rightEye"
+  ]
+
+  joint_v_max: [
+    2, 2, 2, 2, 2, 
+    2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 
+    2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 
+    2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 
+    2, 2, 2, 2, 2,
+    2, 2, 2
+  ]
+
+  joint_a_max: [
+    20, 20, 25, 20, 20, 
+    20, 30, 50, 50, 50,
+    50, 50, 50, 50, 50,
+    50, 50, 30, 50, 30,
+    50, 50, 25, 25, 20,
+    20, 30, 50, 50, 50,
+    50, 50, 50, 50, 50,
+    50, 50, 30, 50, 30,
+    50, 50, 25
+  ]
+
+  bodies:
+    - lUpperArm: 
+      - proximal: "lShldr"
+      - distal: "lForeArm"
+      - thickness: 0.1
+    - lLowerArm:
+      - proximal: "lForeArm"
+      - distal: "lHand"
+      - thickness: 0.1
+    - lHand:
+      - proximal: "lHand"
+      - distal: "lHand"
+      - thickness: 0.205
+    - rUpperArm: 
+      - proximal: "rShldr"
+      - distal: "rForeArm"
+      - thickness: 0.1
+    - rLowerArm:
+      - proximal: "rForeArm"
+      - distal: "rHand"
+      - thickness: 0.1
+    - rHand:
+      - proximal: "rHand"
+      - distal: "rHand"
+      - thickness: 0.205
+    - torso:
+      - proximal: "hip"
+      - distal: "neck"
+      - thickness: 0.2 # Lays in 97% quantile according to https://www.rki.de/DE/Content/Gesundheitsmonitoring/Gesundheitsberichterstattung/GBEDownloadsB/KiGGS_Referenzperzentile.pdf?__blob=publicationFile
+    - head:
+      - proximal: "head"
+      - distal: "head"
+      - thickness: 0.2
+
+  extremities:
+    - lHand:
+      - shoulder: "lShldr"
+      - elbow: "lForeArm"
+      - wristBody: "lHand"
+    - rHand:
+      - shoulder: "rShldr"
+      - elbow: "rForeArm"
+      - wristBody: "rHand"

@@ -1,4 +1,4 @@
-*/.vscode
+*/.vscode/*
 /devel
 /build
 /models
@@ -7,3 +7,4 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
+*.egg

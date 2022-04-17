@@ -1,4 +1,7 @@
+import os
 from robosuite.environments.base import make
+
+from .controllers.failsafe_controller.failsafe_controller.failsafe_controller import FailsafeController
 
 from .environments.manipulation.reach import Reach
 from .environments.manipulation.reach_human import ReachHuman
@@ -27,3 +30,5 @@ __logo__ = """
   .                                 .   
                                         
 """
+
+human_robot_gym_root = os.path.dirname(__file__)
