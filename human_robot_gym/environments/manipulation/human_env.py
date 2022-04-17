@@ -38,9 +38,9 @@ class COLLISION_TYPE(Enum):
     STATIC = 3
 
 
-class ReachHuman(SingleArmEnv):
+class HumanEnv(SingleArmEnv):
     """
-    This class corresponds to the reaching task for a single robot arm in a human environment.
+    This is the super class for any environment with a human.
 
     Args:
         robots (str or list of str): Specification for specific robot arm(s) to be instantiated within this env
@@ -76,19 +76,9 @@ class ReachHuman(SingleArmEnv):
             :Note: Specifying "default" will automatically use the default noise settings.
                 Specifying None will automatically create the required dict with "magnitude" set to 0.0.
 
-        table_full_size (3-tuple): x, y, and z dimensions of the table.
-
-        table_friction (3-tuple): the three mujoco friction parameters for
-            the table.
-
         use_camera_obs (bool): if True, every observation includes rendered image(s)
 
         use_object_obs (bool): if True, include object information in the observation.
-
-        reward_scale (None or float): Scales the normalized reward function by the amount specified.
-            If None, environment reward remains unnormalized
-
-        reward_shaping (bool): if True, use dense rewards, else use sparse rewards.
 
         object_placement_initializer (ObjectPositionSampler): if provided, will
             be used to place objects on every reset, else a UniformRandomSampler
@@ -191,8 +181,6 @@ class ReachHuman(SingleArmEnv):
         controller_configs=None,
         gripper_types="default",
         initialization_noise="default",
-        table_full_size=(0.4, 0.8, 0.05),
-        table_friction=(1.0, 5e-3, 1e-4),
         use_camera_obs=True,
         use_object_obs=True,
         reward_scale=1.0,
@@ -230,21 +218,11 @@ class ReachHuman(SingleArmEnv):
         self.control_sample_time = control_sample_time
         self.use_failsafe_controller = use_failsafe_controller
         self.visualize_failsafe_controller = visualize_failsafe_controller
-        # settings for table top
-        self.table_full_size = table_full_size
-        self.table_friction = table_friction
-        # settings for table top (hardcoded since it's not an essential part of the environment)
-        self.table_offset = np.array((0.0, 0.0, 0.8))
-        # Safe velocity
         self.safe_vel = safe_vel
-
-        # reward configuration
-        self.reward_scale = reward_scale
-        self.reward_shaping = reward_shaping
 
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
-
+        # Objects to create
         self.objects = []
         self.obstacles = []
         self.collision_obstacles_joints = dict()
