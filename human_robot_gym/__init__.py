@@ -4,7 +4,8 @@ from robosuite.environments.base import make
 from .controllers.failsafe_controller.failsafe_controller.failsafe_controller import FailsafeController
 
 from .environments.manipulation.reach import Reach
-from .environments.manipulation.reach_human import ReachHuman
+from .environments.manipulation.human_env import HumanEnv
+from .environments.manipulation.reach_human_env import ReachHuman
 
 from robosuite.environments import ALL_ENVIRONMENTS
 from robosuite.controllers import ALL_CONTROLLERS, load_controller_config
