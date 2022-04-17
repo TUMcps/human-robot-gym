@@ -35,7 +35,7 @@ import robosuite as suite
 import time
 import numpy as np
 from robosuite.wrappers import GymWrapper
-from human_robot_gym.environments.manipulation.reach_human import ReachHuman
+from human_robot_gym.environments.manipulation.reach_human_env import ReachHuman
 
 if __name__ == "__main__":
 
@@ -44,6 +44,7 @@ if __name__ == "__main__":
         suite.make(
             "ReachHuman",
             robots="Panda",  # use Sawyer robot
+            robot_base_offset=[-0.36, 0, 0],
             use_camera_obs=False,  # do not use pixel observations
             has_offscreen_renderer=False,  # not needed since not using pixel obs
             has_renderer=True,  # make sure we can render to the screen

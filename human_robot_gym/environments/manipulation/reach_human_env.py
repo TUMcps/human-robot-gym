@@ -36,7 +36,6 @@ import human_robot_gym.models.objects.obstacle
 
 from enum import Enum
 
-from environments.manipulation.human_env import HumanEnv
 class COLLISION_TYPE(Enum):
     ROBOT = 1
     HUMAN = 2
@@ -372,8 +371,8 @@ class ReachHuman(HumanEnv):
         """
         # load model for table top workspace
         self.mujoco_arena = TableArena(
-            table_full_size=[1, 1, 0.05],
-            table_offset=[0.0, 0.0, 0.8],
+            table_full_size=self.table_full_size,
+            table_offset=self.table_offset,
         )
 
         # Arena always gets set to zero origin
@@ -389,7 +388,14 @@ class ReachHuman(HumanEnv):
         ## OBJECTS
         # Objects are elements that can be moved around and manipulated.
         # Create objects
-        self.objects = []
+        # Box example
+        l = np.array([0.05, 0.05, 0.05])
+        box = BoxObject(
+            name = "smallBox",
+            size = l*0.5,
+            rgba = [0.1, 0.7, 0.3, 1],
+        )
+        self.objects = [box]
         # Placement sampler for objects
         bin_x_half = self.table_full_size[0] / 2 - 0.05
         bin_y_half = self.table_full_size[1] / 2 - 0.05
@@ -406,7 +412,7 @@ class ReachHuman(HumanEnv):
                 rotation_axis="z",
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=False,
-                reference_pos=0.8,
+                reference_pos=self.table_offset,
                 z_offset=0.0,
             )
         ## OBSTACLES

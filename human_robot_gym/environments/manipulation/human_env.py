@@ -662,7 +662,7 @@ class HumanEnv(SingleArmEnv):
                 rotation_axis="z",
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=False,
-                reference_pos=0.8,
+                reference_pos=[0, 0, 0.8],
                 z_offset=0.0,
             )
         ## OBSTACLES
@@ -707,7 +707,7 @@ class HumanEnv(SingleArmEnv):
                 rotation_axis="x",
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,
-                reference_pos=self.table_offset,
+                reference_pos=[0, 0, 0.8],
                 z_offset=0.1,
             )
 
@@ -719,7 +719,7 @@ class HumanEnv(SingleArmEnv):
         super()._load_model()
         # Adjust base pose accordingly
         for i in range(len(self.robots)):
-            if self.robot_base_offset.dim == 2:
+            if self.robot_base_offset.ndim == 2:
                 xpos = self.robot_base_offset[i]
             else:
                 xpos = self.robot_base_offset
@@ -746,7 +746,7 @@ class HumanEnv(SingleArmEnv):
                 rotation_axis="x",
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,
-                reference_pos=[0.0, 0.0, 0.0],
+                reference_pos=[0.0, 0.0, 0.8],
                 z_offset=0.0,
             )
 
