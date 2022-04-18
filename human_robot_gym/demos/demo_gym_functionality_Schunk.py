@@ -76,15 +76,15 @@ if __name__ == "__main__":
             base_human_pos_offset=[0.0, 0.0, 0.0]
         )
     )
-
+    t_max = 100
     for i_episode in range(20):
         observation = env.reset()
         t1 = time.time()
-        for t in range(1000):
+        for t in range(t_max):
             env.render()
             action = env.action_space.sample() # np.array([0, 0.01, 0, 0, 0, 0, 0])
             observation, reward, done, info = env.step(action)
-            if done:
+            if done or t==t_max:
                 print("Episode finished after {} timesteps".format(t + 1))
                 break
         print("Episode {}, fps = {}".format(i_episode, 500/(time.time()-t1)))

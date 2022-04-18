@@ -250,6 +250,7 @@ class ReachHuman(HumanEnv):
         self.reward_shaping = reward_shaping
         self.collision_reward = collision_reward
         self.goal_dist = goal_dist
+        self.desired_goal = np.array([0.0])
         # object placement initializer
         self.object_placement_initializer = object_placement_initializer
         self.obstacle_placement_initializer = obstacle_placement_initializer
@@ -311,6 +312,7 @@ class ReachHuman(HumanEnv):
             ValueError: [Steps past episode termination]
         """
         obs, reward, done, info = super().step(action)
+        self._visualize_goal()
         return obs, reward, done, info
 
     def _get_info(self) -> Dict:
@@ -412,7 +414,8 @@ class ReachHuman(HumanEnv):
         Returns:
             - The achieved goal
         """
-        return [0]
+        prefix = self.robots[0].robot_model.naming_prefix
+        return observation[prefix + "joint_pos"]
 
     def _get_desired_goal_from_obs(self,
         observation: Union[List[float], Dict]
@@ -426,7 +429,41 @@ class ReachHuman(HumanEnv):
         Returns:
             - The desired goal
         """
-        return [0]
+        return observation["desired_goal"]
+
+    def _reset_internal(self):
+        """
+        Resets simulation internal configurations.
+        """
+        super()._reset_internal()
+        self.desired_goal = self._sample_new_goal()
+        if isinstance(self.robots[0].robot_model, PinocchioManipulatorModel):
+            (self.goal_marker_trans, self.goal_marker_rot) = self.robots[0].robot_model.get_eef_transformation(self.desired_goal)
+
+    def _sample_new_goal(self):
+        """
+        Randomly samples a new goal joint configuration.
+
+        Returns:
+            goal (np.array)
+        """
+        robot = self.robots[0]
+        pos_limits = np.array(robot.controller.position_limits)
+        goal = np.zeros(pos_limits.shape[1])
+        for i in range(20):
+            rand = np.random.rand(pos_limits.shape[1])
+            goal = pos_limits[0] + (pos_limits[1]-pos_limits[0]) * rand
+            if isinstance(robot.robot_model, PinocchioManipulatorModel):
+                if not self._check_action_safety(robot.robot_model, goal):
+                    goal = np.zeros(pos_limits.shape[1])
+                    if self.visualize_pinocchio:
+                        self.visualize_pin(self.pin_viz)
+                else:
+                    break
+            else:
+                break
+
+        return goal      
 
     def _setup_arena(self):
         """
@@ -543,21 +580,18 @@ class ReachHuman(HumanEnv):
             OrderedDict: Dictionary mapping observable names to its corresponding Observable object
         """
         observables = super()._setup_observables()
+        # robot joint pos
+        prefix = self.robots[0].robot_model.naming_prefix
+        observables[prefix + "joint_pos"].set_active(True)
 
         # low-level object information
         if self.use_object_obs:
-            # Get robot prefix and define observables modality
-            # TODO: Allow multi-robot here.
-            pf = self.robots[0].robot_model.naming_prefix
             modality = "object"
-
             @sensor(modality=modality)
-            def gripper_pos(obs_cache):
-                return (
-                    obs_cache[f"{pf}eef_pos"] if f"{pf}eef_pos" in obs_cache else np.zeros(3)
-                )
+            def desired_goal(obs_cache):
+                return self.desired_goal
 
-            sensors = [gripper_pos]
+            sensors = [desired_goal]
             names = [s.__name__ for s in sensors]
 
             # Create observables
@@ -567,12 +601,16 @@ class ReachHuman(HumanEnv):
                     sensor=s,
                     sampling_rate=self.control_freq,
                 )
-
         return observables
 
-
-    def _reset_internal(self):
+    def _visualize_goal(self):
         """
-        Resets simulation internal configurations.
+        Visualize goal state.
         """
-        super()._reset_internal()
+        self.viewer.viewer.add_marker(pos=self.goal_marker_trans, 
+            type=100, # arrow
+            size=[0.01, 0.01, 0.2], 
+            mat=self.goal_marker_rot, 
+            rgba=[0.0, 1.0, 0.0, 0.7], 
+            label="", 
+            shininess=0.0)

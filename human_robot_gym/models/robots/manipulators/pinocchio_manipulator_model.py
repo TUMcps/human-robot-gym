@@ -114,6 +114,18 @@ class PinocchioManipulatorModel(ManipulatorModel):
         if geometry:
             self._update_geometry_placement()
 
+    def get_eef_transformation(self, q:np.ndarray):
+        """
+        Get the position and orientation of the end-effector in the given configuration.
+
+        :param q: The new configuration in joint space.
+
+        :return: (trans, rot)
+        """
+        q = q_pin(q)
+        pin.forwardKinematics(self.pin_model, self.pin_data, q)
+        T = self.pin_data.oMi[self.dof+1]
+        return (T.translation.copy(), T.rotation.copy())
 
     # ---------- Collision Methods ----------
 
