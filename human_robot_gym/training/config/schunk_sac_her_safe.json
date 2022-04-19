@@ -20,7 +20,7 @@
         "goal_dist": 0.01,
         "collision_reward": -100,
         "has_renderer": true,
-        "has_offscreen_renderer": true,
+        "has_offscreen_renderer": false,
         "render_camera": null,
         "render_collision_mesh": false,
         "render_visual_mesh": true,
@@ -73,6 +73,7 @@
         "goal_selection_strategy": "future",
         "test_only": false,
         "load_episode": -1,
-        "run_id": -1
+        "run_id": -1,
+        "log_interval": 1
     }
 }

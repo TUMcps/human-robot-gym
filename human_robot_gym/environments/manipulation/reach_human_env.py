@@ -549,7 +549,7 @@ class ReachHuman(HumanEnv):
         # Placement sampler for obstacles
         if self.obstacle_placement_initializer is not None:
             self.obstacle_placement_initializer.reset()
-            self.obstacle_placement_initializer.add_objects(self.human)
+            self.obstacle_placement_initializer.add_objects(self.obstacles)
         else:
             self.obstacle_placement_initializer = UniformRandomSampler(
                 name="ObstacleSampler",

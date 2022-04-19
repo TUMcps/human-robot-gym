@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+import struct
 import gym
 import numpy as np
 #
@@ -15,7 +16,7 @@ from robosuite.controllers import controller_factory, load_controller_config
 import human_robot_gym.robots
 from human_robot_gym.environments.manipulation.reach_human_env import ReachHuman
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
-from human_robot_gym.wrappers.goal_env_wrapper import GoalEnvironmentWrapper
+from human_robot_gym.wrappers.goal_env_wrapper import GoalEnvironmentGymWrapper
 from human_robot_gym.wrappers.HER_buffer_add_monkey_patch import custom_add, _custom_sample_transitions
 
 # Command line arguments: 
@@ -47,14 +48,15 @@ if __name__ == '__main__':
     controller_config = load_controller_config(custom_fpath=controller_conig_path)
     robot_config = load_controller_config(custom_fpath=robot_conig_path)
     controller_config = merge_configs(controller_config, robot_config)
-    controller_configs = [controller_config]
+    training_config["environment"]["controller_configs"] = [controller_config]
 
-    env = GymWrapper(
+    env = GoalEnvironmentGymWrapper(
         robosuite.make(
             "ReachHuman",
             robots=training_config["robot"]["name"],
             robot_base_offset = training_config["environment"]["robot_base_offset"],
             env_configuration = training_config["environment"]["env_configuration"],
+            controller_configs = training_config["environment"]["controller_configs"], 
             gripper_types = training_config["environment"]["gripper_types"],
             initialization_noise = training_config["environment"]["initialization_noise"],
             table_full_size = training_config["environment"]["table_full_size"],
@@ -93,7 +95,10 @@ if __name__ == '__main__':
             self_collision_safety = training_config["environment"]["self_collision_safety"],
         )
     )
-    #### Add a time wrapper ?! ######
+    ### Environment Wrappers
+    if env.spec is None:
+        env.spec = struct
+    env = TimeLimit(env, max_episode_steps=training_config["algorithm"]["max_ep_len"])
     
     now = datetime.now()
     load_episode = -1
@@ -106,12 +111,7 @@ if __name__ == '__main__':
                 print("Please provide a run_id in the config in the algorithm section.")
 
     last_time_steps = np.ndarray(0)
-
-    ### Environment Wrappers
-    env._max_episode_steps = training_config["algorithm"]["max_ep_len"]
-    # Since the original OpenAI ROS environment is not a goal environment,
-    # we create a wrapper to the environment.
-    env = GoalEnvironmentWrapper(env)
+    
     # Monitor and log the training
     #env = Monitor(env, filename=outdir, info_keywords=("collision", "criticalCollision", "goalReached"))
 
@@ -129,6 +129,9 @@ if __name__ == '__main__':
                 monitor_gym = False,
                 save_code = False,
             )
+        else:
+            run = struct
+            run.id = int(np.random.rand(1)*100000)
         ## Initialize the model
         model = SAC(
             "MultiInputPolicy",
@@ -161,7 +164,8 @@ if __name__ == '__main__':
             device='auto', 
             _init_setup_model=True,
             policy_kwargs=dict(net_arch=training_config["algorithm"]["hid"]),
-            tensorboard_log=f"runs/{run.id}"
+            tensorboard_log=f"runs/{run.id}",
+            #max_episode_length=training_config["algorithm"]["max_ep_len"]
         )
     else:
         ## Defining the "run" for weights and biases
