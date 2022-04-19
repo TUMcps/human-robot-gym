@@ -31,7 +31,6 @@ To adapt our APIs to be compatible with OpenAI Gym's style, this script
 demonstrates how this can be easily achieved by using the GymWrapper.
 """
 
-import imp
 import robosuite as suite
 import time
 import numpy as np
