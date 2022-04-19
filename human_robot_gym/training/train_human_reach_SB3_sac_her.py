@@ -8,7 +8,6 @@ import json
 from datetime import datetime
 
 from stable_baselines3 import SAC, HerReplayBuffer
-from gym.wrappers import TimeLimit
 import robosuite
 from robosuite.wrappers import GymWrapper
 from robosuite.controllers import controller_factory, load_controller_config
@@ -17,6 +16,8 @@ import human_robot_gym.robots
 from human_robot_gym.environments.manipulation.reach_human_env import ReachHuman
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 from human_robot_gym.wrappers.goal_env_wrapper import GoalEnvironmentGymWrapper
+from human_robot_gym.wrappers.time_limit import TimeLimit
+from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.HER_buffer_add_monkey_patch import custom_add, _custom_sample_transitions
 
 # Command line arguments: 
@@ -99,7 +100,8 @@ if __name__ == '__main__':
     if env.spec is None:
         env.spec = struct
     env = TimeLimit(env, max_episode_steps=training_config["algorithm"]["max_ep_len"])
-    
+    env = VisualizationWrapper(env)
+
     now = datetime.now()
     load_episode = -1
     if load_episode in training_config["algorithm"]:
@@ -221,7 +223,7 @@ if __name__ == '__main__':
             n_eval_episodes = training_config["algorithm"]["num_test_episodes"],
             deterministic = True,
           )
-    ######## TODO: Shouldn't this be model.test or something??? #####################
+    ######## Evaluate model #####################
     model.learn(
         total_timesteps=0,
         log_interval=training_config["algorithm"]["log_interval"],

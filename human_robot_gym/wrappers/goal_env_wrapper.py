@@ -164,4 +164,25 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
                 ob, reward, done, info = env.step()
                 assert reward == env.compute_reward(ob['achieved_goal'], ob['goal'], info)
         """
-        return self.env.compute_reward(achieved_goal, desired_goal, info)
+        return self.env._compute_reward(achieved_goal, desired_goal, info)
+
+    def compute_done(self, achieved_goal, desired_goal, info):
+        """Compute the done flag. This externalizes the done function and makes
+        it dependent on an a desired goal and the one that was achieved. 
+        Args:
+            achieved_goal (object): the goal that was achieved during execution
+            desired_goal (object): the desired goal that we asked the agent to attempt to achieve
+            info (dict): an info dictionary with additional information
+        Returns:
+            bool or List[bool]
+        """
+        return self.env._compute_done(achieved_goal, desired_goal, info)
+
+    def render(self, **kwargs):
+        """
+        By default, run the normal environment render() function
+
+        Args:
+            **kwargs (dict): Any args to pass to environment render function
+        """
+        return self.env.render(**kwargs)

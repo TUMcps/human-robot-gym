@@ -28,7 +28,7 @@
         "control_freq": 10,
         "horizon": 1000,
         "ignore_done": true,
-        "hard_reset": true,
+        "hard_reset": false,
         "camera_names": "agentview",
         "camera_heights": 256,
         "camera_widths": 256,

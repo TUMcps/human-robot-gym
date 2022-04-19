@@ -295,13 +295,7 @@ class HumanEnv(SingleArmEnv):
         self._create_new_controller()
         self._override_controller()
         # Set the correct position of the robot model if pinocchio is used.
-        for robot in self.robots:
-            if isinstance(robot.robot_model, PinocchioManipulatorModel):
-                rot = quat2mat(robot.base_ori)
-                trans = np.eye(4)
-                trans[0:3, 0:3] = rot 
-                trans[0:3, 3] = robot.base_pos
-                robot.robot_model.set_base_placement(trans)
+        self._reset_pin_models()
         # Setup collision variables
         self._setup_collision_info()
 
@@ -732,7 +726,7 @@ class HumanEnv(SingleArmEnv):
         coll_base = human_robot_gym.models.objects.obstacle.Cylinder(
             name = "Base",
             r = 0.2+safety_margin, 
-            z = 0.91,
+            z = 0.91+safety_margin,
             translation = np.array([-0.46, 0, 0.455])
         )
         self.collision_obstacles = [coll_table, coll_base]
@@ -896,6 +890,7 @@ class HumanEnv(SingleArmEnv):
 
         self._create_new_controller()
         self._override_controller()
+        self._reset_pin_models()
 
         self.animation_start_time = 0
         self.low_level_time = 0
@@ -903,7 +898,6 @@ class HumanEnv(SingleArmEnv):
 
         # Reset all object positions using initializer sampler if we're not directly loading from an xml
         if not self.deterministic_reset:
-
             # Sample from the placement initializer for all objects
             human_placements = self.human_placement_initializer.sample()
             object_placements = self.object_placement_initializer.sample()
@@ -922,7 +916,18 @@ class HumanEnv(SingleArmEnv):
                         translation = np.array(obs_pos),
                         rotation = quat2mat(obs_quat)
                     )
-        
+
+    def _reset_pin_models(self):
+        """
+        Set the base pose of the pinocchio robots.
+        """ 
+        for robot in self.robots:
+            if isinstance(robot.robot_model, PinocchioManipulatorModel):
+                rot = quat2mat(robot.base_ori)
+                trans = np.eye(4)
+                trans[0:3, 0:3] = rot 
+                trans[0:3, 3] = robot.base_pos
+                robot.robot_model.set_base_placement(trans)
 
     def _control_human(self):
         """
