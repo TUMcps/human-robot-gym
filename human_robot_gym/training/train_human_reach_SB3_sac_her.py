@@ -100,7 +100,8 @@ if __name__ == '__main__':
     if env.spec is None:
         env.spec = struct
     env = TimeLimit(env, max_episode_steps=training_config["algorithm"]["max_ep_len"])
-    env = VisualizationWrapper(env)
+    if training_config["environment"]["has_renderer"]:
+        env = VisualizationWrapper(env)
 
     now = datetime.now()
     load_episode = -1

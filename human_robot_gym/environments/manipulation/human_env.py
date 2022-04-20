@@ -729,7 +729,14 @@ class HumanEnv(SingleArmEnv):
             z = 0.91+safety_margin,
             translation = np.array([-0.46, 0, 0.455])
         )
-        self.collision_obstacles = [coll_table, coll_base]
+        coll_computer = human_robot_gym.models.objects.obstacle.Box(
+            name = "Computer",
+            x = 0.3, 
+            y = 0.5, 
+            z = 0.7,
+            translation = np.array([-0.9, 0, 0.35])
+        )
+        self.collision_obstacles = [coll_table, coll_base, coll_computer]
         # Matches sim joint names to the collision obstacles
         #self.collision_obstacles_joints["Box"] = (box.joints[0], coll_box)
         # Placement sampler for obstacles

@@ -435,17 +435,21 @@ class ReachHuman(HumanEnv):
         """
         Resets simulation internal configurations.
         """
+        # Set the desired new initial joint angles before resetting the robot.
+        if self.robots[0].controller is not None:
+            self.robots[0].init_qpos = self._sample_valid_pos()
         super()._reset_internal()
-        self.desired_goal = self._sample_new_goal()
+        self.desired_goal = self._sample_valid_pos()
         if isinstance(self.robots[0].robot_model, PinocchioManipulatorModel):
             (self.goal_marker_trans, self.goal_marker_rot) = self.robots[0].robot_model.get_eef_transformation(self.desired_goal)
 
-    def _sample_new_goal(self):
+    def _sample_valid_pos(self):
         """
-        Randomly samples a new goal joint configuration.
+        Randomly samples a new valid joint configuration without 
+        self-collisions or collisions with the static environment.
 
         Returns:
-            goal (np.array)
+            joint configuration (np.array)
         """
         robot = self.robots[0]
         pos_limits = np.array(robot.controller.position_limits)
@@ -543,7 +547,14 @@ class ReachHuman(HumanEnv):
             z = 0.91,
             translation = np.array([-0.46, 0, 0.455])
         )
-        self.collision_obstacles = [coll_table, coll_base]
+        coll_computer = human_robot_gym.models.objects.obstacle.Box(
+            name = "Computer",
+            x = 0.2, 
+            y = 0.4, 
+            z = 0.7,
+            translation = np.array([-0.8, 0, 0.35])
+        )
+        self.collision_obstacles = [coll_table, coll_base, coll_computer]
         # Matches sim joint names to the collision obstacles
         #self.collision_obstacles_joints["Box"] = (box.joints[0], coll_box)
         # Placement sampler for obstacles

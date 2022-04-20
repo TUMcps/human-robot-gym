@@ -38,7 +38,7 @@
         "renderer_config": null,
         "use_failsafe_controller": true,
         "visualize_failsafe_controller": false,
-        "visualize_pinocchio": false,
+        "visualize_pinocchio": true,
         "control_sample_time": 0.004,
         "human_animation_names": ["62_01", "62_03", "62_03", "62_07", "62_09", "62_10", "62_12", "62_13", "62_14", "62_15", "62_16", "62_18", "62_19", "62_20", "62_21"],
         "base_human_pos_offset": [0.0, 0.0, 0.0],
