@@ -384,7 +384,7 @@ class HumanEnv(SingleArmEnv):
             policy_step = False
             self.low_level_time += 1
 
-        if self.visualize_failsafe_controller:
+        if self.visualize_failsafe_controller and self.has_renderer:
             self._visualize_reachable_sets()
         # Note: this is done all at once to avoid floating point inaccuracies
         self.cur_time += self.control_timestep
