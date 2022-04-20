@@ -67,7 +67,8 @@ SafetyShield::SafetyShield(bool activate_shield,
       double init_z, 
       double init_roll, 
       double init_pitch, 
-      double init_yaw):
+      double init_yaw,
+      const std::vector<double> &init_qpos):
     activate_shield_(activate_shield),
     sample_time_(sample_time),
     path_s_(0),
@@ -96,20 +97,9 @@ SafetyShield::SafetyShield(bool activate_shield,
     j_max_allowed_ = trajectory_config["j_max_allowed"].as<std::vector<double>>();
     a_max_ltt_ = trajectory_config["a_max_ltt"].as<std::vector<double>>();
     j_max_ltt_ = trajectory_config["j_max_ltt"].as<std::vector<double>>();
-    std::vector<std::vector<double>> q_vals(nb_joints_);
-    for (int i=1; i <= nb_joints_; i++){
-        std::string qi = "q" + std::to_string(i);
-        q_vals[i-1] = trajectory_config[qi].as<std::vector<double>>();
-    }
-    // store the long term trajectory
+    // Initialize the long term trajectory
     std::vector<Motion> long_term_traj;
-    for(int i = 0; i < q_vals[0].size(); i++){
-        std::vector<double> angles(nb_joints_);
-        for(int j=0; j < nb_joints_; j++){
-            angles[j] = q_vals[j][i];
-        }
-        long_term_traj.push_back(Motion(i*sample_time_, angles));
-    }
+    long_term_traj.push_back(Motion(0.0, init_qpos));
     long_term_trajectory_ = LongTermTraj(long_term_traj);
     //////////// Build human reach
     YAML::Node human_config = YAML::LoadFile(mocap_config_file);

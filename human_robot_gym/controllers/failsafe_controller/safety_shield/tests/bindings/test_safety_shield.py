@@ -20,7 +20,8 @@ class TestSafetyShield:
      init_z = 0.0,
      init_roll = 0.0,
      init_pitch = 0.0,
-     init_yaw = 0.0
+     init_yaw = 0.0,
+     init_qpos = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     )
     return shield
 
@@ -40,7 +41,8 @@ class TestSafetyShield:
      init_z = 0.0,
      init_roll = 0.0,
      init_pitch = 0.0,
-     init_yaw = 0.0
+     init_yaw = 0.0,
+     init_qpos = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     )
     return shield
 
