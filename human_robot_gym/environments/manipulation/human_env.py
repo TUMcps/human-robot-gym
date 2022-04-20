@@ -167,6 +167,8 @@ class HumanEnv(SingleArmEnv):
 
         self_collision_safety (double): Safe distance for self collision detection
 
+        seed (int): Random seed for np.random
+
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
@@ -207,9 +209,12 @@ class HumanEnv(SingleArmEnv):
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_freq=120,
         safe_vel=0.001,
-        self_collision_safety=0.01
+        self_collision_safety=0.01,
+        seed=0
     ):
         self.mujoco_arena = None
+        self.seed = seed
+        np.random.seed(self.seed)
         # Robot base offset
         self.robot_base_offset = np.array(robot_base_offset)
         # Failsafe controller settings
@@ -809,6 +814,7 @@ class HumanEnv(SingleArmEnv):
         if self.use_failsafe_controller:
             self.failsafe_controller = []
             for i in range(len(self.robots)):
+                self.robots[i].controller_config["init_qpos"] = self.robots[i].init_qpos
                 self.robots[i].controller_config["base_pos"] = self.robots[i].base_pos
                 self.robots[i].controller_config["base_orientation"] = self.robots[i].base_ori
                 self.robots[i].controller_config["control_sample_time"] = self.control_sample_time

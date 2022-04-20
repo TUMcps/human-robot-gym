@@ -190,6 +190,8 @@ class ReachHuman(HumanEnv):
 
         self_collision_safety (double): Safe distance for self collision detection
 
+        seed (int): Random seed for np.random
+
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
@@ -238,7 +240,8 @@ class ReachHuman(HumanEnv):
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_freq=120,
         safe_vel=0.001,
-        self_collision_safety = 0.01
+        self_collision_safety = 0.01,
+        seed = 0
     ):
         # settings for table top
         self.table_full_size = table_full_size
@@ -294,6 +297,7 @@ class ReachHuman(HumanEnv):
             human_animation_freq=human_animation_freq,
             safe_vel=safe_vel,
             self_collision_safety=self_collision_safety,
+            seed=seed
         )
 
     def step(self, action):
@@ -312,7 +316,8 @@ class ReachHuman(HumanEnv):
             ValueError: [Steps past episode termination]
         """
         obs, reward, done, info = super().step(action)
-        self._visualize_goal()
+        if self.has_renderer:
+            self._visualize_goal()
         return obs, reward, done, info
 
     def _get_info(self) -> Dict:

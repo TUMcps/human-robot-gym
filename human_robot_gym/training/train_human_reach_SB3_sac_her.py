@@ -3,6 +3,7 @@ import os
 import struct
 import gym
 import numpy as np
+import argparse
 #
 import json
 from datetime import datetime
@@ -23,11 +24,33 @@ from human_robot_gym.wrappers.HER_buffer_add_monkey_patch import custom_add, _cu
 # Command line arguments: 
 # Training config file
 # Use wandb
+def init_argparse() -> argparse.ArgumentParser:
+
+    parser = argparse.ArgumentParser(
+
+        usage="%(prog)s [OPTION] [FILE]...",
+
+        description="Train a robot on the human reach task using SAC and HER."
+
+    )
+
+    parser.add_argument("config", 
+        help="Config file name for the training. Example is 'schunk_sac_her_safe.json'",
+        type=str)
+
+    parser.add_argument("--wandb", 
+        help="Log this run with weights and biases.",
+        action="store_true")
+
+    return parser
 
 if __name__ == '__main__':
-    # TODO: Input args
-    training_config_file = "schunk_sac_her_safe.json"
-    use_wandb = False
+    parser = init_argparse()
+    args = parser.parse_args()
+    if not args.config:
+        raise Exception("Config file is not specified.")
+    training_config_file = args.config
+    use_wandb = args.wandb
 
     callback = None
     if use_wandb:
@@ -94,6 +117,7 @@ if __name__ == '__main__':
             human_animation_freq = training_config["environment"]["human_animation_freq"],
             safe_vel = training_config["environment"]["safe_vel"],
             self_collision_safety = training_config["environment"]["self_collision_safety"],
+            seed = training_config["algorithm"]["seed"]
         )
     )
     ### Environment Wrappers

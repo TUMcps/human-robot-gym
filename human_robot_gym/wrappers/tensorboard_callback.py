@@ -69,7 +69,7 @@ class TensorboardCallback(WandbCallback):
 
     def _on_step(self) -> None:
         stop=0
-        if self.locals["done"]:
+        if self.locals["dones"][0]:
             for key in self.additional_log_info_keys:
                 if key in self.locals["infos"][0]:
                     self._info_buffer[key].append(self.locals["infos"][0][key])
