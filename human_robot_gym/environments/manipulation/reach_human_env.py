@@ -333,7 +333,7 @@ class ReachHuman(HumanEnv):
                     in this step or not
         """
         info = super()._get_info()
-        # Add more info if wanted
+        # Add more info if wanted (do not forget to pass this to the tensorboard callback)
         # info["my_cool_info"] = 0
         return info
     
@@ -355,12 +355,12 @@ class ReachHuman(HumanEnv):
         Returns:
             - reward
         """
-        reward = 0.0
+        reward = -1.0
         if info["collision"]:
             return self.collision_reward
         # sparse completion reward
         if self._check_success(achieved_goal, desired_goal):
-            reward = 1.0 
+            reward = 0.0 
         # use a shaping reward
         if self.reward_shaping:
             dist = np.sqrt(np.sum(achieved_goal-desired_goal))

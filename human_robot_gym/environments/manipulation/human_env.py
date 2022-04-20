@@ -355,7 +355,7 @@ class HumanEnv(SingleArmEnv):
                     # 2) Sample new action from env
                     # 3) Sample random closeby actions and select closest safest
                     # 4) Project to safe action
-                    print("Action would not be safe!")               
+                    #print("Action would not be safe!")               
 
         self.timestep += 1
 
@@ -364,6 +364,7 @@ class HumanEnv(SingleArmEnv):
         # 'policy_step' whether the current step we're taking is simply an internal update of the controller,
         # or an actual policy update
         policy_step = True
+        self.failsafe_intervention = False
 
         # Loop through the simulation at the model timestep rate until we're ready to take the next policy step
         # (as defined by the control frequency specified at the environment level)
@@ -374,17 +375,22 @@ class HumanEnv(SingleArmEnv):
             # The first step i=0 is a policy step, the rest not.
             # Only in a policy step, set_goal of controller will be called.
             self._pre_action(action, policy_step)
+            if self.use_failsafe_controller and not self.failsafe_intervention:
+                for i in range(len(self.robots)):
+                    if self.robots[i].controller.get_safety() == False:
+                        self.failsafe_intervention = True 
             # Step the simulation n times
             for n in range(int(self.control_sample_time/self.model_timestep)):
-              self.sim.step()
-              self._control_human()
-              self.sim.forward()
-              collision = self._collision_detection()
+                self.sim.step()
+                self._control_human()
+                self.sim.forward()
+                if not self.has_collision:
+                    collision = self._collision_detection()
             self._update_observables()
             policy_step = False
             self.low_level_time += 1
 
-        if self.visualize_failsafe_controller and self.has_renderer:
+        if self.use_failsafe_controller and self.visualize_failsafe_controller and self.has_renderer:
             self._visualize_reachable_sets()
         # Note: this is done all at once to avoid floating point inaccuracies
         self.cur_time += self.control_timestep
@@ -395,9 +401,10 @@ class HumanEnv(SingleArmEnv):
         else:
             observations = self._get_observations()
 
-        info = self._get_info()
         achieved_goal = self._get_achieved_goal_from_obs(observations)
         desired_goal = self._get_desired_goal_from_obs(observations)
+        self.goal_reached = self._check_success(desired_goal, achieved_goal)
+        info = self._get_info()
         reward = self._compute_reward(desired_goal, achieved_goal, info)
         done = self._compute_done(desired_goal, achieved_goal, info)
 
@@ -420,9 +427,10 @@ class HumanEnv(SingleArmEnv):
         """
         info = {
             "collision": self.has_collision,
-            "collision_type": self.collision_type,
+            "collision_type": self.collision_type.value,
             "timeout": (self.timestep >= self.horizon),
-            "failsafe_intervention": False # TODO: Log failsafe interventions.
+            "failsafe_intervention": self.failsafe_intervention,
+            "goal_reached": self.goal_reached
         }
         return info
 
@@ -904,6 +912,10 @@ class HumanEnv(SingleArmEnv):
         self._create_new_controller()
         self._override_controller()
         self._reset_pin_models()
+
+        # Reset collision information
+        self.has_collision = False
+        self.collision_type = COLLISION_TYPE.NULL
 
         self.animation_start_time = 0
         self.low_level_time = 0

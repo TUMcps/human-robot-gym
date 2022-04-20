@@ -273,6 +273,14 @@ class FailsafeController(JointPositionController):
 
         return self.torques
 
+    def get_safety(self):
+      """Return if the failsafe controller intervened in this step or not.
+
+      Returns:
+        bool: True: Safe, False: Unsafe  
+      """
+      return self.safety_shield.getSafety()
+
     def get_robot_capsules(self):
       """Return the robot capsules in the correct format to plot them in mujoco.
       capsule:  pos = [x, y, z]

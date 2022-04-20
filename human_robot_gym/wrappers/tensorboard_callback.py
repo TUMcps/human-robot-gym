@@ -25,7 +25,7 @@ class TensorboardCallback(WandbCallback):
         save_freq: int = 100,
         model_file: str = "models",
         start_episode: int = 0,
-        additional_log_info_keys: List[str] = ["goalReached"],
+        additional_log_info_keys: List[str] = ["goal_reached"],
         n_eval_episodes: int =0,
         deterministic: bool = True,
         log_interval:int = 4,

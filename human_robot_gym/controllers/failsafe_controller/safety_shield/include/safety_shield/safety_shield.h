@@ -538,6 +538,10 @@ class SafetyShield {
     return capsules;
   }
 
+  inline bool getSafety() {
+    return is_safe_;
+  }
+
   /**
    * @brief Function to convert RML vector to a std vector
    * @param rml_vec

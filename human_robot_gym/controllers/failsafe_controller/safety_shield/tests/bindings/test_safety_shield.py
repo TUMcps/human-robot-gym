@@ -63,6 +63,17 @@ class TestSafetyShield:
     motion = shield.step(0.004)
     assert(motion.getTime() == 0.004)
 
+  def test_getSafety(self, shield):
+    dummy_meas = []
+    for i in range(21):
+      dummy_meas.append([0.0, 0.0, 0.0])
+    shield.humanMeasurement(dummy_meas, 0.0)
+    motion = Motion(6)
+    shield.newLongTermTrajectory(motion)
+    motion = shield.step(0.004)
+    is_safe = shield.getSafety()
+    assert(is_safe == False)
+
   def test_getRobotReachCapsules(self, shield):
     motion = Motion(6)
     shield.newLongTermTrajectory(motion)
