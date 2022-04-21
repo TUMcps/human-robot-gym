@@ -44,7 +44,7 @@
         "base_human_pos_offset": [0.0, 0.0, 0.0],
         "human_animation_freq": 120,
         "safe_vel": 0.001,
-        "self_collision_safety": 0.02
+        "self_collision_safety": 0.012
     },
     "algorithm":
     {
@@ -58,7 +58,7 @@
         "batch_size": 128,
         "start_steps": 1000,
         "update_every": 1,
-        "gradient_steps": 100,
+        "gradient_steps": -1,
         "action_noise": null,
         "ent_coef": "auto_0.2",
         "target_entropy": "auto",
@@ -67,7 +67,7 @@
         "target_update_interval": 1,
         "use_sde_at_warmup": false,
         "num_test_episodes": 500,
-        "max_ep_len": 500,
+        "max_ep_len": 200,
         "save_freq": 5,
         "k_her_samples": 4,
         "goal_selection_strategy": "future",
