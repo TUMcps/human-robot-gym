@@ -352,6 +352,7 @@ class HumanEnv(SingleArmEnv):
                     ## There are several ways to handle unsafe actions
                     # 1) Replace with zero action.
                     action = np.zeros([len(action)])
+                    self.action_resamples += 1
                     # 2) Sample new action from env
                     # 3) Sample random closeby actions and select closest safest
                     # 4) Project to safe action
@@ -364,7 +365,7 @@ class HumanEnv(SingleArmEnv):
         # 'policy_step' whether the current step we're taking is simply an internal update of the controller,
         # or an actual policy update
         policy_step = True
-        self.failsafe_intervention = False
+        failsafe_intervention = False
 
         # Loop through the simulation at the model timestep rate until we're ready to take the next policy step
         # (as defined by the control frequency specified at the environment level)
@@ -375,10 +376,11 @@ class HumanEnv(SingleArmEnv):
             # The first step i=0 is a policy step, the rest not.
             # Only in a policy step, set_goal of controller will be called.
             self._pre_action(action, policy_step)
-            if self.use_failsafe_controller and not self.failsafe_intervention:
+            if self.use_failsafe_controller and not failsafe_intervention:
                 for i in range(len(self.robots)):
                     if self.robots[i].controller.get_safety() == False:
-                        self.failsafe_intervention = True 
+                        failsafe_intervention = True 
+                        self.failsafe_interventions += 1
             # Step the simulation n times
             for n in range(int(self.control_sample_time/self.model_timestep)):
                 self.sim.step()
@@ -429,7 +431,8 @@ class HumanEnv(SingleArmEnv):
             "collision": self.has_collision,
             "collision_type": self.collision_type.value,
             "timeout": (self.timestep >= self.horizon),
-            "failsafe_intervention": self.failsafe_intervention,
+            "failsafe_interventions": self.failsafe_interventions,
+            "action_resamples": self.action_resamples,
             "goal_reached": self.goal_reached
         }
         return info
@@ -916,6 +919,8 @@ class HumanEnv(SingleArmEnv):
         # Reset collision information
         self.has_collision = False
         self.collision_type = COLLISION_TYPE.NULL
+        self.failsafe_interventions = 0
+        self.action_resamples = 0
 
         self.animation_start_time = 0
         self.low_level_time = 0

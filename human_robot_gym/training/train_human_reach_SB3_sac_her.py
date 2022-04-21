@@ -225,7 +225,7 @@ if __name__ == '__main__':
             save_freq = training_config["algorithm"]["save_freq"],
             model_file=f"models/{run.id}",
             start_episode = start_episode,
-            additional_log_info_keys = ["goal_reached", "collision", "collision_type", "timeout", "failsafe_intervention"],
+            additional_log_info_keys = ["goal_reached", "collision", "collision_type", "timeout", "failsafe_interventions", "action_resamples"],
             n_eval_episodes = 0,
             deterministic = True,
             log_interval=training_config["algorithm"]["log_interval"],
