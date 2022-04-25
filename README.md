@@ -46,3 +46,13 @@ python human_robot_gym/human_robot_gym/demos/demo_gym_functionality_Schunk.py
 ```
 python human_robot_gym/human_robot_gym/training/train_human_reach_SB3_sac_her.py schunk_sac_her_safe.json --wandb
 ```
+
+# Developer's guide
+To check your code for linting style:
+```
+flake8
+```
+Recommended tool for auto-formatting: 
+```
+pip install black
+```
