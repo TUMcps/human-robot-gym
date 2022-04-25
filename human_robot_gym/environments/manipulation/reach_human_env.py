@@ -146,7 +146,7 @@ class ReachHuman(HumanEnv):
 
         use_failsafe_controller (bool): Whether or not the safety shield / failsafe controller should be active
 
-        visualize_failsafe_controller (bool): Whether or not the reachable sets of the failsafe controller should be 
+        visualize_failsafe_controller (bool): Whether or not the reachable sets of the failsafe controller should be
             visualized
 
         visualize_pinocchio (bool): Whether or pinocchios (collision prevention static env) should be visualized
@@ -159,7 +159,7 @@ class ReachHuman(HumanEnv):
 
         human_animation_freq (double): Speed of the human animation in fps.
 
-        safe_vel (double): Safe cartesian velocity. The robot is allowed to move with this velocity in the vacinity of 
+        safe_vel (double): Safe cartesian velocity. The robot is allowed to move with this velocity in the vacinity of
             humans.
 
         self_collision_safety (double): Safe distance for self collision detection
@@ -210,7 +210,7 @@ class ReachHuman(HumanEnv):
         visualize_failsafe_controller=False,
         visualize_pinocchio=False,
         control_sample_time=0.004,
-        human_animation_names=["62_01", "62_03", "62_03", "62_07", "62_09", "62_10", "62_12", "62_13", "62_14", 
+        human_animation_names=["62_01", "62_03", "62_03", "62_07", "62_09", "62_10", "62_12", "62_13", "62_14",
                                "62_15", "62_16", "62_18", "62_19", "62_20", "62_21"],
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_freq=120,
@@ -304,14 +304,14 @@ class ReachHuman(HumanEnv):
                 * collision: if there was a collision or not
                 * collision_type: type of collision
                 * timeout: if timeout was reached
-                * failsafe_intervention: if the failsafe controller intervened 
+                * failsafe_intervention: if the failsafe controller intervened
                     in this step or not
         """
         info = super()._get_info()
         # Add more info if wanted (do not forget to pass this to the tensorboard callback)
         # info["my_cool_info"] = 0
         return info
-    
+
     def reward(self,
                achieved_goal: List[float],
                desired_goal: List[float],
@@ -389,7 +389,7 @@ class ReachHuman(HumanEnv):
 
         Args:
             - observation: The observation after the action is executed
-        
+
         Returns:
             - The achieved goal
         """
@@ -403,7 +403,7 @@ class ReachHuman(HumanEnv):
 
         Args:
             - observation: The observation after the action is executed
-        
+
         Returns:
             - The desired goal
         """
@@ -424,7 +424,7 @@ class ReachHuman(HumanEnv):
 
     def _sample_valid_pos(self):
         """
-        Randomly samples a new valid joint configuration without 
+        Randomly samples a new valid joint configuration without
         self-collisions or collisions with the static environment.
 
         Returns:
@@ -586,6 +586,7 @@ class ReachHuman(HumanEnv):
         # low-level object information
         if self.use_object_obs:
             modality = "object"
+
             @sensor(modality=modality)
             def desired_goal(obs_cache):
                 return self.desired_goal
