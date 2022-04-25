@@ -1,7 +1,3 @@
-from collections import OrderedDict
-import enum
-import imp
-from ntpath import join
 from typing import Dict, Union, List
 
 import numpy as np
@@ -9,29 +5,31 @@ import pickle
 import math
 import json
 from scipy.spatial.transform import Rotation
-
-from mujoco_py import load_model_from_path
+from enum import Enum
 
 import pinocchio as pin
-from pinocchio.visualize import GepettoVisualizer
 
 from robosuite.environments.manipulation.single_arm_env import SingleArmEnv
 from robosuite.models.arenas import TableArena
 from robosuite.models.tasks import ManipulationTask
-from robosuite.models.objects.primitive.box import BoxObject
+
+# from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import UniformRandomSampler
 from robosuite.utils.transform_utils import quat2mat
 from robosuite.utils.control_utils import set_goal_position
 
 from human_robot_gym.models.objects.human.human import HumanObject
-from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat, find_robot_assets_folder
-from human_robot_gym.models import assets_root
-from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import PinocchioManipulatorModel
-from human_robot_gym.controllers.failsafe_controller.failsafe_controller.failsafe_controller import FailsafeController
+from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat
+from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import (
+    PinocchioManipulatorModel,
+)
+from human_robot_gym.controllers.failsafe_controller.failsafe_controller.failsafe_controller import (
+    FailsafeController,
+)
 import human_robot_gym.models.objects.obstacle
 
-from enum import Enum
+
 class COLLISION_TYPE(Enum):
     NULL = 0
     ROBOT = 1
@@ -151,7 +149,8 @@ class HumanEnv(SingleArmEnv):
 
         use_failsafe_controller (bool): Whether or not the safety shield / failsafe controller should be active
 
-        visualize_failsafe_controller (bool): Whether or not the reachable sets of the failsafe controller should be visualized
+        visualize_failsafe_controller (bool): Whether or not the reachable sets of the failsafe controller should be
+            visualized
 
         visualize_pinocchio (bool): Whether or pinocchios (collision prevention static env) should be visualized
 
@@ -163,7 +162,8 @@ class HumanEnv(SingleArmEnv):
 
         human_animation_freq (double): Speed of the human animation in fps.
 
-        safe_vel (double): Safe cartesian velocity. The robot is allowed to move with this velocity in the vacinity of humans.
+        safe_vel (double): Safe cartesian velocity. The robot is allowed to move with this velocity in the vacinity of
+            humans.
 
         self_collision_safety (double): Safe distance for self collision detection
 
@@ -176,7 +176,7 @@ class HumanEnv(SingleArmEnv):
     def __init__(
         self,
         robots,
-        robot_base_offset = None,
+        robot_base_offset=None,
         env_configuration="default",
         controller_configs=None,
         gripper_types="default",
@@ -205,12 +205,28 @@ class HumanEnv(SingleArmEnv):
         visualize_failsafe_controller=False,
         visualize_pinocchio=False,
         control_sample_time=0.004,
-        human_animation_names=["62_01", "62_03", "62_03", "62_07", "62_09", "62_10", "62_12", "62_13", "62_14", "62_15", "62_16", "62_18", "62_19", "62_20", "62_21"],
+        human_animation_names=[
+            "62_01",
+            "62_03",
+            "62_03",
+            "62_07",
+            "62_09",
+            "62_10",
+            "62_12",
+            "62_13",
+            "62_14",
+            "62_15",
+            "62_16",
+            "62_18",
+            "62_19",
+            "62_20",
+            "62_21",
+        ],
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_freq=120,
         safe_vel=0.001,
         self_collision_safety=0.01,
-        seed=0
+        seed=0,
     ):
         self.mujoco_arena = None
         self.seed = seed
@@ -235,24 +251,32 @@ class HumanEnv(SingleArmEnv):
         # Human animation definition
         self.human_animation_names = human_animation_names
         self.animation_info = {}
-        with open(xml_path_completion('human/animations/animation_info.json')) as json_file:
+        with open(
+            xml_path_completion("human/animations/animation_info.json")
+        ) as json_file:
             self.animation_info = json.load(json_file)
         self.human_animations = []
         for animation_name in self.human_animation_names:
             try:
-                pkl_file = open(xml_path_completion('human/animations/{}.pkl'.format(animation_name)), 'rb')
+                pkl_file = open(
+                    xml_path_completion(
+                        "human/animations/{}.pkl".format(animation_name)
+                    ),
+                    "rb",
+                )
                 self.human_animations.append(pickle.load(pkl_file))
                 pkl_file.close()
                 if animation_name not in self.animation_info:
                     self.animation_info[animation_name] = {
                         "position_offset": [0.0, 0.0, 0.0],
-                        "orientation_quat": [0.0, 0.0, 0.0, 1.0]}
+                        "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+                    }
             except Exception as e:
                 print("Error while loading human animation {}: {}".format(pkl_file, e))
-        
+
         self.base_human_pos_offset = base_human_pos_offset
         # Input to scipy: quat = [x, y, z, w]
-        self.human_base_quat = Rotation.from_quat([ 0.7071068, 0, 0, 0.7071068  ])
+        self.human_base_quat = Rotation.from_quat([0.7071068, 0, 0, 0.7071068])
         self.human_animation_freq = human_animation_freq
         self.low_level_time = int(0)
         self.human_animation_id = 0
@@ -304,7 +328,6 @@ class HumanEnv(SingleArmEnv):
         # Setup collision variables
         self._setup_collision_info()
 
-
     def step(self, action):
         """
         Overrides base.py step function to create an GoalEnv.
@@ -323,7 +346,7 @@ class HumanEnv(SingleArmEnv):
         if self.done:
             raise ValueError("executing action in terminated episode")
 
-        ## Check if the given action would lead to a direct collision with the environment.
+        # Check if the given action would lead to a direct collision with the environment.
         # Update obstacle positions
         for obs in self.obstacles:
             if obs.name in self.collision_obstacles_joints:
@@ -343,20 +366,20 @@ class HumanEnv(SingleArmEnv):
                 arm_action = action
             scaled_delta = robot.controller.scale_action(arm_action)
             goal_qpos = set_goal_position(
-                delta = scaled_delta, 
-                current_position = self.sim.data.qpos[robot.joint_indexes],
-                position_limit = robot.controller.position_limits
+                delta=scaled_delta,
+                current_position=self.sim.data.qpos[robot.joint_indexes],
+                position_limit=robot.controller.position_limits,
             )
             if isinstance(robot.robot_model, PinocchioManipulatorModel):
                 if not self._check_action_safety(robot.robot_model, goal_qpos):
-                    ## There are several ways to handle unsafe actions
+                    # There are several ways to handle unsafe actions
                     # 1) Replace with zero action.
                     action = np.zeros([len(action)])
                     self.action_resamples += 1
                     # 2) Sample new action from env
                     # 3) Sample random closeby actions and select closest safest
                     # 4) Project to safe action
-                    #print("Action would not be safe!")               
+                    # print("Action would not be safe!")
 
         self.timestep += 1
 
@@ -378,27 +401,31 @@ class HumanEnv(SingleArmEnv):
             self._pre_action(action, policy_step)
             if self.use_failsafe_controller and not failsafe_intervention:
                 for i in range(len(self.robots)):
-                    if self.robots[i].controller.get_safety() == False:
-                        failsafe_intervention = True 
+                    if self.robots[i].controller.get_safety() is False:
+                        failsafe_intervention = True
                         self.failsafe_interventions += 1
             # Step the simulation n times
-            for n in range(int(self.control_sample_time/self.model_timestep)):
+            for n in range(int(self.control_sample_time / self.model_timestep)):
                 self.sim.step()
                 self._control_human()
                 self.sim.forward()
                 if not self.has_collision:
-                    collision = self._collision_detection()
+                    self._collision_detection()
             self._update_observables()
             policy_step = False
             self.low_level_time += 1
 
-        if self.use_failsafe_controller and self.visualize_failsafe_controller and self.has_renderer:
+        if (
+            self.use_failsafe_controller
+            and self.visualize_failsafe_controller
+            and self.has_renderer
+        ):
             self._visualize_reachable_sets()
         # Note: this is done all at once to avoid floating point inaccuracies
         self.cur_time += self.control_timestep
 
         if self.viewer_get_obs:
-            #observations = self.viewer._get_observations()
+            # observations = self.viewer._get_observations()
             raise NotImplementedError
         else:
             observations = self._get_observations()
@@ -424,7 +451,7 @@ class HumanEnv(SingleArmEnv):
                 * collision: if there was a collision or not
                 * collision_type: type of collision
                 * timeout: if timeout was reached
-                * failsafe_intervention: if the failsafe controller intervened 
+                * failsafe_intervention: if the failsafe controller intervened
                     in this step or not
         """
         info = {
@@ -433,14 +460,16 @@ class HumanEnv(SingleArmEnv):
             "timeout": (self.timestep >= self.horizon),
             "failsafe_interventions": self.failsafe_interventions,
             "action_resamples": self.action_resamples,
-            "goal_reached": self.goal_reached
+            "goal_reached": self.goal_reached,
         }
         return info
 
-    def _compute_reward(self,
-        achieved_goal: Union[List[float], List[List[float]]], 
-        desired_goal: Union[List[float], List[List[float]]], 
-        info: Union[Dict, List[Dict]]) -> Union[float, List[float]]: 
+    def _compute_reward(
+        self,
+        achieved_goal: Union[List[float], List[List[float]]],
+        desired_goal: Union[List[float], List[List[float]]],
+        info: Union[Dict, List[Dict]],
+    ) -> Union[float, List[float]]:
         """
         Compute the reward based on the achieved goal, the desired goal, and
         the info dict.
@@ -457,13 +486,18 @@ class HumanEnv(SingleArmEnv):
             # Only one sample
             return self.reward(achieved_goal, desired_goal, info)
         else:
-            rewards = [self.reward(a_g, d_g, i) for (a_g, d_g, i) in zip(achieved_goal, desired_goal, info)]
+            rewards = [
+                self.reward(a_g, d_g, i)
+                for (a_g, d_g, i) in zip(achieved_goal, desired_goal, info)
+            ]
             return rewards
 
-    def _compute_done(self,
-        achieved_goal: Union[List[float], List[List[float]]], 
-        desired_goal: Union[List[float], List[List[float]]], 
-        info: Union[Dict, List[Dict]]) -> Union[bool, List[bool]]: 
+    def _compute_done(
+        self,
+        achieved_goal: Union[List[float], List[List[float]]],
+        desired_goal: Union[List[float], List[List[float]]],
+        info: Union[Dict, List[Dict]],
+    ) -> Union[bool, List[bool]]:
         """
         Compute the done flag based on the achieved goal, the desired goal, and
         the info dict.
@@ -480,12 +514,14 @@ class HumanEnv(SingleArmEnv):
             # Only one sample
             return self._check_done(achieved_goal, desired_goal, info)
         else:
-            return [self._check_done(a_g, d_g, i) for (a_g, d_g, i) in zip(achieved_goal, desired_goal, info)]
+            return [
+                self._check_done(a_g, d_g, i)
+                for (a_g, d_g, i) in zip(achieved_goal, desired_goal, info)
+            ]
 
-    def _check_done(self,
-        achieved_goal: List[float],
-        desired_goal: List[float],
-        info: Dict) -> bool:
+    def _check_done(
+        self, achieved_goal: List[float], desired_goal: List[float], info: Dict
+    ) -> bool:
         """
         Compute the done flag based on the achieved goal, the desired goal, and
         the info dict.
@@ -500,29 +536,29 @@ class HumanEnv(SingleArmEnv):
         """
         return info["collision"]
 
-    def _get_achieved_goal_from_obs(self,
-        observation: Union[List[float], Dict]
-        ) -> List[float]:
+    def _get_achieved_goal_from_obs(
+        self, observation: Union[List[float], Dict]
+    ) -> List[float]:
         """
         Extract the achieved goal from the observation.
 
         Args:
             - observation: The observation after the action is executed
-        
+
         Returns:
             - The achieved goal
         """
         return [0]
 
-    def _get_desired_goal_from_obs(self,
-        observation: Union[List[float], Dict]
-        ) -> List[float]:
+    def _get_desired_goal_from_obs(
+        self, observation: Union[List[float], Dict]
+    ) -> List[float]:
         """
         Extract the desired goal from the observation.
 
         Args:
             - observation: The observation after the action is executed
-        
+
         Returns:
             - The desired goal
         """
@@ -532,7 +568,7 @@ class HumanEnv(SingleArmEnv):
         """
         Setup variables for collision detection.
         """
-        ## Collision information of robot links. 
+        # Collision information of robot links.
         # key = collision id, value = robot id
         self.robot_collision_geoms = dict()
         for i in range(len(self.robots)):
@@ -543,11 +579,13 @@ class HumanEnv(SingleArmEnv):
             for el in self.robots[i].gripper.contact_geoms:
                 self.robot_collision_geoms[self.sim.model.geom_name2id(el)] = i
         # Human elements
-        self.human_collision_geoms = {self.sim.model.geom_name2id(item) for item in self.human.contact_geoms}
-        
+        self.human_collision_geoms = {
+            self.sim.model.geom_name2id(item) for item in self.human.contact_geoms
+        }
+
     def _check_action_safety(self, robot_model, q):
         """
-        Checks if the robot would collide with the environment in the end 
+        Checks if the robot would collide with the environment in the end
         position of the given action.
 
         Args:
@@ -571,7 +609,7 @@ class HumanEnv(SingleArmEnv):
         Returns:
             CollisionType
         """
-        self.has_collision = False 
+        self.has_collision = False
         self.collision_type = COLLISION_TYPE.NULL
         for i in range(self.sim.data.ncon):
             # Note that the contact array has more than `ncon` entries,
@@ -589,17 +627,33 @@ class HumanEnv(SingleArmEnv):
                 contact_type2 = COLLISION_TYPE.HUMAN
             else:
                 contact_type2 = COLLISION_TYPE.STATIC
-            if (contact_type1 == COLLISION_TYPE.ROBOT or 
-                contact_type2 == COLLISION_TYPE.ROBOT):
-                if (contact_type1 == COLLISION_TYPE.ROBOT and 
-                    contact_type2 == COLLISION_TYPE.ROBOT):
-                    print('Self-collision detected between ', self.sim.model.geom_id2name(contact.geom1), ' and ', self.sim.model.geom_id2name(contact.geom2))
-                    self.has_collision = True 
+            if (
+                contact_type1 == COLLISION_TYPE.ROBOT
+                or contact_type2 == COLLISION_TYPE.ROBOT
+            ):
+                if (
+                    contact_type1 == COLLISION_TYPE.ROBOT
+                    and contact_type2 == COLLISION_TYPE.ROBOT
+                ):
+                    print(
+                        "Self-collision detected between ",
+                        self.sim.model.geom_id2name(contact.geom1),
+                        " and ",
+                        self.sim.model.geom_id2name(contact.geom2),
+                    )
+                    self.has_collision = True
                     self.collision_type = COLLISION_TYPE.ROBOT
-                elif (contact_type1 == COLLISION_TYPE.HUMAN or 
-                      contact_type2 == COLLISION_TYPE.HUMAN):
-                    print('Human-robot collision detected between ', self.sim.model.geom_id2name(contact.geom1), ' and ', self.sim.model.geom_id2name(contact.geom2))
-                    ### This value may not be correct since it rapidely changes BEFORE the collision
+                elif (
+                    contact_type1 == COLLISION_TYPE.HUMAN
+                    or contact_type2 == COLLISION_TYPE.HUMAN
+                ):
+                    print(
+                        "Human-robot collision detected between ",
+                        self.sim.model.geom_id2name(contact.geom1),
+                        " and ",
+                        self.sim.model.geom_id2name(contact.geom2),
+                    )
+                    # <<< This value may not be correct since it rapidely changes BEFORE the collision >>>
                     # Ways to handle this:
                     # 1) forward dynamic of the robot
                     #   --> We need to do this anyway at some point to allow low speed driving
@@ -610,32 +664,39 @@ class HumanEnv(SingleArmEnv):
                         robot_id = self.robot_collision_geoms[contact.geom2]
                     vel_safe = self._check_robot_vel_safe(
                         robot_id=robot_id,
-                        threshold=self.safe_vel, 
-                        q=self.sim.data.qpos[self.robots[robot_id].joint_indexes], 
+                        threshold=self.safe_vel,
+                        q=self.sim.data.qpos[self.robots[robot_id].joint_indexes],
                         dq=self.sim.data.qvel[self.robots[robot_id].joint_indexes])
-                    
                     """
-                    # 2) Use the velocity of the simulation 
+                    # 2) Use the velocity of the simulation
                     if contact_type1 == COLLISION_TYPE.ROBOT:
                         print("Robot speed:")
                         print(self.sim.data.geom_xvelp[contact.geom1])
-                        #print(self.sim.data.geom_xvelr[contact.geom1])
-                        vel_safe = self._check_vel_safe(self.sim.data.geom_xvelp[contact.geom1], self.safe_vel)
+                        # print(self.sim.data.geom_xvelr[contact.geom1])
+                        vel_safe = self._check_vel_safe(
+                            self.sim.data.geom_xvelp[contact.geom1], self.safe_vel
+                        )
                     else:
-                        vel_safe = self._check_vel_safe(self.sim.data.geom_xvelp[contact.geom2], self.safe_vel)
+                        vel_safe = self._check_vel_safe(
+                            self.sim.data.geom_xvelp[contact.geom2], self.safe_vel
+                        )
 
                     if vel_safe:
-                        self.has_collision = True 
+                        self.has_collision = True
                         self.collision_type = COLLISION_TYPE.HUMAN
                         print("Robot at safe speed.")
                     else:
-                        self.has_collision = True 
+                        self.has_collision = True
                         self.collision_type = COLLISION_TYPE.HUMAN_CRIT
                         print("Robot too fast during collision!")
-                    stop=0
                 else:
-                    print('Collision with static environment detected between ', self.sim.model.geom_id2name(contact.geom1), ' and ', self.sim.model.geom_id2name(contact.geom2))
-                    self.has_collision = True 
+                    print(
+                        "Collision with static environment detected between ",
+                        self.sim.model.geom_id2name(contact.geom1),
+                        " and ",
+                        self.sim.model.geom_id2name(contact.geom2),
+                    )
+                    self.has_collision = True
                     self.collision_type = COLLISION_TYPE.STATIC
         return self.collision_type
 
@@ -657,18 +718,18 @@ class HumanEnv(SingleArmEnv):
         # +2: 1 for pinocchio base joint, 1 for fake end joint
         for v_joint in v_joints:
             if not self._check_vel_safe(v_joint, threshold):
-                return False 
-        return True 
+                return False
+        return True
 
     def _check_vel_safe(self, v_arr, threshold):
         """
         Check if veloicty vector is safe.
 
-        Args: 
+        Args:
             v_arr (array like): First three entries must be [v_x, v_y, v_z]
             threshold (double): Velocity limit
 
-        Returns: 
+        Returns:
             True: velocity lower or equal than threshold
             False: velocity higher than threshold
         """
@@ -697,7 +758,7 @@ class HumanEnv(SingleArmEnv):
             quat=[-0.0705929, 0.0705929, 0.7035742, 0.7035742],
         )
 
-        ## OBJECTS
+        # << OBJECTS >>
         # Objects are elements that can be moved around and manipulated.
         # Create objects
         self.objects = []
@@ -720,7 +781,7 @@ class HumanEnv(SingleArmEnv):
                 reference_pos=[0, 0, 0.8],
                 z_offset=0.0,
             )
-        ## OBSTACLES
+        # << OBSTACLES >>
         # Obstacles are elements that the robot should avoid.
         safety_margin = 0.05
         # Box example
@@ -733,28 +794,30 @@ class HumanEnv(SingleArmEnv):
         self.obstacles = []
         # Obstacles should also have a collision object
         coll_table = human_robot_gym.models.objects.obstacle.Box(
-            name = "Table",
-            x = self.table_full_size[0]+safety_margin, 
-            y = self.table_full_size[1]+safety_margin, 
-            z = self.table_offset[2]+safety_margin,
-            translation = np.array([self.table_offset[0], self.table_offset[1], (self.table_offset[2]+safety_margin) / 2])
+            name="Table",
+            x=self.table_full_size[0] + safety_margin,
+            y=self.table_full_size[1] + safety_margin,
+            z=self.table_offset[2] + safety_margin,
+            translation=np.array(
+                [
+                    self.table_offset[0],
+                    self.table_offset[1],
+                    (self.table_offset[2] + safety_margin) / 2,
+                ]
+            ),
         )
         coll_base = human_robot_gym.models.objects.obstacle.Cylinder(
-            name = "Base",
-            r = 0.2+safety_margin, 
-            z = 0.91+safety_margin,
-            translation = np.array([-0.46, 0, 0.455])
+            name="Base",
+            r=0.2 + safety_margin,
+            z=0.91 + safety_margin,
+            translation=np.array([-0.46, 0, 0.455]),
         )
         coll_computer = human_robot_gym.models.objects.obstacle.Box(
-            name = "Computer",
-            x = 0.3, 
-            y = 0.5, 
-            z = 0.7,
-            translation = np.array([-0.9, 0, 0.35])
+            name="Computer", x=0.3, y=0.5, z=0.7, translation=np.array([-0.9, 0, 0.35])
         )
         self.collision_obstacles = [coll_table, coll_base, coll_computer]
         # Matches sim joint names to the collision obstacles
-        #self.collision_obstacles_joints["Box"] = (box.joints[0], coll_box)
+        # self.collision_obstacles_joints["Box"] = (box.joints[0], coll_box)
         # Placement sampler for obstacles
         if self.obstacle_placement_initializer is not None:
             self.obstacle_placement_initializer.reset()
@@ -773,7 +836,6 @@ class HumanEnv(SingleArmEnv):
                 z_offset=0.1,
             )
 
-
     def _load_model(self):
         """
         Loads an xml model, puts it in self.model
@@ -789,11 +851,9 @@ class HumanEnv(SingleArmEnv):
 
         self._setup_arena()
         assert self.mujoco_arena is not None
-        ## HUMAN
+        # << HUMAN >>
         # Initialize human
-        self.human = HumanObject(
-            name="Human"
-        )
+        self.human = HumanObject(name="Human")
         # Placement sampler for human
         if self.human_placement_initializer is not None:
             self.human_placement_initializer.reset()
@@ -819,7 +879,6 @@ class HumanEnv(SingleArmEnv):
             mujoco_objects=[self.human] + self.objects + self.obstacles,
         )
 
-
     def _create_new_controller(self):
         """Manually override the controller with the failsafe controller."""
         if self.use_failsafe_controller:
@@ -827,9 +886,15 @@ class HumanEnv(SingleArmEnv):
             for i in range(len(self.robots)):
                 self.robots[i].controller_config["init_qpos"] = self.robots[i].init_qpos
                 self.robots[i].controller_config["base_pos"] = self.robots[i].base_pos
-                self.robots[i].controller_config["base_orientation"] = self.robots[i].base_ori
-                self.robots[i].controller_config["control_sample_time"] = self.control_sample_time
-                self.failsafe_controller.append(FailsafeController(**self.robots[i].controller_config))
+                self.robots[i].controller_config["base_orientation"] = self.robots[
+                    i
+                ].base_ori
+                self.robots[i].controller_config[
+                    "control_sample_time"
+                ] = self.control_sample_time
+                self.failsafe_controller.append(
+                    FailsafeController(**self.robots[i].controller_config)
+                )
         else:
             self.failsafe_controller = None
 
@@ -841,7 +906,7 @@ class HumanEnv(SingleArmEnv):
 
     def _set_human_measurement(self, human_measurement, time):
         """Set the human measurement in the failsafe controller.
-        
+
         Args:
           human_measurement (list[list[double]]): List of human measurements [x, y, z]-joint positions.
               The order of joints is defined in `human.py`
@@ -859,12 +924,20 @@ class HumanEnv(SingleArmEnv):
         """
         super()._setup_references()
         if self.control_sample_time % self.model_timestep != 0:
-          self.control_sample_time = math.floor(self.control_sample_time/self.model_timestep) * self.model_timestep
+            self.control_sample_time = (
+                math.floor(self.control_sample_time / self.model_timestep)
+                * self.model_timestep
+            )
 
-        simulation_step_freq = int(1/self.model_timestep)
-        self.human_animation_step_length = simulation_step_freq/self.human_animation_freq
-        assert self.human_animation_step_length >= 1, "No human animation frequency faster than {} Hz is allowed".format(self.model_freq)
-
+        simulation_step_freq = int(1 / self.model_timestep)
+        self.human_animation_step_length = (
+            simulation_step_freq / self.human_animation_freq
+        )
+        assert (
+            self.human_animation_step_length >= 1
+        ), "No human animation frequency faster than {} Hz is allowed".format(
+            self.model_freq
+        )
 
     def _setup_observables(self):
         """
@@ -885,12 +958,20 @@ class HumanEnv(SingleArmEnv):
             @sensor(modality=modality)
             def gripper_pos(obs_cache):
                 return (
-                    obs_cache[f"{pf}eef_pos"] if f"{pf}eef_pos" in obs_cache else np.zeros(3)
+                    obs_cache[f"{pf}eef_pos"]
+                    if f"{pf}eef_pos" in obs_cache
+                    else np.zeros(3)
                 )
 
             @sensor(modality=modality)
             def human_joint_pos(obs_cache):
-                return np.concatenate([self.sim.data.get_site_xpos("Human_" + joint_element) for joint_element in self.human.obs_joint_elements], axis=-1)
+                return np.concatenate(
+                    [
+                        self.sim.data.get_site_xpos("Human_" + joint_element)
+                        for joint_element in self.human.obs_joint_elements
+                    ],
+                    axis=-1,
+                )
 
             sensors = [gripper_pos, human_joint_pos]
             names = [s.__name__ for s in sensors]
@@ -904,7 +985,6 @@ class HumanEnv(SingleArmEnv):
                 )
 
         return observables
-
 
     def _reset_internal(self):
         """
@@ -934,28 +1014,35 @@ class HumanEnv(SingleArmEnv):
             obstacle_placements = self.obstacle_placement_initializer.sample()
             # We know we're only setting a single object (the door), so specifically set its pose
             human_pos, human_quat, _ = human_placements[self.human.name]
-            self.human_pos_offset = [self.base_human_pos_offset[i] + human_pos[i] for i in range(3)]
+            self.human_pos_offset = [
+                self.base_human_pos_offset[i] + human_pos[i] for i in range(3)
+            ]
             # Loop through all objects and reset their positions
             for obj_pos, obj_quat, obj in object_placements.values():
-                self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array(obj_quat)]))
+                self.sim.data.set_joint_qpos(
+                    obj.joints[0],
+                    np.concatenate([np.array(obj_pos), np.array(obj_quat)]),
+                )
             # Loop through all obstacles and reset their positions
             for obs_pos, obs_quat, obs in obstacle_placements.values():
-                self.sim.data.set_joint_qpos(obs.joints[0], np.concatenate([np.array(obs_pos), np.array(obs_quat)]))    
+                self.sim.data.set_joint_qpos(
+                    obs.joints[0],
+                    np.concatenate([np.array(obs_pos), np.array(obs_quat)]),
+                )
                 if obs.name in self.collision_obstacles_joints:
                     self.collision_obstacles_joints[obs.name][1].set_transform(
-                        translation = np.array(obs_pos),
-                        rotation = quat2mat(obs_quat)
+                        translation=np.array(obs_pos), rotation=quat2mat(obs_quat)
                     )
 
     def _reset_pin_models(self):
         """
         Set the base pose of the pinocchio robots.
-        """ 
+        """
         for robot in self.robots:
             if isinstance(robot.robot_model, PinocchioManipulatorModel):
                 rot = quat2mat(robot.base_ori)
                 trans = np.eye(4)
-                trans[0:3, 0:3] = rot 
+                trans[0:3, 0:3] = rot
                 trans[0:3, 3] = robot.base_pos
                 robot.robot_model.set_base_placement(trans)
 
@@ -964,34 +1051,64 @@ class HumanEnv(SingleArmEnv):
         Set the human joint positions according to the human animation files.
         """
         # Convert low level time to human animation time
-        control_time = math.floor(self.low_level_time/self.human_animation_step_length)
+        control_time = math.floor(
+            self.low_level_time / self.human_animation_step_length
+        )
         # If the animation time would stay the same, there is no need to update the human.
         if control_time - self.animation_start_time == self.animation_time:
-          return
+            return
         self.animation_time = control_time - self.animation_start_time
         # Check if current animation is finished
-        if self.animation_time > self.human_animations[self.human_animation_id]["Pelvis_pos_x"].shape[0]-1:
+        if (
+            self.animation_time
+            > self.human_animations[self.human_animation_id]["Pelvis_pos_x"].shape[0]
+            - 1
+        ):
             # Rotate to next human animation
-            self.human_animation_id = self.human_animation_id+1 if self.human_animation_id < len(self.human_animations)-2 else 0
+            self.human_animation_id = (
+                self.human_animation_id + 1
+                if self.human_animation_id < len(self.human_animations) - 2
+                else 0
+            )
             self.animation_time = 0
             self.animation_start_time = control_time
-        
-        ## Root bone transformation
-        animation_pos = [self.human_animations[self.human_animation_id]["Pelvis_pos_x"][self.animation_time],
-                         self.human_animations[self.human_animation_id]["Pelvis_pos_y"][self.animation_time],
-                         self.human_animations[self.human_animation_id]["Pelvis_pos_z"][self.animation_time]]
-        animation_offset = self.animation_info[self.human_animation_names[self.human_animation_id]]["position_offset"]
+
+        # Root bone transformation
+        animation_pos = [
+            self.human_animations[self.human_animation_id]["Pelvis_pos_x"][
+                self.animation_time
+            ],
+            self.human_animations[self.human_animation_id]["Pelvis_pos_y"][
+                self.animation_time
+            ],
+            self.human_animations[self.human_animation_id]["Pelvis_pos_z"][
+                self.animation_time
+            ],
+        ]
+        animation_offset = self.animation_info[
+            self.human_animation_names[self.human_animation_id]
+        ]["position_offset"]
         # These settings are adjusted to fit the CMU motion capture BVH files!
-        human_pos = [ (animation_pos[0] + self.human_pos_offset[0] + animation_offset[0]),
-                      (animation_pos[1] + self.human_pos_offset[1] + animation_offset[1]),
-                      (animation_pos[2] + self.human_pos_offset[2] + animation_offset[2])]
+        human_pos = [
+            (animation_pos[0] + self.human_pos_offset[0] + animation_offset[0]),
+            (animation_pos[1] + self.human_pos_offset[1] + animation_offset[1]),
+            (animation_pos[2] + self.human_pos_offset[2] + animation_offset[2]),
+        ]
         # Base rotation (without animation)
-        animation_offset_rot = Rotation.from_quat(self.animation_info[self.human_animation_names[self.human_animation_id]]["orientation_quat"])
+        animation_offset_rot = Rotation.from_quat(
+            self.animation_info[self.human_animation_names[self.human_animation_id]][
+                "orientation_quat"
+            ]
+        )
         human_rot = self.human_base_quat.__mul__(animation_offset_rot)
         # Apply rotation to position
         human_pos = human_rot.apply(human_pos)
         # Animation rotation
-        rot = Rotation.from_quat(self.human_animations[self.human_animation_id]["Pelvis_quat"][self.animation_time])
+        rot = Rotation.from_quat(
+            self.human_animations[self.human_animation_id]["Pelvis_quat"][
+                self.animation_time
+            ]
+        )
         human_rot = human_rot.__mul__(rot)
         human_quat = rot_to_quat(human_rot)
         # Set base position and rotation
@@ -1001,40 +1118,69 @@ class HumanEnv(SingleArmEnv):
         # Set rotation of all other joints
         for joint_element in self.human.joint_elements:
             joint_name = joint_element + "_x"
-            self.sim.data.set_joint_qpos(self.human.naming_prefix + joint_name, 
-                self.human_animations[self.human_animation_id][joint_name][self.animation_time])
+            self.sim.data.set_joint_qpos(
+                self.human.naming_prefix + joint_name,
+                self.human_animations[self.human_animation_id][joint_name][
+                    self.animation_time
+                ],
+            )
             joint_name = joint_element + "_y"
-            self.sim.data.set_joint_qpos(self.human.naming_prefix + joint_name, 
-                self.human_animations[self.human_animation_id][joint_name][self.animation_time])
+            self.sim.data.set_joint_qpos(
+                self.human.naming_prefix + joint_name,
+                self.human_animations[self.human_animation_id][joint_name][
+                    self.animation_time
+                ],
+            )
             joint_name = joint_element + "_z"
-            self.sim.data.set_joint_qpos(self.human.naming_prefix + joint_name, 
-                self.human_animations[self.human_animation_id][joint_name][self.animation_time])
+            self.sim.data.set_joint_qpos(
+                self.human.naming_prefix + joint_name,
+                self.human_animations[self.human_animation_id][joint_name][
+                    self.animation_time
+                ],
+            )
 
     def _human_measurement(self):
         """
         Retrieve the human measurements and save them to self.human_measurement.
-        """ 
-        self.human_measurement = [self.sim.data.get_site_xpos("Human_" + joint_element)
-                                    for joint_element in self.human.joint_elements]
-
+        """
+        self.human_measurement = [
+            self.sim.data.get_site_xpos("Human_" + joint_element)
+            for joint_element in self.human.joint_elements
+        ]
 
     def _visualize_reachable_sets(self):
-        """Visualize the robot and human reachable set.
-        """
+        """Visualize the robot and human reachable set."""
         if self.use_failsafe_controller:
             for i in range(len(self.robots)):
                 robot_capsules = self.robots[i].controller.get_robot_capsules()
                 for cap in robot_capsules:
-                    self.viewer.viewer.add_marker(pos=cap.pos, type=3, size=cap.size, mat=cap.mat.flatten(), rgba=[0.0, 0.0, 1.0, 0.2], label="", shininess=0.0)
+                    self.viewer.viewer.add_marker(
+                        pos=cap.pos,
+                        type=3,
+                        size=cap.size,
+                        mat=cap.mat.flatten(),
+                        rgba=[0.0, 0.0, 1.0, 0.2],
+                        label="",
+                        shininess=0.0,
+                    )
                 # These should 100% match for all robots.
                 human_capsules = self.robots[i].controller.get_human_capsules()
                 for cap in human_capsules:
-                    self.viewer.viewer.add_marker(pos=cap.pos, type=3, size=cap.size, mat=cap.mat.flatten(), rgba=[0.0, 1.0, 0.0, 0.2], label="", shininess=0.0)
+                    self.viewer.viewer.add_marker(
+                        pos=cap.pos,
+                        type=3,
+                        size=cap.size,
+                        mat=cap.mat.flatten(),
+                        rgba=[0.0, 1.0, 0.0, 0.2],
+                        label="",
+                        shininess=0.0,
+                    )
                 # Visualize human joints
-                #for joint_element in self.human.joint_elements:
+                # for joint_element in self.human.joint_elements:
                 #    pos = self.sim.data.get_site_xpos("Human_" + joint_element)
-                #    self.viewer.viewer.add_marker(pos=pos, type=2, size=[0.05, 0.05, 0.05], mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], rgba=[1.0, 0.0, 0.0, 1.0], label="", shininess=0.0)
-                
+                #    self.viewer.viewer.add_marker(pos=pos, type=2, size=[0.05, 0.05, 0.05],
+                #       mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+                #       rgba=[1.0, 0.0, 0.0, 1.0], label="", shininess=0.0)
 
     @property
     def _visualizations(self):
@@ -1047,7 +1193,9 @@ class HumanEnv(SingleArmEnv):
         vis_set = super()._visualizations
         return vis_set
 
-    def visualize_pin(self, viz: pin.visualize.MeshcatVisualizer = None) -> pin.visualize.MeshcatVisualizer:
+    def visualize_pin(
+        self, viz: pin.visualize.MeshcatVisualizer = None
+    ) -> pin.visualize.MeshcatVisualizer:
         """
         Plots the scenario in a Meshcat visualizer.
         Calls the "visualize" function for each Object in the scenario. As Objects are the high-level representation
@@ -1065,4 +1213,3 @@ class HumanEnv(SingleArmEnv):
             robot.robot_model.visualize(viz)
 
         return viz
-
