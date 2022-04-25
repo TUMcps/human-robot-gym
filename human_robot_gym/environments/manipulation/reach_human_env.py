@@ -235,7 +235,6 @@ class ReachHuman(HumanEnv):
         self_collision_safety=0.01,
         seed=0,
     ):
-        test = "This is a very long line. AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa"
         # settings for table top
         self.table_full_size = table_full_size
         self.table_friction = table_friction
