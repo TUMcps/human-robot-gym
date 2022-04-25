@@ -30,7 +30,7 @@ class PinocchioManipulatorModel(ManipulatorModel):
     def __init__(self, fname, urdf_file, package_dirs, idn=0):
         # Always run super init first
         super().__init__(fname, idn=idn)
-        self.placement = np.eye(4)
+        self._base_placement = np.eye(4)
         ## Setup robot representation in pinocchio. This is used for
         # - Collision checking
         # - Jacobian / Joint velocities
@@ -114,6 +114,18 @@ class PinocchioManipulatorModel(ManipulatorModel):
         if geometry:
             self._update_geometry_placement()
 
+    def get_eef_transformation(self, q:np.ndarray):
+        """
+        Get the position and orientation of the end-effector in the given configuration.
+
+        :param q: The new configuration in joint space.
+
+        :return: (trans, rot)
+        """
+        q = q_pin(q)
+        pin.forwardKinematics(self.pin_model, self.pin_data, q)
+        T = self.pin_data.oMi[self.dof+1]
+        return (T.translation.copy(), T.rotation.copy())
 
     # ---------- Collision Methods ----------
 
@@ -371,3 +383,7 @@ class PinocchioManipulatorModel(ManipulatorModel):
                   ) -> pin.visualize.MeshcatVisualizer:
         """An alias for plot"""
         return self.plot(visualizer, coordinate_systems)
+
+    @property
+    def placement(self) -> np.ndarray:
+        return self._base_placement

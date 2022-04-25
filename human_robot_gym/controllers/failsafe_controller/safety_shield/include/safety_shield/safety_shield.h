@@ -403,6 +403,7 @@ class SafetyShield {
    * @param a_max_path Maximal allowed relative path acceleration
    * @param j_max_path Maximal allowed relative path jerk
    * @param long_term_trajectory Fixed trajectory to execute (will be overwritten by new intended goals)
+   *    This also defines the initial qpos.
    * @param robot_reach Robot reachable set calculation object
    * @param human_reach Human reachable set calculation object
    * @param verify Verification of reachable sets object
@@ -422,7 +423,20 @@ class SafetyShield {
       Verify* verify);
 
   /**
-   * @TODO: Write constructor that creates human reach, robot reach, and verify object.
+   * @brief Construct a new Safety Shield object from config files.
+   * 
+   * @param activate_shield If the safety function should be active or not.
+   * @param sample_time Sample time of shield
+   * @param trajectory_config_file Path to config file defining the trajectory parameters
+   * @param robot_config_file Path to config file defining the robot transformation matrices and capsules
+   * @param mocap_config_file Path to config file defining the human motion capture
+   * @param init_x Base x pos
+   * @param init_y Base y pos
+   * @param init_z Base z pos 
+   * @param init_roll Base roll
+   * @param init_pitch Base pitch
+   * @param init_yaw Base yaw
+   * @param init_qpos Initial joint position of the robot
    */
   SafetyShield(bool activate_shield,
       double sample_time,
@@ -434,7 +448,8 @@ class SafetyShield {
       double init_z, 
       double init_roll, 
       double init_pitch, 
-      double init_yaw);
+      double init_yaw,
+      const std::vector<double> &init_qpos);
 
   /**
    * @brief A SafetyShield destructor
@@ -521,6 +536,10 @@ class SafetyShield {
       capsules[i] = convertCapsule(human_capsules_[type][i]);
     }
     return capsules;
+  }
+
+  inline bool getSafety() {
+    return is_safe_;
   }
 
   /**

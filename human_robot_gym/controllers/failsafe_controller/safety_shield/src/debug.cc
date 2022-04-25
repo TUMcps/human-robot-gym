@@ -24,6 +24,7 @@ int main () {
     double init_roll = 0.0;
     double init_pitch = 0.0;
     double init_yaw = 0.0;
+    std::vector<double> init_qpos = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
     safety_shield::SafetyShield shield = safety_shield::SafetyShield(activate_shield,
       sample_time, 
@@ -35,7 +36,8 @@ int main () {
       init_z, 
       init_roll, 
       init_pitch, 
-      init_yaw);
+      init_yaw,
+      init_qpos);
 
     // Dummy human measurement
     std::vector<reach_lib::Point> dummy_human_meas(21);

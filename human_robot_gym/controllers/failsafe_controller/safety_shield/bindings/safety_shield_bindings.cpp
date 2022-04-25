@@ -35,7 +35,7 @@ PYBIND11_MODULE(safety_shield_py, handle) {
   // Safety shield class
   py::class_<safety_shield::SafetyShield>(handle, "SafetyShield")
     .def(py::init<>())
-    .def(py::init<bool, double, std::string, std::string, std::string, double, double, double, double, double, double>(),
+    .def(py::init<bool, double, std::string, std::string, std::string, double, double, double, double, double, double, const std::vector<double>&>(),
       py::arg("activate_shield"),
       py::arg("sample_time"),
       py::arg("trajectory_config_file"),
@@ -46,12 +46,14 @@ PYBIND11_MODULE(safety_shield_py, handle) {
       py::arg("init_z"),
       py::arg("init_roll"),
       py::arg("init_pitch"),
-      py::arg("init_yaw"))
+      py::arg("init_yaw"),
+      py::arg("init_qpos"))
     .def("step", &safety_shield::SafetyShield::step, py::arg("cycle_begin_time"))
     .def("newLongTermTrajectory", &safety_shield::SafetyShield::newLongTermTrajectory, py::arg("goal_motion"))
     .def("humanMeasurement", static_cast<void (safety_shield::SafetyShield::*)(const std::vector<std::vector<double>> human_measurement, double time)>(&safety_shield::SafetyShield::humanMeasurement), py::arg("human_measurement"), py::arg("time"))
     .def("getRobotReachCapsules", &safety_shield::SafetyShield::getRobotReachCapsules)
     .def("getHumanReachCapsules", &safety_shield::SafetyShield::getHumanReachCapsules, py::arg("type") = 1)
+    .def("getSafety", &safety_shield::SafetyShield::getSafety)
   ;
   
 }

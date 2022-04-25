@@ -31,6 +31,8 @@ class FailsafeController(JointPositionController):
 
         actuator_range (2-tuple of array of float): 2-Tuple (low, high) representing the robot joint actuator range
 
+        init_qpos (list[double]): Initial joint angles
+        
         base_pos (list[double]): position of base [x, y, z]
 
         base_orientation (list[double]): orientation of base as quaternion [x, y, z, w]
@@ -99,6 +101,7 @@ class FailsafeController(JointPositionController):
         eef_name,
         joint_indexes,
         actuator_range,
+        init_qpos,
         base_pos=[0.0, 0.0, 0.0],
         base_orientation=[0.0, 0.0, 0.0, 1.0],
         input_max=1,
@@ -151,7 +154,8 @@ class FailsafeController(JointPositionController):
           init_z = base_pos[2],
           init_roll = rpy[0],
           init_pitch = rpy[1],
-          init_yaw = rpy[2]
+          init_yaw = rpy[2],
+          init_qpos = init_qpos
         )
         self.desired_motion = self.safety_shield.step(0.0)
         self.robot_capsules = [] 
@@ -268,6 +272,14 @@ class FailsafeController(JointPositionController):
         self.new_update = True
 
         return self.torques
+
+    def get_safety(self):
+      """Return if the failsafe controller intervened in this step or not.
+
+      Returns:
+        bool: True: Safe, False: Unsafe  
+      """
+      return self.safety_shield.getSafety()
 
     def get_robot_capsules(self):
       """Return the robot capsules in the correct format to plot them in mujoco.
