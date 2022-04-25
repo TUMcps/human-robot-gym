@@ -8,24 +8,30 @@ from scipy.spatial.transform import Rotation
 
 
 if __name__ == "__main__":
-    ## Load in arguments
-    parser = argparse.ArgumentParser(description = 
-        'Convert a BVH motion capture file to a usable animation and save the animation as a pickle file.')
-    parser.add_argument('path', help='Path to bvh file. Has to end in .bvh', type=str)
-    parser.add_argument('--save_path', '-s', help='Path to save the pickle file. Has to end in .pkl', type=str)
+    # << Load in arguments >>
+    parser = argparse.ArgumentParser(
+        description="Convert a BVH motion capture file to a usable animation and save the animation as a pickle file."
+    )
+    parser.add_argument("path", help="Path to bvh file. Has to end in .bvh", type=str)
+    parser.add_argument(
+        "--save_path",
+        "-s",
+        help="Path to save the pickle file. Has to end in .pkl",
+        type=str,
+    )
     args = parser.parse_args()
     path = args.path
     file_name, file_extension = os.path.splitext(path)
-    assert file_extension == '.bvh', "BVH file has to end in .bvh"
+    assert file_extension == ".bvh", "BVH file has to end in .bvh"
     assert os.path.isfile(path), "BVH file does not exist!"
     save_path = args.save_path
     if save_path is not None:
         _, file_extension = os.path.splitext(save_path)
-        assert file_extension == '.pkl', "File to save pkl has to end in .pkl"
+        assert file_extension == ".pkl", "File to save pkl has to end in .pkl"
     else:
-        save_path = file_name + '.pkl'
+        save_path = file_name + ".pkl"
 
-    ## Load BVH file
+    # << Load BVH file >>
     with open(path) as f:
         mocap = Bvh(f.read())
     mocap.get_joint_channels_index("hip")
@@ -53,21 +59,33 @@ if __name__ == "__main__":
         "L_Wrist": "lHand",
         "R_Wrist": "rHand",
         "L_Hand": None,
-        "R_Hand": None
+        "R_Hand": None,
     }
-    frames = np.asarray(mocap.frames, dtype=np.float64, order='C')
+    frames = np.asarray(mocap.frames, dtype=np.float64, order="C")
     data = {}
     channel_dict = {}
     base_idx = mocap.get_joint_channels_index("hip")
     for (i, channel_name) in enumerate(mocap.joint_channels("hip")):
         channel_dict[channel_name] = base_idx + i
 
-    data["Pelvis_pos_x"] = frames[:, channel_dict["Xposition"]]/100
-    data["Pelvis_pos_y"] = frames[:, channel_dict["Yposition"]]/100
-    data["Pelvis_pos_z"] = frames[:, channel_dict["Zposition"]]/100
-    rot = Rotation.from_euler('ZYX', 
-            np.swapaxes(np.array([frames[:, channel_dict["Zrotation"]], frames[:, channel_dict["Yrotation"]], frames[:, channel_dict["Xrotation"]]]), 0, 1), 
-            degrees=True)
+    data["Pelvis_pos_x"] = frames[:, channel_dict["Xposition"]] / 100
+    data["Pelvis_pos_y"] = frames[:, channel_dict["Yposition"]] / 100
+    data["Pelvis_pos_z"] = frames[:, channel_dict["Zposition"]] / 100
+    rot = Rotation.from_euler(
+        "ZYX",
+        np.swapaxes(
+            np.array(
+                [
+                    frames[:, channel_dict["Zrotation"]],
+                    frames[:, channel_dict["Yrotation"]],
+                    frames[:, channel_dict["Xrotation"]],
+                ]
+            ),
+            0,
+            1,
+        ),
+        degrees=True,
+    )
     data["Pelvis_quat"] = rot.as_quat()
 
     for joint_name in mujoco_to_mocap_names:
@@ -77,14 +95,20 @@ if __name__ == "__main__":
             channel_dict = {}
             for (i, channel_name) in enumerate(mocap.joint_channels(mocap_name)):
                 channel_dict[channel_name] = base_idx + i
-            data[joint_name + "_x"] = np.clip(np.radians(frames[:, channel_dict["Xrotation"]]), -1.56, 1.56)
-            data[joint_name + "_y"] = np.clip(np.radians(frames[:, channel_dict["Yrotation"]]), -1.56, 1.56)
-            data[joint_name + "_z"] = np.clip(np.radians(frames[:, channel_dict["Zrotation"]]), -1.56, 1.56)
+            data[joint_name + "_x"] = np.clip(
+                np.radians(frames[:, channel_dict["Xrotation"]]), -1.56, 1.56
+            )
+            data[joint_name + "_y"] = np.clip(
+                np.radians(frames[:, channel_dict["Yrotation"]]), -1.56, 1.56
+            )
+            data[joint_name + "_z"] = np.clip(
+                np.radians(frames[:, channel_dict["Zrotation"]]), -1.56, 1.56
+            )
         else:
             data[joint_name + "_x"] = np.zeros(data["Pelvis_pos_x"].shape)
             data[joint_name + "_y"] = np.zeros(data["Pelvis_pos_x"].shape)
             data[joint_name + "_z"] = np.zeros(data["Pelvis_pos_x"].shape)
-    
-    output = open(save_path, 'wb')
+
+    output = open(save_path, "wb")
     pickle.dump(data, output)
     output.close()

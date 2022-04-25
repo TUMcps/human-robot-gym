@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def q_pin(arr):
     """
     The pinocchio model has an additional fictional joint.
