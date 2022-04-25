@@ -1,13 +1,11 @@
-from collections import OrderedDict
 from tokenize import Double
-from typing import Collection, Dict, List, Tuple, Union
+from typing import Tuple, Union
 import numpy as np
-import itertools
+from matplotlib import colors
 
 import pinocchio as pin
 from pinocchio.visualize import GepettoVisualizer
 from hppfcl import CollisionRequest, CollisionResult, collide, CollisionObject
-from hppfcl import hppfcl
 from robosuite.models.robots.manipulators import ManipulatorModel
 
 from human_robot_gym.utils.pinocchio_utils import q_pin
@@ -31,20 +29,22 @@ class PinocchioManipulatorModel(ManipulatorModel):
         # Always run super init first
         super().__init__(fname, idn=idn)
         self._base_placement = np.eye(4)
-        ## Setup robot representation in pinocchio. This is used for
+        # << Setup robot representation in pinocchio. >>
+        # This is used for
         # - Collision checking
         # - Jacobian / Joint velocities
-        #robot_assets_folder = find_robot_assets_folder(self.robots[0].name)
+        # robot_assets_folder = find_robot_assets_folder(self.robots[0].name)
         self.pin_model, self.collision, self.visual = pin.buildModelsFromUrdf(
-            urdf_file, 
-            package_dirs=package_dirs, 
-            geometry_types=[pin.GeometryType.COLLISION, pin.GeometryType.VISUAL])
+            urdf_file,
+            package_dirs=package_dirs,
+            geometry_types=[pin.GeometryType.COLLISION, pin.GeometryType.VISUAL],
+        )
         self.pin_data = self.pin_model.createData()
         self.pin_local_world_aligned_frame = pin.ReferenceFrame(2)
         self.configuration = pin.neutral(self.pin_model)
-        ## Visualization only for debugging and testing.
-        #self.visualize_pinocchio_robot(self.pin_model, self.collision, self.visual, q)
-        ## Collisions
+        # << Visualization only for debugging and testing. >>
+        # self.visualize_pinocchio_robot(self.pin_model, self.collision, self.visual, q)
+        # << Collisions >>
         self._init_collision_pairs()
         self.collision_data = self.collision.createData()
         self.visual_data = self.visual.createData()
@@ -54,7 +54,7 @@ class PinocchioManipulatorModel(ManipulatorModel):
     def _update_geometry_placement(self):
         """Updates the collision (for collision detection) and visual (for plotting) geometry placements."""
         self._update_collision_placement()
-        #self._update_visual_placement()
+        # self._update_visual_placement()
 
     def move(self, displacement: Union[np.ndarray, pin.SE3]):
         """Moves frames, joints and geometries."""
@@ -70,11 +70,17 @@ class PinocchioManipulatorModel(ManipulatorModel):
             for vo in vos:
                 vo.placement = displacement * vo.placement
             frame.placement = displacement * frame.placement
-        self.pin_model.jointPlacements[0] = displacement * self.pin_model.jointPlacements[0]
+        self.pin_model.jointPlacements[0] = (
+            displacement * self.pin_model.jointPlacements[0]
+        )
         try:
-            self.pin_model.jointPlacements[1] = displacement * self.pin_model.jointPlacements[1]
+            self.pin_model.jointPlacements[1] = (
+                displacement * self.pin_model.jointPlacements[1]
+            )
         except IndexError:
-            assert self.dof == 0, "Could not find the first joint, but there seems to be one"
+            assert (
+                self.dof == 0
+            ), "Could not find the first joint, but there seems to be one"
         self.update_configuration(self.configuration)
         self._base_placement = self.placement @ displacement.homogeneous
 
@@ -83,13 +89,15 @@ class PinocchioManipulatorModel(ManipulatorModel):
         err.assert_is_homogeneous_transformation(pose)
         self.move(pose @ spatial.inv_homogeneous(self.placement))
 
-    def update_configuration(self,
-                             q: np.ndarray,
-                             dq: np.ndarray = None,
-                             ddq: np.ndarray = None,
-                             *,
-                             frames: bool = False,
-                             geometry: bool = False):
+    def update_configuration(
+        self,
+        q: np.ndarray,
+        dq: np.ndarray = None,
+        ddq: np.ndarray = None,
+        *,
+        frames: bool = False,
+        geometry: bool = False
+    ):
         """
         Update the robot configuration by updating the joint parameters.
         :param q: The new configuration in joint space iven as numpy array of joint values.
@@ -103,10 +111,14 @@ class PinocchioManipulatorModel(ManipulatorModel):
         if dq is not None:
             self.velocities = dq
             if ddq is None:
-                pin.forwardKinematics(self.pin_model, self.pin_data, self.configuration, dq)
+                pin.forwardKinematics(
+                    self.pin_model, self.pin_data, self.configuration, dq
+                )
             else:
                 self.accelerations = ddq
-                pin.forwardKinematics(self.pin_model, self.pin_data, self.configuration, dq, ddq)
+                pin.forwardKinematics(
+                    self.pin_model, self.pin_data, self.configuration, dq, ddq
+                )
         else:
             pin.forwardKinematics(self.pin_model, self.pin_data, self.configuration)
         if frames:
@@ -114,7 +126,7 @@ class PinocchioManipulatorModel(ManipulatorModel):
         if geometry:
             self._update_geometry_placement()
 
-    def get_eef_transformation(self, q:np.ndarray):
+    def get_eef_transformation(self, q: np.ndarray):
         """
         Get the position and orientation of the end-effector in the given configuration.
 
@@ -124,7 +136,7 @@ class PinocchioManipulatorModel(ManipulatorModel):
         """
         q = q_pin(q)
         pin.forwardKinematics(self.pin_model, self.pin_data, q)
-        T = self.pin_data.oMi[self.dof+1]
+        T = self.pin_data.oMi[self.dof + 1]
         return (T.translation.copy(), T.rotation.copy())
 
     # ---------- Collision Methods ----------
@@ -147,19 +159,25 @@ class PinocchioManipulatorModel(ManipulatorModel):
         result = CollisionResult()
         # Iterate over all robot collision objects
         robot_coll_geometries = [rco.geometry for rco in self.collision_objects]
-        for (robot_coll_geo, robot_coll_trans) in zip(robot_coll_geometries, self.collision_data.oMg):
+        for (robot_coll_geo, robot_coll_trans) in zip(
+            robot_coll_geometries, self.collision_data.oMg
+        ):
             # Iterate over all sub-collision objects in the given object
             for collision_part in collision_object.collision_objects:
-                if collide(robot_coll_geo, 
-                          robot_coll_trans, 
-                          collision_part.collisionGeometry(),
-                          collision_part.getTransform(), 
-                          request, 
-                          result):
+                if collide(
+                    robot_coll_geo,
+                    robot_coll_trans,
+                    collision_part.collisionGeometry(),
+                    collision_part.getTransform(),
+                    request,
+                    result,
+                ):
                     return True
         return False
 
-    def has_self_collision(self, q: np.ndarray = None, safety_dist: Double = 0.0) -> bool:
+    def has_self_collision(
+        self, q: np.ndarray = None, safety_dist: Double = 0.0
+    ) -> bool:
         """
         Returns true if there are any self collisions in the current robot configuration
         If q is provided, the robot configuration will be changed. If not, this defaults to the current configuration.
@@ -168,7 +186,13 @@ class PinocchioManipulatorModel(ManipulatorModel):
         if q is not None:
             self.update_configuration(q)
         self._update_collision_placement()
-        pin.computeDistances(self.pin_model, self.pin_data, self.collision, self.collision_data, self.configuration)
+        pin.computeDistances(
+            self.pin_model,
+            self.pin_data,
+            self.collision,
+            self.collision_data,
+            self.configuration,
+        )
         for dist in self.collision_data.distanceResults:
             if dist.min_distance <= safety_dist:
                 return True
@@ -185,7 +209,14 @@ class PinocchioManipulatorModel(ManipulatorModel):
         # TODO: Implement more precise methods, e.g. SRDF input
         # print("WARNING: REMOVING ALL COLLISIIONS IN ZERO POSITION")
         self._update_collision_placement()
-        pin.computeCollisions(self.pin_model, self.pin_data, self.collision, self.collision_data, self.configuration, False)
+        pin.computeCollisions(
+            self.pin_model,
+            self.pin_data,
+            self.collision,
+            self.collision_data,
+            self.configuration,
+            False,
+        )
         active = np.zeros((self.collision.ngeoms, self.collision.ngeoms), bool)
         for k in range(len(self.collision.collisionPairs)):
             cr = self.collision_data.collisionResults[k]
@@ -197,11 +228,15 @@ class PinocchioManipulatorModel(ManipulatorModel):
 
         self.collision.setCollisionPairs(active)
         self.collision_data = self.collision.createData()
-        assert not self.has_self_collision(), "Self collisions should have been removed by now..."
+        assert (
+            not self.has_self_collision()
+        ), "Self collisions should have been removed by now..."
 
     def _update_collision_placement(self):
         """Updates the placement of collision geometry objects"""
-        pin.updateGeometryPlacements(self.pin_model, self.pin_data, self.collision, self.collision_data)
+        pin.updateGeometryPlacements(
+            self.pin_model, self.pin_data, self.collision, self.collision_data
+        )
 
     # ---------------------------- Visualize Gepetto -------------------------------------
     def visualize_gepetto(self, q):
@@ -218,34 +253,41 @@ class PinocchioManipulatorModel(ManipulatorModel):
         try:
             viz.initViewer()
         except ImportError as err:
-            print("Error while initializing the viewer. It seems you should install gepetto-viewer")
+            print(
+                "Error while initializing the viewer. It seems you should install gepetto-viewer"
+            )
             print(err)
         try:
             viz.loadViewerModel("pinocchio")
             viz.display(q_pin(q))
         except AttributeError as err:
-            print("Error while loading the viewer model. It seems you should start gepetto-viewer")
+            print(
+                "Error while loading the viewer model. It seems you should start gepetto-viewer"
+            )
             print(err)
 
     def get_joint_vel(self, q, dq):
         """
-        Returns the cartesian velocity and angular velocity of each joint in 
-          (x, y, z, \omega_x, \omega_y, \omega_z) in world coordinates.
+        Returns the cartesian velocity and angular velocity of each joint in
+          (x, y, z, omega_x, omega_y, omega_z) in world coordinates.
 
         Args:
             q (np.array): Joint configuration
             dq (np.array): Joint velocity
         """
-        q = q_pin(q); dq = q_pin(dq)
-        # Computes the full model Jacobian, i.e. the stack of all motion subspace expressed in the world frame. 
-        # The result is accessible through data.J. 
-        # This function computes also the forwardKinematics of the model. 
+        q = q_pin(q)
+        dq = q_pin(dq)
+        # Computes the full model Jacobian, i.e. the stack of all motion subspace expressed in the world frame.
+        # The result is accessible through data.J.
+        # This function computes also the forwardKinematics of the model.
         pin.computeJointJacobians(self.pin_model, self.pin_data, q)
         # Check velocity
         v_joints = []
         # +2: 1 for pinocchio base joint, 1 for fake end joint
         for i in range(1, self.dof + 2):
-            joint_jacobian = pin.getJointJacobian(self.pin_model, self.pin_data, i, self.pin_local_world_aligned_frame)
+            joint_jacobian = pin.getJointJacobian(
+                self.pin_model, self.pin_data, i, self.pin_local_world_aligned_frame
+            )
             v_joints.append(np.matmul(joint_jacobian, dq))
         return v_joints
 
@@ -256,8 +298,7 @@ class PinocchioManipulatorModel(ManipulatorModel):
         :return: An nx2 numpy array of collision pair inidices, where n is the number of pairs in collision
         """
         cp = np.asarray(
-            [[cp.first, cp.second] for cp in self.collision.collisionPairs],
-            dtype=int
+            [[cp.first, cp.second] for cp in self.collision.collisionPairs], dtype=int
         )
         if cp.size == 0:
             cp = np.empty([0, 2])
@@ -271,16 +312,18 @@ class PinocchioManipulatorModel(ManipulatorModel):
         """
         return tuple(self.collision.geometryObjects)
 
-
     # ---------- Visualization ----------
     def _update_visual_placement(self):
         """Updates the placement of visual geometry objects"""
-        pin.updateGeometryPlacements(self.pin_model, self.pin_data, self.visual, self.visual_data)
+        pin.updateGeometryPlacements(
+            self.pin_model, self.pin_data, self.visual, self.visual_data
+        )
 
-    def plot(self,
-             visualizer: pin.visualize.BaseVisualizer = None,
-             coordinate_systems: Union[str, None] = None
-             ) -> pin.visualize.MeshcatVisualizer:
+    def plot(
+        self,
+        visualizer: pin.visualize.BaseVisualizer = None,
+        coordinate_systems: Union[str, None] = None,
+    ) -> pin.visualize.MeshcatVisualizer:
         """
         Displays the robot in its current environment using a Meshcat Visualizer in the browser
         :param visualizer: A meshcat visualizer instance. If none, a new will be created
@@ -288,15 +331,23 @@ class PinocchioManipulatorModel(ManipulatorModel):
           (full means all frames, as in fk)
         :return: The meshcat visualizer instance used for plotting the robot
         """
-        if coordinate_systems not in (None, 'joints', 'full', 'tcp'):
-            raise ValueError("Invalid Value for coordinate system argument: {}".format(coordinate_systems))
+        if coordinate_systems not in (None, "joints", "full", "tcp"):
+            raise ValueError(
+                "Invalid Value for coordinate system argument: {}".format(
+                    coordinate_systems
+                )
+            )
 
         if visualizer is None:
-            visualizer = pin.visualize.MeshcatVisualizer(self.pin_model, self.collision, self.visual,
-                                                         copy_models=False,
-                                                         data=self.pin_data,
-                                                         collision_data=self.collision_data,
-                                                         visual_data=self.visual_data)
+            visualizer = pin.visualize.MeshcatVisualizer(
+                self.pin_model,
+                self.collision,
+                self.visual,
+                copy_models=False,
+                data=self.pin_data,
+                collision_data=self.collision_data,
+                visual_data=self.visual_data,
+            )
         elif visualizer.model is not self.pin_model:
             # Copy everything, s.t. robot updates are transferred to the visualizer!
             visualizer.model = self.pin_model
@@ -306,65 +357,101 @@ class PinocchioManipulatorModel(ManipulatorModel):
             visualizer.collision_data = self.collision_data
             visualizer.visual_data = self.visual_data
 
-        if not hasattr(visualizer, 'viewer'):
+        if not hasattr(visualizer, "viewer"):
             visualizer.initViewer()
         try:
             visualizer.loadViewerModel(rootNodeName=self.name)
         except AttributeError as exe:
             if "'GepettoVisualizer'" in str(exe):
                 print(exe)
-                raise ConnectionError("You might have forgotten to start gepetto (gepetto-gui)")
+                raise ConnectionError(
+                    "You might have forgotten to start gepetto (gepetto-gui)"
+                )
             else:
                 raise exe
 
         visualizer.display(self.configuration)
         if coordinate_systems is not None:
-            if coordinate_systems == 'tcp':
-                visualizer.viewer['tcp'].set_object(drawable_coordinate_system(self.fk(kind='tcp'), .3))
+            if coordinate_systems == "tcp":
+                visualizer.viewer["tcp"].set_object(
+                    drawable_coordinate_system(self.fk(kind="tcp"), 0.3)
+                )
             else:
-                names = self.joints if coordinate_systems == 'joints' else (fr.name for fr in self.pin_model.frames)
+                names = (
+                    self.joints
+                    if coordinate_systems == "joints"
+                    else (fr.name for fr in self.pin_model.frames)
+                )
                 for transform, name in zip(self.fk(kind=coordinate_systems), names):
-                    visualizer.viewer[name].set_object(drawable_coordinate_system(transform, .3))
+                    visualizer.viewer[name].set_object(
+                        drawable_coordinate_system(transform, 0.3)
+                    )
 
         return visualizer
 
-    def plot_self_collisions(self,
-                             visualizer: pin.visualize.MeshcatVisualizer = None) -> pin.visualize.MeshcatVisualizer:
+    def plot_self_collisions(
+        self, visualizer: pin.visualize.MeshcatVisualizer = None
+    ) -> pin.visualize.MeshcatVisualizer:
         """
         Computes all collisions (of pre-defined collision pairs) and visualizes them in a different color for every
         collision pair in contact.
         :param visualizer: A pinnocchio meshcat visualizer (only tested for this one)
         """
         # Compute collisions already updates geometry placement
-        pin.computeCollisions(self.pin_model, self.pin_data, self.collision, self.collision_data, self.configuration, False)
+        pin.computeCollisions(
+            self.pin_model,
+            self.pin_data,
+            self.collision,
+            self.collision_data,
+            self.configuration,
+            False,
+        )
 
         collides = list()
         for k in range(len(self.collision.collisionPairs)):
             cr = self.collision_data.collisionResults[k]
             first, second = map(int, self.collision_pairs[k])
             if cr.isCollision():
-                collides.append([self.collision.geometryObjects[first], self.collision.geometryObjects[second]])
-                print("collision pair detected:", first, ",", second, "- collision:",
-                      "Yes" if cr.isCollision() else "No")
+                collides.append(
+                    [
+                        self.collision.geometryObjects[first],
+                        self.collision.geometryObjects[second],
+                    ]
+                )
+                print(
+                    "collision pair detected:",
+                    first,
+                    ",",
+                    second,
+                    "- collision:",
+                    "Yes" if cr.isCollision() else "No",
+                )
 
         if visualizer is None:
-            visualizer = pin.visualize.MeshcatVisualizer(self.pin_model, self.collision, self.visual,
-                                                         copy_models=False,
-                                                         data=self.pin_data,
-                                                         collision_data=self.collision_data,
-                                                         visual_data=self.visual_data)
+            visualizer = pin.visualize.MeshcatVisualizer(
+                self.pin_model,
+                self.collision,
+                self.visual,
+                copy_models=False,
+                data=self.pin_data,
+                collision_data=self.collision_data,
+                visual_data=self.visual_data,
+            )
         elif visualizer.model != self.pin_model:
             visualizer.model = self.pin_model
             visualizer.collision_model = self.collision
             visualizer.visual_model = self.visual
             visualizer.rebuildData()
 
-        if not hasattr(visualizer, 'viewer'):
+        if not hasattr(visualizer, "viewer"):
             visualizer.initViewer()
         visualizer.loadViewerModel(rootNodeName=self.name)
 
         # red = np.array([1, 0.2, 0.15, 1])
-        collision_colors = [np.hstack([np.array(clr), np.ones(1)]) for clr in colors.BASE_COLORS.values()]
+        collision_colors = [
+            np.hstack([np.array(clr), np.ones(1)])
+            for clr in colors.BASE_COLORS.values()
+        ]
         visualizer.displayCollisions(True)
         visualizer.displayVisuals(False)
         visualizer.display(self.configuration)
@@ -377,10 +464,11 @@ class PinocchioManipulatorModel(ManipulatorModel):
 
         return visualizer
 
-    def visualize(self,
-                  visualizer: pin.visualize.BaseVisualizer = None,
-                  coordinate_systems: Union[str, None] = None
-                  ) -> pin.visualize.MeshcatVisualizer:
+    def visualize(
+        self,
+        visualizer: pin.visualize.BaseVisualizer = None,
+        coordinate_systems: Union[str, None] = None,
+    ) -> pin.visualize.MeshcatVisualizer:
         """An alias for plot"""
         return self.plot(visualizer, coordinate_systems)
 

@@ -1,7 +1,10 @@
 import numpy as np
 
-from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import PinocchioManipulatorModel
+from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import (
+    PinocchioManipulatorModel,
+)
 from human_robot_gym.utils.mjcf_utils import xml_path_completion
+
 
 class Schunk(PinocchioManipulatorModel):
     """
@@ -13,13 +16,17 @@ class Schunk(PinocchioManipulatorModel):
 
     def __init__(self, idn=0):
         super().__init__(
-            fname = xml_path_completion("robots/schunk/robot.xml"),
-            urdf_file = xml_path_completion("robots/schunk/robot.urdf"), 
-            package_dirs = xml_path_completion("robots/"),
-            idn=idn)
+            fname=xml_path_completion("robots/schunk/robot.xml"),
+            urdf_file=xml_path_completion("robots/schunk/robot.urdf"),
+            package_dirs=xml_path_completion("robots/"),
+            idn=idn,
+        )
 
         # Set joint damping
-        self.set_joint_attribute(attrib="damping", values=np.array((0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001)))
+        self.set_joint_attribute(
+            attrib="damping",
+            values=np.array((0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001)),
+        )
 
     @property
     def default_mount(self):
@@ -39,7 +46,7 @@ class Schunk(PinocchioManipulatorModel):
 
     @property
     def base_xpos_offset(self):
-        #TODO: Tune these values
+        # TODO: Tune these values
         return {
             "bins": (-0.5, -0.1, 0),
             "empty": (-0.6, 0, 0),
@@ -48,12 +55,12 @@ class Schunk(PinocchioManipulatorModel):
 
     @property
     def top_offset(self):
-        #TODO: Tune these values
+        # TODO: Tune these values
         return np.array((0, 0, 1.0))
 
     @property
     def _horizontal_radius(self):
-       #TODO: Tune these values
+        # TODO: Tune these values
         return 0.5
 
     @property
