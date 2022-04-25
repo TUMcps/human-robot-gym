@@ -22,6 +22,5 @@ lint-test-job:   # This job also runs in the test stage.
   tags: [linting]
   stage: test    # It can run at the same time as unit-test-job (in parallel).
   script:
-    - echo "Linting code... This will take about 1 seconds."
-    - sleep 1
-    - echo "No lint issues found."
+    - pip install flake8
+    - flake8
