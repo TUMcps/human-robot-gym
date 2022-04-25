@@ -33,13 +33,9 @@ demonstrates how this can be easily achieved by using the GymWrapper.
 
 import robosuite as suite
 import time
-import numpy as np
 
 from robosuite.wrappers import GymWrapper
-from robosuite.controllers import controller_factory, load_controller_config
-
-from human_robot_gym.environments.manipulation.reach_human_env import ReachHuman
-import human_robot_gym.robots
+from robosuite.controllers import load_controller_config
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 
 
@@ -47,8 +43,12 @@ if __name__ == "__main__":
 
     # Notice how the environment is wrapped by the wrapper
     controller_config = dict()
-    controller_conig_path = file_path_completion("controllers/failsafe_controller/config/failsafe.json")
-    robot_conig_path = file_path_completion("/home/jakob/Promotion/code/human-robot-gym/human_robot_gym/models/robots/config/schunk.json")
+    controller_conig_path = file_path_completion(
+        "controllers/failsafe_controller/config/failsafe.json"
+    )
+    robot_conig_path = file_path_completion(
+        "/home/jakob/Promotion/code/human-robot-gym/human_robot_gym/models/robots/config/schunk.json"
+    )
     controller_config = load_controller_config(custom_fpath=controller_conig_path)
     robot_config = load_controller_config(custom_fpath=robot_conig_path)
     controller_config = merge_configs(controller_config, robot_config)
@@ -72,7 +72,7 @@ if __name__ == "__main__":
             use_failsafe_controller=True,
             visualize_failsafe_controller=False,
             visualize_pinocchio=False,
-            base_human_pos_offset=[0.0, 0.0, 0.0]
+            base_human_pos_offset=[0.0, 0.0, 0.0],
         )
     )
     t_max = 100
@@ -81,9 +81,9 @@ if __name__ == "__main__":
         t1 = time.time()
         for t in range(t_max):
             env.render()
-            action = env.action_space.sample() # np.array([0, 0.01, 0, 0, 0, 0, 0])
+            action = env.action_space.sample()  # np.array([0, 0.01, 0, 0, 0, 0, 0])
             observation, reward, done, info = env.step(action)
-            if done or t==t_max:
+            if done or t == t_max:
                 print("Episode finished after {} timesteps".format(t + 1))
                 break
-        print("Episode {}, fps = {}".format(i_episode, 500/(time.time()-t1)))
+        print("Episode {}, fps = {}".format(i_episode, 500 / (time.time() - t1)))
