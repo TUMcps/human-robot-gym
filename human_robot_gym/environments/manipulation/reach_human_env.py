@@ -548,16 +548,16 @@ class ReachHuman(HumanEnv):
         )
         coll_base = human_robot_gym.models.objects.obstacle.Cylinder(
             name = "Base",
-            r = 0.2+safety_margin, 
+            r = 0.25+safety_margin, 
             z = 0.91,
             translation = np.array([-0.46, 0, 0.455])
         )
         coll_computer = human_robot_gym.models.objects.obstacle.Box(
             name = "Computer",
-            x = 0.2, 
-            y = 0.4, 
-            z = 0.7,
-            translation = np.array([-0.8, 0, 0.35])
+            x = 0.3, 
+            y = 0.5, 
+            z = 0.8,
+            translation = np.array([-0.85, 0, 0.35])
         )
         self.collision_obstacles = [coll_table, coll_base, coll_computer]
         # Matches sim joint names to the collision obstacles
@@ -599,6 +599,15 @@ class ReachHuman(HumanEnv):
         # robot joint pos
         prefix = self.robots[0].robot_model.naming_prefix
         observables[prefix + "joint_pos"].set_active(True)
+        observables[prefix + "joint_vel"].set_active(True)
+        observables[prefix + "eef_pos"].set_active(True)
+        observables["human_joint_pos"].set_active(True)
+        observables[prefix + "joint_pos_cos"].set_active(False)
+        observables[prefix + "joint_pos_sin"].set_active(False)
+        observables[prefix + "gripper_qpos"].set_active(False)
+        observables[prefix + "gripper_qvel"].set_active(False)
+        observables[prefix + "eef_quat"].set_active(False)
+        observables["gripper_pos"].set_active(False)
 
         # low-level object information
         if self.use_object_obs:
