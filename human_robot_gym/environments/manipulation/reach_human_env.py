@@ -1,45 +1,17 @@
 # Super env
-from human_robot_gym.environments.manipulation.human_env import HumanEnv, COLLISION_TYPE
+from human_robot_gym.environments.manipulation.human_env import HumanEnv
 
-from collections import OrderedDict
-import enum
-import imp
-from ntpath import join
 from typing import Dict, Union, List
 
 import numpy as np
-import pickle
-import math
-import json
-from scipy.spatial.transform import Rotation
 
-from mujoco_py import load_model_from_path
-
-import pinocchio as pin
-from pinocchio.visualize import GepettoVisualizer
-
-from robosuite.environments.manipulation.single_arm_env import SingleArmEnv
 from robosuite.models.arenas import TableArena
-from robosuite.models.tasks import ManipulationTask
 from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import UniformRandomSampler
-from robosuite.utils.transform_utils import quat2mat
-from robosuite.utils.control_utils import set_goal_position
 
-from human_robot_gym.models.objects.human.human import HumanObject
-from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat, find_robot_assets_folder
-from human_robot_gym.models import assets_root
 from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import PinocchioManipulatorModel
-from human_robot_gym.controllers.failsafe_controller.failsafe_controller.failsafe_controller import FailsafeController
 import human_robot_gym.models.objects.obstacle
-
-from enum import Enum
-
-class COLLISION_TYPE(Enum):
-    ROBOT = 1
-    HUMAN = 2
-    STATIC = 3
 
 
 class ReachHuman(HumanEnv):
@@ -174,7 +146,8 @@ class ReachHuman(HumanEnv):
 
         use_failsafe_controller (bool): Whether or not the safety shield / failsafe controller should be active
 
-        visualize_failsafe_controller (bool): Whether or not the reachable sets of the failsafe controller should be visualized
+        visualize_failsafe_controller (bool): Whether or not the reachable sets of the failsafe controller should be 
+            visualized
 
         visualize_pinocchio (bool): Whether or pinocchios (collision prevention static env) should be visualized
 
@@ -186,7 +159,8 @@ class ReachHuman(HumanEnv):
 
         human_animation_freq (double): Speed of the human animation in fps.
 
-        safe_vel (double): Safe cartesian velocity. The robot is allowed to move with this velocity in the vacinity of humans.
+        safe_vel (double): Safe cartesian velocity. The robot is allowed to move with this velocity in the vacinity of 
+            humans.
 
         self_collision_safety (double): Safe distance for self collision detection
 
@@ -199,7 +173,7 @@ class ReachHuman(HumanEnv):
     def __init__(
         self,
         robots,
-        robot_base_offset=None, # [-0.36, 0.0, 0.0]
+        robot_base_offset=None,
         env_configuration="default",
         controller_configs=None,
         gripper_types="default",
@@ -210,8 +184,8 @@ class ReachHuman(HumanEnv):
         use_object_obs=True,
         reward_scale=1.0,
         reward_shaping=False,
-        goal_dist = 0.01,
-        collision_reward = -10,
+        goal_dist=0.01,
+        collision_reward=-10,
         object_placement_initializer=None,
         obstacle_placement_initializer=None,
         human_placement_initializer=None,
@@ -236,12 +210,13 @@ class ReachHuman(HumanEnv):
         visualize_failsafe_controller=False,
         visualize_pinocchio=False,
         control_sample_time=0.004,
-        human_animation_names=["62_01", "62_03", "62_03", "62_07", "62_09", "62_10", "62_12", "62_13", "62_14", "62_15", "62_16", "62_18", "62_19", "62_20", "62_21"],
+        human_animation_names=["62_01", "62_03", "62_03", "62_07", "62_09", "62_10", "62_12", "62_13", "62_14", 
+                               "62_15", "62_16", "62_18", "62_19", "62_20", "62_21"],
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_freq=120,
         safe_vel=0.001,
-        self_collision_safety = 0.01,
-        seed = 0
+        self_collision_safety=0.01,
+        seed=0
     ):
         # settings for table top
         self.table_full_size = table_full_size
@@ -338,9 +313,9 @@ class ReachHuman(HumanEnv):
         return info
     
     def reward(self,
-        achieved_goal: List[float],
-        desired_goal: List[float],
-        info: Dict) -> float:
+               achieved_goal: List[float],
+               desired_goal: List[float],
+               info: Dict) -> float:
         """
         Compute the reward based on the achieved goal, the desired goal, and
         the info dict.
@@ -360,7 +335,7 @@ class ReachHuman(HumanEnv):
             return self.collision_reward
         # sparse completion reward
         if self._check_success(achieved_goal, desired_goal):
-            reward = 0.0 
+            reward = 0.0
         # use a shaping reward
         if self.reward_shaping:
             dist = np.sqrt(np.sum(achieved_goal-desired_goal))
@@ -371,8 +346,8 @@ class ReachHuman(HumanEnv):
         return reward
 
     def _check_success(self,
-        achieved_goal: List[float],
-        desired_goal: List[float]) -> bool:
+                       achieved_goal: List[float],
+                       desired_goal: List[float]) -> bool:
         """
         Check if the desired goal was reached
 
@@ -389,9 +364,9 @@ class ReachHuman(HumanEnv):
         return dist <= self.goal_dist
 
     def _check_done(self,
-        achieved_goal: List[float],
-        desired_goal: List[float],
-        info: Dict) -> bool:
+                    achieved_goal: List[float],
+                    desired_goal: List[float],
+                    info: Dict) -> bool:
         """
         Compute the done flag based on the achieved goal, the desired goal, and
         the info dict.
@@ -408,8 +383,7 @@ class ReachHuman(HumanEnv):
         return (done or (self._check_success(achieved_goal, desired_goal)))
 
     def _get_achieved_goal_from_obs(self,
-        observation: Union[List[float], Dict]
-        ) -> List[float]:
+                                    observation: Union[List[float], Dict]) -> List[float]:
         """
         Extract the achieved goal from the observation.
 
@@ -423,8 +397,7 @@ class ReachHuman(HumanEnv):
         return observation[prefix + "joint_pos"]
 
     def _get_desired_goal_from_obs(self,
-        observation: Union[List[float], Dict]
-        ) -> List[float]:
+                                   observation: Union[List[float], Dict]) -> List[float]:
         """
         Extract the desired goal from the observation.
 
@@ -446,7 +419,8 @@ class ReachHuman(HumanEnv):
         super()._reset_internal()
         self.desired_goal = self._sample_valid_pos()
         if isinstance(self.robots[0].robot_model, PinocchioManipulatorModel):
-            (self.goal_marker_trans, self.goal_marker_rot) = self.robots[0].robot_model.get_eef_transformation(self.desired_goal)
+            (self.goal_marker_trans, self.goal_marker_rot) = self.robots[0].robot_model.get_eef_transformation(
+                self.desired_goal)
 
     def _sample_valid_pos(self):
         """
@@ -472,11 +446,11 @@ class ReachHuman(HumanEnv):
             else:
                 break
 
-        return goal      
+        return goal
 
     def _setup_arena(self):
         """
-        Setup the mujoco arena. 
+        Setup the mujoco arena.
 
         Must define self.mujoco_arena.
         Define self.objects and self.obstacles here.
@@ -497,15 +471,15 @@ class ReachHuman(HumanEnv):
             quat=[-0.0705929, 0.0705929, 0.7035742, 0.7035742],
         )
 
-        ## OBJECTS
+        # << OBJECTS >>
         # Objects are elements that can be moved around and manipulated.
         # Create objects
         # Box example
-        l = np.array([0.05, 0.05, 0.05])
+        box_size = np.array([0.05, 0.05, 0.05])
         box = BoxObject(
-            name = "smallBox",
-            size = l*0.5,
-            rgba = [0.1, 0.7, 0.3, 1],
+            name="smallBox",
+            size=box_size*0.5,
+            rgba=[0.1, 0.7, 0.3, 1],
         )
         self.objects = [box]
         # Placement sampler for objects
@@ -527,7 +501,7 @@ class ReachHuman(HumanEnv):
                 reference_pos=self.table_offset,
                 z_offset=0.0,
             )
-        ## OBSTACLES
+        # << OBSTACLES >>
         # Obstacles are elements that the robot should avoid.
         safety_margin = 0.05
         # Box example
@@ -540,28 +514,28 @@ class ReachHuman(HumanEnv):
         self.obstacles = []
         # Obstacles should also have a collision object
         coll_table = human_robot_gym.models.objects.obstacle.Box(
-            name = "Table",
-            x = self.table_full_size[0]+safety_margin, 
-            y = self.table_full_size[1]+safety_margin, 
-            z = self.table_offset[2]+safety_margin,
-            translation = np.array([self.table_offset[0], self.table_offset[1], (self.table_offset[2]+safety_margin) / 2])
+            name="Table",
+            x=self.table_full_size[0]+safety_margin,
+            y=self.table_full_size[1]+safety_margin,
+            z=self.table_offset[2]+safety_margin,
+            translation=np.array([self.table_offset[0], self.table_offset[1], (self.table_offset[2]+safety_margin) / 2])
         )
         coll_base = human_robot_gym.models.objects.obstacle.Cylinder(
-            name = "Base",
-            r = 0.25+safety_margin, 
-            z = 0.91,
-            translation = np.array([-0.46, 0, 0.455])
+            name="Base",
+            r=0.25+safety_margin,
+            z=0.91,
+            translation=np.array([-0.46, 0, 0.455])
         )
         coll_computer = human_robot_gym.models.objects.obstacle.Box(
-            name = "Computer",
-            x = 0.3, 
-            y = 0.5, 
-            z = 0.8,
-            translation = np.array([-0.85, 0, 0.35])
+            name="Computer",
+            x=0.3,
+            y=0.5,
+            z=0.8,
+            translation=np.array([-0.85, 0, 0.35])
         )
         self.collision_obstacles = [coll_table, coll_base, coll_computer]
         # Matches sim joint names to the collision obstacles
-        #self.collision_obstacles_joints["Box"] = (box.joints[0], coll_box)
+        # self.collision_obstacles_joints["Box"] = (box.joints[0], coll_box)
         # Placement sampler for obstacles
         if self.obstacle_placement_initializer is not None:
             self.obstacle_placement_initializer.reset()
@@ -632,10 +606,13 @@ class ReachHuman(HumanEnv):
         """
         Visualize goal state.
         """
-        self.viewer.viewer.add_marker(pos=self.goal_marker_trans, 
-            type=100, # arrow
-            size=[0.01, 0.01, 0.2], 
-            mat=self.goal_marker_rot, 
-            rgba=[0.0, 1.0, 0.0, 0.7], 
-            label="", 
-            shininess=0.0)
+        # arrow (type 100)
+        self.viewer.viewer.add_marker(
+            pos=self.goal_marker_trans,
+            type=100,
+            size=[0.01, 0.01, 0.2],
+            mat=self.goal_marker_rot,
+            rgba=[0.0, 1.0, 0.0, 0.7],
+            label="",
+            shininess=0.0
+        )
