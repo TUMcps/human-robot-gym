@@ -1,6 +1,6 @@
 """
 This file implements a wrapper for facilitating compatibility with OpenAI gym.
-This wrapper is specifically designed to work with Hindsight Experience Replay, 
+This wrapper is specifically designed to work with Hindsight Experience Replay,
 so it sets up a goal environment.
 Each observation has the following form:
 obs = {
@@ -36,7 +36,9 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
         # Run super method
         super().__init__(env=env)
         # Create name for gym
-        robots = "".join([type(robot.robot_model).__name__ for robot in self.env.robots])
+        robots = "".join(
+            [type(robot.robot_model).__name__ for robot in self.env.robots]
+        )
         self.name = robots + "_" + type(self.env).__name__
 
         # Get reward range
@@ -68,11 +70,13 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
         goal_dim = flat_ob["desired_goal"].size
         goal_high = np.inf * np.ones(goal_dim)
         goal_low = -goal_high
-        self.observation_space = spaces.Dict({
-            "observation": spaces.Box(low = obs_low, high = obs_high),
-            "desired_goal": spaces.Box(low = goal_low, high = goal_high),
-            "achieved_goal": spaces.Box(low = goal_low, high = goal_high)
-        })
+        self.observation_space = spaces.Dict(
+            {
+                "observation": spaces.Box(low=obs_low, high=obs_high),
+                "desired_goal": spaces.Box(low=goal_low, high=goal_high),
+                "achieved_goal": spaces.Box(low=goal_low, high=goal_high),
+            }
+        )
         self.modality_dims = {key: obs[key].shape for key in self.keys}
         low, high = self.env.action_spec
         self.action_space = spaces.Box(low=low, high=high)
@@ -97,11 +101,7 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
                     print("adding key: {}".format(key))
                 ob_lst.append(np.array(obs_dict[key]).flatten())
         observation = np.concatenate(ob_lst)
-        obs = {
-            "observation": observation,
-            "achieved_goal": a_g,
-            "desired_goal": d_g
-        }
+        obs = {"observation": observation, "achieved_goal": a_g, "desired_goal": d_g}
         return obs
 
     def reset(self):
@@ -146,7 +146,7 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
         if seed is not None:
             try:
                 np.random.seed(seed)
-            except:
+            except Exception:
                 TypeError("Seed must be an integer type!")
 
     def compute_reward(self, achieved_goal, desired_goal, info):
@@ -168,7 +168,7 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
 
     def compute_done(self, achieved_goal, desired_goal, info):
         """Compute the done flag. This externalizes the done function and makes
-        it dependent on an a desired goal and the one that was achieved. 
+        it dependent on an a desired goal and the one that was achieved.
         Args:
             achieved_goal (object): the goal that was achieved during execution
             desired_goal (object): the desired goal that we asked the agent to attempt to achieve

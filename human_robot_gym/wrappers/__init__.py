@@ -1,3 +1,5 @@
+# flake8: noqa
+
 from robosuite.wrappers.wrapper import Wrapper
 from robosuite.wrappers.data_collection_wrapper import DataCollectionWrapper
 from robosuite.wrappers.demo_sampler_wrapper import DemoSamplerWrapper

@@ -1,1 +1,1 @@
-from .schunk_robot import Schunk
+from .schunk_robot import Schunk  # noqa: F401

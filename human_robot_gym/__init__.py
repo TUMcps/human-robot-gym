@@ -1,7 +1,10 @@
+# flake8: noqa
 import os
 from robosuite.environments.base import make
 
-from .controllers.failsafe_controller.failsafe_controller.failsafe_controller import FailsafeController
+from .controllers.failsafe_controller.failsafe_controller.failsafe_controller import (
+    FailsafeController,
+)
 
 from .environments.manipulation.reach import Reach
 from .environments.manipulation.human_env import HumanEnv

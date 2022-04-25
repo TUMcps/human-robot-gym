@@ -35,7 +35,8 @@ setup(
     eager_resources=["*"],
     include_package_data=True,
     python_requires=">=3",
-    description="human_robot_gym is an extension to the robosuite package to train RL algorithms on robots in human environments.",
+    description="human_robot_gym is an extension to the robosuite package\
+                 to train RL algorithms on robots in human environments.",
     author="Jakob Thumm",
     url="TODO",
     author_email="jakob.thumm@tum.de",

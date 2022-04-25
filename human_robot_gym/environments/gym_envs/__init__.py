@@ -1,1 +1,1 @@
-import robosuite.environments
+import robosuite.environments  # noqa: F401

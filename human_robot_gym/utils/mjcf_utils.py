@@ -99,6 +99,6 @@ def merge_configs(config1: dict, config2: dict) -> dict:
     """
     config = deepcopy(config1)
     for key in config2:
-        if key not in config or (key in config and config[key] == None):
+        if key not in config or (key in config and config[key] is None):
             config[key] = config2[key]
     return config

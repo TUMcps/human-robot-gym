@@ -6,9 +6,11 @@ import numpy as np
 from gym.spaces import Box
 
 from stable_baselines3.common.type_aliases import DictReplayBufferSamples
-from stable_baselines3.common.vec_env import VecEnv, VecNormalize
-from stable_baselines3.her.goal_selection_strategy import KEY_TO_GOAL_STRATEGY, GoalSelectionStrategy
-
+from stable_baselines3.common.vec_env import VecEnv, VecNormalize  # noqa: F401
+from stable_baselines3.her.goal_selection_strategy import (  # noqa: F401
+    KEY_TO_GOAL_STRATEGY,  # noqa: F401
+    GoalSelectionStrategy,  # noqa: F401
+)  # noqa: F401
 
 
 def custom_add(
@@ -19,7 +21,7 @@ def custom_add(
     reward: np.ndarray,
     done: np.ndarray,
     infos: List[Dict[str, Any]],
-    ) -> None:
+) -> None:
 
     if self.current_idx == 0 and self.full:
         # Clear info buffer
@@ -27,7 +29,9 @@ def custom_add(
 
     # Remove termination signals due to timeout
     if self.handle_timeout_termination:
-        done_ = done * (1 - np.array([info.get("TimeLimit.truncated", False) for info in infos]))
+        done_ = done * (
+            1 - np.array([info.get("TimeLimit.truncated", False) for info in infos])
+        )
     else:
         done_ = done
 
@@ -39,7 +43,14 @@ def custom_add(
         # Rescale the action from [low, high] to [-1, 1]
         if isinstance(self.action_space, Box):
             # THIS ASSUMES TANH ACTIVATION FUNCTION FOR THE POLICY NETWORK!!!
-            scaled_action = 2.0 * ((infos[0]["action"] - self.action_space.low) / (self.action_space.high - self.action_space.low)) - 1.0
+            scaled_action = (
+                2.0
+                * (
+                    (infos[0]["action"] - self.action_space.low)
+                    / (self.action_space.high - self.action_space.low)
+                )
+                - 1.0
+            )
             action = np.clip(scaled_action, -1, 1)
         else:
             action = infos["action"]
@@ -47,8 +58,12 @@ def custom_add(
     self._buffer["done"][self.pos][self.current_idx] = done_
     self._buffer["reward"][self.pos][self.current_idx] = reward
     self._buffer["next_obs"][self.pos][self.current_idx] = next_obs["observation"]
-    self._buffer["next_achieved_goal"][self.pos][self.current_idx] = next_obs["achieved_goal"]
-    self._buffer["next_desired_goal"][self.pos][self.current_idx] = next_obs["desired_goal"]
+    self._buffer["next_achieved_goal"][self.pos][self.current_idx] = next_obs[
+        "achieved_goal"
+    ]
+    self._buffer["next_desired_goal"][self.pos][self.current_idx] = next_obs[
+        "desired_goal"
+    ]
 
     # When doing offline sampling
     # Add real transition to normal replay buffer
@@ -86,7 +101,10 @@ def _custom_sample_transitions(
     maybe_vec_env: Optional[VecNormalize],
     online_sampling: bool,
     n_sampled_goal: Optional[int] = None,
-) -> Union[DictReplayBufferSamples, Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray], np.ndarray, np.ndarray]]:
+) -> Union[
+    DictReplayBufferSamples,
+    Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray], np.ndarray, np.ndarray],
+]:
     """
     :param batch_size: Number of element to sample (only used for online sampling)
     :param env: associated gym VecEnv to normalize the observations/rewards
@@ -97,7 +115,9 @@ def _custom_sample_transitions(
     """
     # Select which episodes to use
     if online_sampling:
-        assert batch_size is not None, "No batch_size specified for online sampling of HER transitions"
+        assert (
+            batch_size is not None
+        ), "No batch_size specified for online sampling of HER transitions"
         # Do not sample the episode with index `self.pos` as the episode is invalid
         if self.full:
             episode_indices = (
@@ -108,8 +128,12 @@ def _custom_sample_transitions(
         # A subset of the transitions will be relabeled using HER algorithm
         her_indices = np.arange(batch_size)[: int(self.her_ratio * batch_size)]
     else:
-        assert maybe_vec_env is None, "Transitions must be stored unnormalized in the replay buffer"
-        assert n_sampled_goal is not None, "No n_sampled_goal specified for offline sampling of HER transitions"
+        assert (
+            maybe_vec_env is None
+        ), "Transitions must be stored unnormalized in the replay buffer"
+        assert (
+            n_sampled_goal is not None
+        ), "No n_sampled_goal specified for offline sampling of HER transitions"
         # Offline sampling: there is only one episode stored
         episode_length = self.episode_lengths[0]
         # we sample n_sampled_goal per timestep in the episode (only one is stored).
@@ -145,7 +169,10 @@ def _custom_sample_transitions(
             her_indices = np.arange(len(episode_indices))
 
     # get selected transitions
-    transitions = {key: self._buffer[key][episode_indices, transitions_indices].copy() for key in self._buffer.keys()}
+    transitions = {
+        key: self._buffer[key][episode_indices, transitions_indices].copy()
+        for key in self._buffer.keys()
+    }
 
     # sample new desired goals and relabel the transitions
     new_goals = self.sample_goals(episode_indices, her_indices, transitions_indices)
@@ -204,16 +231,29 @@ def _custom_sample_transitions(
     next_observations = self._normalize_obs(next_observations, maybe_vec_env)
 
     if online_sampling:
-        next_obs = {key: self.to_torch(next_observations[key][:, 0, :]) for key in self._observation_keys}
+        next_obs = {
+            key: self.to_torch(next_observations[key][:, 0, :])
+            for key in self._observation_keys
+        }
 
-        normalized_obs = {key: self.to_torch(observations[key][:, 0, :]) for key in self._observation_keys}
+        normalized_obs = {
+            key: self.to_torch(observations[key][:, 0, :])
+            for key in self._observation_keys
+        }
 
         return DictReplayBufferSamples(
             observations=normalized_obs,
             actions=self.to_torch(transitions["action"]),
             next_observations=next_obs,
             dones=self.to_torch(transitions["done"]),
-            rewards=self.to_torch(self._normalize_reward(transitions["reward"], maybe_vec_env)),
+            rewards=self.to_torch(
+                self._normalize_reward(transitions["reward"], maybe_vec_env)
+            ),
         )
     else:
-        return observations, next_observations, transitions["action"], transitions["reward"]
+        return (
+            observations,
+            next_observations,
+            transitions["action"],
+            transitions["reward"],
+        )

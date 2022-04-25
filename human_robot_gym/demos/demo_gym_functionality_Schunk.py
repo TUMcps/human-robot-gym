@@ -9,7 +9,7 @@ with RL.
 
 
 We base this script off of some code snippets found
-in the "Getting Started with Gym" section of the OpenAI 
+in the "Getting Started with Gym" section of the OpenAI
 gym documentation.
 
 The following snippet was used to demo basic functionality.
