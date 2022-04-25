@@ -10,7 +10,9 @@ from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import UniformRandomSampler
 
-from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import PinocchioManipulatorModel
+from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import (
+    PinocchioManipulatorModel,
+)
 import human_robot_gym.models.objects.obstacle
 
 
@@ -210,14 +212,30 @@ class ReachHuman(HumanEnv):
         visualize_failsafe_controller=False,
         visualize_pinocchio=False,
         control_sample_time=0.004,
-        human_animation_names=["62_01", "62_03", "62_03", "62_07", "62_09", "62_10", "62_12", "62_13", "62_14",
-                               "62_15", "62_16", "62_18", "62_19", "62_20", "62_21"],
+        human_animation_names=[
+            "62_01",
+            "62_03",
+            "62_03",
+            "62_07",
+            "62_09",
+            "62_10",
+            "62_12",
+            "62_13",
+            "62_14",
+            "62_15",
+            "62_16",
+            "62_18",
+            "62_19",
+            "62_20",
+            "62_21",
+        ],
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_freq=120,
         safe_vel=0.001,
         self_collision_safety=0.01,
-        seed=0
+        seed=0,
     ):
+        test = "This is a very long line. AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa"
         # settings for table top
         self.table_full_size = table_full_size
         self.table_friction = table_friction
@@ -272,7 +290,7 @@ class ReachHuman(HumanEnv):
             human_animation_freq=human_animation_freq,
             safe_vel=safe_vel,
             self_collision_safety=self_collision_safety,
-            seed=seed
+            seed=seed,
         )
 
     def step(self, action):
@@ -312,10 +330,9 @@ class ReachHuman(HumanEnv):
         # info["my_cool_info"] = 0
         return info
 
-    def reward(self,
-               achieved_goal: List[float],
-               desired_goal: List[float],
-               info: Dict) -> float:
+    def reward(
+        self, achieved_goal: List[float], desired_goal: List[float], info: Dict
+    ) -> float:
         """
         Compute the reward based on the achieved goal, the desired goal, and
         the info dict.
@@ -338,16 +355,16 @@ class ReachHuman(HumanEnv):
             reward = 0.0
         # use a shaping reward
         if self.reward_shaping:
-            dist = np.sqrt(np.sum(achieved_goal-desired_goal))
+            dist = np.sqrt(np.sum(achieved_goal - desired_goal))
             reward -= dist * 0.1
         # Scale reward if requested
         if self.reward_scale is not None:
             reward *= self.reward_scale / 1.0
         return reward
 
-    def _check_success(self,
-                       achieved_goal: List[float],
-                       desired_goal: List[float]) -> bool:
+    def _check_success(
+        self, achieved_goal: List[float], desired_goal: List[float]
+    ) -> bool:
         """
         Check if the desired goal was reached
 
@@ -360,13 +377,14 @@ class ReachHuman(HumanEnv):
         Returns:
             - True if success
         """
-        dist = np.sqrt(np.sum([(a-g)**2 for (a, g) in zip(achieved_goal, desired_goal)]))
+        dist = np.sqrt(
+            np.sum([(a - g) ** 2 for (a, g) in zip(achieved_goal, desired_goal)])
+        )
         return dist <= self.goal_dist
 
-    def _check_done(self,
-                    achieved_goal: List[float],
-                    desired_goal: List[float],
-                    info: Dict) -> bool:
+    def _check_done(
+        self, achieved_goal: List[float], desired_goal: List[float], info: Dict
+    ) -> bool:
         """
         Compute the done flag based on the achieved goal, the desired goal, and
         the info dict.
@@ -380,10 +398,11 @@ class ReachHuman(HumanEnv):
             - done
         """
         done = super()._check_done(achieved_goal, desired_goal, info)
-        return (done or (self._check_success(achieved_goal, desired_goal)))
+        return done or (self._check_success(achieved_goal, desired_goal))
 
-    def _get_achieved_goal_from_obs(self,
-                                    observation: Union[List[float], Dict]) -> List[float]:
+    def _get_achieved_goal_from_obs(
+        self, observation: Union[List[float], Dict]
+    ) -> List[float]:
         """
         Extract the achieved goal from the observation.
 
@@ -396,8 +415,9 @@ class ReachHuman(HumanEnv):
         prefix = self.robots[0].robot_model.naming_prefix
         return observation[prefix + "joint_pos"]
 
-    def _get_desired_goal_from_obs(self,
-                                   observation: Union[List[float], Dict]) -> List[float]:
+    def _get_desired_goal_from_obs(
+        self, observation: Union[List[float], Dict]
+    ) -> List[float]:
         """
         Extract the desired goal from the observation.
 
@@ -419,8 +439,9 @@ class ReachHuman(HumanEnv):
         super()._reset_internal()
         self.desired_goal = self._sample_valid_pos()
         if isinstance(self.robots[0].robot_model, PinocchioManipulatorModel):
-            (self.goal_marker_trans, self.goal_marker_rot) = self.robots[0].robot_model.get_eef_transformation(
-                self.desired_goal)
+            (self.goal_marker_trans, self.goal_marker_rot) = self.robots[
+                0
+            ].robot_model.get_eef_transformation(self.desired_goal)
 
     def _sample_valid_pos(self):
         """
@@ -435,7 +456,7 @@ class ReachHuman(HumanEnv):
         goal = np.zeros(pos_limits.shape[1])
         for i in range(20):
             rand = np.random.rand(pos_limits.shape[1])
-            goal = pos_limits[0] + (pos_limits[1]-pos_limits[0]) * rand
+            goal = pos_limits[0] + (pos_limits[1] - pos_limits[0]) * rand
             if isinstance(robot.robot_model, PinocchioManipulatorModel):
                 if not self._check_action_safety(robot.robot_model, goal):
                     goal = np.zeros(pos_limits.shape[1])
@@ -478,7 +499,7 @@ class ReachHuman(HumanEnv):
         box_size = np.array([0.05, 0.05, 0.05])
         box = BoxObject(
             name="smallBox",
-            size=box_size*0.5,
+            size=box_size * 0.5,
             rgba=[0.1, 0.7, 0.3, 1],
         )
         self.objects = [box]
@@ -515,23 +536,25 @@ class ReachHuman(HumanEnv):
         # Obstacles should also have a collision object
         coll_table = human_robot_gym.models.objects.obstacle.Box(
             name="Table",
-            x=self.table_full_size[0]+safety_margin,
-            y=self.table_full_size[1]+safety_margin,
-            z=self.table_offset[2]+safety_margin,
-            translation=np.array([self.table_offset[0], self.table_offset[1], (self.table_offset[2]+safety_margin) / 2])
+            x=self.table_full_size[0] + safety_margin,
+            y=self.table_full_size[1] + safety_margin,
+            z=self.table_offset[2] + safety_margin,
+            translation=np.array(
+                [
+                    self.table_offset[0],
+                    self.table_offset[1],
+                    (self.table_offset[2] + safety_margin) / 2,
+                ]
+            ),
         )
         coll_base = human_robot_gym.models.objects.obstacle.Cylinder(
             name="Base",
-            r=0.25+safety_margin,
+            r=0.25 + safety_margin,
             z=0.91,
-            translation=np.array([-0.46, 0, 0.455])
+            translation=np.array([-0.46, 0, 0.455]),
         )
         coll_computer = human_robot_gym.models.objects.obstacle.Box(
-            name="Computer",
-            x=0.3,
-            y=0.5,
-            z=0.8,
-            translation=np.array([-0.85, 0, 0.35])
+            name="Computer", x=0.3, y=0.5, z=0.8, translation=np.array([-0.85, 0, 0.35])
         )
         self.collision_obstacles = [coll_table, coll_base, coll_computer]
         # Matches sim joint names to the collision obstacles
@@ -615,5 +638,5 @@ class ReachHuman(HumanEnv):
             mat=self.goal_marker_rot,
             rgba=[0.0, 1.0, 0.0, 0.7],
             label="",
-            shininess=0.0
+            shininess=0.0,
         )
