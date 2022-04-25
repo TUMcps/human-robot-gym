@@ -1,4 +1,3 @@
-from collections import OrderedDict
 from typing import Dict, Union, List
 
 import numpy as np
@@ -6,10 +5,8 @@ import numpy as np
 from robosuite.environments.manipulation.single_arm_env import SingleArmEnv
 from robosuite.models.arenas import TableArena
 from robosuite.models.tasks import ManipulationTask
-from robosuite.utils.mjcf_utils import CustomMaterial
 from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import UniformRandomSampler
-from robosuite.utils.transform_utils import convert_quat
 
 
 class Reach(SingleArmEnv):
@@ -245,7 +242,7 @@ class Reach(SingleArmEnv):
         self.cur_time += self.control_timestep
 
         if self.viewer_get_obs:
-            #observations = self.viewer._get_observations()
+            # observations = self.viewer._get_observations()
             raise NotImplementedError
         else:
             observations = self._get_observations()
@@ -267,14 +264,16 @@ class Reach(SingleArmEnv):
 
         Returns
             - info dict containing of
-                * 
+                *
         """
         return {}
 
-    def _compute_reward(self,
-        achieved_goal: Union[List[float], List[List[float]]], 
-        desired_goal: Union[List[float], List[List[float]]], 
-        info: Union[Dict, List[Dict]]) -> Union[float, List[float]]: 
+    def _compute_reward(
+        self,
+        achieved_goal: Union[List[float], List[List[float]]],
+        desired_goal: Union[List[float], List[List[float]]],
+        info: Union[Dict, List[Dict]],
+    ) -> Union[float, List[float]]:
         """
         Compute the reward based on the achieved goal, the desired goal, and
         the info dict.
@@ -289,10 +288,12 @@ class Reach(SingleArmEnv):
         """
         return 0
 
-    def _compute_done(self,
-        achieved_goal: Union[List[float], List[List[float]]], 
-        desired_goal: Union[List[float], List[List[float]]], 
-        info: Union[Dict, List[Dict]]) -> Union[bool, List[bool]]: 
+    def _compute_done(
+        self,
+        achieved_goal: Union[List[float], List[List[float]]],
+        desired_goal: Union[List[float], List[List[float]]],
+        info: Union[Dict, List[Dict]],
+    ) -> Union[bool, List[bool]]:
         """
         Compute the done flag based on the achieved goal, the desired goal, and
         the info dict.
@@ -308,29 +309,29 @@ class Reach(SingleArmEnv):
         done = (self.timestep >= self.horizon) and not self.ignore_done
         return done
 
-    def _get_achieved_goal_from_obs(self,
-        observation: Union[List[float], Dict]
-        ) -> List[float]:
+    def _get_achieved_goal_from_obs(
+        self, observation: Union[List[float], Dict]
+    ) -> List[float]:
         """
         Extract the achieved goal from the observation.
 
         Args:
             - observation: The observation after the action is executed
-        
+
         Returns:
             - The achieved goal
         """
         return [0]
 
-    def _get_desired_goal_from_obs(self,
-        observation: Union[List[float], Dict]
-        ) -> List[float]:
+    def _get_desired_goal_from_obs(
+        self, observation: Union[List[float], Dict]
+    ) -> List[float]:
         """
         Extract the desired goal from the observation.
 
         Args:
             - observation: The observation after the action is executed
-        
+
         Returns:
             - The desired goal
         """
@@ -345,23 +346,25 @@ class Reach(SingleArmEnv):
             - 1 for non-critical collision
             - 2 for critical collision
         """
-        print('number of contacts', self.sim.data.ncon)
+        print("number of contacts", self.sim.data.ncon)
         for i in range(self.sim.data.ncon):
             # Note that the contact array has more than `ncon` entries,
             # so be careful to only read the valid entries.
             contact = self.sim.data.contact[i]
-            print('contact', i)
-            print('dist', contact.dist)
-            print('geom1', contact.geom1, self.sim.model.geom_id2name(contact.geom1))
-            print('geom2', contact.geom2, self.sim.model.geom_id2name(contact.geom2))
+            print("contact", i)
+            print("dist", contact.dist)
+            print("geom1", contact.geom1, self.sim.model.geom_id2name(contact.geom1))
+            print("geom2", contact.geom2, self.sim.model.geom_id2name(contact.geom2))
             # There's more stuff in the data structure
             # See the mujoco documentation for more info!
             geom2_body = self.sim.model.geom_bodyid[self.sim.data.contact[i].geom2]
-            print(' Contact force on geom2 body', self.sim.data.cfrc_ext[geom2_body])
-            print('norm', np.sqrt(np.sum(np.square(self.sim.data.cfrc_ext[geom2_body]))))
+            print(" Contact force on geom2 body", self.sim.data.cfrc_ext[geom2_body])
+            print(
+                "norm", np.sqrt(np.sum(np.square(self.sim.data.cfrc_ext[geom2_body])))
+            )
             # Use internal functions to read out mj_contactForce
             c_array = np.zeros(6, dtype=np.float64)
-            print('c_array', c_array)
+            print("c_array", c_array)
         return self.sim.data.ncon > 0
 
     def _load_model(self):
@@ -371,7 +374,9 @@ class Reach(SingleArmEnv):
         super()._load_model()
 
         # Adjust base pose accordingly
-        xpos = self.robots[0].robot_model.base_xpos_offset["table"](self.table_full_size[0])
+        xpos = self.robots[0].robot_model.base_xpos_offset["table"](
+            self.table_full_size[0]
+        )
         self.robots[0].robot_model.set_base_xpos(xpos)
 
         # load model for table top workspace
@@ -390,7 +395,7 @@ class Reach(SingleArmEnv):
         else:
             self.placement_initializer = UniformRandomSampler(
                 name="ObjectSampler",
-                mujoco_objects=None, # We can later add objects here.
+                mujoco_objects=None,  # We can later add objects here.
                 x_range=[-0.03, 0.03],
                 y_range=[-0.03, 0.03],
                 rotation=None,
@@ -435,7 +440,9 @@ class Reach(SingleArmEnv):
             @sensor(modality=modality)
             def gripper_pos(obs_cache):
                 return (
-                    obs_cache[f"{pf}eef_pos"] if f"{pf}eef_pos" in obs_cache else np.zeros(3)
+                    obs_cache[f"{pf}eef_pos"]
+                    if f"{pf}eef_pos" in obs_cache
+                    else np.zeros(3)
                 )
 
             sensors = [gripper_pos]
@@ -465,7 +472,10 @@ class Reach(SingleArmEnv):
 
             # Loop through all objects and reset their positions
             for obj_pos, obj_quat, obj in object_placements.values():
-                self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array(obj_quat)]))
+                self.sim.data.set_joint_qpos(
+                    obj.joints[0],
+                    np.concatenate([np.array(obj_pos), np.array(obj_quat)]),
+                )
 
     def visualize(self, vis_settings):
         """
@@ -480,6 +490,6 @@ class Reach(SingleArmEnv):
         super().visualize(vis_settings=vis_settings)
 
         # Color the gripper visualization site according to its distance to the goal
-        ## TODO
-        #if vis_settings["grippers"]:
-            #self._visualize_gripper_to_target(gripper=self.robots[0].gripper, target=self.cube)
+        # TODO
+        # if vis_settings["grippers"]:
+        # self._visualize_gripper_to_target(gripper=self.robots[0].gripper, target=self.cube)

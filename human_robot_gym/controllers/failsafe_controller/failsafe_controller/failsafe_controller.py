@@ -1,15 +1,17 @@
 import numpy as np
 import os
 from scipy.spatial.transform import Rotation
-from matplotlib import pyplot as plt 
+
+# from matplotlib import pyplot as plt
 
 from robosuite.controllers.joint_pos import JointPositionController
-from robosuite.utils.control_utils import *
+from robosuite.utils.control_utils import set_goal_position
 
 from safety_shield_py import Motion
 from safety_shield_py import SafetyShield
 
 from .plot_capsule import PlotCapsule
+
 
 class FailsafeController(JointPositionController):
     """
@@ -32,7 +34,7 @@ class FailsafeController(JointPositionController):
         actuator_range (2-tuple of array of float): 2-Tuple (low, high) representing the robot joint actuator range
 
         init_qpos (list[double]): Initial joint angles
-        
+
         base_pos (list[double]): position of base [x, y, z]
 
         base_orientation (list[double]): orientation of base as quaternion [x, y, z, w]
@@ -136,29 +138,38 @@ class FailsafeController(JointPositionController):
             damping_ratio_limits,
             policy_freq,
             qpos_limits,
-            interpolator
+            interpolator,
         )
 
         # Control dimension
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        rot = Rotation.from_quat([base_orientation[0], base_orientation[1], base_orientation[2], base_orientation[3]])
-        rpy = rot.as_euler('XYZ')
+        rot = Rotation.from_quat(
+            [
+                base_orientation[0],
+                base_orientation[1],
+                base_orientation[2],
+                base_orientation[3],
+            ]
+        )
+        rpy = rot.as_euler("XYZ")
         self.safety_shield = SafetyShield(
-          activate_shield = True,
-          sample_time = control_sample_time,
-          trajectory_config_file = dir_path + "/../safety_shield/config/trajectory_parameters_schunk.yaml",
-          robot_config_file = dir_path + "/../safety_shield/config/robot_parameters_schunk.yaml",
-          mocap_config_file = dir_path + "/../safety_shield/config/mujoco_mocap.yaml",
-          init_x = base_pos[0],
-          init_y = base_pos[1],
-          init_z = base_pos[2],
-          init_roll = rpy[0],
-          init_pitch = rpy[1],
-          init_yaw = rpy[2],
-          init_qpos = init_qpos
+            activate_shield=True,
+            sample_time=control_sample_time,
+            trajectory_config_file=dir_path
+            + "/../safety_shield/config/trajectory_parameters_schunk.yaml",
+            robot_config_file=dir_path
+            + "/../safety_shield/config/robot_parameters_schunk.yaml",
+            mocap_config_file=dir_path + "/../safety_shield/config/mujoco_mocap.yaml",
+            init_x=base_pos[0],
+            init_y=base_pos[1],
+            init_z=base_pos[2],
+            init_roll=rpy[0],
+            init_pitch=rpy[1],
+            init_yaw=rpy[2],
+            init_qpos=init_qpos,
         )
         self.desired_motion = self.safety_shield.step(0.0)
-        self.robot_capsules = [] 
+        self.robot_capsules = []
         self.human_capsules = []
 
         # Debug path following
@@ -196,7 +207,9 @@ class FailsafeController(JointPositionController):
         delta = action
 
         # Check to make sure delta is size self.joint_dim
-        assert len(delta) == jnt_dim, "Delta qpos must be equal to the robot's joint dimension space!"
+        assert (
+            len(delta) == jnt_dim
+        ), "Delta qpos must be equal to the robot's joint dimension space!"
 
         if delta is not None:
             scaled_delta = self.scale_action(delta)
@@ -204,22 +217,22 @@ class FailsafeController(JointPositionController):
             scaled_delta = None
 
         self.goal_qpos = set_goal_position(
-            scaled_delta, 
-            self.joint_pos,#self.desired_motion.getAngle(), 
-            position_limit=self.position_limits, 
-            set_pos=set_qpos
+            scaled_delta,
+            self.joint_pos,  # self.desired_motion.getAngle(),
+            position_limit=self.position_limits,
+            set_pos=set_qpos,
         )
 
         if self.interpolator is not None:
             raise NotImplementedError
-            #self.interpolator.set_goal(self.goal_qpos)
-        
+            # self.interpolator.set_goal(self.goal_qpos)
+
         motion = Motion(0.0, self.goal_qpos)
         self.safety_shield.newLongTermTrajectory(motion)
 
     def set_human_measurement(self, human_measurement, time):
         """Set the human measurement of the safety shield.
-        
+
         Args:
           human_measurement (list[list[double]]): List of human measurements [x, y, z]-joint positions.
               The order of joints is defined in the motion capture config file.
@@ -240,7 +253,7 @@ class FailsafeController(JointPositionController):
 
         # Update state
         self.update()
-        
+
         current_time = self.sim.data.time
         self.desired_motion = self.safety_shield.step(current_time)
         desired_qpos = self.desired_motion.getAngle()
@@ -262,10 +275,14 @@ class FailsafeController(JointPositionController):
         # torques = pos_err * kp + vel_err * kd
         position_error = desired_qpos - self.joint_pos
         vel_pos_error = -self.joint_vel
-        desired_torque = np.multiply(np.array(position_error), np.array(self.kp)) + np.multiply(vel_pos_error, self.kd)
+        desired_torque = np.multiply(
+            np.array(position_error), np.array(self.kp)
+        ) + np.multiply(vel_pos_error, self.kd)
 
         # Return desired torques plus gravity compensations
-        self.torques = np.dot(self.mass_matrix, desired_torque) + self.torque_compensation
+        self.torques = (
+            np.dot(self.mass_matrix, desired_torque) + self.torque_compensation
+        )
 
         self.torques = self.clip_torques(torques=self.torques)
         # Always run superclass call for any cleanups at the end
@@ -274,50 +291,51 @@ class FailsafeController(JointPositionController):
         return self.torques
 
     def get_safety(self):
-      """Return if the failsafe controller intervened in this step or not.
+        """Return if the failsafe controller intervened in this step or not.
 
-      Returns:
-        bool: True: Safe, False: Unsafe  
-      """
-      return self.safety_shield.getSafety()
+        Returns:
+          bool: True: Safe, False: Unsafe
+        """
+        return self.safety_shield.getSafety()
 
     def get_robot_capsules(self):
-      """Return the robot capsules in the correct format to plot them in mujoco.
-      capsule:  pos = [x, y, z]
-                size = [radius, radius, length]
-                mat = 3x3 rotation matrix
-      Returns:
-        list[capsule]
-      """
-      capsules = self.safety_shield.getRobotReachCapsules()
-      if len(self.robot_capsules) == 0:
-        for cap in capsules:
-          self.robot_capsules.append(PlotCapsule(cap[0:3], cap[3:6], cap[6]))
-      else:
-        assert(len(self.robot_capsules) == len(capsules))
-        for i in range(len(capsules)):
-          self.robot_capsules[i].update_pos(capsules[i][0:3], capsules[i][3:6], capsules[i][6])
+        """Return the robot capsules in the correct format to plot them in mujoco.
+        capsule:  pos = [x, y, z]
+                  size = [radius, radius, length]
+                  mat = 3x3 rotation matrix
+        Returns:
+          list[capsule]
+        """
+        capsules = self.safety_shield.getRobotReachCapsules()
+        if len(self.robot_capsules) == 0:
+            for cap in capsules:
+                self.robot_capsules.append(PlotCapsule(cap[0:3], cap[3:6], cap[6]))
+        else:
+            assert len(self.robot_capsules) == len(capsules)
+            for i in range(len(capsules)):
+                self.robot_capsules[i].update_pos(
+                    capsules[i][0:3], capsules[i][3:6], capsules[i][6]
+                )
 
-      return self.robot_capsules
+        return self.robot_capsules
 
     def get_human_capsules(self):
-      """Return the human capsules in the correct format to plot them in mujoco.
-      capsule:  pos = [x, y, z]
-                size = [radius, radius, length]
-                mat = 3x3 rotation matrix
-      Returns:
-        list[capsule]
-      """
-      capsules = self.safety_shield.getHumanReachCapsules()
-      if len(self.human_capsules) == 0:
-        for cap in capsules:
-          self.human_capsules.append(PlotCapsule(cap[0:3], cap[3:6], cap[6]))
-      else:
-        assert(len(self.human_capsules) == len(capsules))
-        for i in range(len(capsules)):
-          self.human_capsules[i].update_pos(capsules[i][0:3], capsules[i][3:6], capsules[i][6])
+        """Return the human capsules in the correct format to plot them in mujoco.
+        capsule:  pos = [x, y, z]
+                  size = [radius, radius, length]
+                  mat = 3x3 rotation matrix
+        Returns:
+          list[capsule]
+        """
+        capsules = self.safety_shield.getHumanReachCapsules()
+        if len(self.human_capsules) == 0:
+            for cap in capsules:
+                self.human_capsules.append(PlotCapsule(cap[0:3], cap[3:6], cap[6]))
+        else:
+            assert len(self.human_capsules) == len(capsules)
+            for i in range(len(capsules)):
+                self.human_capsules[i].update_pos(
+                    capsules[i][0:3], capsules[i][3:6], capsules[i][6]
+                )
 
-      return self.human_capsules
-
-
-
+        return self.human_capsules

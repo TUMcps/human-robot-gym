@@ -12,12 +12,10 @@ import human_robot_gym.utils.errors as err
 
 NO_TRANSLATION = np.zeros([3], float)
 NO_ROTATION = np.eye(3)
-NEUTRAL_HOMOGENEOUS = np.asarray([  # == np.eye(4)
-    [1, 0, 0, 0],
-    [0, 1, 0, 0],
-    [0, 0, 1, 0],
-    [0, 0, 0, 1]
-], dtype=float)
+NEUTRAL_HOMOGENEOUS = np.asarray(
+    [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]],  # == np.eye(4)
+    dtype=float,
+)
 
 
 # ----- Projections Start -----
@@ -29,7 +27,7 @@ def cartesian2cylindrical(cart: np.ndarray) -> np.ndarray:
     if not cart.squeeze().shape == (3,):
         raise ValueError("Expected (3,) array, got {}".format(cart.shape))
     x, y, z = cart
-    r = (x ** 2 + y ** 2) ** .5
+    r = (x**2 + y**2) ** 0.5
     if r == 0:
         phi = 0
     elif y >= 0:
@@ -56,7 +54,7 @@ def cartesian2spherical(cart: np.ndarray) -> np.ndarray:
     if not cart.squeeze().shape == (3,):
         raise ValueError("Expected (3,) array, got {}".format(cart.shape))
     x, y, z = cart
-    r = (x ** 2 + y ** 2 + z ** 2) ** .5
+    r = (x**2 + y**2 + z**2) ** 0.5
     if r == 0:
         return np.array([0, 0, 0], float)
 
@@ -83,7 +81,14 @@ def spherical2cartesian(spher: np.ndarray) -> np.ndarray:
     if not spher.squeeze().shape == (3,):
         raise ValueError("Expected (3,) array, got {}".format(spher.shape))
     r, theta, phi = spher
-    return np.array([r * np.cos(phi) * np.sin(theta), r * np.sin(phi) * np.sin(theta), r * np.cos(theta)], float)
+    return np.array(
+        [
+            r * np.cos(phi) * np.sin(theta),
+            r * np.sin(phi) * np.sin(theta),
+            r * np.cos(theta),
+        ],
+        float,
+    )
 
 
 def rot_mat2axis_angle(rot_mat: np.ndarray) -> np.ndarray:
@@ -93,10 +98,14 @@ def rot_mat2axis_angle(rot_mat: np.ndarray) -> np.ndarray:
     :return: 4x1 array of axis-angle representation (n_x, n_y, n_z, theta_R), where n_x, n_y, n_z ~ unit vector
     """
     axis_angle = Rotation.from_matrix(rot_mat).as_rotvec()
-    if all(axis_angle == 0.):
+    if all(axis_angle == 0.0):
         return np.zeros(4, float)
-    axis_angle_4d = np.concatenate((axis_angle / np.linalg.norm(axis_angle),
-                                    np.array([(np.pi + np.linalg.norm(axis_angle)) % (2 * np.pi) - np.pi])))
+    axis_angle_4d = np.concatenate(
+        (
+            axis_angle / np.linalg.norm(axis_angle),
+            np.array([(np.pi + np.linalg.norm(axis_angle)) % (2 * np.pi) - np.pi]),
+        )
+    )
     return axis_angle_4d
 
 
@@ -106,6 +115,8 @@ def axis_angle2rot_mat(axis_angle: np.ndarray) -> np.ndarray:
     """
     rot_vec = axis_angle[:3] * axis_angle[3]
     return Rotation.from_rotvec(rot_vec).as_matrix()
+
+
 # ----- Projections End -----
 
 
@@ -129,8 +140,12 @@ def frame2geom(frame_id: int, geom_model: pin.GeometryModel):
     return [geom for geom in geom_model.geometryObjects if geom.parentFrame == frame_id]
 
 
-def homogeneous(translation: Union[List[float], Tuple[float, float, float], np.ndarray] = NO_TRANSLATION,
-                rotation: np.ndarray = NO_ROTATION) -> np.ndarray:
+def homogeneous(
+    translation: Union[
+        List[float], Tuple[float, float, float], np.ndarray
+    ] = NO_TRANSLATION,
+    rotation: np.ndarray = NO_ROTATION,
+) -> np.ndarray:
     """
     Returns a homogeneous matrix for translation, then rotation
     :param translation: Translation in the homogeneous matrix. 3x1
@@ -146,7 +161,9 @@ def homogeneous(translation: Union[List[float], Tuple[float, float, float], np.n
 def inv_homogeneous(T: np.ndarray) -> np.ndarray:
     """Efficiently inverses a homogeneous transformation"""
     if T.shape != (4, 4):
-        raise err.UnexpectedSpatialShapeError("Homogeneous transformation must be of shape 4x4")
+        raise err.UnexpectedSpatialShapeError(
+            "Homogeneous transformation must be of shape 4x4"
+        )
     return homogeneous(-np.transpose(T[:3, :3]) @ T[:3, 3], np.transpose(T[:3, :3]))
 
 
@@ -167,10 +184,7 @@ def rot2D(angle: float) -> np.ndarray:
     :param angle: Angel in radian
     :return: 2D rotation
     """
-    return np.array([
-        [np.cos(angle), -np.sin(angle)],
-        [np.sin(angle), np.cos(angle)]
-    ])
+    return np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
 
 
 def rotX(alpha: float) -> np.ndarray:
@@ -194,11 +208,9 @@ def rotZ(gamma: float) -> np.ndarray:
 def skew(vec3: np.ndarray) -> np.ndarray:
     if vec3.shape != (3,):
         raise err.UnexpectedSpatialShapeError("Invalid shape for skew symmetric matrix")
-    return np.array([
-        [0, -vec3[2], vec3[1]],
-        [vec3[2], 0, -vec3[0]],
-        [-vec3[1], vec3[0], 0]
-    ])
+    return np.array(
+        [[0, -vec3[2], vec3[1]], [vec3[2], 0, -vec3[0]], [-vec3[1], vec3[0], 0]]
+    )
 
 
 def xyz_rpy_to_homogeneous(xyz: np.ndarray, rpy: np.ndarray) -> np.ndarray:
@@ -206,5 +218,5 @@ def xyz_rpy_to_homogeneous(xyz: np.ndarray, rpy: np.ndarray) -> np.ndarray:
     Transforms a URDF-Like position description of xyz and roll pitch yaw to a homogeneous transform.
     Uses EXTRINSIC euler rotation (https://answers.ros.org/question/58863/incorrect-rollpitch-yaw-values-using-getrpy/)
     """
-    rot = Rotation.from_euler('xyz', rpy).as_matrix()
+    rot = Rotation.from_euler("xyz", rpy).as_matrix()
     return homogeneous(xyz, rot)

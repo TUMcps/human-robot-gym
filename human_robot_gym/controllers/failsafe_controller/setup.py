@@ -3,7 +3,7 @@ import re
 import subprocess
 import sys
 
-from setuptools import Extension, setup, find_packages
+from setuptools import Extension, setup, find_packages  # noqa: 401
 from setuptools.command.build_ext import build_ext
 from setuptools.command.develop import develop
 from setuptools.command.install import install
@@ -19,22 +19,21 @@ PLAT_TO_CMAKE = {
 
 class PostDevelopCommand(develop):
     """Pre-installation for development mode."""
+
     def run(self):
         develop.run(self)
         # Python tests
-        subprocess.check_call(
-          ["pytest", "safety_shield/"]
-        )
+        subprocess.check_call(["pytest", "safety_shield/"])
+
 
 class PostInstallCommand(install):
     """Pre-installation for installation mode."""
+
     def run(self):
         install.run(self)
         # Python tests
-        subprocess.check_call(
-          ["pytest", "safety_shield/"]
-        )
-          
+        subprocess.check_call(["pytest", "safety_shield/"])
+
 
 # A CMakeExtension needs a sourcedir instead of a file list.
 # The name must be the _single_ output extension from the CMake build.
@@ -137,16 +136,17 @@ class CMakeBuild(build_ext):
         subprocess.check_call(
             ["cmake", "--build", "."] + build_args, cwd=self.build_temp
         )
-        test = True # TODO: Find a way to include this in function call.
+        test = True  # TODO: Find a way to include this in function call.
         if test:
-          ## C++ tests
-          subprocess.check_call(
-            ["ctest", "--output-on-failure"], cwd=self.build_temp
-          )
-        if sys.argv[1].startswith('develop'):
+            # << C++ tests >>
+            subprocess.check_call(["ctest", "--output-on-failure"], cwd=self.build_temp)
+        if sys.argv[1].startswith("develop"):
             # Remove unfound frameworks, otherwise develop mode will fail the install
-            self.extensions = [x for x in self.extensions if os.path.exists(self.get_ext_fullpath(x.name))]
-          
+            self.extensions = [
+                x
+                for x in self.extensions
+                if os.path.exists(self.get_ext_fullpath(x.name))
+            ]
 
 
 # The information here can also be placed in setup.cfg - better separation of
@@ -159,9 +159,11 @@ setup(
     description="Failsafe controller",
     long_description="",
     ext_modules=[CMakeExtension("failsafe_controller")],
-    cmdclass={"build_ext": CMakeBuild,
-              "develop": PostDevelopCommand,
-              "install": PostInstallCommand},
+    cmdclass={
+        "build_ext": CMakeBuild,
+        "develop": PostDevelopCommand,
+        "install": PostInstallCommand,
+    },
     zip_safe=False,
     extras_require={"test": ["pytest>=6.0"]},
     python_requires=">=3.6",

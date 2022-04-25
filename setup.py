@@ -28,12 +28,15 @@ setup(
         "stable_baselines3==1.5.0",
         "numba>=0.52.0,<=0.53.1",
         "mujoco-py<2.2,>=2.1",
-        "wandb>=0.12"
+        "wandb>=0.12",
+        "flake8>=4.0",
+        "balck>=22.3"
     ],
     eager_resources=["*"],
     include_package_data=True,
     python_requires=">=3",
-    description="human_robot_gym is an extension to the robosuite package to train RL algorithms on robots in human environments.",
+    description="human_robot_gym is an extension to the robosuite package\
+                 to train RL algorithms on robots in human environments.",
     author="Jakob Thumm",
     url="TODO",
     author_email="jakob.thumm@tum.de",

@@ -9,20 +9,25 @@ from typing import List
 from scipy.spatial.transform import Rotation
 from copy import deepcopy
 
+
 def find_robot_assets_folder(robot_name: str) -> str:
     """
     Searches the human-robot-gym (first) and robosuite (second) models.assets package
       for the given robot name and returns the folder if found.
-    
+
     Args:
         robot_name (str): name of the robot (must match folder name)
 
     Returns:
         str: Full (absolute) file path if path found. Otherwise, returns None.
     """
-    robot_asset_folder_part = "robots/" + robot_name.lower() + '/'
-    robot_asset_folder_hrg = os.path.join(human_robot_gym.models.assets_root, robot_asset_folder_part)
-    robot_asset_folder_robosuite = os.path.join(robosuite.models.assets_root, robot_asset_folder_part)
+    robot_asset_folder_part = "robots/" + robot_name.lower() + "/"
+    robot_asset_folder_hrg = os.path.join(
+        human_robot_gym.models.assets_root, robot_asset_folder_part
+    )
+    robot_asset_folder_robosuite = os.path.join(
+        robosuite.models.assets_root, robot_asset_folder_part
+    )
     if os.path.isdir(robot_asset_folder_hrg):
         return robot_asset_folder_hrg
     elif os.path.isdir(robot_asset_folder_robosuite):
@@ -50,6 +55,7 @@ def file_path_completion(file_path: str) -> str:
         full_path = os.path.join(human_robot_gym.human_robot_gym_root, file_path)
     return full_path
 
+
 def xml_path_completion(xml_path: str) -> str:
     """
     Takes in a local xml path and returns a full path.
@@ -68,6 +74,7 @@ def xml_path_completion(xml_path: str) -> str:
         full_path = os.path.join(human_robot_gym.models.assets_root, xml_path)
     return full_path
 
+
 def rot_to_quat(rot: Rotation) -> List:
     """
     Convert a scipy rotation to a mujoco conform quaternion (w, x, y, z).
@@ -75,7 +82,8 @@ def rot_to_quat(rot: Rotation) -> List:
     quat = rot.as_quat()
     return [quat[3], quat[0], quat[1], quat[2]]
 
-def merge_configs(config1: dict, config2:dict) -> dict:
+
+def merge_configs(config1: dict, config2: dict) -> dict:
     """
     Merge two dictionaries with the following strategy:
         1) Use config1
@@ -91,6 +99,6 @@ def merge_configs(config1: dict, config2:dict) -> dict:
     """
     config = deepcopy(config1)
     for key in config2:
-        if key not in config or (key in config and config[key] == None):
+        if key not in config or (key in config and config[key] is None):
             config[key] = config2[key]
     return config
