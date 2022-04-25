@@ -27,7 +27,8 @@ setup(
         "scipy==1.8.0",
         "stable_baselines3==1.5.0",
         "numba>=0.52.0,<=0.53.1",
-        "free-mujoco-py==2.1.6",
+        "mujoco-py<2.2,>=2.1",
+        "wandb>=0.12"
     ],
     eager_resources=["*"],
     include_package_data=True,
