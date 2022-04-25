@@ -22,5 +22,5 @@ lint-test-job:   # This job also runs in the test stage.
   tags: [linting]
   stage: test    # It can run at the same time as unit-test-job (in parallel).
   script:
-    - pip install flake8
+    - pip3 install flake8
     - flake8
