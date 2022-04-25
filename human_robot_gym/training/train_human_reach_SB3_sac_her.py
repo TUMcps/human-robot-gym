@@ -19,6 +19,8 @@ from human_robot_gym.wrappers.HER_buffer_add_monkey_patch import (
     custom_add,
     _custom_sample_transitions,
 )
+import human_robot_gym.robots  # noqa: F401
+import human_robot_gym.environments.manipulation.reach_human_env  # noqa: F401
 
 
 # Command line arguments:

@@ -35,6 +35,9 @@ import robosuite as suite
 import time
 from robosuite.wrappers import GymWrapper
 
+import human_robot_gym.environments.manipulation.reach_human_env  # noqa: F401
+
+
 if __name__ == "__main__":
 
     # Notice how the environment is wrapped by the wrapper
