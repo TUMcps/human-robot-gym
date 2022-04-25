@@ -2,6 +2,7 @@ from robosuite.models.objects.xml_objects import MujocoXMLObject
 
 from human_robot_gym.utils.mjcf_utils import xml_path_completion
 
+
 class HumanObject(MujocoXMLObject):
     """
     Human object that is loaded from an XML file.
@@ -45,7 +46,7 @@ class HumanObject(MujocoXMLObject):
             "L_Wrist",
             "R_Wrist",
             "L_Hand",
-            "R_Hand"
+            "R_Hand",
         ]
         self.joint_names = []
         for joint in self.joint_elements:
@@ -62,5 +63,5 @@ class HumanObject(MujocoXMLObject):
             "L_Elbow",
             "R_Elbow",
             "L_Hand",
-            "R_Hand"
+            "R_Hand",
         ]
