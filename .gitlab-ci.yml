@@ -25,3 +25,4 @@ lint-test-job:   # This job also runs in the test stage.
   script:
     - pip3 install flake8
     - flake8
+    - echo "success"
