@@ -37,6 +37,26 @@ python setup.py install
 cd human-robot-gym
 pip install -e .
 ```
+### Installing pinocchio
+
+Installing `pinocchio` from the `conda-forge` channel can be achieved by adding `conda-forge` to your channels with:
+
+```
+conda config --add channels conda-forge
+conda config --set channel_priority strict
+```
+
+Once the `conda-forge` channel has been enabled, `pinocchio` can be installed with:
+
+```
+conda install pinocchio
+```
+
+It is possible to list all of the versions of `pinocchio` available on your platform with:
+
+```
+conda search pinocchio --channel conda-forge
+```
 
 # Test a demo
 ```
