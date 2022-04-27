@@ -6,7 +6,7 @@ We provide environments, safety functionality, and training scripts.
 # Installation
 ### Clone the repo with submodules
 ```
-git clone --recurse-submodules
+git clone --recurse-submodules git@gitlab.lrz.de:cps-rl/human-robot-gym.git
 ```
 ### Install MuJoCo
 1. Download the MuJoCo version 2.1 binaries for
