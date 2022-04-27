@@ -23,7 +23,6 @@ setup(
         "opencv_python==4.5.5.64",
         "pinocchio==0.4.3",
         "robosuite==1.3.2",
-        "robosuite.egg==info",
         "scipy==1.8.0",
         "stable_baselines3==1.5.0",
         "numba>=0.52.0,<=0.53.1",
