@@ -7,11 +7,7 @@ add_compile_options(-std=c++17)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 ## Find catkin macros and libraries
-find_package(spdlog REQUIRED)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
-find_package(yaml-cpp REQUIRED)
-find_package(SaRA REQUIRED)
-find_package(reflexxes_type_iv REQUIRED)
 
 include_directories(
   include
@@ -29,9 +25,29 @@ add_library(${PROJECT_NAME}
     #src/advanced_verify_iso.cc
     )
 
-target_link_libraries(${PROJECT_NAME} spdlog Eigen3::Eigen yaml-cpp)
-target_link_libraries(${PROJECT_NAME} SaRA)
-target_link_libraries(${PROJECT_NAME} reflexxes_type_iv)
+# Add external subdirectories
+add_subdirectory(external/pybind11)
+add_subdirectory(external/ReachLib)
+add_subdirectory(external/reflexxesTypeIV)
+add_subdirectory(external/spdlog)
+add_subdirectory(external/yaml-cpp)
+
+target_include_directories(${PROJECT_NAME}
+    PUBLIC external/pybind11/include
+    PUBLIC external/ReachLib/include
+    PUBLIC external/reflexxesTypeIV/include
+    PUBLIC external/spdlog/include
+    PUBLIC external/yaml-cpp/include
+)
+
+target_link_directories(${PROJECT_NAME}
+    PUBLIC external/ReachLib/src
+    PUBLIC external/reflexxesTypeIV/src
+    PUBLIC external/spdlog/src
+    PUBLIC external/yaml-cpp/src
+)
+
+target_link_libraries(${PROJECT_NAME} Eigen3::Eigen SaRA reflexxes_type_iv spdlog yaml-cpp)
 
 install(TARGETS ${PROJECT_NAME} DESTINATION /usr/lib)
 

@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <vector>
 
-#include "SaRA/reach_lib.hpp"
+#include "reach_lib.hpp"
 
 #ifndef VERIFY_H
 #define VERIFY_H

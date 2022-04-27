@@ -23,7 +23,7 @@ class PostDevelopCommand(develop):
     def run(self):
         develop.run(self)
         # Python tests
-        subprocess.check_call(["pytest", "safety_shield/"])
+        subprocess.check_call(["pytest", "safety_shield/tests/"])
 
 
 class PostInstallCommand(install):
@@ -32,7 +32,7 @@ class PostInstallCommand(install):
     def run(self):
         install.run(self)
         # Python tests
-        subprocess.check_call(["pytest", "safety_shield/"])
+        subprocess.check_call(["pytest", "safety_shield/tests/"])
 
 
 # A CMakeExtension needs a sourcedir instead of a file list.
@@ -127,6 +127,8 @@ class CMakeBuild(build_ext):
                 # CMake 3.12+ only.
                 build_args += [f"-j{self.parallel}"]
 
+        self.build_temp = ext.sourcedir + "/build/"
+
         if not os.path.exists(self.build_temp):
             os.makedirs(self.build_temp)
 
@@ -158,7 +160,8 @@ setup(
     author_email="jakob.thumm@tum.de",
     description="Failsafe controller",
     long_description="",
-    ext_modules=[CMakeExtension("failsafe_controller")],
+    install_requires=["pytest>=7.1"],
+    ext_modules=[CMakeExtension(name="safety_shield", sourcedir="safety_shield/")],
     cmdclass={
         "build_ext": CMakeBuild,
         "develop": PostDevelopCommand,

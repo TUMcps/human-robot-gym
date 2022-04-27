@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "verify_iso_fixture.h"
-#include "SaRA/reach_lib.hpp"
+#include "reach_lib.hpp"
 
 namespace safety_shield {
 // TODO: CREATE TESTS

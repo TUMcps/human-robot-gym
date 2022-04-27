@@ -18,7 +18,7 @@
 #include "spdlog/spdlog.h" 
 #include <yaml-cpp/yaml.h>
 
-#include "SaRA/reach_lib.hpp"
+#include "reach_lib.hpp"
 
 #include "safety_shield/long_term_traj.h"
 #include "safety_shield/path.h"
@@ -28,10 +28,10 @@
 #include "safety_shield/verify.h"
 #include "safety_shield/verify_iso.h"
 
-#include "reflexxes_type_iv/ReflexxesAPI.h"
-#include "reflexxes_type_iv/RMLPositionFlags.h"
-#include "reflexxes_type_iv/RMLPositionInputParameters.h"
-#include "reflexxes_type_iv/RMLPositionOutputParameters.h"
+#include "ReflexxesAPI.h"
+#include "RMLPositionFlags.h"
+#include "RMLPositionInputParameters.h"
+#include "RMLPositionOutputParameters.h"
 
 #ifndef safety_shield_H
 #define safety_shield_H

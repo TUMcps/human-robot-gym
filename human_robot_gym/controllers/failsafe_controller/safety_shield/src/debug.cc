@@ -3,7 +3,7 @@
 #include <chrono>
 #include <type_traits>
 
-#include "SaRA/reach_lib.hpp"
+#include "reach_lib.hpp"
 
 #include "safety_shield/safety_shield.h"
 #include "safety_shield/human_reach.h"
