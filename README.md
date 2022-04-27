@@ -37,6 +37,12 @@ cd human-robot-gym
 pip install -e .
 ```
 
+### Add to your `~/.bashrc` 
+```
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/thummj/.mujoco/mujoco210/bin
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/nvidia
+```
+
 # Test a demo
 ```
 python human_robot_gym/human_robot_gym/demos/demo_gym_functionality_Schunk.py
