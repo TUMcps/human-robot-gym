@@ -16,7 +16,7 @@ setup(
     packages=[package for package in find_packages() if package.startswith("human_robot_gym")],
     install_requires=[
         "bvh==0.3",
-        "gym==0.23.1",
+        "gym>=0.21",
         "meshcat==0.3.2",
         "mujoco_py==2.1.2.14",
         "numpy==1.22.3",
@@ -29,7 +29,7 @@ setup(
         "mujoco-py<2.2,>=2.1",
         "wandb>=0.12",
         "flake8>=4.0",
-        "balck>=22.3"
+        "black>=22.3"
     ],
     eager_resources=["*"],
     include_package_data=True,
