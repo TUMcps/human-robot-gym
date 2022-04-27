@@ -346,41 +346,6 @@ class HumanEnv(SingleArmEnv):
         if self.done:
             raise ValueError("executing action in terminated episode")
 
-        # Check if the given action would lead to a direct collision with the environment.
-        # Update obstacle positions
-        for obs in self.obstacles:
-            if obs.name in self.collision_obstacles_joints:
-                joint_name = self.collision_obstacles_joints[obs.name][0]
-                posrot = self.sim.data.get_joint_qpos(joint_name)
-                pos = posrot[0:3]
-                rot = quat2mat(posrot[3:7])
-                self.collision_obstacles_joints[obs.name][1].set_transform(pos, rot)
-
-        if self.visualize_pinocchio:
-            self.visualize_pin(viz=self.pin_viz)
-
-        for robot in self.robots:
-            if robot.has_gripper:
-                arm_action = action[: robot.controller.control_dim]
-            else:
-                arm_action = action
-            scaled_delta = robot.controller.scale_action(arm_action)
-            goal_qpos = set_goal_position(
-                delta=scaled_delta,
-                current_position=self.sim.data.qpos[robot.joint_indexes],
-                position_limit=robot.controller.position_limits,
-            )
-            if isinstance(robot.robot_model, PinocchioManipulatorModel):
-                if not self._check_action_safety(robot.robot_model, goal_qpos):
-                    # There are several ways to handle unsafe actions
-                    # 1) Replace with zero action.
-                    action = np.zeros([len(action)])
-                    self.action_resamples += 1
-                    # 2) Sample new action from env
-                    # 3) Sample random closeby actions and select closest safest
-                    # 4) Project to safe action
-                    # print("Action would not be safe!")
-
         self.timestep += 1
 
         # Since the env.step frequency is slower than the mjsim timestep frequency, the internal controller will output
@@ -441,6 +406,47 @@ class HumanEnv(SingleArmEnv):
             self.viewer.update()
 
         return observations, reward, done, info
+
+    def _check_collision_action(self, action):
+        """Checks if the given action collides.
+        Checks collisions with static environment and self-collision.
+        Requires a pinocchio robot model.
+
+        Args:
+            action (np.array): Action to execute
+
+        Returns:
+            bool: True: Action collides, False: Action is safe
+        """
+        # Check if the given action would lead to a direct collision with the environment.
+        # Update obstacle positions
+        for obs in self.obstacles:
+            if obs.name in self.collision_obstacles_joints:
+                joint_name = self.collision_obstacles_joints[obs.name][0]
+                posrot = self.sim.data.get_joint_qpos(joint_name)
+                pos = posrot[0:3]
+                rot = quat2mat(posrot[3:7])
+                self.collision_obstacles_joints[obs.name][1].set_transform(pos, rot)
+
+        if self.visualize_pinocchio:
+            self.visualize_pin(viz=self.pin_viz)
+
+        for robot in self.robots:
+            if robot.has_gripper:
+                arm_action = action[: robot.controller.control_dim]
+            else:
+                arm_action = action
+            scaled_delta = robot.controller.scale_action(arm_action)
+            goal_qpos = set_goal_position(
+                delta=scaled_delta,
+                current_position=self.sim.data.qpos[robot.joint_indexes],
+                position_limit=robot.controller.position_limits,
+            )
+            if isinstance(robot.robot_model, PinocchioManipulatorModel):
+                if not self._check_action_safety(robot.robot_model, goal_qpos):
+                    # There are several ways to handle unsafe actions
+                    return True
+        return False
 
     def _get_info(self) -> Dict:
         """
