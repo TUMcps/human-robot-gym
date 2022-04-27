@@ -29,6 +29,7 @@ conda create -n hrgym python=3.8
 This requires `cmake`.
 ```
 cd human-robot-gym/human_robot_gym/controllers/failsafe_controller
+pip install -r requirements.txt
 python setup.py install
 ```
 ### Install the human-robot-gym
