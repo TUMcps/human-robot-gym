@@ -21,6 +21,9 @@ from human_robot_gym.wrappers.HER_buffer_add_monkey_patch import (
 )
 import human_robot_gym.robots  # noqa: F401
 import human_robot_gym.environments.manipulation.reach_human_env  # noqa: F401
+from human_robot_gym.wrappers.collision_prevention_wrapper import (
+    CollisionPreventionWrapper,
+)
 
 
 # Command line arguments:
@@ -147,6 +150,9 @@ if __name__ == "__main__":
     if env.spec is None:
         env.spec = struct
     env = TimeLimit(env, max_episode_steps=training_config["algorithm"]["max_ep_len"])
+    env = CollisionPreventionWrapper(
+        env=env, collision_check_fn=env._check_collision_action, replace_type=0
+    )
     if training_config["environment"]["has_renderer"]:
         env = VisualizationWrapper(env)
 
