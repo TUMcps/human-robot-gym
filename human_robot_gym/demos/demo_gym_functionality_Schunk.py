@@ -49,7 +49,7 @@ if __name__ == "__main__":
         "controllers/failsafe_controller/config/failsafe.json"
     )
     robot_conig_path = file_path_completion(
-        "/home/jakob/Promotion/code/human-robot-gym/human_robot_gym/models/robots/config/schunk.json"
+        "models/robots/config/schunk.json"
     )
     controller_config = load_controller_config(custom_fpath=controller_conig_path)
     robot_config = load_controller_config(custom_fpath=robot_conig_path)

@@ -29,7 +29,10 @@ setup(
         "mujoco-py<2.2,>=2.1",
         "wandb>=0.12",
         "flake8>=4.0",
-        "black>=22.3"
+        "black>=22.3",
+        "patchelf>=0.14",
+        "h5py>=3.6",
+        "hpp-fcl>=1.7"
     ],
     eager_resources=["*"],
     include_package_data=True,
