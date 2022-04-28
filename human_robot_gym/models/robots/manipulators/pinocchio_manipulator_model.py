@@ -249,6 +249,7 @@ class PinocchioManipulatorModel(ManipulatorModel):
         try:
             from pinocchio.visualize import GepettoVisualizer
         except ImportError as err:
+            print(err)
             print("Error while initializing the viewer. It seems you should install gepetto-viewer")
         q = q_pin(q)
         viz = GepettoVisualizer(self.pin_model, self.collision, self.visual)
