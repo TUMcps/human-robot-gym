@@ -32,7 +32,8 @@ setup(
         "black>=22.3",
         "patchelf>=0.14",
         "h5py>=3.6",
-        "hpp-fcl>=1.7"
+        "hpp-fcl>=1.7",
+        "tensorboard>=2.8"
     ],
     eager_resources=["*"],
     include_package_data=True,
