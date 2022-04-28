@@ -22,6 +22,11 @@ Under linux, make sure to install:
 sudo apt install libosmesa6-dev libgl1-mesa-glx libglfw3
 ```
 ### Setup anaconda environment
+If you haven't done already, install anaconda:
+```
+https://docs.anaconda.com/anaconda/install/linux/
+```
+and create a new conda environment:
 ```
 conda create -n hrgym python=3.8
 ```
