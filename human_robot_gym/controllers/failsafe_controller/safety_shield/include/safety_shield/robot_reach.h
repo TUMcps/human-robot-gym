@@ -13,7 +13,7 @@
 #include <eigen3/Eigen/Dense>
 #include "spdlog/spdlog.h" 
 
-#include "SaRA/reach_lib.hpp"
+#include "reach_lib.hpp"
 
 #include "safety_shield/motion.h"
 

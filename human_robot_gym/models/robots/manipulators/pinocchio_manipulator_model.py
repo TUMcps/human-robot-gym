@@ -4,7 +4,6 @@ import numpy as np
 from matplotlib import colors
 
 import pinocchio as pin
-from pinocchio.visualize import GepettoVisualizer
 from hppfcl import CollisionRequest, CollisionResult, collide, CollisionObject
 from robosuite.models.robots.manipulators import ManipulatorModel
 
@@ -247,6 +246,11 @@ class PinocchioManipulatorModel(ManipulatorModel):
         Args:
             q (np.array): Joint angles to visualize
         """
+        try:
+            from pinocchio.visualize import GepettoVisualizer
+        except ImportError as err:
+            print(err)
+            print("Error while initializing the viewer. It seems you should install gepetto-viewer")
         q = q_pin(q)
         viz = GepettoVisualizer(self.pin_model, self.collision, self.visual)
         # Initialize the viewer.
