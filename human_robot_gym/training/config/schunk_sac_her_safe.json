@@ -1,18 +1,28 @@
 {
-    "robot":
-    {
+    "robot": {
         "name": "Schunk",
         "controller_config": "controllers/failsafe_controller/config/failsafe.json",
         "robot_config": "models/robots/config/schunk.json"
     },
-    "environment":
-    {
-        "robot_base_offset": [-0.36, 0.0, 0.0],
+    "environment": {
+        "robot_base_offset": [
+            -0.36,
+            0.0,
+            0.0
+        ],
         "env_configuration": "default",
         "gripper_types": "default",
         "initialization_noise": "default",
-        "table_full_size": [0.4, 0.8, 0.05],
-        "table_friction": [1.0, 5e-3, 1e-4],
+        "table_full_size": [
+            0.4,
+            0.8,
+            0.05
+        ],
+        "table_friction": [
+            1.0,
+            5e-3,
+            1e-4
+        ],
         "use_camera_obs": false,
         "use_object_obs": true,
         "reward_scale": 1.0,
@@ -40,16 +50,40 @@
         "visualize_failsafe_controller": false,
         "visualize_pinocchio": false,
         "control_sample_time": 0.004,
-        "human_animation_names": ["62_01", "62_03", "62_03", "62_07", "62_09", "62_10", "62_12", "62_13", "62_14", "62_15", "62_16", "62_18", "62_19", "62_20", "62_21"],
-        "base_human_pos_offset": [0.0, 0.0, 0.0],
+        "human_animation_names": [
+            "62_01",
+            "62_03",
+            "62_03",
+            "62_07",
+            "62_09",
+            "62_10",
+            "62_12",
+            "62_13",
+            "62_14",
+            "62_15",
+            "62_16",
+            "62_18",
+            "62_19",
+            "62_20",
+            "62_21"
+        ],
+        "base_human_pos_offset": [
+            0.0,
+            0.0,
+            0.0
+        ],
         "human_animation_freq": 120,
+        "randomize_initial_pos": false,
         "safe_vel": 0.01,
         "self_collision_safety": 0.012
     },
-    "algorithm":
-    {
+    "algorithm": {
         "seed": 1,
-        "hid": [64, 64, 64],
+        "hid": [
+            64,
+            64,
+            64
+        ],
         "n_episodes": 6000,
         "replay_size": 1000000,
         "gamma": 0.99,

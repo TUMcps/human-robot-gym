@@ -164,6 +164,9 @@ class ReachHuman(HumanEnv):
         safe_vel (double): Safe cartesian velocity. The robot is allowed to move with this velocity in the vacinity of
             humans.
 
+        randomize_initial_pos (bool): True - Use random initial joint position for robot.
+                                      False - Do not override initial position.
+
         self_collision_safety (double): Safe distance for self collision detection
 
         seed (int): Random seed for np.random
@@ -232,6 +235,7 @@ class ReachHuman(HumanEnv):
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_freq=120,
         safe_vel=0.001,
+        randomize_initial_pos=False,
         self_collision_safety=0.01,
         seed=0,
     ):
@@ -252,6 +256,7 @@ class ReachHuman(HumanEnv):
         # Robot Base offset
         if robot_base_offset is None:
             robot_base_offset = [[0.0, 0.0, 0.0] for robot in robots]
+        self.randomize_initial_pos = randomize_initial_pos
 
         super().__init__(
             robots=robots,
@@ -308,9 +313,36 @@ class ReachHuman(HumanEnv):
             ValueError: [Steps past episode termination]
         """
         obs, reward, done, info = super().step(action)
+        obs = self._clean_obs(obs)
         if self.has_renderer:
             self._visualize_goal()
         return obs, reward, done, info
+
+    def _clean_obs(self, obs):
+        """
+        Removes unnecassary clutter from the observations.
+
+        Args:
+            obs (dict): Observation dictionary
+        Returns:
+            obs (dict)
+        """
+        # For some reason this information is doubled.
+        # Maybe ask the developers of robosuite about the intention behind this.
+        del obs[self.robots[0].robot_model.naming_prefix + "proprio-state"]
+        del obs["goal-state"]
+        del obs["object-state"]
+        return obs
+
+    def reset(self):
+        """
+        Resets the environment.
+
+        Returns:
+            Observation
+        """
+        obs = super().reset()
+        return self._clean_obs(obs)
 
     def _get_info(self) -> Dict:
         """
@@ -433,8 +465,9 @@ class ReachHuman(HumanEnv):
         Resets simulation internal configurations.
         """
         # Set the desired new initial joint angles before resetting the robot.
-        if self.robots[0].controller is not None:
-            self.robots[0].init_qpos = self._sample_valid_pos()
+        if self.randomize_initial_pos:
+            if self.robots[0].controller is not None:
+                self.robots[0].init_qpos = self._sample_valid_pos()
         super()._reset_internal()
         self.desired_goal = self._sample_valid_pos()
         if isinstance(self.robots[0].robot_model, PinocchioManipulatorModel):
@@ -594,35 +627,44 @@ class ReachHuman(HumanEnv):
         observables = super()._setup_observables()
         # robot joint pos
         prefix = self.robots[0].robot_model.naming_prefix
-        observables[prefix + "joint_pos"].set_active(True)
-        observables[prefix + "joint_vel"].set_active(True)
-        observables[prefix + "eef_pos"].set_active(True)
-        observables["human_joint_pos"].set_active(True)
-        observables[prefix + "joint_pos_cos"].set_active(False)
-        observables[prefix + "joint_pos_sin"].set_active(False)
-        observables[prefix + "gripper_qpos"].set_active(False)
-        observables[prefix + "gripper_qvel"].set_active(False)
-        observables[prefix + "eef_quat"].set_active(False)
-        observables["gripper_pos"].set_active(False)
+        if prefix + "joint_pos" in observables:
+            observables[prefix + "joint_pos"].set_active(True)
+        if prefix + "joint_vel" in observables:
+            observables[prefix + "joint_vel"].set_active(True)
+        if prefix + "eef_pos" in observables:
+            observables[prefix + "eef_pos"].set_active(True)
+        if "human_joint_pos" in observables:
+            observables["human_joint_pos"].set_active(True)
+        if prefix + "joint_pos_cos" in observables:
+            observables[prefix + "joint_pos_cos"].set_active(False)
+        if prefix + "joint_pos_sin" in observables:
+            observables[prefix + "joint_pos_sin"].set_active(False)
+        if prefix + "gripper_qpos" in observables:
+            observables[prefix + "gripper_qpos"].set_active(False)
+        if prefix + "gripper_qvel" in observables:
+            observables[prefix + "gripper_qvel"].set_active(False)
+        if prefix + "eef_quat" in observables:
+            observables[prefix + "eef_quat"].set_active(False)
+        if "gripper_pos" in observables:
+            observables["gripper_pos"].set_active(False)
 
         # low-level object information
-        if self.use_object_obs:
-            modality = "object"
+        modality = "goal"
 
-            @sensor(modality=modality)
-            def desired_goal(obs_cache):
-                return self.desired_goal
+        @sensor(modality=modality)
+        def desired_goal(obs_cache):
+            return self.desired_goal
 
-            sensors = [desired_goal]
-            names = [s.__name__ for s in sensors]
+        sensors = [desired_goal]
+        names = [s.__name__ for s in sensors]
 
-            # Create observables
-            for name, s in zip(names, sensors):
-                observables[name] = Observable(
-                    name=name,
-                    sensor=s,
-                    sampling_rate=self.control_freq,
-                )
+        # Create observables
+        for name, s in zip(names, sensors):
+            observables[name] = Observable(
+                name=name,
+                sensor=s,
+                sampling_rate=self.control_freq,
+            )
         return observables
 
     def _visualize_goal(self):

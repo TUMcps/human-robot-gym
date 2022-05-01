@@ -465,7 +465,6 @@ class HumanEnv(SingleArmEnv):
             "collision_type": self.collision_type.value,
             "timeout": (self.timestep >= self.horizon),
             "failsafe_interventions": self.failsafe_interventions,
-            "action_resamples": self.action_resamples,
             "goal_reached": self.goal_reached,
         }
         return info
@@ -1006,7 +1005,6 @@ class HumanEnv(SingleArmEnv):
         self.has_collision = False
         self.collision_type = COLLISION_TYPE.NULL
         self.failsafe_interventions = 0
-        self.action_resamples = 0
 
         self.animation_start_time = 0
         self.low_level_time = 0

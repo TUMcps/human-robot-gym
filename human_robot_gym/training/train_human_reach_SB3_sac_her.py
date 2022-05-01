@@ -2,8 +2,6 @@
 import struct
 import numpy as np
 import argparse
-
-#
 import json
 from datetime import datetime
 
@@ -140,6 +138,9 @@ if __name__ == "__main__":
             ],
             human_animation_freq=training_config["environment"]["human_animation_freq"],
             safe_vel=training_config["environment"]["safe_vel"],
+            randomize_initial_pos=training_config["environment"][
+                "randomize_initial_pos"
+            ],
             self_collision_safety=training_config["environment"][
                 "self_collision_safety"
             ],

@@ -35,6 +35,7 @@ class CollisionPreventionWrapper(Wrapper):
         action = self.action(action)
         obs, reward, done, info = self.env.step(action)
         info["action"] = action
+        info["action_resamples"] = self.action_resamples
         return obs, reward, done, info
 
     def action(self, action):
@@ -52,3 +53,10 @@ class CollisionPreventionWrapper(Wrapper):
             action (np.array)
         """
         return np.zeros([len(action)])
+
+    def reset(self):
+        """
+        Resets the action wrapper variables and calls env.reset().
+        """
+        self.action_resamples = 0
+        return self.env.reset()
