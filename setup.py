@@ -33,7 +33,9 @@ setup(
         "patchelf>=0.14",
         "h5py>=3.6",
         "hpp-fcl>=1.7",
-        "tensorboard>=2.8"
+        "tensorboard>=2.8",
+        "pydocstyle>=6.1",
+        "mypy>=0.950"
     ],
     eager_resources=["*"],
     include_package_data=True,

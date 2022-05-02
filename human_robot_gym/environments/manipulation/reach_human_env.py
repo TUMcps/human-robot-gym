@@ -313,11 +313,10 @@ class ReachHuman(HumanEnv):
         return obs, reward, done, info
 
     def _get_info(self) -> Dict:
-        """
-        Return the info dictionary of this step.
+        """Return the info dictionary of this step.
 
         Returns
-            - info dict containing of
+            info dict containing of
                 * collision: if there was a collision or not
                 * collision_type: type of collision
                 * timeout: if timeout was reached
@@ -332,19 +331,17 @@ class ReachHuman(HumanEnv):
     def reward(
         self, achieved_goal: List[float], desired_goal: List[float], info: Dict
     ) -> float:
-        """
-        Compute the reward based on the achieved goal, the desired goal, and
-        the info dict.
+        """Compute the reward based on the achieved goal, the desired goal, and the info dict.
 
         if self.reward_shaping, we use a dense reward, otherwise a sparse reward.
 
         This function can only be called for one sample.
         Args:
-            - achieved_goal: observation of robot state that is relevant for goal
-            - desired_goal: the desired goal
-            - info: dictionary containing additional information like collision
+            achieved_goal: observation of robot state that is relevant for goal
+            desired_goal: the desired goal
+            info: dictionary containing additional information like collision
         Returns:
-            - reward
+            reward
         """
         reward = -1.0
         if info["collision"]:
@@ -364,8 +361,7 @@ class ReachHuman(HumanEnv):
     def _check_success(
         self, achieved_goal: List[float], desired_goal: List[float]
     ) -> bool:
-        """
-        Check if the desired goal was reached
+        """Check if the desired goal was reached.
 
         if self.reward_shaping, we use a dense reward, otherwise a sparse reward.
 

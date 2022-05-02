@@ -1,3 +1,13 @@
+"""This file defines the installation procedure of the safety shield and failsafe controller.
+
+Owner:
+    Jakob Thumm (JT)
+
+Contributors:
+
+Changelog:
+    2.5.22 JT Formatted docstrings
+"""
 import os
 import re
 import subprocess
@@ -21,6 +31,7 @@ class PostDevelopCommand(develop):
     """Pre-installation for development mode."""
 
     def run(self):
+        """Run the safety shield python binding tests."""
         develop.run(self)
         # Python tests
         subprocess.check_call(["pytest", "safety_shield/tests/"])
@@ -30,6 +41,7 @@ class PostInstallCommand(install):
     """Pre-installation for installation mode."""
 
     def run(self):
+        """Run the safety shield python binding tests."""
         install.run(self)
         # Python tests
         subprocess.check_call(["pytest", "safety_shield/tests/"])
@@ -39,13 +51,19 @@ class PostInstallCommand(install):
 # The name must be the _single_ output extension from the CMake build.
 # If you need multiple extensions, see scikit-build.
 class CMakeExtension(Extension):
+    """Defines a CMakeExtension."""
+
     def __init__(self, name, sourcedir=""):
+        """Initialize the CMakeExtension."""
         Extension.__init__(self, name, sources=[])
         self.sourcedir = os.path.abspath(sourcedir)
 
 
 class CMakeBuild(build_ext):
+    """This class defines the building process of the safety shield."""
+
     def build_extension(self, ext):
+        """Build the safety shield using cmake and run all tests."""
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
 
         # required for auto-detection & inclusion of auxiliary "native" libs
@@ -90,9 +108,7 @@ class CMakeBuild(build_ext):
                     cmake_args += ["-GNinja"]
                 except ImportError:
                     pass
-
         else:
-
             # Single config generators are handled "normally"
             single_config = any(x in cmake_generator for x in {"NMake", "Ninja"})
 
