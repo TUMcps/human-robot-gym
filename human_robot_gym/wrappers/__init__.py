@@ -1,5 +1,5 @@
+"""This package describes the gym wrappers and some additional training functionality."""
 # flake8: noqa
-
 from robosuite.wrappers.wrapper import Wrapper
 from robosuite.wrappers.data_collection_wrapper import DataCollectionWrapper
 from robosuite.wrappers.demo_sampler_wrapper import DemoSamplerWrapper
