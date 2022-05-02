@@ -12,8 +12,7 @@ Changelog:
     2.5.22 JT Formatted docstrings
 """
 
-from tokenize import Double
-from typing import Tuple, Union
+from typing import Tuple, Union, float
 import numpy as np
 from matplotlib import colors
 
