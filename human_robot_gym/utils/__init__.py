@@ -1,3 +1,4 @@
+"""This package defines utility functions."""
 # flake8: noqa
 from robosuite.utils.errors import (
     robosuiteError,
