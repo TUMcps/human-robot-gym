@@ -1,4 +1,15 @@
-# Super env
+"""This file describes a reach task for a single robot with a human doing tasks nearby.
+
+This class is based on the human environment.
+
+Owner:
+    Jakob Thumm (JT)
+
+Contributors:
+
+Changelog:
+    2.5.22 JT Formatted docstrings
+"""
 from human_robot_gym.environments.manipulation.human_env import HumanEnv
 
 from typing import Dict, Union, List
@@ -234,7 +245,7 @@ class ReachHuman(HumanEnv):
         safe_vel=0.001,
         self_collision_safety=0.01,
         seed=0,
-    ):
+    ):  # noqa: D107
         # settings for table top
         self.table_full_size = table_full_size
         self.table_friction = table_friction
@@ -293,9 +304,10 @@ class ReachHuman(HumanEnv):
         )
 
     def step(self, action):
-        """
-        Overrides base.py step function to create an GoalEnv.
-        Takes a step in simulation with control command @action.
+        """Override base step function.
+
+        Adds the goal position as an arrow to the visualizer.
+
         Args:
             action (np.array): Action to execute within the environment
         Returns:
@@ -333,9 +345,9 @@ class ReachHuman(HumanEnv):
     ) -> float:
         """Compute the reward based on the achieved goal, the desired goal, and the info dict.
 
-        if self.reward_shaping, we use a dense reward, otherwise a sparse reward.
-
+        If self.reward_shaping, we use a dense reward, otherwise a sparse reward.
         This function can only be called for one sample.
+
         Args:
             achieved_goal: observation of robot state that is relevant for goal
             desired_goal: the desired goal
@@ -363,14 +375,15 @@ class ReachHuman(HumanEnv):
     ) -> bool:
         """Check if the desired goal was reached.
 
-        if self.reward_shaping, we use a dense reward, otherwise a sparse reward.
-
+        Checks if all robot joints are at the desired position.
+        The distance metric is a RMSE and the threshold is self.goal_dist.
         This function can only be called for one sample.
+
         Args:
-            - achieved_goal: observation of robot state that is relevant for goal
-            - desired_goal: the desired goal
+            achieved_goal: observation of robot state that is relevant for goal
+            desired_goal: the desired goal
         Returns:
-            - True if success
+            True if success
         """
         dist = np.sqrt(
             np.sum([(a - g) ** 2 for (a, g) in zip(achieved_goal, desired_goal)])
@@ -380,17 +393,15 @@ class ReachHuman(HumanEnv):
     def _check_done(
         self, achieved_goal: List[float], desired_goal: List[float], info: Dict
     ) -> bool:
-        """
-        Compute the done flag based on the achieved goal, the desired goal, and
-        the info dict.
+        """Compute the done flag based on the achieved goal, the desired goal, and the info dict.
 
         This function can only be called for one sample.
         Args:
-            - achieved_goal: observation of robot state that is relevant for goal
-            - desired_goal: the desired goal
-            - info: dictionary containing additional information like collision
+            achieved_goal: observation of robot state that is relevant for goal
+            desired_goal: the desired goal
+            info: dictionary containing additional information like collision
         Returns:
-            - done
+            done
         """
         done = super()._check_done(achieved_goal, desired_goal, info)
         return done or (self._check_success(achieved_goal, desired_goal))
@@ -401,11 +412,13 @@ class ReachHuman(HumanEnv):
         """
         Extract the achieved goal from the observation.
 
+        The achieved goal is the new joint angle position of all joints.
+
         Args:
-            - observation: The observation after the action is executed
+            observation: The observation after the action is executed
 
         Returns:
-            - The achieved goal
+            The achieved goal
         """
         prefix = self.robots[0].robot_model.naming_prefix
         return observation[prefix + "joint_pos"]
@@ -413,21 +426,19 @@ class ReachHuman(HumanEnv):
     def _get_desired_goal_from_obs(
         self, observation: Union[List[float], Dict]
     ) -> List[float]:
-        """
-        Extract the desired goal from the observation.
+        """Extract the desired goal from the observation.
 
+        The desired goal is a desired goal joint position.
         Args:
-            - observation: The observation after the action is executed
+            observation: The observation after the action is executed
 
         Returns:
-            - The desired goal
+            The desired goal
         """
         return observation["desired_goal"]
 
     def _reset_internal(self):
-        """
-        Resets simulation internal configurations.
-        """
+        """Reset the simulation internal configurations."""
         # Set the desired new initial joint angles before resetting the robot.
         if self.robots[0].controller is not None:
             self.robots[0].init_qpos = self._sample_valid_pos()
@@ -439,9 +450,7 @@ class ReachHuman(HumanEnv):
             ].robot_model.get_eef_transformation(self.desired_goal)
 
     def _sample_valid_pos(self):
-        """
-        Randomly samples a new valid joint configuration without
-        self-collisions or collisions with the static environment.
+        """Randomly sample a new valid joint configuration without self-collisions or collisions with the static environment.
 
         Returns:
             joint configuration (np.array)
@@ -465,8 +474,7 @@ class ReachHuman(HumanEnv):
         return goal
 
     def _setup_arena(self):
-        """
-        Setup the mujoco arena.
+        """Set up the mujoco arena.
 
         Must define self.mujoco_arena.
         Define self.objects and self.obstacles here.
@@ -573,16 +581,13 @@ class ReachHuman(HumanEnv):
             )
 
     def _setup_references(self):
-        """
-        Sets up references to important components. A reference is typically an
-        index or a list of indices that point to the corresponding elements
-        in a flatten array, which is how MuJoCo stores physical simulation data.
-        """
+        """Set up references to important components."""
         super()._setup_references()
 
     def _setup_observables(self):
-        """
-        Sets up observables to be used for this environment. Creates object-based observables if enabled
+        """Set up observables to be used for this environment.
+
+        Creates object-based observables if enabled.
 
         Returns:
             OrderedDict: Dictionary mapping observable names to its corresponding Observable object
@@ -622,9 +627,7 @@ class ReachHuman(HumanEnv):
         return observables
 
     def _visualize_goal(self):
-        """
-        Visualize goal state.
-        """
+        """Visualize the goal state."""
         # arrow (type 100)
         self.viewer.viewer.add_marker(
             pos=self.goal_marker_trans,
