@@ -1,3 +1,15 @@
+"""This file defines the logging functionality via tensorboard for wandb.
+
+Further defines model saving and loading.
+
+Owner:
+    Jakob Thumm (JT)
+
+Contributors:
+
+Changelog:
+    2.5.22 JT Formatted docstrings
+"""
 import numpy as np
 import gym
 
@@ -14,8 +26,21 @@ from typing import Any, Dict, List, Union
 
 
 class TensorboardCallback(WandbCallback):
-    """
-    Custom callback for plotting additional values in tensorboard.
+    """Custom callback for plotting additional values in tensorboard.
+
+    Args:
+        eval_env: The evaluation environment.
+        verbose: Extra terminal outputs.
+        model_save_path: Path to save the model regularly.
+        model_save_freq: Save the model every x episodes.
+        gradient_save_freq: Save the gradients every x episodes.
+        save_freq: Save the model and replay buffer every x episodes.
+        model_file: predefined model file for loading / saving.
+        start_episode: Define start episode (if model is loaded).
+        additional_log_info_keys: Additionally log these keys from the info dict.
+        n_eval_episodes: Number of evaluation episodes.
+        deterministic: No noise on action.
+        log_interval: Log every n-th episode.
     """
 
     def __init__(
@@ -33,7 +58,7 @@ class TensorboardCallback(WandbCallback):
         deterministic: bool = True,
         log_interval: int = 4,
         # log_path: Optional[str] = None,
-    ):
+    ):  # noqa: D107
         super(TensorboardCallback, self).__init__(
             verbose, model_save_path, model_save_freq, gradient_save_freq
         )
@@ -86,6 +111,7 @@ class TensorboardCallback(WandbCallback):
                         self._info_buffer[key] = []
 
     def _on_rollout_end(self) -> None:
+        """After each n-th rollout (episode), log data."""
         """
         for key in self.additional_log_info_keys:
             if key in self.locals["infos"][0]:
@@ -102,12 +128,12 @@ class TensorboardCallback(WandbCallback):
     def _log_success_callback(
         self, locals_: Dict[str, Any], globals_: Dict[str, Any]
     ) -> None:
-        """
-        Callback passed to the  ``evaluate_policy`` function
-        in order to log the success rate (when applicable),
-        for instance when using HER.
-        :param locals_:
-        :param globals_:
+        """Pass this callback to the  ``evaluate_policy`` function in order to log the success rate.
+
+        This is used when applicable, for instance when using HER.
+        Args:
+            locals_:
+            globals_:
         """
         info = locals_["info"]
 
@@ -118,6 +144,7 @@ class TensorboardCallback(WandbCallback):
                     self._eval_info_buffer[key].append(maybe_is_key)
 
     def _on_training_end(self) -> bool:
+        """Perform evaluation after the training ends."""
         if self.model_evaluated:
             return True
         # Sync training and eval env if there is VecNormalize

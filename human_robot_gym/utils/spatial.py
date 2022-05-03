@@ -1,6 +1,14 @@
-#!/usr/bin/env python3
-# Author: Jonathan Külz
-# Date: 17.01.22
+"""This file describes spatial utility functions for the pinoccio manipulator model.
+
+Owner:
+    Jakob Thumm (JT)
+
+Contributors:
+    Jonathan Kuelz (JK)
+
+Changelog:
+    2.5.22 JT Formatted docstrings
+"""
 from typing import Collection, List, Tuple, Union
 
 import hppfcl
@@ -20,8 +28,8 @@ NEUTRAL_HOMOGENEOUS = np.asarray(
 
 # ----- Projections Start -----
 def cartesian2cylindrical(cart: np.ndarray) -> np.ndarray:
-    """
-    Takes a (3,) array in cartesian coordinates [x, y, z] and returns the according cylindrical coordinates [r, phi, z]
+    """Convert a (3,) array in cartesian coordinates [x, y, z] to cylindrical coordinates [r, phi, z].
+
     https://en.wikipedia.org/wiki/Polar_coordinate_system
     """
     if not cart.squeeze().shape == (3,):
@@ -38,7 +46,7 @@ def cartesian2cylindrical(cart: np.ndarray) -> np.ndarray:
 
 
 def cylindrical2cartesian(cyl: np.ndarray) -> np.ndarray:
-    """Inverse to cartesian2cylindrical"""
+    """Convert a (3,) array in cylindrical coordinates [r, phi, z] to cartesian coordinates [x, y, z]."""
     if not cyl.squeeze().shape == (3,):
         raise ValueError("Expected (3,) array, got {}".format(cyl.shape))
     r, phi, z = cyl
@@ -46,9 +54,9 @@ def cylindrical2cartesian(cyl: np.ndarray) -> np.ndarray:
 
 
 def cartesian2spherical(cart: np.ndarray) -> np.ndarray:
-    """
-    Takes a (3,) array in cartesian coordinates [x, y, z] and returns the according spherical coordinates
-    [r, theta, phi]. Convention: r, theta, phi ~ U, S, E (ISO)
+    """Convert a (3,) array in cartesian coordinates [x, y, z] to spherical coordinates [r, theta, phi].
+
+    Convention: r, theta, phi ~ U, S, E (ISO)
     https://en.wikipedia.org/wiki/Spherical_coordinate_system
     """
     if not cart.squeeze().shape == (3,):
@@ -77,7 +85,7 @@ def cartesian2spherical(cart: np.ndarray) -> np.ndarray:
 
 
 def spherical2cartesian(spher: np.ndarray) -> np.ndarray:
-    """Inverse to cartesian2spherical"""
+    """Convert a (3,) array in spherical coordinates [r, theta, phi] to cartesian coordinates [x, y, z]."""
     if not spher.squeeze().shape == (3,):
         raise ValueError("Expected (3,) array, got {}".format(spher.shape))
     r, theta, phi = spher
@@ -92,10 +100,12 @@ def spherical2cartesian(spher: np.ndarray) -> np.ndarray:
 
 
 def rot_mat2axis_angle(rot_mat: np.ndarray) -> np.ndarray:
-    """
-    Takes a rotation matrix and returns the corresponding axis-angle representation
-    :param rot_mat: 3x3 rotation matrix
-    :return: 4x1 array of axis-angle representation (n_x, n_y, n_z, theta_R), where n_x, n_y, n_z ~ unit vector
+    """Convert a rotation matrix to the corresponding axis-angle representation.
+
+    Args:
+        rot_mat: 3x3 rotation matrix
+    Returns:
+        4x1 array of axis-angle representation (n_x, n_y, n_z, theta_R), where n_x, n_y, n_z ~ unit vector
     """
     axis_angle = Rotation.from_matrix(rot_mat).as_rotvec()
     if all(axis_angle == 0.0):
@@ -110,9 +120,7 @@ def rot_mat2axis_angle(rot_mat: np.ndarray) -> np.ndarray:
 
 
 def axis_angle2rot_mat(axis_angle: np.ndarray) -> np.ndarray:
-    """
-    Inverse to rot_mat2axis_angle.
-    """
+    """Convert a axis-angle representation to the corresponding rotation matrix."""
     rot_vec = axis_angle[:3] * axis_angle[3]
     return Rotation.from_rotvec(rot_vec).as_matrix()
 
@@ -121,22 +129,24 @@ def axis_angle2rot_mat(axis_angle: np.ndarray) -> np.ndarray:
 
 
 def clone_collision_object(co: hppfcl.CollisionObject) -> hppfcl.CollisionObject:
-    """Deep copy of a hppfcl collision object"""
+    """Return a copy of a hppfcl collision object."""
     return hppfcl.CollisionObject(co.collisionGeometry().clone(), co.getTransform())
 
 
 def euler(rotation: Collection[float], seq: str):
-    """
-    Wrapper for the scipy euler method
-    :param rotation: Rotation angles in radian
-    :param seq: Any ordering of {xyz}[intrinsic] or {XYZ}[extrinsic] axes.
-    :return: 3x3 rotation matrix
+    """Wrap the scipy euler method.
+
+    Args:
+        rotation: Rotation angles in radian
+        seq: Any ordering of {xyz}[intrinsic] or {XYZ}[extrinsic] axes.
+    Returns:
+        3x3 rotation matrix
     """
     return Rotation.from_euler(seq, rotation).as_matrix()
 
 
 def frame2geom(frame_id: int, geom_model: pin.GeometryModel):
-    """Returns all geometry objects where porent frame is frame_id"""
+    """Return all geometry objects where porent frame is frame_id."""
     return [geom for geom in geom_model.geometryObjects if geom.parentFrame == frame_id]
 
 
@@ -146,11 +156,14 @@ def homogeneous(
     ] = NO_TRANSLATION,
     rotation: np.ndarray = NO_ROTATION,
 ) -> np.ndarray:
-    """
-    Returns a homogeneous matrix for translation, then rotation
-    :param translation: Translation in the homogeneous matrix. 3x1
-    :param rotation: 3x3 rotation matrix. Nested List works as well
-    :return:
+    """Return a homogeneous matrix for translation, then rotation.
+
+    Args:
+        translation: Translation in the homogeneous matrix. 3x1
+        rotation: 3x3 rotation matrix. Nested List works as well
+
+    Returns:
+        np.ndarray (4x4): homogenous transformation
     """
     T = np.eye(4)
     T[:3, 3] = np.asarray(translation)
@@ -159,7 +172,7 @@ def homogeneous(
 
 
 def inv_homogeneous(T: np.ndarray) -> np.ndarray:
-    """Efficiently inverses a homogeneous transformation"""
+    """Inverse a homogeneous transformation."""
     if T.shape != (4, 4):
         raise err.UnexpectedSpatialShapeError(
             "Homogeneous transformation must be of shape 4x4"
@@ -168,44 +181,51 @@ def inv_homogeneous(T: np.ndarray) -> np.ndarray:
 
 
 def random_rotation() -> np.ndarray:
-    """Returns a random 3x3 rotation matrix."""
+    """Return a random 3x3 rotation matrix."""
     return Rotation.random().as_matrix()
 
 
 def random_homogeneous() -> np.ndarray:
-    """Returns a random 4x4 homogeneous transformation matrix."""
+    """Return a random 4x4 homogeneous transformation matrix."""
     p = np.random.random((3,))
     return homogeneous(translation=p, rotation=random_rotation())
 
 
 def rot2D(angle: float) -> np.ndarray:
-    """
-    Returns the 2D rotation matrix for an angle in radian.
-    :param angle: Angel in radian
-    :return: 2D rotation
+    """Return the 2D rotation matrix for an angle in radian.
+
+    Args:
+        angle (float): Angel in radian
+
+    Returns:
+        np.ndarray (2x2): 2D rotation
     """
     return np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
 
 
 def rotX(alpha: float) -> np.ndarray:
+    """Return the homogenous transformation matrix of an x-Rotation with angle alpha."""
     R = np.eye(4)
     R[1:3, 1:3] = rot2D(alpha)
     return R
 
 
 def rotY(beta: float) -> np.ndarray:
+    """Return the homogenous transformation matrix of an y-Rotation with angle beta."""
     R = np.eye(4)
     R[::2, ::2] = rot2D(beta).T
     return R
 
 
 def rotZ(gamma: float) -> np.ndarray:
+    """Return the homogenous transformation matrix of an z-Rotation with angle gamma."""
     R = np.eye(4)
     R[:2, :2] = rot2D(gamma)
     return R
 
 
 def skew(vec3: np.ndarray) -> np.ndarray:
+    """Return a skew matrix."""
     if vec3.shape != (3,):
         raise err.UnexpectedSpatialShapeError("Invalid shape for skew symmetric matrix")
     return np.array(
@@ -214,8 +234,8 @@ def skew(vec3: np.ndarray) -> np.ndarray:
 
 
 def xyz_rpy_to_homogeneous(xyz: np.ndarray, rpy: np.ndarray) -> np.ndarray:
-    """
-    Transforms a URDF-Like position description of xyz and roll pitch yaw to a homogeneous transform.
+    """Transform a URDF-Like position description of xyz and roll pitch yaw to a homogeneous transform.
+
     Uses EXTRINSIC euler rotation (https://answers.ros.org/question/58863/incorrect-rollpitch-yaw-values-using-getrpy/)
     """
     rot = Rotation.from_euler("xyz", rpy).as_matrix()

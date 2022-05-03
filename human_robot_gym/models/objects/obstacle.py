@@ -1,6 +1,15 @@
-#!/usr/bin/env python3
-# Author: Jonathan Külz
-# Date: 17.01.22
+"""This file describes obstacles that can be used by Pinocchio for collision detection.
+
+Owner:
+    Jakob Thumm (JT)
+
+Contributors:
+    Jonathan Kuelz (JK)
+
+Changelog:
+    2.5.22 JT Formatted docstrings
+"""
+
 from abc import ABC, abstractmethod
 import itertools
 from copy import copy, deepcopy
@@ -25,17 +34,19 @@ from human_robot_gym.utils.spatial import (
 )
 
 
-# TODO: Split up in visual and collision geometry
 class ObstacleBase(ABC):
-    """
-    A wrapper class to integrate hppfcl obstacles in custom Environments.
+    """A wrapper class to integrate hppfcl obstacles in custom Environments.
+
+    Args:
+        name (str): Name of the obstacle.
+        collision_objects (list(CollisionObject)): An obstacle may consist of multiple collision objects.
     """
 
     def __init__(
         self,
         name: str,
         collision_objects: List[CollisionObject] = None,
-    ):
+    ):  # noqa: D107
         self.name = name
         if collision_objects is None:
             self.collision_objects: List[CollisionObject] = []
@@ -45,8 +56,9 @@ class ObstacleBase(ABC):
             self.collision_objects: List[CollisionObject] = [self.collision_objects]
 
     def __copy__(self):
-        """
-        Defaults to deepcopy - if another behavior is not desired explicitly,
+        """Deep copy the object.
+
+        If another behavior is not desired explicitly,
         shallow copy can lead to unexpected behaviour due to the hppfcl objects.
         """
         warnings.warn(
@@ -58,16 +70,18 @@ class ObstacleBase(ABC):
 
     @abstractmethod
     def __deepcopy__(self, memodict={}):
+        """Deep copy the object."""
         return self.__copy__()
 
     @property
     @abstractmethod
     def as_dict(self) -> Dict[str, any]:
-        """Interface to write a crok-ready dictionary"""
+        """Interface to write a crok-ready dictionary."""
         pass
 
     @abstractmethod
     def visualize(self, viz: pin.visualize.MeshcatVisualizer):
+        """Visualize the object."""
         pass
 
     def set_transform(
@@ -75,6 +89,12 @@ class ObstacleBase(ABC):
         translation: np.ndarray = NO_TRANSLATION,
         rotation: np.ndarray = NO_ROTATION,
     ):
+        """Set the transformation of the object.
+
+        Args:
+            translation (np.ndarray): translation (x, y, z) of the object.
+            rotation (np.ndarray): rotation matrix (3x3) of the object.
+        """
         self.T = homogeneous(translation, rotation)
         transform = Transform3f(rotation, translation)
         for collision_object in self.collision_objects:
@@ -82,6 +102,17 @@ class ObstacleBase(ABC):
 
 
 class Box(ObstacleBase):
+    """Box object with side lengths [x, y, z].
+
+    Args:
+        name (str): Name of the box.
+        x (float): Side length 1
+        y (float): Side length 2
+        z (float): Side length 3
+        translation (np.ndarray): translation (x, y, z) of the object.
+        rotation (np.ndarray): rotation matrix (3x3) of the object.
+    """
+
     def __init__(
         self,
         name: str,
@@ -90,7 +121,7 @@ class Box(ObstacleBase):
         z: float,
         translation: np.ndarray = NO_TRANSLATION,
         rotation: np.ndarray = NO_ROTATION,
-    ):
+    ):  # noqa: D107
         self.lengths = np.asarray([x, y, z])
         self.T = homogeneous(translation, rotation)
         box = hppfcl.Box(x, y, z)
@@ -99,19 +130,32 @@ class Box(ObstacleBase):
         super().__init__(name, collision_object)
 
     def __deepcopy__(self, memodict={}):
+        """Return a copy of this object."""
         return self.__class__(self.name, *self.lengths, self.T[:3, 3], self.T[:3, :3])
 
     @property
     def as_dict(self) -> Dict[str, any]:
+        """Return the object as a dictionary."""
         return {"pose": self.T.tolist(), "box": self.lengths.tolist()}
 
     def visualize(self, viz: pin.visualize.MeshcatVisualizer):
+        """Visualize the box."""
         viz_box = meshcat.geometry.Box(self.lengths)
         viz.viewer[self.name].set_object(viz_box)
         viz.viewer[self.name].set_transform(self.T)
 
 
 class Cylinder(ObstacleBase):
+    """Cylinder object with radius r and length z.
+
+    Args:
+        name (str): Name of the cylinder.
+        r (float): Radius of the cylinder.
+        z (float): Length of the cylinder.
+        translation (np.ndarray): translation (x, y, z) of the object.
+        rotation (np.ndarray): rotation matrix (3x3) of the object.
+    """
+
     def __init__(
         self,
         name: str,
@@ -119,8 +163,8 @@ class Cylinder(ObstacleBase):
         z: float,
         translation: np.ndarray = NO_TRANSLATION,
         rotation: np.ndarray = NO_ROTATION,
-    ):
-        """Expands a cylinder in z-direction centered in the origin"""
+    ):  # noqa: D107
+        # Expands a cylinder in z-direction centered in the origin
         self.r: float = float(r)
         self.z: float = float(z)
         self.T = homogeneous(translation, rotation)
@@ -130,19 +174,34 @@ class Cylinder(ObstacleBase):
         super().__init__(name, collision_object)
 
     def __deepcopy__(self, memodict={}):
+        """Return a copy of this cylinder."""
         return Cylinder(self.name, self.r, self.z, self.T[:3, 3], self.T[:3, :3])
 
     @property
     def as_dict(self) -> Dict[str, any]:
+        """Return this cylinder as a dictionary."""
         return {"pose": self.T.tolist(), "cylinder": [self.z, self.r]}
 
     def visualize(self, viz: pin.visualize.MeshcatVisualizer):
+        """Visualize this cylinder."""
         viz_cylinder = meshcat.geometry.Cylinder(height=self.z, radius=self.r)
         viz.viewer[self.name].set_object(viz_cylinder)
         viz.viewer[self.name].set_transform(self.T @ rotX(pi / 2))
 
 
 class MeshObstacle(ObstacleBase):
+    """Object defined by an outer mesh.
+
+    Args:
+        name (str): Name of the box.
+        mesh: Collision mesh.
+        translation (np.ndarray): translation (x, y, z) of the object.
+        rotation (np.ndarray): rotation matrix (3x3) of the object.
+        mesh_file (str): Optional path to the mesh file as information.
+            This provides no functionality at the moment.
+        scale (np.ndarry): Scale of the mesh object in each dimension (x, y, z).
+    """
+
     def __init__(
         self,
         name: str,
@@ -151,7 +210,7 @@ class MeshObstacle(ObstacleBase):
         rotation: np.ndarray = NO_ROTATION,
         mesh_file: str = "",
         scale: np.ndarray = np.array([1, 1, 1], float),
-    ):
+    ):  # noqa: D107
         self.T = homogeneous(translation, rotation)
         self.mesh_geometry = mesh
         transform = Transform3f(rotation, translation)
@@ -161,12 +220,14 @@ class MeshObstacle(ObstacleBase):
         super().__init__(name, collision_object)
 
     def __deepcopy__(self, memodict={}):
+        """Return a copy this mesh object."""
         return self.__class__(
             self.name, self.mesh_geometry.clone(), self.T[:3, 3], self.T[:3, :3]
         )
 
     @property
     def as_dict(self) -> Dict[str, any]:
+        """Return this mesh object as a dictionary."""
         if len(self.mesh_file) == 0:
             raise ValueError(
                 "Cannot store mesh obstacle if original filepath is unknown"
@@ -178,12 +239,23 @@ class MeshObstacle(ObstacleBase):
         }
 
     def visualize(self, viz: pin.visualize.MeshcatVisualizer):
+        """Visualize this mesh object."""
         viz_mesh = pin.visualize.meshcat_visualizer.loadMesh(self.mesh_geometry)
         viz.viewer[self.name].set_object(viz_mesh)
         viz.viewer[self.name].set_transform(self.T)
 
 
 class Plane(ObstacleBase):
+    """Plane object with normal vector n and thickness d.
+
+    Args:
+        name (str): Name of the box.
+        n (np.ndarry): Normal vector on the plane.
+        d (float): Thickness of the plane.
+        translation (np.ndarray): translation (x, y, z) of the object.
+        rotation (np.ndarray): rotation matrix (3x3) of the object.
+    """
+
     def __init__(
         self,
         name: str,
@@ -191,7 +263,7 @@ class Plane(ObstacleBase):
         d: float = 0.0,
         translation: np.ndarray = NO_TRANSLATION,
         rotation: np.ndarray = NO_ROTATION,
-    ):
+    ):  # noqa: D107
         self.name = name
         self.n = n / np.linalg.norm(n)
         self.d = d
@@ -202,14 +274,17 @@ class Plane(ObstacleBase):
         super().__init__(name, collision_object)
 
     def __deepcopy__(self, memodict={}):
+        """Return a copy of this plane."""
         return self.__class__(self.name, self.n, self.d, self.T[:3, 3], self.T[:3, :3])
 
     @property
     def as_dict(self) -> Dict[str, any]:
+        """Return this plane as a dictionary."""
         raise NotImplementedError("Plane is not a standard geometry")
 
     def visualize(self, viz: pin.visualize.MeshcatVisualizer):
-        """
+        """Visualize this plane.
+
         Meshcat cannot visualize an infinite plane, so instead visualize it as very narrow box.
         """
         # https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d
@@ -232,13 +307,22 @@ class Plane(ObstacleBase):
 
 
 class Sphere(ObstacleBase):
+    """Sphere object with radius r.
+
+    Args:
+        name (str): Name of the sphere.
+        r (float): Radius of the sphere.
+        translation (np.ndarray): translation (x, y, z) of the object.
+        rotation (np.ndarray): rotation matrix (3x3) of the object.
+    """
+
     def __init__(
         self,
         name: str,
         r: float,
         translation: np.ndarray = NO_TRANSLATION,
         rotation: np.ndarray = NO_ROTATION,
-    ):
+    ):  # noqa: D107
         self.r: float = float(r)
         self.T = homogeneous(translation, rotation)
         sphere = hppfcl.Sphere(r)
@@ -247,26 +331,38 @@ class Sphere(ObstacleBase):
         super().__init__(name, collision_object)
 
     def __deepcopy__(self, memodict={}):
+        """Return a copy of this sphere."""
         return self.__class__(self.name, self.r, self.T[:3, 3], self.T[:3, :3])
 
     @property
     def as_dict(self) -> Dict[str, any]:
+        """Return this sphere as a dictionary."""
         return {"pose": self.T.tolist(), "sphere": self.r}
 
     def visualize(self, viz: pin.visualize.MeshcatVisualizer):
+        """Visualize this sphere."""
         viz_sphere = meshcat.geometry.Sphere(self.r)
         viz.viewer[self.name].set_object(viz_sphere)
         viz.viewer[self.name].set_transform(self.T)
 
 
 class ComposedObstacle(ObstacleBase):
+    """Obstacle composed of multiple obstacles.
+
+    Args:
+        name (str): Name of the composed obstacle.
+        obstacle (List[Obstacles]): List of obstacles this obstacle is composed of.
+        translation (np.ndarray): translation (x, y, z) of the object.
+        rotation (np.ndarray): rotation matrix (3x3) of the object.
+    """
+
     def __init__(
         self,
         name: str,
         obstacles: List[ObstacleBase],
         translation: np.ndarray = NO_TRANSLATION,
         rotation: np.ndarray = NO_ROTATION,
-    ):
+    ):  # noqa: D107
         self.T = homogeneous(translation, rotation)
         transform3f = hppfcl.Transform3f(rotation, translation)
         self._children = obstacles
@@ -280,12 +376,16 @@ class ComposedObstacle(ObstacleBase):
         )
 
     def __copy__(self):
-        """Shallow copies all children IF they have a shallow copy. For obstacles, copy defaults to deepcopy"""
+        """Shallow copy all children IF they have a shallow copy.
+
+        For obstacles, copy defaults to deepcopy.
+        """
         return self.__class__(
             self.name, [copy(o) for o in self._children], self.T[:3, 3], self.T[:3, :3]
         )
 
     def __deepcopy__(self, memodict={}):
+        """Return a copy of this composed obstacle."""
         return self.__class__(
             self.name,
             [deepcopy(o, memodict) for o in self._children],
@@ -295,9 +395,11 @@ class ComposedObstacle(ObstacleBase):
 
     @property
     def as_dict(self) -> List[Dict[str, any]]:
+        """Return this composed obstacle as a dictionary."""
         return [obst.as_dict for obst in self._children]
 
     def visualize(self, viz: pin.visualize.MeshcatVisualizer):
+        """Visualize this composed obstacle."""
         for child in self._children:
             child.visualize(viz)
 
@@ -305,13 +407,15 @@ class ComposedObstacle(ObstacleBase):
 def crok2obstacle(
     geometry: Dict[str, any], package_dir: Path, name: str, pose: np.ndarray = None
 ) -> ObstacleBase:
-    """
-    Takes a crok geometry specification and returns the according Obstacle.
-    :param geometry: Geometry description as dictionary (e.g. as found in crok robot collision)
-    :param package_dir: If a mesh is given, it is given relative to a package directory that must be specified
-    :param name: The obstacle name
-    :param pose: The pose of the obstacle in the world frame
-    :return: The obstacle class instance that matches the specification
+    """Take a crok geometry specification and return the according Obstacle.
+
+    Args:
+        geometry: Geometry description as dictionary (e.g. as found in crok robot collision)
+        package_dir: If a mesh is given, it is given relative to a package directory that must be specified
+        name: The obstacle name
+        pose: The pose of the obstacle in the world frame
+    Returns:
+        The obstacle class instance that matches the specification
     """
     if "pose" in geometry and (pose is None):
         # Override default pause as it was provided with the geometry dict
@@ -365,12 +469,15 @@ def crok2obstacle(
 
 
 def hppfcl2obstacle(name: str, fcl: hppfcl.CollisionObject) -> ObstacleBase:
-    """
-    A helper function that transforms a generic hppfcl collision object to an according Obstacle instance. (Which allows
-    plotting, composing a scenario of multiple obstacles, ...)
-    :param name: The name that shall be given to the Obstacle.
-    :param fcl: The hppfcl collision object
-    :return: An instance of the according Obstacle class, based on the kind of collision object handed over.
+    """Transform a generic hppfcl collision object to an according Obstacle instance.
+
+    (This allows plotting, composing a scenario of multiple obstacles, ...)
+
+    Args:
+        name (str): The name that shall be given to the Obstacle.
+        fcl (FCL Collision Object): The hppfcl collision object.
+    Returns:
+        An instance of the according Obstacle class, based on the kind of collision object handed over.
     """
     translation = fcl.getTranslation()
     rotation = fcl.getRotation()

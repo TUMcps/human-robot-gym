@@ -1,3 +1,13 @@
+"""This file fixes an issue in SB3 implementation of HER.
+
+Owner:
+    Jakob Thumm (JT)
+
+Contributors:
+
+Changelog:
+    2.5.22 JT Formatted docstrings
+"""
 from collections import deque
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -22,7 +32,19 @@ def custom_add(
     done: np.ndarray,
     infos: List[Dict[str, Any]],
 ) -> None:
+    """Add new transitions (s, a, s', r) to the replay buffer.
 
+    Checks if the key "action" is in the info dict and
+    replaces the action in the transition with the action of the info dict.
+
+    Args:
+        obs: observation dict (s).
+        next_obs: next observation dict (s').
+        action: action commanded by the agent (not necessarly the executed action!) (a).
+        reward: the received reward (r).
+        done: if the episode was done after the transition.
+        infos: info dictionary (may contain the truely executed action).
+    """
     if self.current_idx == 0 and self.full:
         # Clear info buffer
         self.info_buffer[self.pos] = deque(maxlen=self.max_episode_length)
@@ -105,13 +127,18 @@ def _custom_sample_transitions(
     DictReplayBufferSamples,
     Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray], np.ndarray, np.ndarray],
 ]:
-    """
-    :param batch_size: Number of element to sample (only used for online sampling)
-    :param env: associated gym VecEnv to normalize the observations/rewards
-        Only valid when using online sampling
-    :param online_sampling: Using online_sampling for HER or not.
-    :param n_sampled_goal: Number of sampled goals for replay. (offline sampling)
-    :return: Samples.
+    """Sample a set of transitions from the replay buffer with HER strategy future.
+
+    This monkey patch correctly updates the done flag of the HER transitions.
+
+    Args:
+        batch_size: Number of element to sample (only used for online sampling)
+        env: associated gym VecEnv to normalize the observations/rewards
+            Only valid when using online sampling
+        online_sampling: Using online_sampling for HER or not.
+        n_sampled_goal: Number of sampled goals for replay. (offline sampling)
+    Returns
+        Samples.
     """
     # Select which episodes to use
     if online_sampling:

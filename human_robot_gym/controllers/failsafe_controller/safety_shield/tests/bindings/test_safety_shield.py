@@ -1,3 +1,13 @@
+"""This file defines the tests of the python bindings of the safety shield class.
+
+Owner:
+    Jakob Thumm (JT)
+
+Contributors:
+
+Changelog:
+    2.5.22 JT Formatted docstrings
+"""
 import os
 import pytest
 from safety_shield_py import Motion
@@ -5,8 +15,17 @@ from safety_shield_py import SafetyShield
 
 
 class TestSafetyShield:
+    """This class defines the test fixtures and tests for the safety shield python bindings."""
+
     @pytest.fixture
     def shield(self):
+        """Define a test fixture for the safety shield.
+
+        We use the modrob1 and the CMU_mocap_no_hand config files.
+        The sampling time is set to 0.004.
+        All initial position and rotations are set to zero.
+        The shield is active.
+        """
         dir_path = os.path.dirname(os.path.realpath(__file__))
         print(dir_path)
 
@@ -29,6 +48,13 @@ class TestSafetyShield:
 
     @pytest.fixture
     def shield_schunk(self):
+        """Define a test fixture for the safety shield.
+
+        We use the Schunk and the CMU_mocap_no_hand config files.
+        The sampling time is set to 0.004.
+        All initial position and rotations are set to zero.
+        The shield is active.
+        """
         dir_path = os.path.dirname(os.path.realpath(__file__))
         print(dir_path)
 
@@ -50,23 +76,28 @@ class TestSafetyShield:
         return shield
 
     def test_safety_shield(self, shield):
+        """Test the safety shield constructor."""
         assert shield is not None
 
     def test_humanMeasurement(self, shield):
+        """Test the humanMeasurement() function."""
         dummy_meas = []
         for i in range(21):
             dummy_meas.append([0.0, 0.0, 0.0])
         shield.humanMeasurement(dummy_meas, 0.0)
 
     def test_newLTT(self, shield):
+        """Test the newLongTermTrajectory() function."""
         motion = Motion(6)
         shield.newLongTermTrajectory(motion)
 
     def test_step(self, shield):
+        """Test the step() function."""
         motion = shield.step(0.004)
         assert motion.getTime() == 0.004
 
     def test_getSafety(self, shield):
+        """Test the getSafety() function."""
         dummy_meas = []
         for i in range(21):
             dummy_meas.append([0.0, 0.0, 0.0])
@@ -78,6 +109,7 @@ class TestSafetyShield:
         assert is_safe is False
 
     def test_getRobotReachCapsules(self, shield):
+        """Test the getRobotReachCapsules() function for the modrob1 test fixture."""
         motion = Motion(6)
         shield.newLongTermTrajectory(motion)
         dummy_meas = []
@@ -151,6 +183,7 @@ class TestSafetyShield:
 
     # ---------------- Schunk -------------------
     def test_getRobotReachCapsulesSchunk(self, shield_schunk):
+        """Test the getRobotReachCapsules() function for the Schunk test fixture."""
         motion = Motion(6)
         shield_schunk.newLongTermTrajectory(motion)
         dummy_meas = []

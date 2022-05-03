@@ -1,12 +1,28 @@
+"""This file descibes the normalized box environment wrapper.
+
+Owner:
+    Jakob Thumm (JT)
+
+Contributors:
+
+Changelog:
+    2.5.22 JT Formatted docstrings
+"""
 import numpy as np
 from gym.spaces import Box
 import gym.core
 
 
 class NormalizedBoxEnv(gym.core.Wrapper):
-    """
-    Normalize action to in [-1, 1].
+    """Normalize action to lie in [-1, 1].
+
     Optionally normalize observations and scale reward.
+
+    Args:
+        env: gym environment to wrap
+        reward_scale: scale the reward
+        obs_mean: usual mean of the observation
+        obs_std: standard deviation of the observation
     """
 
     def __init__(
@@ -15,7 +31,7 @@ class NormalizedBoxEnv(gym.core.Wrapper):
         reward_scale=1.0,
         obs_mean=None,
         obs_std=None,
-    ):
+    ):  # noqa: D107
         super().__init__(env)
         self._should_normalize = not (obs_mean is None and obs_std is None)
         if self._should_normalize:
@@ -34,6 +50,12 @@ class NormalizedBoxEnv(gym.core.Wrapper):
         self.action_space = Box(-1 * ub, ub)
 
     def estimate_obs_stats(self, obs_batch, override_values=False):
+        """Estimate the obs mean and standard deviation.
+
+        Args:
+            obs_batch: Batch of observations
+            override_values: self._obs_mean and self._obs_std will be overridden.
+        """
         if self._obs_mean is not None and not override_values:
             raise Exception(
                 "Observation mean and std already set. To "
@@ -46,6 +68,10 @@ class NormalizedBoxEnv(gym.core.Wrapper):
         return (obs - self._obs_mean) / (self._obs_std + 1e-8)
 
     def step(self, action):
+        """Step the environment.
+
+        Scale the action and normalize the observations.
+        """
         lb = self.env.action_space.low
         ub = self.env.action_space.high
         scaled_action = lb + (action + 1.0) * 0.5 * (ub - lb)
@@ -58,4 +84,5 @@ class NormalizedBoxEnv(gym.core.Wrapper):
         return next_obs, reward * self._reward_scale, done, info
 
     def __str__(self):
+        """Return env as string."""
         return "Normalized: %s" % self.env

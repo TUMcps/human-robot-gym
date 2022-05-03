@@ -1,3 +1,13 @@
+"""This file describe a capsule object that can be used for plotting.
+
+Owner:
+    Jakob Thumm (JT)
+
+Contributors:
+
+Changelog:
+    2.5.22 JT Formatted docstrings
+"""
 import math
 from scipy.spatial.transform import Rotation
 
@@ -9,15 +19,22 @@ class PlotCapsule:
 
     def __init__(self, p1, p2, r):
         """Initialize a plot capsule.
+
         Args:
-          p1: Point 1 (x, y, z)
-          p2: Point 2 (x, y, z)
-          r: Radius
+            p1: Point 1 (x, y, z)
+            p2: Point 2 (x, y, z)
+            r: Radius
         """
         self.update_pos(p1, p2, r)
 
     def update_pos(self, p1, p2, r):
-        """Update the position (and possibly radius) of the capsule"""
+        """Update the position (and possibly radius) of the capsule.
+
+        Args:
+            p1 (list): x, y, z coordinates of end point 1 of the cylinder
+            p2 (list): x, y, z coordinates of end point 1 of the cylinder
+            r (double): radius of the capsule
+        """
         self.p1 = p1
         self.p2 = p2
         self.r = r

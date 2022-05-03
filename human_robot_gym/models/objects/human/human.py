@@ -1,15 +1,32 @@
+"""This file describes the human model.
+
+Humans have multiple joint elements, some of which are observable.
+The human object is fully defined in assets/human/human.xml.
+
+Owner:
+    Jakob Thumm (JT)
+
+Contributors:
+
+Changelog:
+    2.5.22 JT Formatted docstrings
+"""
+
 from robosuite.models.objects.xml_objects import MujocoXMLObject
 
 from human_robot_gym.utils.mjcf_utils import xml_path_completion
 
 
 class HumanObject(MujocoXMLObject):
-    """
-    Human object that is loaded from an XML file.
+    """Human object that is loaded from an XML file.
+
     The human can be controlled by setting the x, y, and z components of each human joint.
+
+    Args:
+        name (str): Name of the human object.
     """
 
-    def __init__(self, name):
+    def __init__(self, name):  # noqa: D107
         super().__init__(
             xml_path_completion("human/human.xml"),
             name=name,
@@ -20,9 +37,7 @@ class HumanObject(MujocoXMLObject):
         self._setup_joint_names()
 
     def _setup_joint_names(self):
-        """
-        Define the name of all controllable joints
-        """
+        """Define the name of all controllable and observable joints."""
         self.joint_elements = [
             "L_Hip",
             "R_Hip",

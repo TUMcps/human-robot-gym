@@ -1,3 +1,15 @@
+"""This file defines a converter from BVH to pickle animations.
+
+Load in a human animation BVH file and transform it to an usable human animation.
+
+Owner:
+    Jakob Thumm (JT)
+
+Contributors:
+
+Changelog:
+    2.5.22 JT Formatted docstrings
+"""
 import argparse
 import os
 import numpy as np

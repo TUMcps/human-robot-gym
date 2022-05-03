@@ -1,5 +1,5 @@
-"""
-This file implements a wrapper for facilitating compatibility with OpenAI gym.
+"""This file implements a wrapper for facilitating compatibility with OpenAI gym.
+
 This wrapper is specifically designed to work with Hindsight Experience Replay,
 so it sets up a goal environment.
 Each observation has the following form:
@@ -8,8 +8,15 @@ obs = {
   "achieved_goal": Box,
   "desired_goal": Box
 }
-"""
 
+Owner:
+    Jakob Thumm (JT)
+
+Contributors:
+
+Changelog:
+    2.5.22 JT Formatted docstrings
+"""
 import numpy as np
 from gym import spaces
 from gym.core import Env
@@ -18,9 +25,17 @@ from robosuite.wrappers import Wrapper
 
 
 class GoalEnvironmentGymWrapper(Wrapper, Env):
-    """
-    Initializes the Gym wrapper. Mimics many of the required functionalities of the Wrapper class
-    found in the gym.core module
+    """Goal environment gym wrapper.
+
+    this class allows us to use hindsight experience replay (HER).
+    The main point of goal environments is that both the desired and achieved goal are
+    part of the observation.
+    The observation must have the following form:
+    gym.spaces.Dict({
+        "desired_goal": gym.spaces.Box
+        "achieved_goal": gym.spaces.Box
+        "observation": gym.spaces.Box
+    })
 
     Args:
         env (MujocoEnv): The environment to wrap.
@@ -32,7 +47,7 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
         AssertionError: [Object observations must be enabled if no keys]
     """
 
-    def __init__(self, env, keys=None):
+    def __init__(self, env, keys=None):  # noqa: D107
         # Run super method
         super().__init__(env=env)
         # Create name for gym
@@ -82,8 +97,7 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
         self.action_space = spaces.Box(low=low, high=high)
 
     def _flatten_obs(self, obs_dict, verbose=False):
-        """
-        Converts observation to observation, achieved, and desired goal dict format.
+        """Convert the observation to the observation, achieved, and desired goal dict format.
 
         Args:
             obs_dict (OrderedDict): ordered dictionary of observations
@@ -105,8 +119,7 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
         return obs
 
     def reset(self):
-        """
-        Extends env reset method to return flattened observation instead of normal OrderedDict.
+        """Extend env reset method to return flattened observation instead of normal OrderedDict.
 
         Returns:
             np.array: Flattened environment observation space after reset occurs
@@ -115,8 +128,7 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
         return self._flatten_obs(ob_dict)
 
     def step(self, action):
-        """
-        Extends vanilla step() function call to return flattened observation instead of normal OrderedDict.
+        """Extend vanilla sstep function call to return flattened observation instead of normal OrderedDict.
 
         Args:
             action (np.array): Action to take in environment
@@ -133,8 +145,7 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
         return self._flatten_obs(ob_dict), reward, done, info
 
     def seed(self, seed=None):
-        """
-        Utility function to set numpy seed
+        """Set numpy seed.
 
         Args:
             seed (None or int): If specified, numpy seed to set
@@ -150,10 +161,13 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
                 TypeError("Seed must be an integer type!")
 
     def compute_reward(self, achieved_goal, desired_goal, info):
-        """Compute the step reward. This externalizes the reward function and makes
+        """Compute the step reward.
+
+        This externalizes the reward function and makes
         it dependent on an a desired goal and the one that was achieved. If you wish to include
         additional rewards that are independent of the goal, you can include the necessary values
         to derive it in info and compute it accordingly.
+
         Args:
             achieved_goal (object): the goal that was achieved during execution
             desired_goal (object): the desired goal that we asked the agent to attempt to achieve
@@ -167,8 +181,11 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
         return self.env._compute_reward(achieved_goal, desired_goal, info)
 
     def compute_done(self, achieved_goal, desired_goal, info):
-        """Compute the done flag. This externalizes the done function and makes
+        """Compute the done flag.
+
+        This externalizes the done function and makes
         it dependent on an a desired goal and the one that was achieved.
+
         Args:
             achieved_goal (object): the goal that was achieved during execution
             desired_goal (object): the desired goal that we asked the agent to attempt to achieve
@@ -179,8 +196,7 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
         return self.env._compute_done(achieved_goal, desired_goal, info)
 
     def render(self, **kwargs):
-        """
-        By default, run the normal environment render() function
+        """Run the environment render function.
 
         Args:
             **kwargs (dict): Any args to pass to environment render function
