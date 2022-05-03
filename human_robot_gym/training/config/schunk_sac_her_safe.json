@@ -1,18 +1,28 @@
 {
-    "robot":
-    {
+    "robot": {
         "name": "Schunk",
         "controller_config": "controllers/failsafe_controller/config/failsafe.json",
         "robot_config": "models/robots/config/schunk.json"
     },
-    "environment":
-    {
-        "robot_base_offset": [-0.36, 0.0, 0.0],
+    "environment": {
+        "robot_base_offset": [
+            -0.36,
+            0.0,
+            0.0
+        ],
         "env_configuration": "default",
         "gripper_types": "default",
         "initialization_noise": "default",
-        "table_full_size": [0.4, 0.8, 0.05],
-        "table_friction": [1.0, 5e-3, 1e-4],
+        "table_full_size": [
+            0.4,
+            0.8,
+            0.05
+        ],
+        "table_friction": [
+            1.0,
+            5e-3,
+            1e-4
+        ],
         "use_camera_obs": false,
         "use_object_obs": true,
         "reward_scale": 1.0,
@@ -25,7 +35,7 @@
         "render_collision_mesh": false,
         "render_visual_mesh": true,
         "render_gpu_device_id": -1,
-        "control_freq": 10,
+        "control_freq": 5,
         "horizon": 500,
         "ignore_done": true,
         "hard_reset": false,
@@ -40,16 +50,41 @@
         "visualize_failsafe_controller": false,
         "visualize_pinocchio": false,
         "control_sample_time": 0.004,
-        "human_animation_names": ["62_01", "62_03", "62_03", "62_07", "62_09", "62_10", "62_12", "62_13", "62_14", "62_15", "62_16", "62_18", "62_19", "62_20", "62_21"],
-        "base_human_pos_offset": [0.0, 0.0, 0.0],
+        "human_animation_names": [
+            "62_01",
+            "62_03",
+            "62_03",
+            "62_07",
+            "62_09",
+            "62_10",
+            "62_12",
+            "62_13",
+            "62_14",
+            "62_15",
+            "62_16",
+            "62_18",
+            "62_19",
+            "62_20",
+            "62_21"
+        ],
+        "base_human_pos_offset": [
+            0.0,
+            0.0,
+            0.0
+        ],
         "human_animation_freq": 120,
+        "randomize_initial_pos": false,
         "safe_vel": 0.01,
-        "self_collision_safety": 0.012
+        "self_collision_safety": 0.012,
+        "replace_type": 2
     },
-    "algorithm":
-    {
-        "seed": 1,
-        "hid": [64, 64, 64],
+    "algorithm": {
+        "seed": 0,
+        "hid": [
+            64,
+            64,
+            64
+        ],
         "n_episodes": 6000,
         "replay_size": 1000000,
         "gamma": 0.99,
@@ -67,7 +102,7 @@
         "target_update_interval": 1,
         "use_sde_at_warmup": false,
         "num_test_episodes": 500,
-        "max_ep_len": 500,
+        "max_ep_len": 200,
         "save_freq": 10,
         "k_her_samples": 4,
         "goal_selection_strategy": "future",
