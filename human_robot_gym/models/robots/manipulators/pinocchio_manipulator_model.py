@@ -12,7 +12,7 @@ Changelog:
     2.5.22 JT Formatted docstrings
 """
 
-from typing import Tuple, Union, float
+from typing import Tuple, Union
 import numpy as np
 from matplotlib import colors
 
@@ -285,7 +285,9 @@ class PinocchioManipulatorModel(ManipulatorModel):
             from pinocchio.visualize import GepettoVisualizer
         except ImportError as err:
             print(err)
-            print("Error while initializing the viewer. It seems you should install gepetto-viewer")
+            print(
+                "Error while initializing the viewer. It seems you should install gepetto-viewer"
+            )
         q = q_pin(q)
         viz = GepettoVisualizer(self.pin_model, self.collision, self.visual)
         # Initialize the viewer.
