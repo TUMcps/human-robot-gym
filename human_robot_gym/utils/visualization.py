@@ -1,6 +1,14 @@
-#!/usr/bin/env python3
-# Author: Jonathan Külz
-# Date: 03.03.22
+"""This file describes visualization function for the pinoccio manipulator model.
+
+Owner:
+    Jakob Thumm (JT)
+
+Contributors:
+    Jonathan Kuelz (JK)
+
+Changelog:
+    2.5.22 JT Formatted docstrings
+"""
 from pathlib import Path
 
 import meshcat
@@ -20,14 +28,15 @@ def place_arrow(
     pose: np.ndarray = human_robot_gym.utils.spatial.NEUTRAL_HOMOGENEOUS,
     axis: str = "z",
 ) -> None:
-    """
-    Creates a composed meshcat geometry object that looks like an arrow.
-    :param viz: Visualizer instance to draw into
-    :param name: Unique object name for the visualizer
-    :param material: If provided, this defines the appearance (e.g. color)
-    :param scale: Arrow length in meters will be 0.1 * scale
-    :param pose: Defines orientation and placement of the arrow. 4x4 homogeneous matrix
-    :param axis: Axis alignment of the arrow. The default is alignment to the z-axis in the "pose" coordinate frame.
+    """Create a composed meshcat geometry object that looks like an arrow.
+
+    Args:
+        viz: Visualizer instance to draw into
+        name: Unique object name for the visualizer
+        material: If provided, this defines the appearance (e.g. color)
+        scale: Arrow length in meters will be 0.1 * scale
+        pose: Defines orientation and placement of the arrow. 4x4 homogeneous matrix
+        axis: Axis alignment of the arrow. The default is alignment to the z-axis in the "pose" coordinate frame.
     """
     human_robot_gym.utils.errors.assert_is_homogeneous_transformation(pose)
     if axis == "x":
@@ -71,16 +80,19 @@ def place_arrow(
 def drawable_coordinate_system(
     transformation: np.ndarray, scale: float = 1.0
 ) -> meshcat.geometry:
-    """
+    """Return a visualization of the coordinate system.
+
     A visual representation of the origin of a coordinate system, drawn as three
     lines in red, green, and blue along the x, y, and z axes. The `scale` parameter
     controls the length of the three lines.
     Returns an `Object` which can be passed to `set_object()`
     Other than meshcat.geometry.triad, this allows drawing the triad in any coordinate system, which is
     defined by <original coordinate system @ transformation>.
-    :param transformation: 4x4 homogeneous transformation
-    :param scale: Length of the drawn vectors for the coordinate system main axes
-    :return: A meshcat object that can be visualize via viewer[your_name].set_object(this)
+    Args:
+        transformation: 4x4 homogeneous transformation
+        scale: Length of the drawn vectors for the coordinate system main axes
+    Returns:
+        A meshcat object that can be visualize via viewer[your_name].set_object(this)
     """
     human_robot_gym.utils.errors.assert_is_homogeneous_transformation(transformation)
     p0 = (transformation @ human_robot_gym.utils.spatial.NEUTRAL_HOMOGENEOUS)[:3, 3]
@@ -110,6 +122,13 @@ def drawable_coordinate_system(
 
 
 def movie(robot, q: np.ndarray, dt: float, save_as: Path = None):
+    """Create a movie clip of the pinocchio robot.
+
+    Args:
+        q (np.ndarray): Joint configuration.
+        dt (float): Time step length of video frames.
+        save_as (Path): Path to file.
+    """
     import cv2
 
     if q.shape[1] != robot.njoints:

@@ -1,5 +1,14 @@
-# utility functions for manipulating MJCF XML models
+"""This file describes utility functions for manipulating MJCF XML models.
 
+Owner:
+    Jakob Thumm (JT)
+
+Contributors:
+    Jonathan Kuelz (JK)
+
+Changelog:
+    2.5.22 JT Formatted docstrings
+"""
 import os
 import human_robot_gym
 import robosuite
@@ -11,9 +20,10 @@ from copy import deepcopy
 
 
 def find_robot_assets_folder(robot_name: str) -> str:
-    """
-    Searches the human-robot-gym (first) and robosuite (second) models.assets package
-      for the given robot name and returns the folder if found.
+    """Find the correct robot assets folder.
+
+    Search the human-robot-gym (first) and robosuite (second) models.assets package
+    for the given robot name and returns the folder if found.
 
     Args:
         robot_name (str): name of the robot (must match folder name)
@@ -38,10 +48,10 @@ def find_robot_assets_folder(robot_name: str) -> str:
 
 
 def file_path_completion(file_path: str) -> str:
-    """
-    Takes in a local file path and returns a full path from human robot gym root.
-        if @file_path is absolute, do nothing
-        if @file_path is not absolute, load file that is shipped by the package
+    """Take in a local file path and return a full path from human robot gym root.
+
+    if @file_path is absolute, do nothing
+    if @file_path is not absolute, load file that is shipped by the package
 
     Args:
         file_path (str): local file path
@@ -57,10 +67,10 @@ def file_path_completion(file_path: str) -> str:
 
 
 def xml_path_completion(xml_path: str) -> str:
-    """
-    Takes in a local xml path and returns a full path.
-        if @xml_path is absolute, do nothing
-        if @xml_path is not absolute, load xml that is shipped by the package
+    """Take in a local xml path and returns a full path.
+
+    if @xml_path is absolute, do nothing
+    if @xml_path is not absolute, load xml that is shipped by the package
 
     Args:
         xml_path (str): local xml path
@@ -76,19 +86,17 @@ def xml_path_completion(xml_path: str) -> str:
 
 
 def rot_to_quat(rot: Rotation) -> List:
-    """
-    Convert a scipy rotation to a mujoco conform quaternion (w, x, y, z).
-    """
+    """Convert a scipy rotation to a mujoco conform quaternion (w, x, y, z)."""
     quat = rot.as_quat()
     return [quat[3], quat[0], quat[1], quat[2]]
 
 
 def merge_configs(config1: dict, config2: dict) -> dict:
-    """
-    Merge two dictionaries with the following strategy:
-        1) Use config1
-        2) If config2 has a key but config1 doesn't, use config2's (key, value) pair
-        3) If config2[KEY] is not none and config1[KEY]==none, use config2[KEY]
+    """Merge two dictionaries with the following strategy.
+
+    1) Use config1
+    2) If config2 has a key but config1 doesn't, use config2's (key, value) pair
+    3) If config2[KEY] is not none and config1[KEY]==none, use config2[KEY]
 
     Args:
         config1 (dict): The main config dictionary

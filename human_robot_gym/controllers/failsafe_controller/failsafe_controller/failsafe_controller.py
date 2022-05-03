@@ -1,3 +1,15 @@
+"""This file describes the failsafe controller.
+
+The failsafe controller allows safe operation of a robot in the vacinity of humans.
+
+Owner:
+    Jakob Thumm (JT)
+
+Contributors:
+
+Changelog:
+    2.5.22 JT Formatted docstrings
+"""
 import numpy as np
 import os
 from scipy.spatial.transform import Rotation
@@ -14,8 +26,7 @@ from .plot_capsule import PlotCapsule
 
 
 class FailsafeController(JointPositionController):
-    """
-    Controller for safely controlling robot arm in the vacinity of humans.
+    """Controller for safely controlling robot arm in the vacinity of humans.
 
     NOTE: Control input actions assumed to be taken relative to the current joint positions. A given action to this
     controller is assumed to be of the form: (dpos_j0, dpos_j1, ... , dpos_jn-1) for an n-joint robot
@@ -121,7 +132,7 @@ class FailsafeController(JointPositionController):
         interpolator=None,
         **kwargs,  # does nothing; used so no error raised when dict is passed with extra terms used previously
     ):
-
+        # noqa: D107
         super().__init__(
             sim,
             eef_name,
@@ -180,13 +191,13 @@ class FailsafeController(JointPositionController):
         """
 
     def set_goal(self, action, set_qpos=None):
-        """
-        Sets goal based on input @action. If self.impedance_mode is not "fixed", then the input will be parsed into the
+        """Set goal based on input action.
+
+        If self.impedance_mode is not "fixed", then the input will be parsed into the
         delta values to update the goal position / pose and the kp and/or damping_ratio values to be immediately updated
         internally before executing the proceeding control loop.
 
         Note that @action expected to be in the following format, based on impedance mode!
-
             :Mode `'fixed'`: [joint pos command]
             :Mode `'variable'`: [damping_ratio values, kp values, joint pos command]
             :Mode `'variable_kp'`: [kp values, joint pos command]
@@ -234,15 +245,14 @@ class FailsafeController(JointPositionController):
         """Set the human measurement of the safety shield.
 
         Args:
-          human_measurement (list[list[double]]): List of human measurements [x, y, z]-joint positions.
-              The order of joints is defined in the motion capture config file.
-          time (double): Time of the human measurement
+            human_measurement (list[list[double]]): List of human measurements [x, y, z]-joint positions.
+                The order of joints is defined in the motion capture config file.
+            time (double): Time of the human measurement
         """
         self.safety_shield.humanMeasurement(human_measurement, time)
 
     def run_controller(self):
-        """
-        Calculates the torques required to reach the desired setpoint
+        """Calculate the torques required to reach the desired setpoint.
 
         Returns:
              np.array: Command torques
@@ -300,11 +310,13 @@ class FailsafeController(JointPositionController):
 
     def get_robot_capsules(self):
         """Return the robot capsules in the correct format to plot them in mujoco.
+
         capsule:  pos = [x, y, z]
                   size = [radius, radius, length]
                   mat = 3x3 rotation matrix
+
         Returns:
-          list[capsule]
+            list[capsule]
         """
         capsules = self.safety_shield.getRobotReachCapsules()
         if len(self.robot_capsules) == 0:
@@ -321,11 +333,13 @@ class FailsafeController(JointPositionController):
 
     def get_human_capsules(self):
         """Return the human capsules in the correct format to plot them in mujoco.
+
         capsule:  pos = [x, y, z]
                   size = [radius, radius, length]
                   mat = 3x3 rotation matrix
+
         Returns:
-          list[capsule]
+            list[capsule]
         """
         capsules = self.safety_shield.getHumanReachCapsules()
         if len(self.human_capsules) == 0:

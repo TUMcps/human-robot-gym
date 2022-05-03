@@ -1,4 +1,13 @@
-# read the contents of your README file
+"""This file defines the installation procedure of the human-robot-gym.
+
+Owner:
+    Jakob Thumm (JT)
+
+Contributors:
+
+Changelog:
+    2.5.22 JT Formatted docstrings
+"""
 from os import path
 
 from setuptools import find_packages, setup
@@ -33,12 +42,14 @@ setup(
         "patchelf>=0.14",
         "h5py>=3.6",
         "hpp-fcl>=1.7",
-        "tensorboard>=2.8"
+        "tensorboard>=2.8",
+        "pydocstyle>=6.1",
+        "mypy>=0.950"
     ],
     eager_resources=["*"],
     include_package_data=True,
     python_requires=">=3",
-    description="human_robot_gym is an extension to the robosuite package\
+    description="human-robot-gym is an extension to the robosuite package\
                  to train RL algorithms on robots in human environments.",
     author="Jakob Thumm",
     url="TODO",

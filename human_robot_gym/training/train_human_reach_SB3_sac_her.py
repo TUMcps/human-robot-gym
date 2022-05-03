@@ -1,4 +1,18 @@
 #!/usr/bin/env python
+"""This file describes the training functionality for a human reach env with SB3 SAC + HER.
+
+Commandline args:
+    config (str): Name of the config file.
+    --wandb (optional): Use wandb to log training online.
+
+Owner:
+    Jakob Thumm (JT)
+
+Contributors:
+
+Changelog:
+    2.5.22 JT Formatted docstrings
+"""
 import struct
 import numpy as np
 import argparse
@@ -28,7 +42,7 @@ from human_robot_gym.wrappers.collision_prevention_wrapper import (
 # Training config file
 # Use wandb
 def init_argparse() -> argparse.ArgumentParser:
-
+    """Initialize the argument parser."""
     parser = argparse.ArgumentParser(
         usage="%(prog)s [OPTION] [FILE]...",
         description="Train a robot on the human reach task using SAC and HER.",

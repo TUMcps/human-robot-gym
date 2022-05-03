@@ -1,3 +1,16 @@
+"""This file describes an environment with a human inside.
+
+Adds the possibility to use a failsafe controller on the robots.
+
+Owner:
+    Jakob Thumm (JT)
+
+Contributors:
+
+Changelog:
+    2.5.22 JT Formatted docstrings
+"""
+
 from typing import Dict, Union, List
 
 import numpy as np
@@ -31,6 +44,15 @@ import human_robot_gym.models.objects.obstacle
 
 
 class COLLISION_TYPE(Enum):
+    """Define the collision types.
+
+    0 - No collision.
+    1 - Self-collision or robot-robot collision.
+    2 - Collision with the static environment.
+    3 - Collision with a human but robot has low speed.
+    4 - Collision with a human and robot has high speed.
+    """
+
     NULL = 0
     ROBOT = 1
     STATIC = 2
@@ -39,8 +61,7 @@ class COLLISION_TYPE(Enum):
 
 
 class HumanEnv(SingleArmEnv):
-    """
-    This is the super class for any environment with a human.
+    """This is the super class for any environment with a human.
 
     Args:
         robots (str or list of str): Specification for specific robot arm(s) to be instantiated within this env
@@ -227,7 +248,7 @@ class HumanEnv(SingleArmEnv):
         safe_vel=0.001,
         self_collision_safety=0.01,
         seed=0,
-    ):
+    ):  # noqa: D107
         self.mujoco_arena = None
         self.seed = seed
         np.random.seed(self.seed)
@@ -329,9 +350,11 @@ class HumanEnv(SingleArmEnv):
         self._setup_collision_info()
 
     def step(self, action):
-        """
-        Overrides base.py step function to create an GoalEnv.
+        """Override base step function.
+
         Takes a step in simulation with control command @action.
+        Controls the human animation.
+
         Args:
             action (np.array): Action to execute within the environment
         Returns:
@@ -453,7 +476,7 @@ class HumanEnv(SingleArmEnv):
         Return the info dictionary of this step.
 
         Returns
-            - info dict containing of
+            info dict containing of
                 * collision: if there was a collision or not
                 * collision_type: type of collision
                 * timeout: if timeout was reached
@@ -475,17 +498,15 @@ class HumanEnv(SingleArmEnv):
         desired_goal: Union[List[float], List[List[float]]],
         info: Union[Dict, List[Dict]],
     ) -> Union[float, List[float]]:
-        """
-        Compute the reward based on the achieved goal, the desired goal, and
-        the info dict.
+        """Compute the reward based on the achieved goal, the desired goal, and the info dict.
 
         This function can either be called for one sample or a list of samples.
         Args:
-            - achieved_goal: observation of robot state that is relevant for goal
-            - desired_goal: the desired goal
-            - info: dictionary containing additional information like collision
+            achieved_goal: observation of robot state that is relevant for goal
+            desired_goal: the desired goal
+            info: dictionary containing additional information like collision
         Returns:
-            - reward (list of rewards)
+            reward (list of rewards)
         """
         if isinstance(info, Dict):
             # Only one sample
@@ -503,17 +524,15 @@ class HumanEnv(SingleArmEnv):
         desired_goal: Union[List[float], List[List[float]]],
         info: Union[Dict, List[Dict]],
     ) -> Union[bool, List[bool]]:
-        """
-        Compute the done flag based on the achieved goal, the desired goal, and
-        the info dict.
+        """Compute the done flag based on the achieved goal, the desired goal, and the info dict.
 
         This function can either be called for one sample or a list of samples.
         Args:
-            - achieved_goal: observation of robot state that is relevant for goal
-            - desired_goal: the desired goal
-            - info: dictionary containing additional information like collision
+            achieved_goal: observation of robot state that is relevant for goal
+            desired_goal: the desired goal
+            info: dictionary containing additional information like collision
         Returns:
-            - done (list of dones)
+            done (list of dones)
         """
         if isinstance(info, Dict):
             # Only one sample
@@ -527,31 +546,29 @@ class HumanEnv(SingleArmEnv):
     def _check_done(
         self, achieved_goal: List[float], desired_goal: List[float], info: Dict
     ) -> bool:
-        """
-        Compute the done flag based on the achieved goal, the desired goal, and
-        the info dict.
+        """Compute the done flag based on the achieved goal, the desired goal, and the info dict.
 
         This function can only be called for one sample.
+        If the robot is in collision, this function returns done=True.
         Args:
-            - achieved_goal: observation of robot state that is relevant for goal
-            - desired_goal: the desired goal
-            - info: dictionary containing additional information like collision
+            achieved_goal: observation of robot state that is relevant for goal
+            desired_goal: the desired goal
+            info: dictionary containing additional information like collision
         Returns:
-            - done
+            done
         """
         return info["collision"]
 
     def _get_achieved_goal_from_obs(
         self, observation: Union[List[float], Dict]
     ) -> List[float]:
-        """
-        Extract the achieved goal from the observation.
+        """Extract the achieved goal from the observation.
 
         Args:
-            - observation: The observation after the action is executed
+            observation: The observation after the action is executed
 
         Returns:
-            - The achieved goal
+            The achieved goal
         """
         return [0]
 
@@ -570,8 +587,11 @@ class HumanEnv(SingleArmEnv):
         return [0]
 
     def _setup_collision_info(self):
-        """
-        Setup variables for collision detection.
+        """Set up variables for collision detection.
+
+        Sets self.
+            robot_collision_geoms
+            human_collision_geoms
         """
         # Collision information of robot links.
         # key = collision id, value = robot id
@@ -589,9 +609,7 @@ class HumanEnv(SingleArmEnv):
         }
 
     def _check_action_safety(self, robot_model, q):
-        """
-        Checks if the robot would collide with the environment in the end
-        position of the given action.
+        """Check if the robot would collide with the environment in the end position of the given action.
 
         Args:
             q (np.array): Joint configuration
@@ -608,8 +626,7 @@ class HumanEnv(SingleArmEnv):
         return not (robot_model.has_self_collision(q, self.self_collision_safety))
 
     def _collision_detection(self):
-        """
-        Detects collisions between robot and environment.
+        """Detect true collisions in the simulation between the robot and the environment.
 
         Returns:
             CollisionType
@@ -706,9 +723,10 @@ class HumanEnv(SingleArmEnv):
         return self.collision_type
 
     def _check_robot_vel_safe(self, robot_id, threshold, q, dq):
-        """
-        Check if all robot joints have a lower cartesian velocity than the given threshold.
+        """Check if all robot joints have a lower cartesian velocity than the given threshold.
+
         This assumes that the robot model is of type PinocchioManipulatorModel.
+
         Args:
             robot_id (int): Id of the robot to check
             threshold (double): Maximal cartesian velocity allowes
@@ -727,8 +745,7 @@ class HumanEnv(SingleArmEnv):
         return True
 
     def _check_vel_safe(self, v_arr, threshold):
-        """
-        Check if veloicty vector is safe.
+        """Check if all absolute elements of the velocity vector are below the given threshold.
 
         Args:
             v_arr (array like): First three entries must be [v_x, v_y, v_z]
@@ -741,9 +758,9 @@ class HumanEnv(SingleArmEnv):
         return np.all(np.abs(v_arr[0:3]) <= threshold)
 
     def _setup_arena(self):
-        """
-        Setup the mujoco arena. Override this to create custom arenas.
+        """Set up the mujoco arena.
 
+        Override this to create custom arenas.
         Must define self.mujoco_arena.
         Define self.objects and self.obstacles here.
         """
@@ -842,8 +859,10 @@ class HumanEnv(SingleArmEnv):
             )
 
     def _load_model(self):
-        """
-        Loads an xml model, puts it in self.model
+        """Define the mujoco models and initialize the manipulation task.
+
+        Define self.human and self.human_placement_initializer.
+        The human is always added to the manipulation task.
         """
         super()._load_model()
         # Adjust base pose accordingly
@@ -885,7 +904,7 @@ class HumanEnv(SingleArmEnv):
         )
 
     def _create_new_controller(self):
-        """Manually override the controller with the failsafe controller."""
+        """Create a new failsafe controller for all robots."""
         if self.use_failsafe_controller:
             self.failsafe_controller = []
             for i in range(len(self.robots)):
@@ -913,18 +932,18 @@ class HumanEnv(SingleArmEnv):
         """Set the human measurement in the failsafe controller.
 
         Args:
-          human_measurement (list[list[double]]): List of human measurements [x, y, z]-joint positions.
-              The order of joints is defined in `human.py`
-          time (double): Current time
+            human_measurement (list[list[double]]): List of human measurements [x, y, z]-joint positions.
+                The order of joints is defined in `human.py`
+            time (double): Current time
         """
         if self.failsafe_controller is not None:
             for i in range(len(self.robots)):
                 self.robots[i].controller.set_human_measurement(human_measurement, time)
 
     def _setup_references(self):
-        """
-        Sets up references to important components. A reference is typically an
-        index or a list of indices that point to the corresponding elements
+        """Set up references to important components.
+
+        A reference is typically an index or a list of indices that point to the corresponding elements
         in a flatten array, which is how MuJoCo stores physical simulation data.
         """
         super()._setup_references()
@@ -945,8 +964,9 @@ class HumanEnv(SingleArmEnv):
         )
 
     def _setup_observables(self):
-        """
-        Sets up observables to be used for this environment. Creates object-based observables if enabled
+        """Set up observables to be used for this environment.
+
+        Creates object-based observables if enabled
 
         Returns:
             OrderedDict: Dictionary mapping observable names to its corresponding Observable object
@@ -992,9 +1012,7 @@ class HumanEnv(SingleArmEnv):
         return observables
 
     def _reset_internal(self):
-        """
-        Resets simulation internal configurations.
-        """
+        """Reset the simulation internal configurations."""
         super()._reset_internal()
 
         self._create_new_controller()
@@ -1039,9 +1057,7 @@ class HumanEnv(SingleArmEnv):
                     )
 
     def _reset_pin_models(self):
-        """
-        Set the base pose of the pinocchio robots.
-        """
+        """Set the base pose of the pinocchio robots."""
         for robot in self.robots:
             if isinstance(robot.robot_model, PinocchioManipulatorModel):
                 rot = quat2mat(robot.base_ori)
@@ -1051,9 +1067,7 @@ class HumanEnv(SingleArmEnv):
                 robot.robot_model.set_base_placement(trans)
 
     def _control_human(self):
-        """
-        Set the human joint positions according to the human animation files.
-        """
+        """Set the human joint positions according to the human animation files."""
         # Convert low level time to human animation time
         control_time = math.floor(
             self.low_level_time / self.human_animation_step_length
@@ -1144,9 +1158,7 @@ class HumanEnv(SingleArmEnv):
             )
 
     def _human_measurement(self):
-        """
-        Retrieve the human measurements and save them to self.human_measurement.
-        """
+        """Retrieve the human measurements and save them to self.human_measurement."""
         self.human_measurement = [
             self.sim.data.get_site_xpos("Human_" + joint_element)
             for joint_element in self.human.joint_elements
@@ -1188,8 +1200,7 @@ class HumanEnv(SingleArmEnv):
 
     @property
     def _visualizations(self):
-        """
-        Visualization keywords for this environment
+        """Set the visualization keywords for this environment.
 
         Returns:
             set: All components that can be individually visualized for this environment
@@ -1200,8 +1211,8 @@ class HumanEnv(SingleArmEnv):
     def visualize_pin(
         self, viz: pin.visualize.MeshcatVisualizer = None
     ) -> pin.visualize.MeshcatVisualizer:
-        """
-        Plots the scenario in a Meshcat visualizer.
+        """Plot the scenario in a Meshcat visualizer.
+
         Calls the "visualize" function for each Object in the scenario. As Objects are the high-level representation
         of "things" in the Environment, this visualization function uses their high-level plotting functionalities, so
         visual meshes etc. will be chosen if available.
