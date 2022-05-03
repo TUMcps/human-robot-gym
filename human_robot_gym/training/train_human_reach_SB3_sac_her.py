@@ -166,7 +166,8 @@ if __name__ == "__main__":
         env.spec = struct
     env = TimeLimit(env, max_episode_steps=training_config["algorithm"]["max_ep_len"])
     env = CollisionPreventionWrapper(
-        env=env, collision_check_fn=env._check_collision_action, replace_type=0
+        env=env,
+        collision_check_fn=env._check_collision_action, replace_type=training_config["environment"]["replace_type"],
     )
     if training_config["environment"]["has_renderer"]:
         env = VisualizationWrapper(env)

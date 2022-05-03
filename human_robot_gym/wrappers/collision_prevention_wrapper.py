@@ -93,13 +93,14 @@ class CollisionPreventionWrapper(Wrapper):
         """
         replace_actions = []
         for _ in range(self.n_resamples):
-            if not self.collision_check_fn(action):
-                replace_actions += [self.env.action_space.sample()]
+            a = self.env.action_space.sample()
+            if not self.collision_check_fn(a):
+                replace_actions += [a]
         if len(replace_actions) > 0:
             min_distance = np.inf
             best_pick = -1
-            for i in range(replace_actions):
-                dist = np.sum(np.power(action - replace_actions, 2))
+            for i in range(len(replace_actions)):
+                dist = np.sum(np.power(action - replace_actions[i], 2))
                 if dist < min_distance:
                     best_pick = i
                     min_distance = dist
