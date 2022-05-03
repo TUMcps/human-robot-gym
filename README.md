@@ -80,6 +80,7 @@ python human_robot_gym/human_robot_gym/training/train_human_reach_SB3_sac_her.py
 To check your code for linting style:
 ```
 flake8
+pydocstyle
 ```
 Recommended tool for auto-formatting: 
 ```
