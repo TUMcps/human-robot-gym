@@ -70,6 +70,7 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
             # Iterate over all robots to add to state
             for idx in range(len(self.env.robots)):
                 keys += ["robot{}_proprio-state".format(idx)]
+            keys += ["desired_goal"]
         self.keys = keys
 
         # Gym specific attributes

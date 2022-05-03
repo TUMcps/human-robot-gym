@@ -325,26 +325,9 @@ class ReachHuman(HumanEnv):
             ValueError: [Steps past episode termination]
         """
         obs, reward, done, info = super().step(action)
-        obs = self._clean_obs(obs)
         if self.has_renderer:
             self._visualize_goal()
         return obs, reward, done, info
-
-    def _clean_obs(self, obs):
-        """
-        Removes unnecassary clutter from the observations.
-
-        Args:
-            obs (dict): Observation dictionary
-        Returns:
-            obs (dict)
-        """
-        # For some reason this information is doubled.
-        # Maybe ask the developers of robosuite about the intention behind this.
-        del obs[self.robots[0].robot_model.naming_prefix + "proprio-state"]
-        del obs["goal-state"]
-        del obs["object-state"]
-        return obs
 
     def reset(self):
         """
@@ -353,8 +336,7 @@ class ReachHuman(HumanEnv):
         Returns:
             Observation
         """
-        obs = super().reset()
-        return self._clean_obs(obs)
+        return super().reset()
 
     def _get_info(self) -> Dict:
         """Return the info dictionary of this step.
