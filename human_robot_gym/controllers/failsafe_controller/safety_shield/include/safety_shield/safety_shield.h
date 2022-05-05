@@ -7,6 +7,8 @@
  */
 
 #include <cmath>
+#include <string>
+#include <sstream>
 #include <math.h>
 #include <algorithm>
 #include <vector>
@@ -27,6 +29,7 @@
 #include "safety_shield/human_reach.h"
 #include "safety_shield/verify.h"
 #include "safety_shield/verify_iso.h"
+#include "safety_shield/exceptions.h"
 
 #include "ReflexxesAPI.h"
 #include "RMLPositionFlags.h"
@@ -478,6 +481,20 @@ class SafetyShield {
    * @param goal_motion Desired joint angles and velocities
    */
   void newLongTermTrajectory(Motion& goal_motion);
+
+  /**
+   * @brief Overrides the current long-term trajectory.
+   * @details Requires the robot to be at a complete stop, i.e. v=a=j=0.0 for all joints
+   *    Requires the LTT to end in a complete stop.
+   *    Requires the LTT to start in the same position as the robot.
+   *    Requires the LTT to start with v=0
+   * 
+   * @param traj New long-term trajectory
+   * 
+   * @throws RobotMovementException Robot is not v=a=j=0 
+   * @throws TrajectoryException Incorrect LTT
+   */
+  void setLongTermTrajectory(LongTermTraj& traj);
 
   /**
    * @brief Receive a new human measurement

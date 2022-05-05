@@ -95,6 +95,20 @@ class LongTermTraj {
   }
 
   /**
+   * @brief Get the length of the LTT
+   * 
+   * @return int length
+   */
+  inline int getLength() const { return length_; }
+
+  /**
+   * @brief Get the current index of the LTT
+   * 
+   * @return int current_pos_
+   */
+  inline int getCurrentPos() const { return current_pos_; }
+
+  /**
    * @brief Get the current motion of the LTT.
    * 
    * Equals getNextMotionAtIndex(0);
