@@ -518,14 +518,16 @@ Motion SafetyShield::interpolateFromTrajectory(double s, double ds, double dds, 
 Motion SafetyShield::step(double cycle_begin_time) {
   cycle_begin_time_ = cycle_begin_time;
   try {
-    // If the new LTT was processed at least once and is labeled safe, replace old LTT with new one.
-    if (new_ltt_ && new_ltt_processed_ && is_safe_) {
-      long_term_trajectory_ = new_long_term_trajectory_;
-      new_ltt_ = false;
-      new_goal_ = false;
-    }
     // Get current motion
     Motion current_motion = getCurrentMotion();
+    // If the new LTT was processed at least once and is labeled safe, replace old LTT with new one.
+    if (new_ltt_ && new_ltt_processed_) {
+      if (is_safe_ || current_motion.isStopped()) {
+        long_term_trajectory_ = new_long_term_trajectory_;
+        new_ltt_ = false;
+        new_goal_ = false;
+      }
+    }
     // Check if there is a new goal motion
     if (new_goal_) {
       // Check if current motion has acceleration and jerk values that lie in the plannable ranges
@@ -633,6 +635,40 @@ void SafetyShield::newLongTermTrajectory(Motion& goal_motion) {
   }
 }
 
+void SafetyShield::setLongTermTrajectory(LongTermTraj& traj) {
+  Motion current_motion = getCurrentMotion();
+  // Check if robot is at stop
+  if (!current_motion.isStopped()) {
+    throw RobotMovementException();
+  }
+  Motion start = traj.getNextMotionAtIndex(0);
+  // Check if traj starts at the same position
+  if (!current_motion.hasSamePos(&start)) {
+    throw TrajectoryException("Given LTT does not start at current robot position.");
+  }
+  // Check if traj starts at v=0
+  if (!current_motion.hasSameVel(&start)) {
+    std::stringstream ss;
+    ss << "Given LTT does not start with velocity 0.0. Start velocity is [";
+    for(size_t i = 0; i < start.getVelocity().size(); ++i)
+    {
+      if(i != 0)
+        ss << ",";
+      ss << start.getVelocity()[i];
+    }
+    ss << "].";
+    std::string s = ss.str();
+    throw TrajectoryException(s);
+  }
+  // Check if traj ends in stop
+  if (!traj.getNextMotionAtIndex(traj.getLength()-1).isStopped()) {
+      throw TrajectoryException("Given LTT does not end in a complete stop of the robot (v = a = j = 0.0)");
+  }
+  // Replace LTT
+  new_long_term_trajectory_ = traj;
+  new_ltt_ = true;
+  new_ltt_processed_ = true;
+}
 
 LongTermTraj SafetyShield::calculateLongTermTrajectory(const std::vector<double>& start_q, 
     const std::vector<double> start_dq, 
@@ -649,13 +685,9 @@ LongTermTraj SafetyShield::calculateLongTermTrajectory(const std::vector<double>
   for (int i = 0; i < nb_joints_; i++) {
     assert(start_dq[i] <= v_max_allowed_[i]);
     assert(start_ddq[i] <= a_max_ltt_[i]);
-    ////ROS_INFO_STREAM("Joint " << i);
     reflexxes_IP_->CurrentPositionVector->VecData[i] = start_q[i];
-    ////ROS_INFO_STREAM("CurrentPositionVector " << IP->CurrentPositionVector->VecData[i]);
     reflexxes_IP_->CurrentVelocityVector->VecData[i] = start_dq[i];
-    ////ROS_INFO_STREAM("CurrentVelocityVector " << IP->CurrentVelocityVector->VecData[i]);
     reflexxes_IP_->CurrentAccelerationVector->VecData[i] = start_ddq[i];
-    ////ROS_INFO_STREAM("CurrentAccelerationVector " << IP->CurrentAccelerationVector->VecData[i]);
     reflexxes_IP_->MaxVelocityVector->VecData[i] = v_max_allowed_[i];
     reflexxes_IP_->MaxAccelerationVector->VecData[i] = a_max_ltt_[i];
     reflexxes_IP_->MaxJerkVector->VecData[i] = j_max_ltt_[i];

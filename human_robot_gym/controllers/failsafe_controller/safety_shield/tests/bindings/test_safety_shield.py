@@ -10,8 +10,7 @@ Changelog:
 """
 import os
 import pytest
-from safety_shield_py import Motion
-from safety_shield_py import SafetyShield
+from safety_shield_py import Motion, LongTermTraj, SafetyShield
 
 
 class TestSafetyShield:
@@ -90,6 +89,24 @@ class TestSafetyShield:
         """Test the newLongTermTrajectory() function."""
         motion = Motion(6)
         shield.newLongTermTrajectory(motion)
+
+    def test_setLTT(self, shield):
+        """Test the setLongTermTrajectory() function."""
+        motions = []
+        motions.append(Motion(
+            0.0, [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 0.0
+        ))
+        motions.append(Motion(
+            1.0, [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0], 0.0
+        ))
+        motions.append(Motion(
+            2.0, [0.5, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0], [-1.0, 0.0, 0., 0.0, 0.0, 0.00], 0.0
+        ))
+        motions.append(Motion(
+            3.0, [1.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 0.0
+        ))
+        ltt = LongTermTraj(motions)
+        shield.setLongTermTrajectory(ltt)
 
     def test_step(self, shield):
         """Test the step() function."""

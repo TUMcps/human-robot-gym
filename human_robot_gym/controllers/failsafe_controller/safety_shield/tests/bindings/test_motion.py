@@ -7,6 +7,7 @@ Contributors:
 
 Changelog:
     2.5.22 JT Formatted docstrings
+    5.5.22 JT Added more tests
 """
 
 import pytest
@@ -73,6 +74,66 @@ class TestMotionFunctions:
         return Motion(
             1.0, [1.0, 2.0, 3.0], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 1.0, 0.0], 2.0
         )
+
+    @pytest.fixture
+    def stopped_motion(self):
+        """Define a test fixture for the motion class (stopped).
+
+        Defines pos, vel, acc, and jerk.
+        """
+        return Motion(
+            0.0, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 0.0
+        )
+
+    def test_isStoppedFalse(self, full_motion):
+        """Test isStopped() function."""
+        assert not full_motion.isStopped()
+
+    def test_isStoppedTrue(self, stopped_motion):
+        """Test isStopped() function."""
+        assert stopped_motion.isStopped()
+
+    def test_hasSamePosTrue(self, full_motion):
+        """Test the getTime() function."""
+        m = Motion(
+            1.0, [1.0000001, 2.0, 3.0], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 1.0, 0.0], 2.0
+        )
+        assert full_motion.hasSamePos(motion=m, threshold=0.0001)
+
+    def test_hasSamePosFalse(self, full_motion):
+        """Test the getTime() function."""
+        m = Motion(
+            1.0, [1.01, 2.0, 3.0], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 1.0, 0.0], 2.0
+        )
+        assert not full_motion.hasSamePos(motion=m, threshold=0.0001)
+
+    def test_hasSameVelTrue(self, full_motion):
+        """Test the getTime() function."""
+        m = Motion(
+            1.0, [2.0, 2.0, 3.0], [1.0000001, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 1.0, 0.0], 2.0
+        )
+        assert full_motion.hasSameVel(motion=m, threshold=0.0001)
+
+    def test_hasSameVelFalse(self, full_motion):
+        """Test the getTime() function."""
+        m = Motion(
+            1.0, [2.0, 2.0, 3.0], [1.01, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 1.0, 0.0], 2.0
+        )
+        assert not full_motion.hasSameVel(motion=m, threshold=0.0001)
+
+    def test_hasSameAccTrue(self, full_motion):
+        """Test the getTime() function."""
+        m = Motion(
+            1.0, [2.0, 2.0, 3.0], [0.0, 0.0, 0.0], [0.0, 0.0000001, 0.0], [0.0, 1.0, 0.0], 2.0
+        )
+        assert full_motion.hasSameAcc(motion=m, threshold=0.0001)
+
+    def test_hasSameAccFalse(self, full_motion):
+        """Test the getTime() function."""
+        m = Motion(
+            1.0, [2.0, 2.0, 3.0], [0.0, 0.0, 0.0], [0.0, 0.01, 0.0], [0.0, 1.0, 0.0], 2.0
+        )
+        assert not full_motion.hasSameAcc(motion=m, threshold=0.0001)
 
     def test_getTime(self, full_motion):
         """Test the getTime() function."""

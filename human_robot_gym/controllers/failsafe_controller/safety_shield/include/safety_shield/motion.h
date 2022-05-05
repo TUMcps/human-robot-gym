@@ -7,6 +7,8 @@
  */
 
 #include <vector>
+#include <cmath>
+#include <assert.h>
 
 #ifndef MOTION_H
 #define MOTION_H
@@ -125,6 +127,81 @@ class Motion {
    * @brief Destroy the Motion object
    */
   ~Motion() {}
+
+  /**
+   * @brief Check if this motion is at a complete stop (v, a, j) = 0 for all nb_modules_.
+   * 
+   * @param threshold Threshold for numerical impercision
+   * @return true when motion is at a complete stop
+   * @return false when motion is not at a complete stop
+   */
+  inline bool isStopped(double threshold=1e-4) {
+    for (int i = 0; i < nb_modules_; i++) {
+      if (std::abs(dq_[i]) > threshold ||
+          std::abs(ddq_[i]) > threshold ||
+          std::abs(dddq_[i]) > threshold) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * @brief Checks if the given motion has the same position as this motion.
+   * 
+   * @param motion Motion to compare position to
+   * @param threshold Threshold of similarity
+   * @return true Position is the same
+   * @return false Position is not the same
+   */
+  inline bool hasSamePos(Motion* motion, double threshold=1e-3) {
+    assert(motion->getNbModules() == nb_modules_);
+    // Check if traj starts at the same position
+    for (int i = 0; i < nb_modules_; i++) {
+      if (std::abs(q_[i]-motion->getAngle()[i]) > threshold) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * @brief Checks if the given motion has the same velocity as this motion.
+   * 
+   * @param motion Motion to compare velocity to
+   * @param threshold Threshold of similarity
+   * @return true Velocity is the same
+   * @return false Velocity is not the same
+   */
+  inline bool hasSameVel(Motion* motion, double threshold=1e-4) {
+    assert(motion->getNbModules() == nb_modules_);
+    // Check if traj starts at the same position
+    for (int i = 0; i < nb_modules_; i++) {
+      if (std::abs(dq_[i]-motion->getVelocity()[i]) > threshold) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * @brief Checks if the given motion has the same acceleration as this motion.
+   * 
+   * @param motion Motion to compare acceleration to
+   * @param threshold Threshold of similarity
+   * @return true acceleration is the same
+   * @return false acceleration is not the same
+   */
+  inline bool hasSameAcc(Motion* motion, double threshold=1e-4) {
+    assert(motion->getNbModules() == nb_modules_);
+    // Check if traj starts at the same position
+    for (int i = 0; i < nb_modules_; i++) {
+      if (std::abs(ddq_[i]-motion->getAcceleration()[i]) > threshold) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   /**
    * @brief Returns the number of modules
