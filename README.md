@@ -19,7 +19,7 @@ use the env variable `MUJOCO_PY_MUJOCO_PATH`.
 
 Under linux, make sure to install: 
 ```
-sudo apt install libosmesa6-dev libgl1-mesa-glx libglfw3 libeigen3-dev
+sudo apt install -y libosmesa6-dev libgl1-mesa-glx libglfw3 libeigen3-dev libgtest-dev
 ```
 ### Setup anaconda environment
 If you haven't done already, [install anaconda](https://docs.anaconda.com/anaconda/install/linux/), and create a new conda environment:
