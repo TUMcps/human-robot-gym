@@ -1,0 +1,3 @@
+recursive-include human_robot_gym/models/assets/ *
+global-include *.yaml
+global-include *.json

@@ -1,6 +1,0 @@
-<launch>
-
-  <include file="$(find modrob_simulation)/launch/start_world_working_env.launch"/>
-  <node type="safety_shield" name="safety_shield" pkg="safety_shield"/>
-	  
-</launch>
