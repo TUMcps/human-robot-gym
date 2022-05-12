@@ -18,7 +18,7 @@ variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   GIT_SUBMODULE_STRATEGY: recursive
   GIT_SUBMODULE_UPDATE_FLAGS: --remote
-  IMAGE_BASE_TAG: ${CI_REGISTRY_IMAGE}/base:${CI_COMMIT_REF_SLUG}
+  # IMAGE_BASE_TAG: ${CI_REGISTRY_IMAGE}/base:${CI_COMMIT_REF_SLUG}
   # GIT_CLONE_PATH: "$CI_BUILDS_DIR/$CI_JOB_STAGE/$CI_PROJECT_NAME"
   
 cache:
@@ -49,49 +49,30 @@ lint-test-job:   # This job also runs in the test stage.
     - flake8
     - pydocstyle
     - echo "success"
-
-copy dockerimage:
-  image: docker:19.03.12
-  stage: copy
-  tags: [docker]
-  services:
-    - docker:19.03.12-dind
-  before_script:
-      - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  script:
-    - |  # Force next line to be string
-      wget -O - --header "PRIVATE-TOKEN: $CI_REGISTRY_ACCESS_TOKEN" "$CI_API_V4_URL/projects/$CI_PROJECT_ID/registry/repositories/?tags=true" | grep $IMAGE_BASE_TAG
-    - if [ $? -eq 0 ]; then echo "Base image found"; else docker pull ${CI_REGISTRY_IMAGE}/base:main; docker tag ${CI_REGISTRY_IMAGE}/base:main $IMAGE_BASE_TAG; docker push $IMAGE_BASE_TAG; fi
+  rules:
+    - if: $CI_PIPELINE_SOURCE != "schedule"
 
 build dockerimage:
   image: docker
   stage: build
-  tags: [docker]
   services:
     - docker:dind
   before_script:
       - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker build --no-cache -t $IMAGE_BASE_TAG -f Dockerfile.build .
-    - docker push $IMAGE_BASE_TAG
+    - docker build -t ${CI_REGISTRY_IMAGE} -f Dockerfile.build .
+    - docker push ${CI_REGISTRY_IMAGE}
   rules:
-    - changes:
-      - Dockerfile.build
-      - requirements.txt
-      - environment.yml
-      - .bashrc_docker
-    - if: $CI_PIPELINE_SOURCE == "schedule"  # run atleast with nightly run to make sure no external stuff changed
+    - if: $CI_PIPELINE_SOURCE == "schedule"
 
 unittests safety shield:
   image:
-    name: $IMAGE_BASE_TAG
+    name: ${CI_REGISTRY_IMAGE}
   stage: unittest
   tags: [python, unittest]
-  needs:
-    - job: copy dockerimage
-    - job: build dockerimage
-      optional: true
   script:
     - source activate mcs
     - cd human_robot_gym/controllers/failsafe_controller/safety_shield/tests
     - pytest
+  rules:
+    - if: $CI_PIPELINE_SOURCE != "schedule"
