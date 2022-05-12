@@ -35,6 +35,7 @@ workflow:
 stages:          # List of stages for jobs, and their order of execution
   - build
   - test
+  - unittest
   - deploy
 lint-test-job:   # This job also runs in the test stage.
   tags: [linting]
@@ -44,6 +45,19 @@ lint-test-job:   # This job also runs in the test stage.
     - flake8
     - pydocstyle
     - echo "success"
+
+copy dockerimage:
+  image: docker:19.03.12
+  stage: copy
+  tags: [docker]
+  services:
+    - docker:19.03.12-dind
+  before_script:
+      - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - |  # Force next line to be string
+      wget -O - --header "PRIVATE-TOKEN: $CI_REGISTRY_ACCESS_TOKEN" "$CI_API_V4_URL/projects/$CI_PROJECT_ID/registry/repositories/?tags=true" | grep $IMAGE_BASE_TAG
+    - if [ $? -eq 0 ]; then echo "Base image found"; else docker pull ${CI_REGISTRY_IMAGE}/base:main; docker tag ${CI_REGISTRY_IMAGE}/base:main $IMAGE_BASE_TAG; docker push $IMAGE_BASE_TAG; fi
 
 build dockerimage:
   image: docker
@@ -63,3 +77,17 @@ build dockerimage:
       - environment.yml
       - .bashrc_docker
     - if: $CI_PIPELINE_SOURCE == "schedule"  # run atleast with nightly run to make sure no external stuff changed
+
+unittests safety shield:
+  image:
+    name: $IMAGE_BASE_TAG
+  stage: unittest
+  tags: [python, unittest]
+  needs:
+    - job: copy dockerimage
+    - job: build dockerimage
+      optional: true
+  script:
+    - source activate mcs
+    - cd human_robot_gym/controllers/failsafe_controller/safety_shield/tests
+    - pytest
