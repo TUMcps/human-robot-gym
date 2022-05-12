@@ -22,10 +22,17 @@ Under linux, make sure to install:
 sudo apt install libosmesa6-dev libgl1-mesa-glx libglfw3
 ```
 ### Setup anaconda environment
-If you haven't done already, [install anaconda](https://docs.anaconda.com/anaconda/install/linux/), and create a new conda environment:
+If you haven't done already, [install anaconda](https://docs.anaconda.com/anaconda/install/linux/).
+Add `conda-forge` to your channels with
 ```
-conda create -n hrgym python=3.8
+conda config --add channels conda-forge
+conda config --set channel_priority strict
 ```
+and create the `hrgym` conda environment:
+```
+conda env create -f environment.yml
+```
+All requirements will automatically get installed by conda.
 ### Install the failsafe controller / safety shield
 This requires `cmake`.
 ```
@@ -37,26 +44,6 @@ python setup.py install
 ```
 cd human-robot-gym
 pip install -e .
-```
-### Installing pinocchio
-
-Installing `pinocchio` from the `conda-forge` channel can be achieved by adding `conda-forge` to your channels with:
-
-```
-conda config --add channels conda-forge
-conda config --set channel_priority strict
-```
-
-Once the `conda-forge` channel has been enabled, `pinocchio` can be installed with:
-
-```
-conda install pinocchio
-```
-
-It is possible to list all of the versions of `pinocchio` available on your platform with:
-
-```
-conda search pinocchio --channel conda-forge
 ```
 
 ### Add to your `~/.bashrc` 
@@ -86,3 +73,25 @@ Recommended tool for auto-formatting:
 ```
 pip install black
 ```
+# Dockerization
+There are two Dockerfiles 
+  - `Dockerfile.build` is the minimum environment neccessary to build and run `human-robot-gym`. This image is used by our CI pipeline.
+  - `Dockerfile.dev` is based on Nvidia cuda and is therefore capable of running trainings on the GPU and also provide a visual output as if you would run the code locally. 
+### Building the image
+We automated the creation of the `Dockerfile.dev` docker image. Simply run
+```
+./build_docker.sh root
+```
+### Running an iterative container
+After creating the image with `./build_docker.sh`, run 
+```
+./run_docker.sh root gui
+```
+to create an iterative container with GUI support, or run
+```
+./run_docker.sh root 
+```
+if you don't need the GUI (i.e., training only).
+Our `entrypoint.sh` builds `safety_shield_py` and `human_robot_gym` when starting up the container.
+We defined the CMD as `/bin/bash`, so that you can use the interactive console after creation.
+Now, enjoy your docker container.

@@ -8,6 +8,13 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 ## Find catkin macros and libraries
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+# Find Python
+# IF YOU DON'T WANT TO USE CONDA, DISABLE THESE THREE LINES
+#set(PYTHON_EXECUTABLE "$ENV{CONDA_PREFIX}/bin/python")
+#set(PYTHON_INCLUDE_DIR "$ENV{CONDA_PREFIX}/include/python3.8")
+#set(PYTHON_LIBRARY "$ENV{CONDA_PREFIX}/lib/libpython3.8.so")
+#set(PYTHON_LIBRARY_DEBUG "$ENV{CONDA_PREFIX}/lib/libpython3.8.so")
+#find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 
 include_directories(
   include
@@ -74,7 +81,6 @@ gtest_discover_tests(tests)
 ##############
 ## Bindings ##
 ##############
-find_package(Python COMPONENTS Interpreter Development REQUIRED)
 pybind11_add_module(safety_shield_py MODULE bindings/safety_shield_bindings.cpp)
 target_link_libraries(safety_shield_py PRIVATE ${PROJECT_NAME} reflexxes_type_iv spdlog Eigen3::Eigen yaml-cpp)
 #add_executable(safety_shield_bindings bindings/safety_shield_bindings.cc)
