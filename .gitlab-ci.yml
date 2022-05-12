@@ -32,14 +32,18 @@ workflow:
     - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
       when: never
     - if: '$CI_COMMIT_BRANCH'
+
 stages:          # List of stages for jobs, and their order of execution
+  - test  # this name cannot be changed as long as default gitlab analyzers are included
+  - linting
+  - copy
   - build
-  - test
   - unittest
   - deploy
+
 lint-test-job:   # This job also runs in the test stage.
   tags: [linting]
-  stage: test    # It can run at the same time as unit-test-job (in parallel).
+  stage: linting    # It can run at the same time as unit-test-job (in parallel).
   script:
     - pip3 install flake8 pydocstyle
     - flake8
