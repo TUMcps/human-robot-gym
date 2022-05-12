@@ -13,6 +13,18 @@
 #
 # For more information, see: https://docs.gitlab.com/ee/ci/yaml/index.html#stages
 image: python:latest 
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  GIT_SUBMODULE_STRATEGY: recursive
+  GIT_SUBMODULE_UPDATE_FLAGS: --remote
+  IMAGE_BASE_TAG: ${CI_REGISTRY_IMAGE}/base:${CI_COMMIT_REF_SLUG}
+  GIT_CLONE_PATH: "$CI_BUILDS_DIR/$CI_JOB_STAGE/$CI_PROJECT_NAME"
+  
+cache:
+  paths:
+    - .cache/pip
+
 workflow:
   # Run the pipeline as branch pipeline when no merge request is open or as merge pipeline when a merge request is open, but not both
   rules:
@@ -42,8 +54,8 @@ build dockerimage:
   before_script:
       - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker build --no-cache -t $CI_REGISTRY_IMAGE:latest -f Dockerfile.build .
-    - docker push $CI_REGISTRY_IMAGE:latest
+    - docker build --no-cache -t $IMAGE_BASE_TAG -f Dockerfile.build .
+    - docker push $IMAGE_BASE_TAG
   rules:
     - changes:
       - Dockerfile.build
