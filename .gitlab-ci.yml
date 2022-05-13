@@ -34,11 +34,9 @@ workflow:
     - if: '$CI_COMMIT_BRANCH'
 
 stages:          # List of stages for jobs, and their order of execution
-  - test  # this name cannot be changed as long as default gitlab analyzers are included
   - linting
-  - copy
   - build
-  - unittest
+  - test  # this name cannot be changed as long as default gitlab analyzers are included
   - deploy
 
 lint-test-job:   # This job also runs in the test stage.
@@ -69,7 +67,7 @@ build dockerimage:
 build safety shield:
   image:
     name: ${CI_REGISTRY_IMAGE}
-  stage: unittest
+  stage: build
   tags: [python, unittest]
   script:
     - source /root/.bashrc
@@ -77,3 +75,13 @@ build safety shield:
     - echo $CONDA_PREFIX
     - cd human_robot_gym/controllers/failsafe_controller/
     - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
+
+test safety shield:
+  image:
+    name: ${CI_REGISTRY_IMAGE}
+  stage: test
+  tags: [unittest]
+  script:
+    - cd human_robot_gym/controllers/failsafe_controller/safety_shield/tests
+    - pytest
+
