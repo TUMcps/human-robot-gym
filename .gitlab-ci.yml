@@ -83,5 +83,5 @@ test safety shield:
   tags: [unittest]
   script:
     - cd human_robot_gym/controllers/failsafe_controller/safety_shield/tests
-    - pytest
+    - python -m pytest
 
