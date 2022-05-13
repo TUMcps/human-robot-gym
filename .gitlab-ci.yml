@@ -63,8 +63,8 @@ build dockerimage:
   script:
     - docker build -t ${CI_REGISTRY_IMAGE} -f Dockerfile.build .
     - docker push ${CI_REGISTRY_IMAGE}
-  # rules:
-  #   - if: $CI_PIPELINE_SOURCE == "schedule"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
 
 build safety shield:
   image:
