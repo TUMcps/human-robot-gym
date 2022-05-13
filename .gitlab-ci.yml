@@ -82,6 +82,7 @@ test safety shield:
   stage: test
   tags: [unittest]
   script:
+    - which python
     - cd human_robot_gym/controllers/failsafe_controller/safety_shield/tests
-    - python -m pytest
+    - /opt/conda/envs/hrgym/bin/python -m pytest
 
