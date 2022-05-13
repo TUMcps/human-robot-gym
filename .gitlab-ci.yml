@@ -83,16 +83,23 @@ build safety shield:
   artifacts:
     paths:
       - /opt/test.txt
+      - /human-robot-gym/human_robot_gym/controllers/failsafe_controller/build
+      - /human-robot-gym/human_robot_gym/controllers/failsafe_controller/safety_shield/build
+      - /human-robot-gym/human_robot_gym/controllers/failsafe_controller/failsafe_controller.egg-info
+      - /human-robot-gym/human_robot_gym/controllers/failsafe_controller/dist
+      - /opt/conda/envs/hrgym/lib/python3.8/site-packages/failsafe_controller-0.0.1-py3.8-linux-x86_64.egg
     expire_in: 1 hour
 
 test safety shield:
   image:
     name: ${CI_REGISTRY_IMAGE}
   stage: test
-  needs: ['build safety shield'] # dependency on previous build stage
+  dependencies: 
+    - build safety shield # dependency on previous build stage
   tags: [unittest]
   script:
     - echo "$(cat /opt/test.txt)"
+    - cd /human-robot-gym/human_robot_gym/controllers/failsafe_controller/build
     #- which python
     #- cd human_robot_gym/controllers/failsafe_controller/safety_shield/tests
     #- /opt/conda/envs/hrgym/bin/python -m pytest
