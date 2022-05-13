@@ -80,6 +80,7 @@ test safety shield:
   image:
     name: ${CI_REGISTRY_IMAGE}
   stage: test
+  needs: ['build safety shield'] # dependency on previous build stage
   tags: [unittest]
   script:
     - which python
