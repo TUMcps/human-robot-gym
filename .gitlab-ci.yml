@@ -75,6 +75,8 @@ build safety shield:
     - echo $CONDA_PREFIX
     - cd human_robot_gym/controllers/failsafe_controller/
     - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
+    - cd safety_shield/tests
+    - /opt/conda/envs/hrgym/bin/python -m pytest
 
 test safety shield:
   image:
