@@ -10,14 +10,16 @@ check_interval = 0
   token = "GR1348941Eb1zzyhSA8rA6xHhhsM5"
   executor = "docker"
   [runners.custom_build_dir]
+    enabled = true
   [runners.cache]
     [runners.cache.s3]
     [runners.cache.gcs]
   [runners.docker]
     tls_verify = false
-    image = "docker:latest"
+    image = "docker:stable"
     privileged = true
     disable_entrypoint_overwrite = false
     oom_kill_disable = false
-    volumes = ["/cache", "/var/run/docker.sock:/var/run/docker.sock"]
+    disable_cache = false
+    volumes = ["/certs/client", "/cache", "/var/run/docker.sock:/var/run/docker.sock"]
     shm_size = 0
