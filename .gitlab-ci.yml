@@ -77,15 +77,23 @@ build safety shield:
     - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
     - cd safety_shield/tests
     - /opt/conda/envs/hrgym/bin/python -m pytest
+    - cd /opt/
+    - touch test.txt
+    - echo test >> test.txt
+  artifacts:
+    paths:
+      - /opt/test.txt
+    expire_in: 1 hour
 
 test safety shield:
   image:
     name: ${CI_REGISTRY_IMAGE}
-  stage: build
+  stage: test
   needs: ['build safety shield'] # dependency on previous build stage
   tags: [unittest]
   script:
-    - which python
-    - cd human_robot_gym/controllers/failsafe_controller/safety_shield/tests
-    - /opt/conda/envs/hrgym/bin/python -m pytest
+    - echo "$(cat /opt/test.txt)"
+    #- which python
+    #- cd human_robot_gym/controllers/failsafe_controller/safety_shield/tests
+    #- /opt/conda/envs/hrgym/bin/python -m pytest
 
