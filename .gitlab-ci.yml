@@ -73,5 +73,7 @@ build safety shield:
   tags: [python, unittest]
   script:
     - source /root/.bashrc
+    - export CONDA_PREFIX=/opt/conda/envs/hrgym/
+    - echo $CONDA_PREFIX
     - cd human_robot_gym/controllers/failsafe_controller/
     - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
