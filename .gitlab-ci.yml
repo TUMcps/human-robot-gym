@@ -53,7 +53,7 @@ lint-test-job:   # This job also runs in the test stage.
     - if: $CI_PIPELINE_SOURCE != "schedule"
 
 build dockerimage:
-  image: docker:latest
+  image: docker:stable
   stage: build
   tags: [docker]
   services:

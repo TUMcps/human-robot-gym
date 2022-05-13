@@ -7,7 +7,7 @@ check_interval = 0
 [[runners]]
   name = "hrgym-dind-runner"
   url = "https://gitlab.lrz.de"
-  token = "QnsEAW2x1dKB6PYJqqKc"
+  token = "GR1348941Eb1zzyhSA8rA6xHhhsM5"
   executor = "docker"
   [runners.custom_build_dir]
   [runners.cache]
@@ -21,10 +21,3 @@ check_interval = 0
     oom_kill_disable = false
     volumes = ["/cache", "/var/run/docker.sock:/var/run/docker.sock"]
     shm_size = 0
-  url = "https://gitlab.lrz.de"
-  token = "QnsEAW2x1dKB6PYJqqKc"
-  executor = "docker"
-  [runners.custom_build_dir]
-  [runners.cache]
-    [runners.cache.s3]
-    [runners.cache.gcs]
