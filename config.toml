@@ -14,6 +14,7 @@ check_interval = 0
   [runners.cache]
     [runners.cache.s3]
     [runners.cache.gcs]
+    Insecure = false
   [runners.docker]
     tls_verify = false
     image = "docker:stable"

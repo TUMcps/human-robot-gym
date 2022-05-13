@@ -49,31 +49,28 @@ lint-test-job:   # This job also runs in the test stage.
     - flake8
     - pydocstyle
     - echo "success"
-  rules:
-    - if: $CI_PIPELINE_SOURCE != "schedule"
 
 build dockerimage:
-  image: docker:stable
+  image: docker:19.03.12
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
   stage: build
   tags: [docker]
   services:
-    - docker:dind
+    - docker:19.03.12-dind
   before_script:
       - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
     - docker build -t ${CI_REGISTRY_IMAGE} -f Dockerfile.build .
     - docker push ${CI_REGISTRY_IMAGE}
-  # rules:
-  #   - if: $CI_PIPELINE_SOURCE == "schedule"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
 
-unittests safety shield:
+build safety shield:
   image:
     name: ${CI_REGISTRY_IMAGE}
   stage: unittest
   tags: [python, unittest]
   script:
-    - source activate mcs
-    - cd human_robot_gym/controllers/failsafe_controller/safety_shield/tests
-    - pytest
-  rules:
-    - if: $CI_PIPELINE_SOURCE != "schedule"
+    - cd human_robot_gym/controllers/failsafe_controller/
+    - python setup.py install
