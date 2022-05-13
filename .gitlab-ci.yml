@@ -77,12 +77,12 @@ build safety shield:
     - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
     - cd safety_shield/tests
     - /opt/conda/envs/hrgym/bin/python -m pytest
-    - cd /opt/
+    - cd 
     - touch test.txt
-    - echo test >> test.txt
+    - echo "test" >> test.txt
   artifacts:
     paths:
-      - /opt/test.txt
+      - test.txt
       - /human-robot-gym/human_robot_gym/controllers/failsafe_controller/build
       - /human-robot-gym/human_robot_gym/controllers/failsafe_controller/safety_shield/build
       - /human-robot-gym/human_robot_gym/controllers/failsafe_controller/failsafe_controller.egg-info
@@ -98,7 +98,7 @@ test safety shield:
     - build safety shield # dependency on previous build stage
   tags: [unittest]
   script:
-    - echo "$(cat /opt/test.txt)"
+    - cat test.txt
     - cd /human-robot-gym/human_robot_gym/controllers/failsafe_controller/build
     #- which python
     #- cd human_robot_gym/controllers/failsafe_controller/safety_shield/tests
