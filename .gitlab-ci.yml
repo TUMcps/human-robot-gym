@@ -71,6 +71,7 @@ build:
   tags: [python, unittest]
   script:
     - pwd
+    - sudo apt-get install patchelf
     - source /root/.bashrc
     - export CONDA_PREFIX=/opt/conda/envs/hrgym/
     - echo $CONDA_PREFIX
