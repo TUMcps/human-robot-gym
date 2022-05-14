@@ -44,7 +44,8 @@ RUN apt-get update --fix-missing \
     gcc-9 \
     clang \
     libeigen3-dev \
-    libgtest-dev
+    libgtest-dev \
+    patchelf
 
 # Create the environment:
 COPY environment.yml .
