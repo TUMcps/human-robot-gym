@@ -183,8 +183,8 @@ setup(
     ext_modules=[CMakeExtension(name="safety_shield", sourcedir="safety_shield/")],
     cmdclass={
         "build_ext": CMakeBuild,
-        "develop": PostDevelopCommand,
-        "install": PostInstallCommand,
+        # "develop": PostDevelopCommand,
+        # "install": PostInstallCommand,
     },
     zip_safe=False,
     extras_require={"test": ["pytest>=6.0"]},

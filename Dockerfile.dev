@@ -111,7 +111,8 @@ RUN apt-get update --fix-missing \
     gcc-9 \
     clang-10 \
     libeigen3-dev \
-    libgtest-dev
+    libgtest-dev \
+    patchelf
 
 ## conda docker
 # Create the environment:

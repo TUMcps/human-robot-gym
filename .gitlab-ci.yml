@@ -14,6 +14,17 @@
 # For more information, see: https://docs.gitlab.com/ee/ci/yaml/index.html#stages
 image: python:latest 
 
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  GIT_SUBMODULE_STRATEGY: recursive
+  GIT_SUBMODULE_UPDATE_FLAGS: --remote
+  # IMAGE_BASE_TAG: ${CI_REGISTRY_IMAGE}/base:${CI_COMMIT_REF_SLUG}
+  # GIT_CLONE_PATH: "$CI_BUILDS_DIR/$CI_JOB_STAGE/$CI_PROJECT_NAME"
+  
+cache:
+  paths:
+    - .cache/pip
+
 workflow:
   # Run the pipeline as branch pipeline when no merge request is open or as merge pipeline when a merge request is open, but not both
   rules:
@@ -22,17 +33,68 @@ workflow:
       when: never
     - if: '$CI_COMMIT_BRANCH'
 
-
 stages:          # List of stages for jobs, and their order of execution
+  - linting
   - build
-  - test
+  - test  # this name cannot be changed as long as default gitlab analyzers are included
   - deploy
 
 lint-test-job:   # This job also runs in the test stage.
   tags: [linting]
-  stage: test    # It can run at the same time as unit-test-job (in parallel).
+  stage: linting    # It can run at the same time as unit-test-job (in parallel).
   script:
     - pip3 install flake8 pydocstyle
     - flake8
     - pydocstyle
     - echo "success"
+
+build dockerimage:
+  image: docker:19.03.12
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  stage: build
+  tags: [docker]
+  services:
+    - docker:19.03.12-dind
+  before_script:
+      - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker build -t ${CI_REGISTRY_IMAGE} -f Dockerfile.build .
+    - docker push ${CI_REGISTRY_IMAGE}
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+build:
+  image:
+    name: ${CI_REGISTRY_IMAGE}
+  stage: build
+  needs:
+    - job: build dockerimage
+      optional: true
+  tags: [python, unittest]
+  script:
+    - pwd
+    - source /root/.bashrc
+    - export CONDA_PREFIX=/opt/conda/envs/hrgym/
+    - echo $CONDA_PREFIX
+    - cd human_robot_gym/controllers/failsafe_controller/
+    - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
+    - /opt/conda/envs/hrgym/bin/python -c "import safety_shield_py"
+    - cd /builds/cps-rl/human-robot-gym
+    - /opt/conda/envs/hrgym/bin/pip install .
+    - /opt/conda/envs/hrgym/bin/python -c "import human_robot_gym"
+
+# We build the packages again because they don't take too much time and artifacts are complicated.
+test safety shield:
+  image:
+    name: ${CI_REGISTRY_IMAGE}
+  stage: test
+  tags: [unittest]
+  script:
+    - source /root/.bashrc
+    - export CONDA_PREFIX=/opt/conda/envs/hrgym/
+    - echo $CONDA_PREFIX
+    - cd human_robot_gym/controllers/failsafe_controller/
+    - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
+    - cd safety_shield/tests
+    - /opt/conda/envs/hrgym/bin/python -m pytest

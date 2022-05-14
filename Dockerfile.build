@@ -44,7 +44,8 @@ RUN apt-get update --fix-missing \
     gcc-9 \
     clang \
     libeigen3-dev \
-    libgtest-dev
+    libgtest-dev \
+    patchelf
 
 # Create the environment:
 COPY environment.yml .
@@ -59,5 +60,5 @@ RUN apt-get autoremove -y \
 # Switch back to dialog for any ad-hoc use of apt-get
 ENV DEBIAN_FRONTEND=dialog
 
-COPY .bashrc_docker ~/.bashrc
-RUN echo "conda activate hrgym" >> ~/.bashrc
+COPY .bashrc_docker /root/.bashrc
+RUN echo "conda activate hrgym" >> /root/.bashrc
