@@ -77,14 +77,14 @@ build safety shield:
     - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
     - /opt/conda/envs/hrgym/bin/python -c "import safety_shield_py"
 
-build human robot gym:
-  image:
-    name: ${CI_REGISTRY_IMAGE}
-  stage: build
-  tags: [python, unittest]
-  script:
-    - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
-    - /opt/conda/envs/hrgym/bin/python -c "import human_robot_gym"
+#build human robot gym:
+#  image:
+#    name: ${CI_REGISTRY_IMAGE}
+#  stage: build
+#  tags: [python, unittest]
+#  script:
+#    - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
+#    - /opt/conda/envs/hrgym/bin/python -c "import human_robot_gym"
 
 
 # We build the packages again because they don't take too much time and artifacts are complicated.
