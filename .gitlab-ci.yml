@@ -68,6 +68,9 @@ build:
   image:
     name: ${CI_REGISTRY_IMAGE}
   stage: build
+  needs:
+    - job: build dockerimage
+      optional: true
   tags: [python, unittest]
   script:
     - pwd
