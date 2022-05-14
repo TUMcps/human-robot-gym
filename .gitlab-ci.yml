@@ -75,37 +75,29 @@ build safety shield:
     - echo $CONDA_PREFIX
     - cd human_robot_gym/controllers/failsafe_controller/
     - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
-    - cd safety_shield/tests
-    - /opt/conda/envs/hrgym/bin/python -m pytest
-    - cd 
-    - touch test.txt
-    - echo "test" >> test.txt
-    - pwd
-  artifacts:
-    paths:
-      - test.txt
-      - /human-robot-gym/human_robot_gym/controllers/failsafe_controller/build
-      - /human-robot-gym/human_robot_gym/controllers/failsafe_controller/safety_shield/build
-      - /human-robot-gym/human_robot_gym/controllers/failsafe_controller/failsafe_controller.egg-info
-      - /human-robot-gym/human_robot_gym/controllers/failsafe_controller/dist
-      - /opt/conda/envs/hrgym/lib/python3.8/site-packages/failsafe_controller-0.0.1-py3.8-linux-x86_64.egg
-    expire_in: 1 hour
+    - /opt/conda/envs/hrgym/bin/python -c "import safety_shield_py"
 
+build human robot gym:
+  image:
+    name: ${CI_REGISTRY_IMAGE}
+  stage: build
+  tags: [python, unittest]
+  script:
+    - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
+    - /opt/conda/envs/hrgym/bin/python -c "import human_robot_gym"
+
+
+# We build the packages again because they don't take too much time and artifacts are complicated.
 test safety shield:
   image:
     name: ${CI_REGISTRY_IMAGE}
   stage: test
-  dependencies: 
-    - build safety shield # dependency on previous build stage
   tags: [unittest]
   script:
-    - pwd
-    - cd
-    - pwd
-    - ls -l
-    - cat test.txt
-    - cd /human-robot-gym/human_robot_gym/controllers/failsafe_controller/build
-    #- which python
-    #- cd human_robot_gym/controllers/failsafe_controller/safety_shield/tests
-    #- /opt/conda/envs/hrgym/bin/python -m pytest
-
+    - source /root/.bashrc
+    - export CONDA_PREFIX=/opt/conda/envs/hrgym/
+    - echo $CONDA_PREFIX
+    - cd human_robot_gym/controllers/failsafe_controller/
+    - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
+    - cd safety_shield/tests
+    - /opt/conda/envs/hrgym/bin/python -m pytest
