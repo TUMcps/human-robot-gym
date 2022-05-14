@@ -64,30 +64,22 @@ build dockerimage:
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
 
-build safety shield:
+build:
   image:
     name: ${CI_REGISTRY_IMAGE}
   stage: build
   tags: [python, unittest]
   script:
+    - pwd
     - source /root/.bashrc
     - export CONDA_PREFIX=/opt/conda/envs/hrgym/
     - echo $CONDA_PREFIX
     - cd human_robot_gym/controllers/failsafe_controller/
     - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
     - /opt/conda/envs/hrgym/bin/python -c "import safety_shield_py"
-
-build human robot gym:
-  image:
-    name: ${CI_REGISTRY_IMAGE}
-  needs:
-    - build safety shield
-  stage: build
-  tags: [python, unittest]
-  script:
-    - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
+    - cd /human-robot-gym
+    - /opt/conda/envs/hrgym/bin/pip install .
     - /opt/conda/envs/hrgym/bin/python -c "import human_robot_gym"
-
 
 # We build the packages again because they don't take too much time and artifacts are complicated.
 test safety shield:
