@@ -77,7 +77,7 @@ build:
     - cd human_robot_gym/controllers/failsafe_controller/
     - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
     - /opt/conda/envs/hrgym/bin/python -c "import safety_shield_py"
-    - /builds/cps-rl/human-robot-gym
+    - cd /builds/cps-rl/human-robot-gym
     - /opt/conda/envs/hrgym/bin/pip install .
     - /opt/conda/envs/hrgym/bin/python -c "import human_robot_gym"
 
