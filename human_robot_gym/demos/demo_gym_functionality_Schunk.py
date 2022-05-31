@@ -16,6 +16,7 @@ from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.collision_prevention_wrapper import (
     CollisionPreventionWrapper,
 )
+from human_robot_gym.wrappers.ik_wrapper import IKWrapper
 
 if __name__ == "__main__":
     # Notice how the environment is wrapped by the wrapper
@@ -56,12 +57,14 @@ if __name__ == "__main__":
     )
 
     env = VisualizationWrapper(env)
+    env = IKWrapper(env)
+
     t_max = 100
     for i_episode in range(20):
         observation = env.reset()
         t1 = time.time()
         for t in range(t_max):
-            env.render()
+            # env.render()
             action = env.action_space.sample()  # np.array([0, 0.01, 0, 0, 0, 0, 0])
             observation, reward, done, info = env.step(action)
             if done or t == t_max:
