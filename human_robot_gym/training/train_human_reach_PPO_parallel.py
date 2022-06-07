@@ -56,8 +56,6 @@ from human_robot_gym.wrappers.collision_prevention_wrapper import (
 th.set_num_threads(1)
 
 
-
-
 # Command line arguments:
 # Training config file
 # Use wandb
@@ -118,6 +116,32 @@ if __name__ == "__main__":
     controller_config = merge_configs(controller_config, robot_config)
     training_config["environment"]["controller_configs"] = [controller_config]
 
+    if use_env_pool:
+        env = envpool.make(env_id, env_type="gym", num_envs=num_envs, seed=seed)
+        env.spec.id = env_id
+        env = VecAdapter(env)
+        env = VecMonitor(env)
+    else:
+        env = make_vec_env(env_id, n_envs=num_envs)
+
+        # Tuned hyperparams for Pendulum-v1, works also for CartPole-v1
+        kwargs = {}
+    if env_id == "Pendulum-v1":
+        # Use gSDE for better results
+        kwargs = dict(use_sde=True, sde_sample_freq=4)
+
+    model = PPO(
+        "MlpPolicy",
+        env,
+        n_steps=1024,
+        learning_rate=1e-3,
+        gae_lambda=0.95,
+        gamma=0.9,
+        verbose=1,
+        seed=seed,
+        **kwargs
+    )
+    
     env = GoalEnvironmentGymWrapper(
         robosuite.make(
             "ReachHuman",
