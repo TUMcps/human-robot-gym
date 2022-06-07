@@ -15,6 +15,6 @@ set -euo pipefail
 
 # exec the final command:
 cd /tmp/human-robot-gym/human_robot_gym/controllers/failsafe_controller/ && sudo rm -rf build safety_shield/build && sudo -E $CONDA_PREFIX/bin/python setup.py install
-cd /tmp/human-robot-gym/ && pip install .
+cd /tmp/human-robot-gym/ && pip install -e .
 
 exec "$@"
