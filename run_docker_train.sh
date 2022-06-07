@@ -9,7 +9,6 @@ echo "Chosen user mode"=$user
 if [ "$user" = "root" ]
 then
     docker run -it \
-        --gpus=all \
         --volume="$(pwd):/home/human-robot-gym/" \
         --volume="/home/$USER/.mujoco/:/home/.mujoco/" \
         --net=host \
@@ -19,7 +18,6 @@ elif [ "$user" = "user" ]
 then
     docker run -it \
         --user "$(id -u):$(id -g)" \
-        --gpus=all \
         --volume="$(pwd):/home/$USER/human-robot-gym/" \
         --volume="/home/$USER/.mujoco/:/home/$USER/.mujoco/" \
         --net=host \
