@@ -28,3 +28,4 @@ dependencies:
     - mujoco-py<2.2,>=2.1
     - opencv_python==4.5.5.64
     - pin==2.6.4
+    - envpool==0.6.1
