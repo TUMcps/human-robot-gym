@@ -8,3 +8,6 @@
 [submodule "human_robot_gym/controllers/failsafe_controller/safety_shield/external/yaml-cpp"]
 	path = human_robot_gym/controllers/failsafe_controller/safety_shield/external/yaml-cpp
 	url = https://github.com/jbeder/yaml-cpp.git
+[submodule "human_robot_gym/controllers/failsafe_controller/sara-shield"]
+	path = human_robot_gym/controllers/failsafe_controller/sara-shield
+	url = git@github.com:JakobThumm/sara-shield.git
