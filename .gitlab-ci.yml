@@ -39,19 +39,6 @@ stages:          # List of stages for jobs, and their order of execution
   - test  # this name cannot be changed as long as default gitlab analyzers are included
   - deploy
 
-linting:
-  image:
-    name: ${CI_REGISTRY_IMAGE}
-  stage: linting
-  needs:
-    - job: build dockerimage
-  tags: [linting]
-  script:
-    - pip3 install flake8 pydocstyle
-    - flake8
-    - pydocstyle
-    - echo "success"
-
 build dockerimage:
   image: docker:19.03.12
   variables:
@@ -65,8 +52,21 @@ build dockerimage:
   script:
     - docker build -t ${CI_REGISTRY_IMAGE} -f Dockerfile.build .
     - docker push ${CI_REGISTRY_IMAGE}
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
+  # rules:
+  #  - if: $CI_PIPELINE_SOURCE == "schedule"
+
+linting:
+  image:
+    name: ${CI_REGISTRY_IMAGE}
+  stage: linting
+  needs:
+    - job: build dockerimage
+  tags: [linting]
+  script:
+    - pip3 install flake8 pydocstyle
+    - flake8
+    - pydocstyle
+    - echo "success"
 
 build:
   image:
