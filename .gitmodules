@@ -1,13 +1,3 @@
-[submodule "human_robot_gym/controllers/failsafe_controller/safety_shield/external/pybind11"]
-	path = human_robot_gym/controllers/failsafe_controller/safety_shield/external/pybind11
-	url = https://github.com/pybind/pybind11.git
-	branch = stable
-[submodule "human_robot_gym/controllers/failsafe_controller/safety_shield/external/spdlog"]
-	path = human_robot_gym/controllers/failsafe_controller/safety_shield/external/spdlog
-	url = https://github.com/gabime/spdlog.git
-[submodule "human_robot_gym/controllers/failsafe_controller/safety_shield/external/yaml-cpp"]
-	path = human_robot_gym/controllers/failsafe_controller/safety_shield/external/yaml-cpp
-	url = https://github.com/jbeder/yaml-cpp.git
 [submodule "human_robot_gym/controllers/failsafe_controller/sara-shield"]
 	path = human_robot_gym/controllers/failsafe_controller/sara-shield
-	url = git@github.com:JakobThumm/sara-shield.git
+	url = https://github.com/JakobThumm/sara-shield.git
