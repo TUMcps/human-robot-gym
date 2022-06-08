@@ -45,7 +45,8 @@ RUN apt-get update --fix-missing \
     clang \
     libeigen3-dev \
     libgtest-dev \
-    patchelf
+    patchelf \
+    ssh
 
 # Create the environment:
 COPY environment.yml .
