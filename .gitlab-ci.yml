@@ -77,7 +77,7 @@ build:
     - source /root/.bashrc
     - export CONDA_PREFIX=/opt/conda/envs/hrgym/
     - echo $CONDA_PREFIX
-    - cd human_robot_gym/controllers/failsafe_controller/
+    - cd human_robot_gym/controllers/failsafe_controller/sara-shield/
     - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
     - /opt/conda/envs/hrgym/bin/python -c "import safety_shield_py"
     - cd /builds/cps-rl/human-robot-gym
@@ -94,7 +94,7 @@ test safety shield:
     - source /root/.bashrc
     - export CONDA_PREFIX=/opt/conda/envs/hrgym/
     - echo $CONDA_PREFIX
-    - cd human_robot_gym/controllers/failsafe_controller/
+    - cd human_robot_gym/controllers/failsafe_controller/sara-shield/
     - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
     - cd safety_shield/tests
     - /opt/conda/envs/hrgym/bin/python -m pytest
