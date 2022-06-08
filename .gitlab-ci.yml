@@ -45,7 +45,6 @@ linting:
   stage: linting
   needs:
     - job: build dockerimage
-      # optional: true
   tags: [linting]
   script:
     - pip3 install flake8 pydocstyle
