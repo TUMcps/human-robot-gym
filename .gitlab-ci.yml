@@ -43,7 +43,7 @@ build dockerimage:
   image: docker:19.03.12
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
-  stage: build
+  stage: linting
   tags: [docker]
   services:
     - docker:19.03.12-dind
