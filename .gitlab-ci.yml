@@ -39,11 +39,20 @@ stages:          # List of stages for jobs, and their order of execution
   - test  # this name cannot be changed as long as default gitlab analyzers are included
   - deploy
 
+lint-test-job:   # This job also runs in the test stage.
+  tags: [linting]
+  stage: linting    # It can run at the same time as unit-test-job (in parallel).
+  script:
+    - pip3 install flake8 pydocstyle
+    - flake8
+    - pydocstyle
+    - echo "success"
+
 build dockerimage:
   image: docker:19.03.12
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
-  stage: linting
+  stage: build
   tags: [docker]
   services:
     - docker:19.03.12-dind
@@ -52,19 +61,8 @@ build dockerimage:
   script:
     - docker build -t ${CI_REGISTRY_IMAGE} -f Dockerfile.build .
     - docker push ${CI_REGISTRY_IMAGE}
-
-linting:
-  image:
-    name: ${CI_REGISTRY_IMAGE}
-  stage: linting
-  needs:
-    - job: build dockerimage
-  tags: [linting]
-  script:
-    - pip3 install flake8 pydocstyle
-    - flake8
-    - pydocstyle
-    - echo "success"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
 
 build:
   image:
