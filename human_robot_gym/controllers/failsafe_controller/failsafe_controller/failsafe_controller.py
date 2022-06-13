@@ -184,11 +184,10 @@ class FailsafeController(JointPositionController):
         self.human_capsules = []
 
         # Debug path following
-        
+
         # self.desired_pos_dbg = np.zeros([1000, 6])
         # self.joint_pos_dbg = np.zeros([1000, 6])
         # self.dbg_c = 0
-        
 
     def set_goal(self, action, set_qpos=None):
         """Set goal based on input action.
@@ -271,7 +270,7 @@ class FailsafeController(JointPositionController):
         desided_qacc = self.desired_motion.getAcceleration()
         # Debug path following -> How well is the robot following the desired trajectory.
         # You can use this to tune your PID values
-        
+
         # self.desired_pos_dbg[self.dbg_c] = desired_qpos
         # self.joint_pos_dbg[self.dbg_c] = self.joint_pos
         # self.dbg_c+=1
@@ -290,7 +289,7 @@ class FailsafeController(JointPositionController):
         #     fig.suptitle("Joint Angles, PD+ Controller with Grav. Comp.")
         #     plt.show()
         #     self.dbg_c=0
-        
+
         # torques = pos_err * kp + vel_err * kd
         position_error = desired_qpos - self.joint_pos
         vel_pos_error = desired_qvel - self.joint_vel
@@ -301,7 +300,8 @@ class FailsafeController(JointPositionController):
         # Return desired torques plus gravity compensations
         # Similar to PD+ control, without squared velocity term
         self.torques = (
-            np.dot(self.mass_matrix, feedback_torque + desided_qacc) + self.torque_compensation            
+            np.dot(self.mass_matrix, feedback_torque + desided_qacc)
+            + self.torque_compensation
         )
 
         self.torques = self.clip_torques(torques=self.torques)
