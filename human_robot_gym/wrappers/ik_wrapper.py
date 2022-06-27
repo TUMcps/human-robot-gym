@@ -171,9 +171,9 @@ class IKWrapper(gym.core.Wrapper):
 
         new_act = np.append(q_action, gripper_action)
 
-        wrapped_step = self.env.step(new_act)
-        next_obs, reward, done, info = wrapped_step
-        return next_obs, reward * self._reward_scale, done, info
+        next_obs, reward, done, info = self.env.step(new_act)
+        reward *= self._reward_scale
+        return next_obs, reward, done, info
 
     def __str__(self):
         """Return env as string."""

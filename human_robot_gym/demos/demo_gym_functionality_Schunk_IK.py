@@ -1,6 +1,6 @@
-"""This script shows an example of the Schunk robot being safely controlled in an human environment.
+"""This script shows an example of the Schunk robot being safely controlled through inverse kinematics in an human environment.
 
-For instance, this can be used with our provided training function to train a safe RL agent.
+For instance, this can be used with our provided training function to train a safe RL agent with work space actions.
 """
 
 import robosuite as suite
@@ -16,6 +16,7 @@ from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.collision_prevention_wrapper import (
     CollisionPreventionWrapper,
 )
+from human_robot_gym.wrappers.ik_wrapper import IKWrapper
 
 if __name__ == "__main__":
     # Notice how the environment is wrapped by the wrapper
@@ -56,6 +57,7 @@ if __name__ == "__main__":
     )
 
     env = VisualizationWrapper(env)
+    env = IKWrapper(env)
 
     t_max = 100
     for i_episode in range(20):
