@@ -61,7 +61,6 @@ class Schunk(PinocchioManipulatorModel):
         """Get the initial joint position."""
         return np.array([0, 0.0, -np.pi/2, 0, -np.pi/2, np.pi/4])
 
-
     @property
     def base_xpos_offset(self):
         """Get the base offset."""
