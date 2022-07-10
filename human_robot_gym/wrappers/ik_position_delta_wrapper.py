@@ -11,21 +11,22 @@ import pybullet as p
 from gym.core import Wrapper
 from gym.spaces import Box
 
+
 class IKPositionDeltaWrapper(Wrapper):
     """Redifine action for cartesian position control.
 
     Maps a delta position action to a delta joint angle action
     through inverse kinematics using pybullet.
-    note: Uses the gym wrapper instead of the robosuite wrapper, 
+    note: Uses the gym wrapper instead of the robosuite wrapper,
         given that I did not find out, how to redifine the action space with the latter.
     """
 
     def __init__(
-        self, 
-        env, 
-        urdf_file, 
-        x_output_max=0.2,  # max l1 distance of cartesian delta
-        x_position_limits=None,  # 2d np array (2, n) [min, max]
+        self,
+        env,
+        urdf_file,
+        x_output_max=0.2,
+        x_position_limits=None,
         residual_threshold=1e-3,
         max_iter=50,
         **kwargs
@@ -36,13 +37,13 @@ class IKPositionDeltaWrapper(Wrapper):
             env (gym.env): The gym environment
             urdf_file (string): path to robot urdf file, used for inverse kinematics.
                 Should not start with fixed joints to work as expected.
-            x_output_max (double): limits the end effector velocity. 
+            x_output_max (double): limits the end effector velocity.
                 Maximum L1 distance of cartesian position delta.
-            x_position_limits (2D numpy array (2, 3)): 
+            x_position_limits (2D numpy array (2, 3)):
                 if not None, limits the target cartesian positions to [[mins], [maxs]].
-            residual_threshold (double): 
-                Refine the IK solution until the distance 
-                between target and actual end effector position is below residual_threshold, 
+            residual_threshold (double):
+                Refine the IK solution until the distance
+                between target and actual end effector position is below residual_threshold,
                 or until max_iter is reached.
             max_iter (int): maximum number of iterations in IK solution.
         """
@@ -85,7 +86,6 @@ class IKPositionDeltaWrapper(Wrapper):
         self.x_output_max = x_output_max
         self.x_position_limits = x_position_limits
 
-
     def step(self, action):
         """Transform and apply the action to the environment.
 
@@ -97,7 +97,7 @@ class IKPositionDeltaWrapper(Wrapper):
         ws_action[: self.control_dim] = action[: self.control_dim]
 
         # get pybullet end-effector position
-        q_current  = self.env.robots[0].controller.joint_pos
+        q_current = self.env.robots[0].controller.joint_pos
         for i, val in enumerate(q_current):
             p.resetJointState(self.p_robot_id, i, val)
         ee_state = p.getLinkState(self.p_robot_id, self.end_effector_index)

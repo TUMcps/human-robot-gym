@@ -1,8 +1,10 @@
-"""This script shows an example of the Schunk robot being safely controlled through inverse kinematics in an human environment.
+"""Demo environemnt for the ik position delta wrapper.
 
-For instance, this can be used with our provided training function to train a safe RL agent with work space actions.
+This script shows an example of the Schunk robot being safely controlled
+with the inverse kinematics wrapper in a human environment.
+For instance, this can be used with our provided training function
+to train a safe RL agent with work space position actions.
 """
-import numpy as np
 
 import robosuite as suite
 import time
@@ -34,7 +36,6 @@ if __name__ == "__main__":
     controller_config = merge_configs(controller_config, robot_config)
     controller_configs = [controller_config]
 
-    
     env = GymWrapper(
         suite.make(
             "ReachHuman",
