@@ -420,10 +420,21 @@ class HumanEnv(SingleArmEnv):
 
         achieved_goal = self._get_achieved_goal_from_obs(observations)
         desired_goal = self._get_desired_goal_from_obs(observations)
-        self.goal_reached = self._check_success(desired_goal, achieved_goal)
+        self.goal_reached = self._check_success(
+            achieved_goal=achieved_goal,
+            desired_goal=desired_goal
+            )
         info = self._get_info()
-        reward = self._compute_reward(desired_goal, achieved_goal, info)
-        done = self._compute_done(desired_goal, achieved_goal, info)
+        reward = self._compute_reward(
+            achieved_goal=achieved_goal,
+            desired_goal=desired_goal,
+            info=info
+            )
+        done = self._compute_done(
+            achieved_goal=achieved_goal,
+            desired_goal=desired_goal,
+            info=info
+            )
 
         if self.viewer is not None and self.renderer != "mujoco":
             self.viewer.update()
