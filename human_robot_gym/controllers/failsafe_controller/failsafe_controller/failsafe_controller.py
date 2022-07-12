@@ -167,10 +167,10 @@ class FailsafeController(JointPositionController):
             activate_shield=True,
             sample_time=control_sample_time,
             trajectory_config_file=dir_path
-            + "/../safety_shield/config/trajectory_parameters_schunk.yaml",
+            + "/../sara-shield/safety_shield/config/trajectory_parameters_schunk.yaml",
             robot_config_file=dir_path
-            + "/../safety_shield/config/robot_parameters_schunk.yaml",
-            mocap_config_file=dir_path + "/../safety_shield/config/mujoco_mocap.yaml",
+            + "/../sara-shield/safety_shield/config/robot_parameters_schunk.yaml",
+            mocap_config_file=dir_path + "/../sara-shield/safety_shield/config/mujoco_mocap.yaml",
             init_x=base_pos[0],
             init_y=base_pos[1],
             init_z=base_pos[2],
