@@ -189,6 +189,50 @@ class FailsafeController(JointPositionController):
         # self.joint_pos_dbg = np.zeros([1000, 6])
         # self.dbg_c = 0
 
+    def reset(self,
+              init_qpos,
+              base_pos=[0.0, 0.0, 0.0],
+              base_orientation=[0.0, 0.0, 0.0, 1.0]):
+        """Reset the failsafe controller.
+
+        Args:
+            init_qpos (list[double]): Initial joint angles
+            base_pos (list[double]): position of base [x, y, z]
+            base_orientation (list[double]): orientation of base as quaternion [x, y, z, w]
+        """
+        self.goal_qpos = None
+        # Torques being outputted by the controller
+        self.torques = None
+        # Update flag to prevent redundant update calls
+        self.new_update = True
+        # Move forward one timestep to propagate updates before taking first update
+        self.sim.forward()
+        # Initialize controller by updating internal state and setting the initial joint, pos, and ori
+        self.update()
+        self.initial_joint = self.joint_pos
+        self.initial_ee_pos = self.ee_pos
+        self.initial_ee_ori_mat = self.ee_ori_mat
+        # Control dimension
+        rot = Rotation.from_quat(
+            [
+                base_orientation[0],
+                base_orientation[1],
+                base_orientation[2],
+                base_orientation[3],
+            ]
+        )
+        rpy = rot.as_euler("XYZ")
+        self.safety_shield.reset(
+            activate_shield=True,
+            init_x=base_pos[0],
+            init_y=base_pos[1],
+            init_z=base_pos[2],
+            init_roll=rpy[0],
+            init_pitch=rpy[1],
+            init_yaw=rpy[2],
+            init_qpos=init_qpos,
+        )
+
     def set_goal(self, action, set_qpos=None):
         """Set goal based on input action.
 
