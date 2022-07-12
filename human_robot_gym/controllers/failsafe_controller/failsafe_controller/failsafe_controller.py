@@ -222,6 +222,7 @@ class FailsafeController(JointPositionController):
             ]
         )
         rpy = rot.as_euler("XYZ")
+        print(self.sim.data.time)
         self.safety_shield.reset(
             activate_shield=True,
             init_x=base_pos[0],
@@ -231,6 +232,7 @@ class FailsafeController(JointPositionController):
             init_pitch=rpy[1],
             init_yaw=rpy[2],
             init_qpos=init_qpos,
+            current_time=self.sim.data.time
         )
 
     def set_goal(self, action, set_qpos=None):
@@ -282,6 +284,14 @@ class FailsafeController(JointPositionController):
             # self.interpolator.set_goal(self.goal_qpos)
 
         motion = Motion(0.0, self.goal_qpos)
+        """
+        print("self.desired_motion")
+        print(self.desired_motion.getAngle())
+        print("self.joint_pos")
+        print(self.joint_pos)
+        print("self.goal_qpos")
+        print(self.goal_qpos)
+        """
         self.safety_shield.newLongTermTrajectory(motion)
 
     def set_human_measurement(self, human_measurement, time):
