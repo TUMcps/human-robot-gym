@@ -377,7 +377,7 @@ class ReachHuman(HumanEnv):
             reward = 0.0
         # use a shaping reward
         if self.reward_shaping:
-            dist = np.sqrt(np.sum(achieved_goal - desired_goal))
+            dist = np.sqrt(np.sum((achieved_goal - desired_goal)**2))
             reward -= dist * 0.1
         # Scale reward if requested
         if self.reward_scale is not None:

@@ -184,11 +184,10 @@ class FailsafeController(JointPositionController):
         self.human_capsules = []
 
         # Debug path following
-        """
-        self.desired_pos_dbg = np.zeros([1000, 6])
-        self.joint_pos_dbg = np.zeros([1000, 6])
-        self.dbg_c = 0
-        """
+
+        # self.desired_pos_dbg = np.zeros([1000, 6])
+        # self.joint_pos_dbg = np.zeros([1000, 6])
+        # self.dbg_c = 0
 
     def set_goal(self, action, set_qpos=None):
         """Set goal based on input action.
@@ -267,31 +266,42 @@ class FailsafeController(JointPositionController):
         current_time = self.sim.data.time
         self.desired_motion = self.safety_shield.step(current_time)
         desired_qpos = self.desired_motion.getAngle()
+        desired_qvel = self.desired_motion.getVelocity()
+        desided_qacc = self.desired_motion.getAcceleration()
         # Debug path following -> How well is the robot following the desired trajectory.
         # You can use this to tune your PID values
-        """
-        self.desired_pos_dbg[self.dbg_c] = desired_qpos
-        self.joint_pos_dbg[self.dbg_c] = self.joint_pos
-        self.dbg_c+=1
-        if self.dbg_c == 1000:
-          plt.plot(np.arange(0, self.dbg_c), self.desired_pos_dbg[0:self.dbg_c, 0], label='desired pos')
-          plt.plot(np.arange(0, self.dbg_c), self.joint_pos_dbg[0:self.dbg_c, 0], label='joint pos')
-          plt.xlabel("Step")
-          plt.ylabel("Angle [rad]")
-          plt.legend()
-          plt.show()
-          self.dbg_c=0
-        """
+
+        # self.desired_pos_dbg[self.dbg_c] = desired_qpos
+        # self.joint_pos_dbg[self.dbg_c] = self.joint_pos
+        # self.dbg_c+=1
+
+        # if self.dbg_c == 1000:
+        #     fig, axs = plt.subplots(self.control_dim)
+        #     for joint in range(self.control_dim):
+        #         ax = axs[joint]
+        #         ax.plot(np.arange(0, self.dbg_c), self.desired_pos_dbg[0:self.dbg_c, joint], label='desired pos')
+        #         ax.plot(np.arange(0, self.dbg_c), self.joint_pos_dbg[0:self.dbg_c, joint], label='joint pos')
+        #         # ax.set_xlabel("Step")
+        #         # ax.set_ylabel("Angle [rad]")
+        #         # ax.set_title(f"Joint {joint+1}")
+        #         ax.grid()
+        #     ax.legend()
+        #     fig.suptitle("Joint Angles, PD+ Controller with Grav. Comp.")
+        #     plt.show()
+        #     self.dbg_c=0
+
         # torques = pos_err * kp + vel_err * kd
         position_error = desired_qpos - self.joint_pos
-        vel_pos_error = -self.joint_vel
-        desired_torque = np.multiply(
+        vel_pos_error = desired_qvel - self.joint_vel
+        feedback_torque = np.multiply(
             np.array(position_error), np.array(self.kp)
         ) + np.multiply(vel_pos_error, self.kd)
 
         # Return desired torques plus gravity compensations
+        # Similar to PD+ control, without squared velocity term
         self.torques = (
-            np.dot(self.mass_matrix, desired_torque) + self.torque_compensation
+            np.dot(self.mass_matrix, feedback_torque + desided_qacc)
+            + self.torque_compensation
         )
 
         self.torques = self.clip_torques(torques=self.torques)
