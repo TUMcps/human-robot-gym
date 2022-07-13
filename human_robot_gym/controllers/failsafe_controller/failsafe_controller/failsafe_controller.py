@@ -182,7 +182,10 @@ class FailsafeController(JointPositionController):
         self.desired_motion = self.safety_shield.step(0.0)
         self.robot_capsules = []
         self.human_capsules = []
-
+        # Place holder for dynamic variables
+        self.command_vel = [0.0 for i in init_qpos]
+        self.robot_cap_in = []
+        self.human_cap_in = []
         # Debug path following
 
         # self.desired_pos_dbg = np.zeros([1000, 6])
@@ -222,7 +225,6 @@ class FailsafeController(JointPositionController):
             ]
         )
         rpy = rot.as_euler("XYZ")
-        print(self.sim.data.time)
         self.safety_shield.reset(
             activate_shield=True,
             init_x=base_pos[0],
@@ -283,16 +285,7 @@ class FailsafeController(JointPositionController):
             raise NotImplementedError
             # self.interpolator.set_goal(self.goal_qpos)
 
-        motion = Motion(0.0, self.goal_qpos)
-        """
-        print("self.desired_motion")
-        print(self.desired_motion.getAngle())
-        print("self.joint_pos")
-        print(self.joint_pos)
-        print("self.goal_qpos")
-        print(self.goal_qpos)
-        """
-        self.safety_shield.newLongTermTrajectory(motion)
+        self.safety_shield.newLongTermTrajectory(self.goal_qpos, self.command_vel)
 
     def set_human_measurement(self, human_measurement, time):
         """Set the human measurement of the safety shield.
@@ -382,15 +375,15 @@ class FailsafeController(JointPositionController):
         Returns:
             list[capsule]
         """
-        capsules = self.safety_shield.getRobotReachCapsules()
+        self.robot_cap_in = self.safety_shield.getRobotReachCapsules()
         if len(self.robot_capsules) == 0:
-            for cap in capsules:
+            for cap in self.robot_cap_in:
                 self.robot_capsules.append(PlotCapsule(cap[0:3], cap[3:6], cap[6]))
         else:
-            assert len(self.robot_capsules) == len(capsules)
-            for i in range(len(capsules)):
+            assert len(self.robot_capsules) == len(self.robot_cap_in)
+            for i in range(len(self.robot_cap_in)):
                 self.robot_capsules[i].update_pos(
-                    capsules[i][0:3], capsules[i][3:6], capsules[i][6]
+                    self.robot_cap_in[i][0:3], self.robot_cap_in[i][3:6], self.robot_cap_in[i][6]
                 )
 
         return self.robot_capsules
@@ -405,15 +398,15 @@ class FailsafeController(JointPositionController):
         Returns:
             list[capsule]
         """
-        capsules = self.safety_shield.getHumanReachCapsules()
+        self.human_cap_in = self.safety_shield.getHumanReachCapsules()
         if len(self.human_capsules) == 0:
-            for cap in capsules:
+            for cap in self.human_cap_in:
                 self.human_capsules.append(PlotCapsule(cap[0:3], cap[3:6], cap[6]))
         else:
-            assert len(self.human_capsules) == len(capsules)
-            for i in range(len(capsules)):
+            assert len(self.human_capsules) == len(self.human_cap_in)
+            for i in range(len(self.human_cap_in)):
                 self.human_capsules[i].update_pos(
-                    capsules[i][0:3], capsules[i][3:6], capsules[i][6]
+                    self.human_cap_in[i][0:3], self.human_cap_in[i][3:6], self.human_cap_in[i][6]
                 )
 
         return self.human_capsules
