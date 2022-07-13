@@ -6,7 +6,7 @@
     },
     "environment": {
         "robot_base_offset": [
-            -0.36,
+            0.0,
             0.0,
             0.0
         ],
@@ -14,8 +14,8 @@
         "gripper_types": "default",
         "initialization_noise": "default",
         "table_full_size": [
-            0.4,
-            0.8,
+            2.5,
+            0.85,
             0.05
         ],
         "table_friction": [
@@ -53,7 +53,7 @@
         "human_animation_names": [
             "62_01",
             "62_03",
-            "62_03",
+            "62_04",
             "62_07",
             "62_09",
             "62_10",
@@ -64,8 +64,7 @@
             "62_16",
             "62_18",
             "62_19",
-            "62_20",
-            "62_21"
+            "62_20"
         ],
         "base_human_pos_offset": [
             0.0,
