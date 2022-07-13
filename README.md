@@ -36,7 +36,7 @@ All requirements will automatically get installed by conda.
 ### Install the failsafe controller / safety shield
 This requires `cmake`.
 ```
-cd human-robot-gym/human_robot_gym/controllers/failsafe_controller
+cd human-robot-gym/human_robot_gym/controllers/failsafe_controller/sara-shield
 pip install -r requirements.txt
 python setup.py install
 ```
@@ -55,12 +55,12 @@ export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so
 
 # Test a demo
 ```
-python human_robot_gym/human_robot_gym/demos/demo_gym_functionality_Schunk.py
+python human_robot_gym/demos/demo_gym_functionality_Schunk.py
 ```
 
 # Run a RL training
 ```
-python human_robot_gym/human_robot_gym/training/train_human_reach_SB3_sac_her.py schunk_sac_her_safe.json --wandb
+python human_robot_gym/training/train_human_reach_SB3_sac_her.py schunk_sac_her_safe.json --wandb
 ```
 
 # Developer's guide
