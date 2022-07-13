@@ -677,10 +677,10 @@ LongTermTraj SafetyShield::calculateLongTermTrajectory(const std::vector<double>
     const std::vector<double> goal_dq) {
   // 0 = Not finished, 1 = finished, <0 = Error  
   int	ResultValue	=	0;
-  // Creating all relevant objects of the Type IV Reflexxes Motion Library	
-  reflexxes_RML_	=	new ReflexxesAPI(nb_joints_,	sample_time_);
-  reflexxes_IP_	=	new RMLPositionInputParameters(nb_joints_);
-  reflexxes_OP_	=	new RMLPositionOutputParameters(nb_joints_);
+  // Creating all relevant objects of the Type IV Reflexxes Motion Library
+  ReflexxesAPI* reflexxes_RML_ = new ReflexxesAPI(nb_joints_, sample_time_);
+  RMLPositionInputParameters* reflexxes_IP_ = new RMLPositionInputParameters(nb_joints_);
+  RMLPositionOutputParameters* reflexxes_OP_ = new RMLPositionOutputParameters(nb_joints_);
 
   for (int i = 0; i < nb_joints_; i++) {
     assert(start_dq[i] <= v_max_allowed_[i]);
@@ -724,6 +724,9 @@ LongTermTraj SafetyShield::calculateLongTermTrajectory(const std::vector<double>
     }
     new_traj.push_back(Motion(new_time, new_pos, new_vel, new_acc, new_jerk));
   }
+  delete reflexxes_RML_;
+  delete reflexxes_IP_;
+  delete reflexxes_OP_;
   return LongTermTraj(new_traj, path_s_discrete_, sliding_window_k_);
 }
 

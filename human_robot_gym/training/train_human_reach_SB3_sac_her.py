@@ -290,8 +290,7 @@ if __name__ == "__main__":
     # << Train the agent >>
     if not training_config["algorithm"]["test_only"]:
         model.learn(
-            total_timesteps=training_config["algorithm"]["n_episodes"]
-            * training_config["algorithm"]["max_ep_len"],
+            total_timesteps=(training_config["algorithm"]["n_episodes"] * training_config["algorithm"]["max_ep_len"]),
             log_interval=training_config["algorithm"]["log_interval"],
             reset_num_timesteps=(load_episode == -1),
             callback=callback,
