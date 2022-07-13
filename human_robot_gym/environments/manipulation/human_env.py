@@ -1002,6 +1002,7 @@ class HumanEnv(SingleArmEnv):
                     ],
                     axis=-1,
                 )
+
             @sensor(modality=modality)
             def human_lh_to_eff(obs_cache):
                 return (
