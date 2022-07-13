@@ -6,9 +6,14 @@ Owner:
     Jakob Thumm (JT)
 
 Contributors:
-
+    Julian Balletshofer (JB)
 Changelog:
     2.5.22 JT Formatted docstrings
+    13.7.22 JB corrected animation names
+    13.7.22 JB adjusted observation space (sensors) to relative
+                distances eef and L_hand,R_hand,Head
+    13.7.22 JB fix issue of skipping last animation
+
 """
 
 from typing import Dict, Union, List
@@ -229,7 +234,7 @@ class HumanEnv(SingleArmEnv):
         human_animation_names=[
             "62_01",
             "62_03",
-            "62_03",
+            "62_04",
             "62_07",
             "62_09",
             "62_10",
@@ -997,8 +1002,60 @@ class HumanEnv(SingleArmEnv):
                     ],
                     axis=-1,
                 )
+            @sensor(modality=modality)
+            def human_lh_to_eff(obs_cache):
+                return (
+                    [
+                        np.linalg.norm(
+                            np.sum(
+                                    obs_cache[f"{pf}eef_pos"][i] -
+                                    self.sim.data.get_site_xpos(
+                                        "Human_" + "L_Hand")[i]
+                                )
+                        ) for i in range(3)
+                    ]
+                    if f"{pf}eef_pos" in obs_cache
+                    else np.zeros(3)
+                )
 
-            sensors = [gripper_pos, human_joint_pos]
+            @sensor(modality=modality)
+            def human_rh_to_eff(obs_cache):
+                return (
+                    [
+                        np.linalg.norm(
+                            np.sum(
+                                    obs_cache[f"{pf}eef_pos"][i] -
+                                    self.sim.data.get_site_xpos(
+                                        "Human_" + "R_Hand")[i]
+                                )
+                        ) for i in range(3)
+                    ]
+                    if f"{pf}eef_pos" in obs_cache
+                    else np.zeros(3)
+                )
+
+            @sensor(modality=modality)
+            def human_head_to_eff(obs_cache):
+                return (
+                    [
+                        np.linalg.norm(
+                            np.sum(
+                                    obs_cache[f"{pf}eef_pos"][i] -
+                                    self.sim.data.get_site_xpos(
+                                        "Human_" + "Head")[i]
+                                )
+                        ) for i in range(3)
+                    ]
+                    if f"{pf}eef_pos" in obs_cache
+                    else np.zeros(3)
+                )
+
+            sensors = [
+                gripper_pos,
+                human_head_to_eff,
+                human_lh_to_eff,
+                human_rh_to_eff]
+
             names = [s.__name__ for s in sensors]
 
             # Create observables
@@ -1085,7 +1142,7 @@ class HumanEnv(SingleArmEnv):
             # Rotate to next human animation
             self.human_animation_id = (
                 self.human_animation_id + 1
-                if self.human_animation_id < len(self.human_animations) - 2
+                if self.human_animation_id < len(self.human_animations) - 1
                 else 0
             )
             self.animation_time = 0
