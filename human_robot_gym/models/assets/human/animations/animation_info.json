@@ -4,59 +4,63 @@
       "orientation_quat": [ 0, -0.7071068, 0, 0.7071068 ]
     },
     "62_01": {
-        "position_offset": [0.0, 0.3, -1.8],
-        "orientation_quat": [ 0, -0.7071068, 0, 0.7071068 ]
+        "position_offset": [0.0, 0.3, -2.3],
+        "orientation_quat": [  0,1, 0,  0  ]
     },
     "62_03": {
-        "position_offset": [-0.2, 0.3, -0.4],
-        "orientation_quat": [ 0, -1, 0, 0 ]
+        "position_offset": [-0.8, 0.3, -0.1],
+        "orientation_quat": [ 0, 0.7071068, 0, 0.7071068 ]
+    },
+    "62_04": {
+        "position_offset": [-0.8, 0.3, -0.1],
+        "orientation_quat": [ 0, 0.7071068, 0, 0.7071068 ]
     },
     "62_07": {
         "position_offset": [-0.2, 0.3, -0.4],
         "orientation_quat": [ 0, -1, 0, 0 ]
     },
     "62_09": {
-        "position_offset": [-0.2, 0.3, -0.4],
-        "orientation_quat": [ 0, -1, 0, 0 ]
+        "position_offset": [-0.8, 0.3, -0.1],
+        "orientation_quat": [ 0, 0.7071068, 0, 0.7071068 ]
     },
     "62_10": {
-        "position_offset": [-0.2, 0.3, -0.4],
-        "orientation_quat": [ 0, -1, 0, 0 ]
+        "position_offset": [-0.8, 0.3, -0.1],
+        "orientation_quat": [ 0, 0.7071068, 0, 0.7071068 ]
     },
     "62_12": {
-        "position_offset": [-1.4, 0.3, -0.4],
-        "orientation_quat": [ 0, -1, 0, 0 ]
+        "position_offset": [-1.8, 0.3, -0.4],
+        "orientation_quat": [ 0, 0.7071068, 0, 0.7071068 ]
     },
     "62_13": {
-        "position_offset": [-0.8, 0.3, -0.4],
-        "orientation_quat": [ 0, -1, 0, 0 ]
+        "position_offset": [-1.9, 0.3, -0.4],
+        "orientation_quat": [ 0, 0.7071068, 0, 0.7071068 ]
     },
     "62_14": {
-        "position_offset": [-0.7, 0.3, -0.6],
-        "orientation_quat": [ 0, -1, 0, 0 ]
+        "position_offset": [-1.5, 0.3, -0.4],
+        "orientation_quat": [ 0, 0.7071068, 0, 0.7071068 ]
     },
     "62_15": {
-        "position_offset": [-0.7, 0.3, -0.6],
-        "orientation_quat": [ 0, -1, 0, 0 ]
+        "position_offset": [-1.2, 0.3, -1.4],
+        "orientation_quat": [ 0, 0.7071068, 0, 0.7071068 ]
     },
     "62_16": {
-        "position_offset": [-0.75, 0.3, -0.6],
-        "orientation_quat": [ 0, -1, 0, 0 ]
+        "position_offset": [-1.4, 0.3, -1.4],
+        "orientation_quat": [ 0, 0.7071068, 0, 0.7071068 ]
     },
     "62_18": {
-        "position_offset": [-0.6, 0.3, -1.3],
-        "orientation_quat": [ 0, -1, 0, 0 ]
+        "position_offset": [-1.3, 0.3, -0.4],
+        "orientation_quat": [ 0, 0.7071068, 0, 0.7071068 ]
     },
     "62_19": {
-        "position_offset": [-0.6, 0.3, -1.3],
-        "orientation_quat": [ 0, -1, 0, 0 ]
+        "position_offset": [-1.8, 0.3, -0.4],
+        "orientation_quat": [ 0, 0.7071068, 0, 0.7071068 ]
     },
     "62_20": {
-        "position_offset": [-0.65, 0.3, -1.3],
-        "orientation_quat": [ 0, -1, 0, 0 ]
+        "position_offset": [-1.3, 0.3, -0.4],
+        "orientation_quat": [ 0, 0.7071068, 0, 0.7071068 ]
     },
     "62_21": {
-        "position_offset": [-1.0, 0.3, -0.6],
-        "orientation_quat": [ 0, -1, 0, 0 ]
+        "position_offset": [-1.4, 0.3, -0.1],
+        "orientation_quat": [ 0, 0.7071068, 0, 0.7071068 ]
     }
 }
