@@ -261,21 +261,6 @@ class SafetyShield {
 
   //////// For replanning new trajectory //////
   /**
-   * @brief Trajecotry planning object
-   */
-  ReflexxesAPI* reflexxes_RML_ =	NULL;
-
-  /**
-   * @brief Define trajectory planning input parameters here
-   */
-  RMLPositionInputParameters* reflexxes_IP_ = NULL;
-
-  /**
-   * @brief Pointer to safe the trajectroy planning output to 
-   */
-  RMLPositionOutputParameters* reflexxes_OP_	=	NULL;
-  
-  /**
    * @brief Trajecory planning flags
    */
   RMLPositionFlags reflexxes_flags_;
