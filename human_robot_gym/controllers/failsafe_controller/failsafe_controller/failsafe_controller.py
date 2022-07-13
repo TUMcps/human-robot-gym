@@ -19,7 +19,6 @@ from scipy.spatial.transform import Rotation
 from robosuite.controllers.joint_pos import JointPositionController
 from robosuite.utils.control_utils import set_goal_position
 
-from safety_shield_py import Motion
 from safety_shield_py import SafetyShield
 
 from .plot_capsule import PlotCapsule

@@ -9,9 +9,12 @@ from safety_shield_py import SafetyShield
 from human_robot_gym.utils.mjcf_utils import file_path_completion
 
 if __name__ == "__main__":
-    trajectory_parameters_file = file_path_completion("controllers/failsafe_controller/sara-shield/safety_shield/config/trajectory_parameters_schunk.yaml")
-    robot_config_file = file_path_completion("controllers/failsafe_controller/sara-shield/safety_shield/config/robot_parameters_schunk.yaml")
-    mocap_config_file = file_path_completion("controllers/failsafe_controller/sara-shield/safety_shield/config/cmu_mocap_no_hand.yaml")
+    trajectory_parameters_file = file_path_completion(
+        "controllers/failsafe_controller/sara-shield/safety_shield/config/trajectory_parameters_schunk.yaml")
+    robot_config_file = file_path_completion(
+        "controllers/failsafe_controller/sara-shield/safety_shield/config/robot_parameters_schunk.yaml")
+    mocap_config_file = file_path_completion(
+        "controllers/failsafe_controller/sara-shield/safety_shield/config/cmu_mocap_no_hand.yaml")
 
     safety_shield = SafetyShield(
             activate_shield=True,
