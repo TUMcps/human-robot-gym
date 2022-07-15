@@ -9,11 +9,8 @@ Contributors:
     Julian Balletshofer (JB)
 Changelog:
     2.5.22 JT Formatted docstrings
-    13.7.22 JB corrected animation names
     13.7.22 JB adjusted observation space (sensors) to relative
                 distances eef and L_hand,R_hand,Head
-    13.7.22 JB fix issue of skipping last animation
-
 """
 
 from typing import Dict, Union, List
@@ -1016,13 +1013,14 @@ class HumanEnv(SingleArmEnv):
 
             @sensor(modality=modality)
             def human_lh_to_eff(obs_cache):
+                """Return the distance from the human left hand to the end effector in each world coordinate."""
                 return (
                     [
                         np.linalg.norm(
                             np.sum(
                                     obs_cache[f"{pf}eef_pos"][i] -
                                     self.sim.data.get_site_xpos(
-                                        "Human_" + "L_Hand")[i]
+                                        self.human.left_hand)[i]
                                 )
                         ) for i in range(3)
                     ]
@@ -1032,13 +1030,14 @@ class HumanEnv(SingleArmEnv):
 
             @sensor(modality=modality)
             def human_rh_to_eff(obs_cache):
+                """Return the distance from the human right hand to the end effector in each world coordinate."""
                 return (
                     [
                         np.linalg.norm(
                             np.sum(
                                     obs_cache[f"{pf}eef_pos"][i] -
                                     self.sim.data.get_site_xpos(
-                                        "Human_" + "R_Hand")[i]
+                                        self.human.right_hand)[i]
                                 )
                         ) for i in range(3)
                     ]
@@ -1048,13 +1047,14 @@ class HumanEnv(SingleArmEnv):
 
             @sensor(modality=modality)
             def human_head_to_eff(obs_cache):
+                """Return the distance from the human head to the end effector in each world coordinate."""
                 return (
                     [
                         np.linalg.norm(
                             np.sum(
                                     obs_cache[f"{pf}eef_pos"][i] -
                                     self.sim.data.get_site_xpos(
-                                        "Human_" + "Head")[i]
+                                        self.human.head())[i]
                                 )
                         ) for i in range(3)
                     ]
