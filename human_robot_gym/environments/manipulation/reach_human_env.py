@@ -9,6 +9,7 @@ Contributors:
     Julian Balletshofer JB
 Changelog:
     2.5.22 JT Formatted docstrings
+    15.7.22 JB added optional stop at collision
 """
 from human_robot_gym.environments.manipulation.human_env import HumanEnv
 
@@ -249,6 +250,7 @@ class ReachHuman(HumanEnv):
         randomize_initial_pos=False,
         self_collision_safety=0.01,
         seed=0,
+        done_at_collision = False
     ):  # noqa: D107
         # settings for table top
         self.table_full_size = table_full_size
@@ -268,7 +270,8 @@ class ReachHuman(HumanEnv):
         if robot_base_offset is None:
             robot_base_offset = [[0.0, 0.0, 0.0] for robot in robots]
         self.randomize_initial_pos = randomize_initial_pos
-
+        # if run should stop at collision
+        self.done_at_collision = done_at_collision
         super().__init__(
             robots=robots,
             robot_base_offset=robot_base_offset,
@@ -417,7 +420,9 @@ class ReachHuman(HumanEnv):
         Returns:
             done
         """
-        # done = super()._check_done(achieved_goal, desired_goal, info)
+        done = super()._check_done(achieved_goal, desired_goal, info)
+        if self.done_at_collision:
+            return done or (self._check_success(achieved_goal, desired_goal))
         return self._check_success(achieved_goal, desired_goal)
 
     def _get_achieved_goal_from_obs(

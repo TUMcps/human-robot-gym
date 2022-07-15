@@ -159,6 +159,7 @@ if __name__ == "__main__":
                 "self_collision_safety"
             ],
             seed=training_config["algorithm"]["seed"],
+            done_at_collision=training_config["environment"]["done_at_collision"]
         )
     )
     # << Environment Wrappers >>

@@ -75,7 +75,8 @@
         "randomize_initial_pos": false,
         "safe_vel": 0.01,
         "self_collision_safety": 0.012,
-        "replace_type": 2
+        "replace_type": 2,
+        "done_at_collision":false
     },
     "algorithm": {
         "seed": 0,
