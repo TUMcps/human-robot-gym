@@ -9,10 +9,6 @@ Contributors:
     Julian Balletshofer JB
 Changelog:
     2.5.22 JT Formatted docstrings
-    13.7.22 JB adjusted animation names
-    13.7.22 JB adjusted gym setup to be similar to real
-    13.7.22 JB removed simulation stop when collision
-
 """
 from human_robot_gym.environments.manipulation.human_env import HumanEnv
 
