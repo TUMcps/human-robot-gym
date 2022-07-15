@@ -1054,7 +1054,7 @@ class HumanEnv(SingleArmEnv):
                             np.sum(
                                     obs_cache[f"{pf}eef_pos"][i] -
                                     self.sim.data.get_site_xpos(
-                                        self.human.head())[i]
+                                        self.human.head)[i]
                                 )
                         ) for i in range(3)
                     ]
