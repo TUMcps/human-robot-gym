@@ -174,11 +174,9 @@ if __name__ == "__main__":
         env = VisualizationWrapper(env)
 
     now = datetime.now()
-    load_episode = training_config["algorithm"]["load_episode"]
-    run_id = training_config["algorithm"]["run_id"]
-
-    if load_episode in training_config["algorithm"]:
-        load_episode = training_config["algorithm"]
+    load_episode = -1
+    if "load_episode" in training_config["algorithm"]:
+        load_episode = training_config["algorithm"]["load_episode"]
         if load_episode >= 0:
             if "run_id" in training_config["algorithm"]:
                 run_id = training_config["algorithm"]["run_id"]
