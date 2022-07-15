@@ -36,20 +36,21 @@ class HumanObject(MujocoXMLObject):
             duplicate_collision_geoms=True,
         )
         self._setup_joint_names()
-    
+
     @property
     def left_hand(self):
         """Get the joint name of the left hand."""
         return self.naming_prefix + "L_Hand"
+
     @property
     def right_hand(self):
         """Get the joint name of the right hand."""
         return self.naming_prefix + "R_Hand"
+
     @property
     def head(self):
         """Get the joint name of the head."""
         return self.naming_prefix + "Head"
-
 
     def _setup_joint_names(self):
         """Define the name of all controllable and observable joints."""

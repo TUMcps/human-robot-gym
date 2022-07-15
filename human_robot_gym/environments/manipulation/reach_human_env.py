@@ -250,7 +250,7 @@ class ReachHuman(HumanEnv):
         randomize_initial_pos=False,
         self_collision_safety=0.01,
         seed=0,
-        done_at_collision = False
+        done_at_collision=False
     ):  # noqa: D107
         # settings for table top
         self.table_full_size = table_full_size
