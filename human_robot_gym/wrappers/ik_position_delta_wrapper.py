@@ -48,7 +48,6 @@ class IKPositionDeltaWrapper(Wrapper):
             max_iter (int): maximum number of iterations in IK solution.
         """
         super().__init__(env)
-        self.env = env
         self.urdf_file = urdf_file
 
         self.base_position = env.robots[0].base_pos
@@ -119,7 +118,6 @@ class IKPositionDeltaWrapper(Wrapper):
             endEffectorLinkIndex=self.end_effector_index,
             targetPosition=target_position,
             targetOrientation=self.target_orientation,
-            solver=p.IK_SDLS,
             residualThreshold=self.residual_threshold,
             maxNumIterations=self.max_iter,
         )
@@ -132,5 +130,5 @@ class IKPositionDeltaWrapper(Wrapper):
         if len(action) > self.control_dim:
             q_action = np.append(q_action, action[self.control_dim:])
 
-        next_obs, reward, done, info = self.env.step(q_action)
+        next_obs, reward, done, info = super().step(q_action)
         return next_obs, reward, done, info
