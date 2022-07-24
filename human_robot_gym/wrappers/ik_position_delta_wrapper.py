@@ -1,6 +1,6 @@
 """A wrapper to convert actions from a position deltas to a joint angle deltas.
 
-This wrapper enables the use of cartesian position actions with fixed orientation,
+This wrapper enables the use of cartesian position actions (fixed orientation),
 while employing the failsafe control pipeline for safe online reinforcement learning.
 
 Author: Rafael Cabral
