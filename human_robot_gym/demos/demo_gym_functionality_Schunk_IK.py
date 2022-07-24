@@ -1,19 +1,26 @@
-"""Demo environemnt for the ik position delta wrapper.
+"""Demo script for position control in a failsafe control environment.
 
 This script shows an example of the Schunk robot being safely controlled
 with the inverse kinematics wrapper in a human environment.
-For instance, this can be used with our provided training function
+The environment adapts the functionality from ReachHuman to change the
+active observable, set an initial joint configuration and set a position goal.
+
+Can be used with our provided training function
 to train a safe RL agent with work space position actions.
+
+Note that some goals are not reachable
+and the motion remains well-behaved at workspace boundaries.
 """
 
 import robosuite as suite
 import time
+import numpy as np
 
 from robosuite.wrappers import GymWrapper
 from robosuite.controllers import load_controller_config
 
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
-import human_robot_gym.environments.manipulation.reach_human_env  # noqa: F401
+import human_robot_gym.environments.manipulation.reach_human_cartesian_env  # noqa: F401
 import human_robot_gym.robots  # noqa: F401
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.collision_prevention_wrapper import (
@@ -38,7 +45,7 @@ if __name__ == "__main__":
 
     env = GymWrapper(
         suite.make(
-            "ReachHuman",
+            "ReachHumanCart",
             robots="Schunk",  # use Sawyer robot
             robot_base_offset=[-0.36, 0, 0],
             use_camera_obs=False,  # do not use pixel observations
@@ -55,13 +62,12 @@ if __name__ == "__main__":
             visualize_failsafe_controller=False,
             visualize_pinocchio=False,
             base_human_pos_offset=[1.0, 0.0, 0.0],
+            init_joint_pos=np.array([0, 0.0, -np.pi / 2, 0, -np.pi / 2, 0]),
         )
     )
-
     env = CollisionPreventionWrapper(
         env=env, collision_check_fn=env._check_collision_action, replace_type=0
     )
-
     env = VisualizationWrapper(env)
 
     env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file)
@@ -71,9 +77,11 @@ if __name__ == "__main__":
         observation = env.reset()
         t1 = time.time()
         for t in range(t_max):
-            # env.render()
-            action = env.action_space.sample()  # np.array([0, 0.01, 0, 0, 0, 0, 0])
-            # action = np.array([0., 0., 0., 0])
+            action = env.action_space.sample()
+            # testing environment structure
+            eef_pos = env.sim.data.site_xpos[env.robots[0].eef_site_id]
+            goal = env.desired_goal
+            action[:3] = goal - eef_pos
             observation, reward, done, info = env.step(action)
             if done or t == t_max:
                 print("Episode finished after {} timesteps".format(t + 1))
