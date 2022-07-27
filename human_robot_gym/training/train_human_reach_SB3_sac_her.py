@@ -174,8 +174,8 @@ if __name__ == "__main__":
 
     now = datetime.now()
     load_episode = -1
-    if load_episode in training_config["algorithm"]:
-        load_episode = training_config["algorithm"]
+    if "load_episode" in training_config["algorithm"]:
+        load_episode = training_config["algorithm"]["load_episode"]
         if load_episode >= 0:
             if "run_id" in training_config["algorithm"]:
                 run_id = training_config["algorithm"]["run_id"]
