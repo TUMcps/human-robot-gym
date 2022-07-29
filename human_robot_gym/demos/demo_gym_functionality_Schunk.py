@@ -33,7 +33,7 @@ if __name__ == "__main__":
         suite.make(
             "ReachHuman",
             robots="Schunk",  # use Sawyer robot
-            robot_base_offset=[-0.36, 0, 0],
+            robot_base_offset=[0, 0, 0],
             use_camera_obs=False,  # do not use pixel observations
             has_offscreen_renderer=False,  # not needed since not using pixel obs
             has_renderer=True,  # make sure we can render to the screen
