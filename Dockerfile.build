@@ -65,9 +65,10 @@ COPY .bashrc_docker /root/.bashrc
 RUN echo "conda activate hrgym" >> /root/.bashrc
 
 # Get Eigen3.4
-RUN mkdir cmake_packages
-WORKDIR cmake_packages
+RUN mkdir /usr/include/eigen3/
+WORKDIR /usr/include/eigen3/
 RUN curl -LJO https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.bz2
 RUN tar -xvf eigen-3.4.0.tar.bz2
 RUN rm eigen-3.4.0.tar.bz2
-RUN echo export CMAKE_PREFIX_PATH="$(pwd)/eigen-3.4.0" >> /root/.bashrc
+RUN echo export CMAKE_PREFIX_PATH="/usr/include/eigen3/eigen-3.4.0" >> /root/.bashrc
+RUN echo export EIGEN3_INCLUDE_DIR="/usr/include/eigen3/eigen-3.4.0" >> /root/.bashrc
