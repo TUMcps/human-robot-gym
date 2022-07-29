@@ -78,9 +78,9 @@ build:
     - export CONDA_PREFIX=/opt/conda/envs/hrgym/
     - echo $CONDA_PREFIX
     - cd human_robot_gym/controllers/failsafe_controller/sara-shield/
-    - export CMAKE_PREFIX_PATH=/cmake_packages/eigen-3.4.0/cmake
-    - echo $CMAKE_PREFIX_PATH
-    - ls -la /cmake_packages/eigen-3.4.0/
+    - export CMAKE_MODULE_PATH=/cmake_packages/eigen-3.4.0/cmake
+    - echo $CMAKE_MODULE_PATH
+    - ls -la $CMAKE_MODULE_PATH
     - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
     - /opt/conda/envs/hrgym/bin/python -c "import safety_shield_py"
     - cd /builds/cps-rl/human-robot-gym
