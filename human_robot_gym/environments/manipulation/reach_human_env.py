@@ -6,9 +6,10 @@ Owner:
     Jakob Thumm (JT)
 
 Contributors:
-
+    Julian Balletshofer JB
 Changelog:
     2.5.22 JT Formatted docstrings
+    15.7.22 JB added optional stop at collision
 """
 from human_robot_gym.environments.manipulation.human_env import HumanEnv
 
@@ -194,7 +195,7 @@ class ReachHuman(HumanEnv):
         controller_configs=None,
         gripper_types="default",
         initialization_noise="default",
-        table_full_size=(0.4, 0.8, 0.05),
+        table_full_size=(2.5, 0.80, 0.05),
         table_friction=(1.0, 5e-3, 1e-4),
         use_camera_obs=True,
         use_object_obs=True,
@@ -229,7 +230,7 @@ class ReachHuman(HumanEnv):
         human_animation_names=[
             "62_01",
             "62_03",
-            "62_03",
+            "62_04",
             "62_07",
             "62_09",
             "62_10",
@@ -249,12 +250,13 @@ class ReachHuman(HumanEnv):
         randomize_initial_pos=False,
         self_collision_safety=0.01,
         seed=0,
+        done_at_collision=False
     ):  # noqa: D107
         # settings for table top
         self.table_full_size = table_full_size
         self.table_friction = table_friction
         # settings for table top (hardcoded since it's not an essential part of the environment)
-        self.table_offset = np.array((0.0, 0.0, 0.8))
+        self.table_offset = np.array((0.0, -0.4, 0.82))
         # reward configuration
         self.reward_scale = reward_scale
         self.reward_shaping = reward_shaping
@@ -268,7 +270,8 @@ class ReachHuman(HumanEnv):
         if robot_base_offset is None:
             robot_base_offset = [[0.0, 0.0, 0.0] for robot in robots]
         self.randomize_initial_pos = randomize_initial_pos
-
+        # if run should stop at collision
+        self.done_at_collision = done_at_collision
         super().__init__(
             robots=robots,
             robot_base_offset=robot_base_offset,
@@ -418,7 +421,9 @@ class ReachHuman(HumanEnv):
             done
         """
         done = super()._check_done(achieved_goal, desired_goal, info)
-        return done or (self._check_success(achieved_goal, desired_goal))
+        if self.done_at_collision:
+            return done or (self._check_success(achieved_goal, desired_goal))
+        return self._check_success(achieved_goal, desired_goal)
 
     def _get_achieved_goal_from_obs(
         self, observation: Union[List[float], Dict]

@@ -6,7 +6,7 @@
     },
     "environment": {
         "robot_base_offset": [
-            -0.36,
+            0.0,
             0.0,
             0.0
         ],
@@ -14,7 +14,7 @@
         "gripper_types": "default",
         "initialization_noise": "default",
         "table_full_size": [
-            0.4,
+            2.5,
             0.8,
             0.05
         ],
@@ -53,7 +53,7 @@
         "human_animation_names": [
             "62_01",
             "62_03",
-            "62_03",
+            "62_04",
             "62_07",
             "62_09",
             "62_10",
@@ -64,8 +64,7 @@
             "62_16",
             "62_18",
             "62_19",
-            "62_20",
-            "62_21"
+            "62_20"
         ],
         "base_human_pos_offset": [
             0.0,
@@ -76,7 +75,8 @@
         "randomize_initial_pos": false,
         "safe_vel": 0.01,
         "self_collision_safety": 0.012,
-        "replace_type": 2
+        "replace_type": 2,
+        "done_at_collision":false
     },
     "algorithm": {
         "seed": 0,
