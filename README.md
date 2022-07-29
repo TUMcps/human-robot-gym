@@ -34,7 +34,12 @@ conda env create -f environment.yml
 ```
 All requirements will automatically get installed by conda.
 ### Install the failsafe controller / safety shield
-This requires `cmake`.
+The installation requires `gcc`, `c++>=17`, and `Eigen3` version 3.4 (download it here: https://eigen.tuxfamily.org/index.php?title=Main_Page).
+Add the install directory of eigen3.4 to your cmake path
+```
+export CMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH:$(pwd)/eigen-3.4.0"
+```
+Now run
 ```
 cd human-robot-gym/human_robot_gym/controllers/failsafe_controller/sara-shield
 pip install -r requirements.txt
