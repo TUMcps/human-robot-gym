@@ -35,9 +35,9 @@ conda env create -f environment.yml
 All requirements will automatically get installed by conda.
 ### Install the failsafe controller / safety shield
 The installation requires `gcc`, `c++>=17`, and `Eigen3` version 3.4 (download it here: https://eigen.tuxfamily.org/index.php?title=Main_Page).
-Add the install directory of eigen3.4 to your cmake path
+Set the path to your eigen3 installation to this env variable, e.g.,
 ```
-export CMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH:$(pwd)/eigen-3.4.0"
+export EIGEN3_INCLUDE_DIR="/usr/include/eigen3/eigen-3.4.0"
 ```
 Now run
 ```
