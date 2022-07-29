@@ -43,7 +43,6 @@ RUN apt-get update --fix-missing \
     g++ \
     gcc-9 \
     clang \
-    libeigen3-dev \
     libgtest-dev \
     patchelf \
     ssh \
