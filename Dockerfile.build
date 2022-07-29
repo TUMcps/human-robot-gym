@@ -69,4 +69,4 @@ RUN echo "conda activate hrgym" >> /root/.bashrc
 RUN curl -LJO https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.bz2
 RUN tar -xvf eigen-3.4.0.tar.bz2
 RUN rm eigen-3.4.0.tar.bz2
-RUN echo export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH:$(pwd)/eigen-3.4.0 >> /root/.bashrc
+RUN echo export CMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH:$(pwd)/eigen-3.4.0" >> /root/.bashrc
