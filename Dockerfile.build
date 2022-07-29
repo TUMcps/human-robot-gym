@@ -65,6 +65,8 @@ COPY .bashrc_docker /root/.bashrc
 RUN echo "conda activate hrgym" >> /root/.bashrc
 
 # Get Eigen3.4
+RUN mkdir cmake_packages
+WORKDIR cmake_packages
 RUN curl -LJO https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.bz2
 RUN tar -xvf eigen-3.4.0.tar.bz2
 RUN rm eigen-3.4.0.tar.bz2
