@@ -17,6 +17,7 @@ RUN apt-get update -q && \
         procps \
         subversion \
         wget \
+        ssh \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -98,7 +99,6 @@ RUN apt-get update --fix-missing \
     g++ \
     gcc-9 \
     clang-10 \
-    libeigen3-dev \
     libgtest-dev \
     patchelf
 
@@ -124,7 +124,11 @@ COPY .bashrc_docker ~/.bashrc
 RUN echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc
 RUN echo "conda activate hrgym" >> ~/.bashrc
 RUN echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/.mujoco/mujoco210/bin" >> ~/.bashrc
-
+# Get Eigen3.4
+RUN curl -LJO https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.bz2
+RUN tar -xvf eigen-3.4.0.tar.bz2
+RUN rm eigen-3.4.0.tar.bz2
+RUN echo export CMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH:$(pwd)/eigen-3.4.0" >> ~/.bashrc
 # Entrypoint: Install safety_shield_py and human_robot_gym
 COPY ./ /tmp/human-robot-gym/
 COPY entrypoint.sh ./

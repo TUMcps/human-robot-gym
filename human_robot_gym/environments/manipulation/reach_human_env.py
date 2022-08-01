@@ -470,7 +470,8 @@ class ReachHuman(HumanEnv):
             ].robot_model.get_eef_transformation(self.desired_goal)
 
     def _sample_valid_pos(self):
-        """Randomly sample a new valid joint configuration without self-collisions or collisions with the static environment.
+        """Randomly sample a new valid joint configuration
+            without self-collisions or collisions with the static environment.
 
         Returns:
             joint configuration (np.array)

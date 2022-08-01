@@ -61,8 +61,8 @@ build dockerimage:
   script:
     - docker build -t ${CI_REGISTRY_IMAGE} -f Dockerfile.build .
     - docker push ${CI_REGISTRY_IMAGE}
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
+#  rules:
+#    - if: $CI_PIPELINE_SOURCE == "schedule"
 
 build:
   image:
@@ -76,8 +76,9 @@ build:
     - pwd
     - source /root/.bashrc
     - export CONDA_PREFIX=/opt/conda/envs/hrgym/
-    - echo $CONDA_PREFIX
-    - cd human_robot_gym/controllers/failsafe_controller/
+    - cd human_robot_gym/controllers/failsafe_controller/sara-shield/
+    - export EIGEN3_INCLUDE_DIR=/usr/include/eigen3/eigen-3.4.0
+    - echo $EIGEN3_INCLUDE_DIR
     - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
     - /opt/conda/envs/hrgym/bin/python -c "import safety_shield_py"
     - cd /builds/cps-rl/human-robot-gym
@@ -93,8 +94,9 @@ test safety shield:
   script:
     - source /root/.bashrc
     - export CONDA_PREFIX=/opt/conda/envs/hrgym/
-    - echo $CONDA_PREFIX
-    - cd human_robot_gym/controllers/failsafe_controller/
+    - cd human_robot_gym/controllers/failsafe_controller/sara-shield/
+    - export EIGEN3_INCLUDE_DIR=/usr/include/eigen3/eigen-3.4.0
+    - echo $EIGEN3_INCLUDE_DIR
     - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
     - cd safety_shield/tests
     - /opt/conda/envs/hrgym/bin/python -m pytest
