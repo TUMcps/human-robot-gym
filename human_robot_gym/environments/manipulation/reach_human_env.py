@@ -21,6 +21,7 @@ from robosuite.models.arenas import TableArena
 from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import UniformRandomSampler
+from human_robot_gym.utils.mjcf_utils import xml_path_completion
 
 from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import (
     PinocchioManipulatorModel,
@@ -504,6 +505,7 @@ class ReachHuman(HumanEnv):
         self.mujoco_arena = TableArena(
             table_full_size=self.table_full_size,
             table_offset=self.table_offset,
+            xml=xml_path_completion("arenas/table_arena.xml")
         )
 
         # Arena always gets set to zero origin

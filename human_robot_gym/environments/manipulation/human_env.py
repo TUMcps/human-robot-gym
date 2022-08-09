@@ -781,6 +781,7 @@ class HumanEnv(SingleArmEnv):
         self.mujoco_arena = TableArena(
             table_full_size=[1, 1, 0.05],
             table_offset=[0.0, 0.0, 0.8],
+            xml=xml_path_completion("arenas/table_arena.xml")
         )
 
         # Arena always gets set to zero origin

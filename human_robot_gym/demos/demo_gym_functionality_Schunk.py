@@ -46,7 +46,7 @@ if __name__ == "__main__":
             horizon=1000,
             controller_configs=controller_configs,
             use_failsafe_controller=True,
-            visualize_failsafe_controller=True,
+            visualize_failsafe_controller=False,
             visualize_pinocchio=False,
             base_human_pos_offset=[0.0, 0.0, 0.0],
         )
@@ -64,7 +64,7 @@ if __name__ == "__main__":
         t1 = time.time()
         for t in range(t_max):
             # env.render()
-            action = env.action_space.sample()
+            action = [0, 0, 0, 0, 0, 0, 0]  # env.action_space.sample()
             observation, reward, done, info = env.step(action)
             if done or t == t_max:
                 print("Episode finished after {} timesteps".format(t + 1))
