@@ -2,7 +2,7 @@
   <asset>
     <texture builtin="gradient" height="256" rgb1=".9 .9 1." rgb2=".2 .3 .4" type="skybox" width="256"/>
     <texture file="../textures/ceramic.png" type="2d" name="texplane"/>
-    <material name="floorplane" reflectance="0.01" shininess="0.0" specular="0.0" texrepeat="2 2" texture="texplane" texuniform="true"/>
+    <material name="floorplane" reflectance="0.00" shininess="0.0" specular="0.0" texrepeat="2 2" texture="texplane" texuniform="true"/>
     <!-- ceramic table texture and material-->
     <texture file="../textures/metal.png" type="cube" name="tex-ceramic"/>
     <material name="table_ceramic" reflectance="0.0" shininess="0.0" specular="0.2" texrepeat="1 1" texture="tex-ceramic" />
@@ -19,7 +19,7 @@
   </asset>
   <worldbody>
     <!-- Floor -->
-    <geom condim="3" material="floorplane" name="floor" pos="0 0 0" size="8 8 .125" type="plane"/>
+    <geom condim="3" material="floorplane" name="floor" pos="0 0 0" size="10 10 .125" type="plane"/>
     <!-- Table body -->
     <body name="table" pos="0 0 0.4">
       <geom pos="0 0 0" size="0.4 0.4 0.4" type="box" group="0" name="table_collision" friction="1 0.005 0.0001"/>
@@ -35,7 +35,7 @@
     <light name="light1" diffuse=".8 .8 .8" dir="0 -.15 -1" directional="false" pos="1 1 4.0" specular="0.3 0.3 0.3" castshadow="false"/>
     <light name="light2" diffuse=".8 .8 .8" dir="0 -.15 -1" directional="false" pos="-3. -3. 4.0" specular="0.3 0.3 0.3" castshadow="false"/>
     <!-- front view -->
-    <camera mode="fixed" name="frontview" pos="1.6 0 1.45" quat="0.56 0.43 0.43 0.56"/>
+    <camera mode="fixed" name="frontview" pos="3 -1 3" quat="0.6408564 0.2988362 0.2988362 0.6408564"/>
     <!-- bird view -->
     <camera mode="fixed" name="birdview" pos="-0.2 0 3.0" quat="0.7071 0 0 0.7071"/>
     <!-- agent view -->
