@@ -10,6 +10,8 @@ to train a safe RL agent with work space position actions.
 
 Note that some goals are not reachable
 and the motion remains well-behaved at workspace boundaries.
+
+Author: Rafael Cabral
 """
 
 import robosuite as suite
@@ -29,7 +31,6 @@ from human_robot_gym.wrappers.collision_prevention_wrapper import (
 from human_robot_gym.wrappers.ik_position_delta_wrapper import IKPositionDeltaWrapper
 
 if __name__ == "__main__":
-    # Notice how the environment is wrapped by the wrapper
     pybullet_urdf_file = file_path_completion(
         "models/assets/robots/schunk/robot_pybullet.urdf"
     )
@@ -46,7 +47,7 @@ if __name__ == "__main__":
     env = GymWrapper(
         suite.make(
             "ReachHumanCart",
-            robots="Schunk",  # use Sawyer robot
+            robots="Schunk",  # use Schunk robot
             robot_base_offset=[-0.36, 0, 0],
             use_camera_obs=False,  # do not use pixel observations
             has_offscreen_renderer=False,  # not needed since not using pixel obs
