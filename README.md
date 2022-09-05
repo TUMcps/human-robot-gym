@@ -34,9 +34,14 @@ conda env create -f environment.yml
 ```
 All requirements will automatically get installed by conda.
 ### Install the failsafe controller / safety shield
-This requires `cmake`.
+The installation requires `gcc`, `c++>=17`, and `Eigen3` version 3.4 (download it here: https://eigen.tuxfamily.org/index.php?title=Main_Page).
+Set the path to your eigen3 installation to this env variable, e.g.,
 ```
-cd human-robot-gym/human_robot_gym/controllers/failsafe_controller
+export EIGEN3_INCLUDE_DIR="/usr/include/eigen3/eigen-3.4.0"
+```
+Now run
+```
+cd human-robot-gym/human_robot_gym/controllers/failsafe_controller/sara-shield
 pip install -r requirements.txt
 python setup.py install
 ```
@@ -55,12 +60,12 @@ export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so
 
 # Test a demo
 ```
-python human_robot_gym/human_robot_gym/demos/demo_gym_functionality_Schunk.py
+python human_robot_gym/demos/demo_gym_functionality_Schunk.py
 ```
 
 # Run a RL training
 ```
-python human_robot_gym/human_robot_gym/training/train_human_reach_SB3_sac_her.py schunk_sac_her_safe.json --wandb
+python human_robot_gym/training/train_human_reach_SB3_sac_her.py schunk_sac_her_safe.json --wandb
 ```
 
 # Developer's guide

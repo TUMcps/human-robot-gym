@@ -6,9 +6,11 @@ Owner:
     Jakob Thumm (JT)
 
 Contributors:
-
+    Julian Balletshofer (JB)
 Changelog:
     2.5.22 JT Formatted docstrings
+    13.7.22 JB adjusted observation space (sensors) to relative
+                distances eef and L_hand,R_hand,Head
 """
 
 from typing import Dict, Union, List
@@ -229,7 +231,7 @@ class HumanEnv(SingleArmEnv):
         human_animation_names=[
             "62_01",
             "62_03",
-            "62_03",
+            "62_04",
             "62_07",
             "62_09",
             "62_10",
@@ -420,10 +422,21 @@ class HumanEnv(SingleArmEnv):
 
         achieved_goal = self._get_achieved_goal_from_obs(observations)
         desired_goal = self._get_desired_goal_from_obs(observations)
-        self.goal_reached = self._check_success(desired_goal, achieved_goal)
+        self.goal_reached = self._check_success(
+            achieved_goal=achieved_goal,
+            desired_goal=desired_goal
+            )
         info = self._get_info()
-        reward = self._compute_reward(desired_goal, achieved_goal, info)
-        done = self._compute_done(desired_goal, achieved_goal, info)
+        reward = self._compute_reward(
+            achieved_goal=achieved_goal,
+            desired_goal=desired_goal,
+            info=info
+            )
+        done = self._compute_done(
+            achieved_goal=achieved_goal,
+            desired_goal=desired_goal,
+            info=info
+            )
 
         if self.viewer is not None and self.renderer != "mujoco":
             self.viewer.update()
@@ -928,6 +941,22 @@ class HumanEnv(SingleArmEnv):
             for i in range(len(self.robots)):
                 self.robots[i].controller = self.failsafe_controller[i]
 
+    def _reset_controller(self):
+        """Reset all failsafe controllers."""
+        if self.use_failsafe_controller:
+            if self.failsafe_controller is not None:
+                for i in range(len(self.failsafe_controller)):
+                    self.failsafe_controller[i].reset(
+                        init_qpos=self.robots[i].init_qpos,
+                        base_pos=self.robots[i].base_pos,
+                        base_orientation=self.robots[i].base_ori
+                    )
+            else:
+                self._create_new_controller()
+            self._override_controller()
+        else:
+            self.failsafe_controller = None
+
     def _set_human_measurement(self, human_measurement, time):
         """Set the human measurement in the failsafe controller.
 
@@ -998,7 +1027,63 @@ class HumanEnv(SingleArmEnv):
                     axis=-1,
                 )
 
-            sensors = [gripper_pos, human_joint_pos]
+            @sensor(modality=modality)
+            def human_lh_to_eff(obs_cache):
+                """Return the distance from the human left hand to the end effector in each world coordinate."""
+                return (
+                    [
+                        np.linalg.norm(
+                            np.sum(
+                                    obs_cache[f"{pf}eef_pos"][i] -
+                                    self.sim.data.get_site_xpos(
+                                        self.human.left_hand)[i]
+                                )
+                        ) for i in range(3)
+                    ]
+                    if f"{pf}eef_pos" in obs_cache
+                    else np.zeros(3)
+                )
+
+            @sensor(modality=modality)
+            def human_rh_to_eff(obs_cache):
+                """Return the distance from the human right hand to the end effector in each world coordinate."""
+                return (
+                    [
+                        np.linalg.norm(
+                            np.sum(
+                                    obs_cache[f"{pf}eef_pos"][i] -
+                                    self.sim.data.get_site_xpos(
+                                        self.human.right_hand)[i]
+                                )
+                        ) for i in range(3)
+                    ]
+                    if f"{pf}eef_pos" in obs_cache
+                    else np.zeros(3)
+                )
+
+            @sensor(modality=modality)
+            def human_head_to_eff(obs_cache):
+                """Return the distance from the human head to the end effector in each world coordinate."""
+                return (
+                    [
+                        np.linalg.norm(
+                            np.sum(
+                                    obs_cache[f"{pf}eef_pos"][i] -
+                                    self.sim.data.get_site_xpos(
+                                        self.human.head)[i]
+                                )
+                        ) for i in range(3)
+                    ]
+                    if f"{pf}eef_pos" in obs_cache
+                    else np.zeros(3)
+                )
+
+            sensors = [
+                gripper_pos,
+                human_head_to_eff,
+                human_lh_to_eff,
+                human_rh_to_eff]
+
             names = [s.__name__ for s in sensors]
 
             # Create observables
@@ -1015,8 +1100,7 @@ class HumanEnv(SingleArmEnv):
         """Reset the simulation internal configurations."""
         super()._reset_internal()
 
-        self._create_new_controller()
-        self._override_controller()
+        self._reset_controller()
         self._reset_pin_models()
 
         # Reset collision information
@@ -1085,7 +1169,7 @@ class HumanEnv(SingleArmEnv):
             # Rotate to next human animation
             self.human_animation_id = (
                 self.human_animation_id + 1
-                if self.human_animation_id < len(self.human_animations) - 2
+                if self.human_animation_id < len(self.human_animations) - 1
                 else 0
             )
             self.animation_time = 0
