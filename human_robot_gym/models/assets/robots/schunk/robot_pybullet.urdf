@@ -32,13 +32,13 @@
     <visual>
       <origin rpy="0 3.141592653589793 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/rafael/robotsuite_intro/schunk/arm_base_link.stl"/>
+        <mesh filename="package://schunk/meshes/arm_base_link.stl"/>
       </geometry>
     </visual>
     <collision>
       <origin rpy="0 3.141592653589793 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/rafael/robotsuite_intro/schunk/arm_base_link.stl"/>
+        <mesh filename="package://schunk/meshes/arm_base_link.stl"/>
       </geometry>
     </collision>
   </link>
