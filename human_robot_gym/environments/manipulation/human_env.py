@@ -401,7 +401,7 @@ class HumanEnv(SingleArmEnv):
                 self.sim.forward()
                 if not self.has_collision:
                     self._collision_detection()
-            self._update_observables()
+                self._update_observables()
             policy_step = False
             self.low_level_time += 1
 
