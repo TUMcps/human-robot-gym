@@ -31,6 +31,7 @@ conda config --set channel_priority strict
 and create the `hrgym` conda environment:
 ```
 conda env create -f environment.yml
+conda activate hrgym
 ```
 All requirements will automatically get installed by conda.
 ### Install the failsafe controller / safety shield
