@@ -307,7 +307,10 @@ class FailsafeController(JointPositionController):
             self.set_goal(np.zeros(self.control_dim))
 
         # Update state
-        self.update()
+        # self.update() <- takes forever
+        self.sim.forward()
+        self.joint_pos = np.array(self.sim.data.qpos[self.qpos_index])
+        self.joint_vel = np.array(self.sim.data.qvel[self.qvel_index])
 
         current_time = self.sim.data.time
         self.desired_motion = self.safety_shield.step(current_time)

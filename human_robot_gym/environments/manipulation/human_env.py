@@ -991,6 +991,17 @@ class HumanEnv(SingleArmEnv):
         ), "No human animation frequency faster than {} Hz is allowed".format(
             self.model_freq
         )
+        self.human_joint_addr = []
+        self.human_joint_names = []
+        for joint_element in self.human.joint_elements:
+            for dim in ["_x", "_y", "_z"]:
+                joint_name = joint_element + dim
+                self.human_joint_names.append(joint_name)
+                self.human_joint_addr.append(
+                    self.sim.model.get_joint_qpos_addr(
+                        self.human.naming_prefix + joint_name
+                    )
+                )
 
     def _setup_observables(self):
         """Set up observables to be used for this environment.
@@ -1218,28 +1229,9 @@ class HumanEnv(SingleArmEnv):
         self.sim.model.body_pos[human_body_id] = human_pos
         self.sim.model.body_quat[human_body_id] = human_quat
         # Set rotation of all other joints
-        for joint_element in self.human.joint_elements:
-            joint_name = joint_element + "_x"
-            self.sim.data.set_joint_qpos(
-                self.human.naming_prefix + joint_name,
-                self.human_animations[self.human_animation_id][joint_name][
-                    self.animation_time
-                ],
-            )
-            joint_name = joint_element + "_y"
-            self.sim.data.set_joint_qpos(
-                self.human.naming_prefix + joint_name,
-                self.human_animations[self.human_animation_id][joint_name][
-                    self.animation_time
-                ],
-            )
-            joint_name = joint_element + "_z"
-            self.sim.data.set_joint_qpos(
-                self.human.naming_prefix + joint_name,
-                self.human_animations[self.human_animation_id][joint_name][
-                    self.animation_time
-                ],
-            )
+        all_joint_pos = [self.human_animations[self.human_animation_id][key][self.animation_time]
+                         for key in self.human_joint_names]
+        self.sim.data.qpos[self.human_joint_addr] = all_joint_pos
 
     def _human_measurement(self):
         """Retrieve the human measurements and save them to self.human_measurement."""
