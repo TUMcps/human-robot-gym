@@ -4,28 +4,28 @@ channels:
 dependencies:
   - pip>=22.0.4
   - python=3.8
-  - gym>=0.21
-  - meshcat-python==0.3.2
-  - numpy==1.22.3
-  - scipy==1.8.0
-  - numba>=0.52.0,<=0.53.1
-  - wandb>=0.12
-  - flake8>=4.0
-  - black>=22.3
-  - patchelf>=0.14
-  - h5py>=3.6
-  - hpp-fcl
-  - tensorboard>=2.8
-  - pydocstyle>=6.1
-  - mypy
-  - pytest==7.1.1
-  - eigenpy>=2.6.9
+  - gym=0.21
+  - meshcat-python=0.3.2
+  - numpy=1.22.3
+  - scipy=1.8.0
+  - 'numba>=0.52.0,<=0.53.1'
+  - wandb=0.13.1
+  - flake8=5.0.4
+  - black=22.6.0
+  - patchelf=0.15.0
+  - h5py=3.7.0
+  - tensorboard=2.10.0
+  - pydocstyle=6.1.1
+  - mypy=0.971
+  - pytest=7.1.1
   - pip:
     # works for regular pip packages
     - bvh==0.3
     - stable_baselines3==1.5.0
     - robosuite==1.3.2
-    - mujoco-py<2.2,>=2.1
+    - mujoco-py==2.1.2.14
     - opencv_python==4.5.5.64
-    - pin==2.6.4
+    - eigenpy==2.7.14
+    - hpp-fcl==2.1.3
+    - pin==2.6.10
     - pybullet==3.2.1
