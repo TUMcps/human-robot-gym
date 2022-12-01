@@ -85,7 +85,7 @@ build:
     - /opt/conda/envs/hrgym/bin/pip install .
     - /opt/conda/envs/hrgym/bin/python -c "import robosuite"
     - /opt/conda/envs/hrgym/bin/python -c "import pinocchio"
-    - /opt/conda/envs/hrgym/bin/python -c "from human_robot_gym import *"
+    # - /opt/conda/envs/hrgym/bin/python -c "from human_robot_gym import *"
 
 # We build the packages again because they don't take too much time and artifacts are complicated.
 test safety shield:
