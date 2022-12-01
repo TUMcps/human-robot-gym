@@ -70,7 +70,7 @@ build:
   stage: build
   needs:
     - job: build dockerimage
-      optional: true
+      optional: false
   tags: [python, unittest]
   script:
     - pwd
