@@ -19,7 +19,7 @@ use the env variable `MUJOCO_PY_MUJOCO_PATH`.
 
 Under linux, make sure to install: 
 ```
-sudo apt install -y libosmesa6-dev libgl1-mesa-glx libglfw3 libeigen3-dev libgtest-dev
+sudo apt install -y libosmesa6-dev libgl1-mesa-glx libglfw3 libgtest-dev
 ```
 ### Setup anaconda environment
 If you haven't done already, [install anaconda](https://docs.anaconda.com/anaconda/install/linux/).
@@ -31,6 +31,7 @@ conda config --set channel_priority strict
 and create the `hrgym` conda environment:
 ```
 conda env create -f environment.yml
+conda activate hrgym
 ```
 All requirements will automatically get installed by conda.
 ### Install the failsafe controller / safety shield
