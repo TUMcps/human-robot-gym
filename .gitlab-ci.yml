@@ -61,8 +61,8 @@ build dockerimage:
   script:
     - docker build -t ${CI_REGISTRY_IMAGE} -f Dockerfile.build .
     - docker push ${CI_REGISTRY_IMAGE}
-  #rules:
-  #  - if: $CI_PIPELINE_SOURCE == "schedule"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
 
 build:
   image:
@@ -70,7 +70,7 @@ build:
   stage: build
   needs:
     - job: build dockerimage
-      optional: false
+      optional: true
   tags: [python, unittest]
   script:
     - pwd
@@ -83,6 +83,8 @@ build:
     - /opt/conda/envs/hrgym/bin/python -c "import safety_shield_py"
     - cd /builds/cps-rl/human-robot-gym
     - /opt/conda/envs/hrgym/bin/pip install .
+    - /opt/conda/envs/hrgym/bin/python -c "import robosuite"
+    - /opt/conda/envs/hrgym/bin/python -c "import pinocchio"
     - /opt/conda/envs/hrgym/bin/python -c "import human_robot_gym"
 
 # We build the packages again because they don't take too much time and artifacts are complicated.
