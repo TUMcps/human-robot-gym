@@ -299,7 +299,7 @@ class HumanEnv(SingleArmEnv):
 
         self.base_human_pos_offset = base_human_pos_offset
         # Input to scipy: quat = [x, y, z, w]
-        self.human_base_quat = Rotation.from_quat([0.7071068, 0, 0, 0.7071068])
+        self.human_base_quat = Rotation.from_quat([0.5, 0.5, 0.5, 0.5])
         self.human_animation_freq = human_animation_freq
         self.low_level_time = int(0)
         self.human_animation_id = 0
@@ -372,7 +372,8 @@ class HumanEnv(SingleArmEnv):
             raise ValueError("executing action in terminated episode")
 
         self.timestep += 1
-
+        # Reset collision variable
+        self.has_collision = False
         # Since the env.step frequency is slower than the mjsim timestep frequency, the internal controller will output
         # multiple torque commands in between new high level action commands. Therefore, we need to denote via
         # 'policy_step' whether the current step we're taking is simply an internal update of the controller,
@@ -1030,53 +1031,26 @@ class HumanEnv(SingleArmEnv):
             @sensor(modality=modality)
             def human_lh_to_eff(obs_cache):
                 """Return the distance from the human left hand to the end effector in each world coordinate."""
-                return (
-                    [
-                        np.linalg.norm(
-                            np.sum(
-                                    obs_cache[f"{pf}eef_pos"][i] -
-                                    self.sim.data.get_site_xpos(
-                                        self.human.left_hand)[i]
-                                )
-                        ) for i in range(3)
-                    ]
-                    if f"{pf}eef_pos" in obs_cache
-                    else np.zeros(3)
-                )
+                if f"{pf}eef_pos" in obs_cache:
+                    return self.sim.data.get_site_xpos(self.human.left_hand)[:3] - obs_cache[f"{pf}eef_pos"][:3]
+                else:
+                    return np.zeros(3)
 
             @sensor(modality=modality)
             def human_rh_to_eff(obs_cache):
                 """Return the distance from the human right hand to the end effector in each world coordinate."""
-                return (
-                    [
-                        np.linalg.norm(
-                            np.sum(
-                                    obs_cache[f"{pf}eef_pos"][i] -
-                                    self.sim.data.get_site_xpos(
-                                        self.human.right_hand)[i]
-                                )
-                        ) for i in range(3)
-                    ]
-                    if f"{pf}eef_pos" in obs_cache
-                    else np.zeros(3)
-                )
+                if f"{pf}eef_pos" in obs_cache:
+                    return self.sim.data.get_site_xpos(self.human.right_hand)[:3] - obs_cache[f"{pf}eef_pos"][:3]
+                else:
+                    return np.zeros(3)
 
             @sensor(modality=modality)
             def human_head_to_eff(obs_cache):
                 """Return the distance from the human head to the end effector in each world coordinate."""
-                return (
-                    [
-                        np.linalg.norm(
-                            np.sum(
-                                    obs_cache[f"{pf}eef_pos"][i] -
-                                    self.sim.data.get_site_xpos(
-                                        self.human.head)[i]
-                                )
-                        ) for i in range(3)
-                    ]
-                    if f"{pf}eef_pos" in obs_cache
-                    else np.zeros(3)
-                )
+                if f"{pf}eef_pos" in obs_cache:
+                    return self.sim.data.get_site_xpos(self.human.head)[:3] - obs_cache[f"{pf}eef_pos"][:3]
+                else:
+                    return np.zeros(3)
 
             sensors = [
                 gripper_pos,

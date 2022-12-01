@@ -183,7 +183,7 @@ class ReachHumanCart(ReachHuman):
         controller_configs=None,
         gripper_types="default",
         initialization_noise="default",
-        table_full_size=(0.4, 0.8, 0.05),
+        table_full_size=(1.0, 2.50, 0.05),
         table_friction=(1.0, 5e-3, 1e-4),
         use_camera_obs=True,
         use_object_obs=True,
@@ -218,7 +218,7 @@ class ReachHumanCart(ReachHuman):
         human_animation_names=[
             "62_01",
             "62_03",
-            "62_03",
+            "62_04",
             "62_07",
             "62_09",
             "62_10",
