@@ -217,7 +217,7 @@ class HumanEnv(SingleArmEnv):
         horizon=1000,
         ignore_done=False,
         hard_reset=True,
-        camera_names="agentview",
+        camera_names="frontview",
         camera_heights=256,
         camera_widths=256,
         camera_depths=False,
@@ -782,6 +782,7 @@ class HumanEnv(SingleArmEnv):
         self.mujoco_arena = TableArena(
             table_full_size=[1, 1, 0.05],
             table_offset=[0.0, 0.0, 0.8],
+            xml=xml_path_completion("arenas/table_arena.xml")
         )
 
         # Arena always gets set to zero origin
