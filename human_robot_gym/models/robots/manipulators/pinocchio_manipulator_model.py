@@ -229,7 +229,7 @@ class PinocchioManipulatorModel(ManipulatorModel):
             self.configuration,
             True
         )
-        for k in range(len(self.collision.collisionPairs)): 
+        for k in range(len(self.collision.collisionPairs)):
             cr = self.collision_data.collisionResults[k]
             if cr.isCollision():
                 return True
