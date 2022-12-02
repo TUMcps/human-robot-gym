@@ -12,7 +12,7 @@ from robosuite.controllers import load_controller_config
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 import human_robot_gym.environments.manipulation.reach_human_env  # noqa: F401
 import human_robot_gym.robots  # noqa: F401
-from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
+from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper  # noqa: F401
 from human_robot_gym.wrappers.collision_prevention_wrapper import (
     CollisionPreventionWrapper,
 )
@@ -66,4 +66,3 @@ if __name__ == "__main__":
     )
 
     cProfile.run("run_episode(env)", sort="cumtime")
-    stop=0

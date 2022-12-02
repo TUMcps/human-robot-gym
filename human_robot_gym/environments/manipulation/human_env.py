@@ -637,7 +637,7 @@ class HumanEnv(SingleArmEnv):
             if robot_model.check_collision(q, collision_obstacle):
                 return False
         # Self-collision
-        return not (robot_model.has_self_collision(q, self.self_collision_safety))
+        return not robot_model.has_self_collision(q)
 
     def _collision_detection(self):
         """Detect true collisions in the simulation between the robot and the environment.

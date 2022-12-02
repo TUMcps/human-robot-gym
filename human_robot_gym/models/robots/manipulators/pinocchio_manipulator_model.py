@@ -201,7 +201,8 @@ class PinocchioManipulatorModel(ManipulatorModel):
         return False
 
     def has_self_collision(
-        self, q: np.ndarray = None, safety_dist: float = 0.0
+        self,
+        q: np.ndarray = None
     ) -> bool:
         """Return true if there are any self collisions in the current robot configuration.
 
@@ -210,25 +211,27 @@ class PinocchioManipulatorModel(ManipulatorModel):
 
         Args:
             q (np.ndarray): Joint configuration
-            safety_dist (float): Additional distance to the robot links.
 
         Returns:
-            True: Distance between two robot links is smaller than safety_dist.
+            True: Self-collision detected.
             False: No robot link in collision.
         """
         q = q_pin(q) if q is not None else None
         if q is not None:
             self.update_configuration(q)
         self._update_collision_placement()
-        pin.computeDistances(
+        # Stop at first collision
+        pin.computeCollisions(
             self.pin_model,
             self.pin_data,
             self.collision,
             self.collision_data,
             self.configuration,
+            True
         )
-        for dist in self.collision_data.distanceResults:
-            if dist.min_distance <= safety_dist:
+        for k in range(len(self.collision.collisionPairs)): 
+            cr = self.collision_data.collisionResults[k]
+            if cr.isCollision():
                 return True
         return False
 
