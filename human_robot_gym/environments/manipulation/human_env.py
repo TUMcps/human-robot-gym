@@ -27,6 +27,7 @@ import pinocchio as pin
 from robosuite.environments.manipulation.single_arm_env import SingleArmEnv
 from robosuite.models.arenas import TableArena
 from robosuite.models.tasks import ManipulationTask
+import robosuite.utils.macros as macros
 
 # from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
@@ -251,6 +252,7 @@ class HumanEnv(SingleArmEnv):
         self_collision_safety=0.01,
         seed=0,
     ):  # noqa: D107
+        macros.SIMULATION_TIMESTEP = control_sample_time
         self.mujoco_arena = None
         self.seed = seed
         np.random.seed(self.seed)
@@ -397,9 +399,11 @@ class HumanEnv(SingleArmEnv):
                         self.failsafe_interventions += 1
             # Step the simulation n times
             for n in range(int(self.control_sample_time / self.model_timestep)):
-                self.sim.step()
                 self._control_human()
+                # If qpos or qvel have been modified directly, the user is required to call forward() before step() if
+                # their udd_callback requires access to MuJoCo state set during the forward dynamics.
                 self.sim.forward()
+                self.sim.step()
                 if not self.has_collision:
                     self._collision_detection()
                 self._update_observables()
