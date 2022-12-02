@@ -46,7 +46,8 @@ RUN apt-get update --fix-missing \
     libgtest-dev \
     patchelf \
     ssh \
-    curl
+    curl \
+    liboctomap-dev
 
 # Create the environment:
 COPY environment.yml .
