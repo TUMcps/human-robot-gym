@@ -63,8 +63,7 @@ if __name__ == "__main__":
         observation = env.reset()
         t1 = time.time()
         for t in range(t_max):
-            # env.render()
-            action = [0, 0, 0, 0, 0, 0, 0]  # env.action_space.sample()
+            action = env.action_space.sample()
             observation, reward, done, info = env.step(action)
             if done or t == t_max:
                 print("Episode finished after {} timesteps".format(t + 1))
