@@ -31,7 +31,6 @@ if __name__ == "__main__":
         observation = env.reset()
         t1 = time.time()
         for t in range(1000):
-            env.render()
             action = env.action_space.sample()  # np.array([0, 1, 0, 0, 0, 0, 0, 0])
             observation, reward, done, info = env.step(action)
             if done:
