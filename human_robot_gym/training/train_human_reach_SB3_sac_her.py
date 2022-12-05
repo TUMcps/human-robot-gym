@@ -159,6 +159,7 @@ if __name__ == "__main__":
                 "self_collision_safety"
             ],
             seed=training_config["algorithm"]["seed"],
+            done_at_collision=training_config["environment"]["done_at_collision"]
         )
     )
     # << Environment Wrappers >>
@@ -174,8 +175,8 @@ if __name__ == "__main__":
 
     now = datetime.now()
     load_episode = -1
-    if load_episode in training_config["algorithm"]:
-        load_episode = training_config["algorithm"]
+    if "load_episode" in training_config["algorithm"]:
+        load_episode = training_config["algorithm"]["load_episode"]
         if load_episode >= 0:
             if "run_id" in training_config["algorithm"]:
                 run_id = training_config["algorithm"]["run_id"]
@@ -288,8 +289,7 @@ if __name__ == "__main__":
     # << Train the agent >>
     if not training_config["algorithm"]["test_only"]:
         model.learn(
-            total_timesteps=training_config["algorithm"]["n_episodes"]
-            * training_config["algorithm"]["max_ep_len"],
+            total_timesteps=(training_config["algorithm"]["n_episodes"] * training_config["algorithm"]["max_ep_len"]),
             log_interval=training_config["algorithm"]["log_interval"],
             reset_num_timesteps=(load_episode == -1),
             callback=callback,

@@ -19,7 +19,6 @@ from scipy.spatial.transform import Rotation
 from robosuite.controllers.joint_pos import JointPositionController
 from robosuite.utils.control_utils import set_goal_position
 
-from safety_shield_py import Motion
 from safety_shield_py import SafetyShield
 
 from .plot_capsule import PlotCapsule
@@ -167,10 +166,10 @@ class FailsafeController(JointPositionController):
             activate_shield=True,
             sample_time=control_sample_time,
             trajectory_config_file=dir_path
-            + "/../safety_shield/config/trajectory_parameters_schunk.yaml",
+            + "/../sara-shield/safety_shield/config/trajectory_parameters_schunk.yaml",
             robot_config_file=dir_path
-            + "/../safety_shield/config/robot_parameters_schunk.yaml",
-            mocap_config_file=dir_path + "/../safety_shield/config/mujoco_mocap.yaml",
+            + "/../sara-shield/safety_shield/config/robot_parameters_schunk.yaml",
+            mocap_config_file=dir_path + "/../sara-shield/safety_shield/config/mujoco_mocap.yaml",
             init_x=base_pos[0],
             init_y=base_pos[1],
             init_z=base_pos[2],
@@ -182,13 +181,60 @@ class FailsafeController(JointPositionController):
         self.desired_motion = self.safety_shield.step(0.0)
         self.robot_capsules = []
         self.human_capsules = []
-
+        # Place holder for dynamic variables
+        self.command_vel = [0.0 for i in init_qpos]
+        self.robot_cap_in = []
+        self.human_cap_in = []
         # Debug path following
+
+        # self.desired_pos_dbg = np.zeros([1000, 6])
+        # self.joint_pos_dbg = np.zeros([1000, 6])
+        # self.dbg_c = 0
+
+    def reset(self,
+              init_qpos,
+              base_pos=[0.0, 0.0, 0.0],
+              base_orientation=[0.0, 0.0, 0.0, 1.0]):
+        """Reset the failsafe controller.
+
+        Args:
+            init_qpos (list[double]): Initial joint angles
+            base_pos (list[double]): position of base [x, y, z]
+            base_orientation (list[double]): orientation of base as quaternion [x, y, z, w]
         """
-        self.desired_pos_dbg = np.zeros([1000, 6])
-        self.joint_pos_dbg = np.zeros([1000, 6])
-        self.dbg_c = 0
-        """
+        self.goal_qpos = None
+        # Torques being outputted by the controller
+        self.torques = None
+        # Update flag to prevent redundant update calls
+        self.new_update = True
+        # Move forward one timestep to propagate updates before taking first update
+        self.sim.forward()
+        # Initialize controller by updating internal state and setting the initial joint, pos, and ori
+        self.update()
+        self.initial_joint = self.joint_pos
+        self.initial_ee_pos = self.ee_pos
+        self.initial_ee_ori_mat = self.ee_ori_mat
+        # Control dimension
+        rot = Rotation.from_quat(
+            [
+                base_orientation[0],
+                base_orientation[1],
+                base_orientation[2],
+                base_orientation[3],
+            ]
+        )
+        rpy = rot.as_euler("XYZ")
+        self.safety_shield.reset(
+            activate_shield=True,
+            init_x=base_pos[0],
+            init_y=base_pos[1],
+            init_z=base_pos[2],
+            init_roll=rpy[0],
+            init_pitch=rpy[1],
+            init_yaw=rpy[2],
+            init_qpos=init_qpos,
+            current_time=self.sim.data.time
+        )
 
     def set_goal(self, action, set_qpos=None):
         """Set goal based on input action.
@@ -238,8 +284,7 @@ class FailsafeController(JointPositionController):
             raise NotImplementedError
             # self.interpolator.set_goal(self.goal_qpos)
 
-        motion = Motion(0.0, self.goal_qpos)
-        self.safety_shield.newLongTermTrajectory(motion)
+        self.safety_shield.newLongTermTrajectory(self.goal_qpos, self.command_vel)
 
     def set_human_measurement(self, human_measurement, time):
         """Set the human measurement of the safety shield.
@@ -262,36 +307,50 @@ class FailsafeController(JointPositionController):
             self.set_goal(np.zeros(self.control_dim))
 
         # Update state
-        self.update()
+        # self.update() <- takes forever
+        # self.sim.forward()
+        self.joint_pos = np.array(self.sim.data.qpos[self.qpos_index])
+        self.joint_vel = np.array(self.sim.data.qvel[self.qvel_index])
 
         current_time = self.sim.data.time
         self.desired_motion = self.safety_shield.step(current_time)
         desired_qpos = self.desired_motion.getAngle()
+        desired_qvel = self.desired_motion.getVelocity()
+        desided_qacc = self.desired_motion.getAcceleration()
         # Debug path following -> How well is the robot following the desired trajectory.
         # You can use this to tune your PID values
-        """
-        self.desired_pos_dbg[self.dbg_c] = desired_qpos
-        self.joint_pos_dbg[self.dbg_c] = self.joint_pos
-        self.dbg_c+=1
-        if self.dbg_c == 1000:
-          plt.plot(np.arange(0, self.dbg_c), self.desired_pos_dbg[0:self.dbg_c, 0], label='desired pos')
-          plt.plot(np.arange(0, self.dbg_c), self.joint_pos_dbg[0:self.dbg_c, 0], label='joint pos')
-          plt.xlabel("Step")
-          plt.ylabel("Angle [rad]")
-          plt.legend()
-          plt.show()
-          self.dbg_c=0
-        """
+
+        # self.desired_pos_dbg[self.dbg_c] = desired_qpos
+        # self.joint_pos_dbg[self.dbg_c] = self.joint_pos
+        # self.dbg_c+=1
+
+        # if self.dbg_c == 1000:
+        #     fig, axs = plt.subplots(self.control_dim)
+        #     for joint in range(self.control_dim):
+        #         ax = axs[joint]
+        #         ax.plot(np.arange(0, self.dbg_c), self.desired_pos_dbg[0:self.dbg_c, joint], label='desired pos')
+        #         ax.plot(np.arange(0, self.dbg_c), self.joint_pos_dbg[0:self.dbg_c, joint], label='joint pos')
+        #         # ax.set_xlabel("Step")
+        #         # ax.set_ylabel("Angle [rad]")
+        #         # ax.set_title(f"Joint {joint+1}")
+        #         ax.grid()
+        #     ax.legend()
+        #     fig.suptitle("Joint Angles, PD+ Controller with Grav. Comp.")
+        #     plt.show()
+        #     self.dbg_c=0
+
         # torques = pos_err * kp + vel_err * kd
         position_error = desired_qpos - self.joint_pos
-        vel_pos_error = -self.joint_vel
-        desired_torque = np.multiply(
+        vel_pos_error = desired_qvel - self.joint_vel
+        feedback_torque = np.multiply(
             np.array(position_error), np.array(self.kp)
         ) + np.multiply(vel_pos_error, self.kd)
 
         # Return desired torques plus gravity compensations
+        # Similar to PD+ control, without squared velocity term
         self.torques = (
-            np.dot(self.mass_matrix, desired_torque) + self.torque_compensation
+            np.dot(self.mass_matrix, feedback_torque + desided_qacc)
+            + self.torque_compensation
         )
 
         self.torques = self.clip_torques(torques=self.torques)
@@ -318,15 +377,15 @@ class FailsafeController(JointPositionController):
         Returns:
             list[capsule]
         """
-        capsules = self.safety_shield.getRobotReachCapsules()
+        self.robot_cap_in = self.safety_shield.getRobotReachCapsules()
         if len(self.robot_capsules) == 0:
-            for cap in capsules:
+            for cap in self.robot_cap_in:
                 self.robot_capsules.append(PlotCapsule(cap[0:3], cap[3:6], cap[6]))
         else:
-            assert len(self.robot_capsules) == len(capsules)
-            for i in range(len(capsules)):
+            assert len(self.robot_capsules) == len(self.robot_cap_in)
+            for i in range(len(self.robot_cap_in)):
                 self.robot_capsules[i].update_pos(
-                    capsules[i][0:3], capsules[i][3:6], capsules[i][6]
+                    self.robot_cap_in[i][0:3], self.robot_cap_in[i][3:6], self.robot_cap_in[i][6]
                 )
 
         return self.robot_capsules
@@ -341,15 +400,15 @@ class FailsafeController(JointPositionController):
         Returns:
             list[capsule]
         """
-        capsules = self.safety_shield.getHumanReachCapsules()
+        self.human_cap_in = self.safety_shield.getHumanReachCapsules()
         if len(self.human_capsules) == 0:
-            for cap in capsules:
+            for cap in self.human_cap_in:
                 self.human_capsules.append(PlotCapsule(cap[0:3], cap[3:6], cap[6]))
         else:
-            assert len(self.human_capsules) == len(capsules)
-            for i in range(len(capsules)):
+            assert len(self.human_capsules) == len(self.human_cap_in)
+            for i in range(len(self.human_cap_in)):
                 self.human_capsules[i].update_pos(
-                    capsules[i][0:3], capsules[i][3:6], capsules[i][6]
+                    self.human_cap_in[i][0:3], self.human_cap_in[i][3:6], self.human_cap_in[i][6]
                 )
 
         return self.human_capsules

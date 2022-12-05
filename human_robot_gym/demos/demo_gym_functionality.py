@@ -16,7 +16,7 @@ if __name__ == "__main__":
         suite.make(
             "ReachHuman",
             robots="Panda",  # use Sawyer robot
-            robot_base_offset=[-0.36, 0, 0],
+            robot_base_offset=[0, 0, 0],
             use_camera_obs=False,  # do not use pixel observations
             has_offscreen_renderer=False,  # not needed since not using pixel obs
             has_renderer=True,  # make sure we can render to the screen
@@ -31,7 +31,6 @@ if __name__ == "__main__":
         observation = env.reset()
         t1 = time.time()
         for t in range(1000):
-            env.render()
             action = env.action_space.sample()  # np.array([0, 1, 0, 0, 0, 0, 0, 0])
             observation, reward, done, info = env.step(action)
             if done:

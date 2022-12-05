@@ -5,6 +5,7 @@ For instance, this can be used with our provided training function to train a sa
 
 import robosuite as suite
 import time
+import numpy as np  # noqa: F401
 
 from robosuite.wrappers import GymWrapper
 from robosuite.controllers import load_controller_config
@@ -33,7 +34,7 @@ if __name__ == "__main__":
         suite.make(
             "ReachHuman",
             robots="Schunk",  # use Sawyer robot
-            robot_base_offset=[-0.36, 0, 0],
+            robot_base_offset=[0, 0, 0],
             use_camera_obs=False,  # do not use pixel observations
             has_offscreen_renderer=False,  # not needed since not using pixel obs
             has_renderer=True,  # make sure we can render to the screen
@@ -56,13 +57,13 @@ if __name__ == "__main__":
     )
 
     env = VisualizationWrapper(env)
+
     t_max = 100
     for i_episode in range(20):
         observation = env.reset()
         t1 = time.time()
         for t in range(t_max):
-            env.render()
-            action = env.action_space.sample()  # np.array([0, 0.01, 0, 0, 0, 0, 0])
+            action = env.action_space.sample()
             observation, reward, done, info = env.step(action)
             if done or t == t_max:
                 print("Episode finished after {} timesteps".format(t + 1))

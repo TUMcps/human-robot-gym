@@ -6,12 +6,14 @@ Owner:
     Jakob Thumm (JT)
 
 Contributors:
-
+    Julian Balletshofer (JB)
 Changelog:
     2.5.22 JT Formatted docstrings
+    13.7.22 JB adjusted observation space (sensors) to relative
+                distances eef and L_hand,R_hand,Head
 """
 
-from typing import Dict, Union, List
+from typing import Dict, Union, List, Optional, Tuple
 
 import numpy as np
 import pickle
@@ -25,12 +27,14 @@ import pinocchio as pin
 from robosuite.environments.manipulation.single_arm_env import SingleArmEnv
 from robosuite.models.arenas import TableArena
 from robosuite.models.tasks import ManipulationTask
+import robosuite.utils.macros as macros
 
 # from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
-from robosuite.utils.placement_samplers import UniformRandomSampler
+from robosuite.utils.placement_samplers import UniformRandomSampler, ObjectPositionSampler
 from robosuite.utils.transform_utils import quat2mat
 from robosuite.utils.control_utils import set_goal_position
+from robosuite.models.objects import PrimitiveObject
 
 from human_robot_gym.models.objects.human.human import HumanObject
 from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat
@@ -40,7 +44,7 @@ from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model impo
 from human_robot_gym.controllers.failsafe_controller.failsafe_controller.failsafe_controller import (
     FailsafeController,
 )
-import human_robot_gym.models.objects.obstacle
+import human_robot_gym.models.objects.obstacle as obstacle
 
 
 class COLLISION_TYPE(Enum):
@@ -215,7 +219,7 @@ class HumanEnv(SingleArmEnv):
         horizon=1000,
         ignore_done=False,
         hard_reset=True,
-        camera_names="agentview",
+        camera_names="frontview",
         camera_heights=256,
         camera_widths=256,
         camera_depths=False,
@@ -229,7 +233,7 @@ class HumanEnv(SingleArmEnv):
         human_animation_names=[
             "62_01",
             "62_03",
-            "62_03",
+            "62_04",
             "62_07",
             "62_09",
             "62_10",
@@ -249,6 +253,7 @@ class HumanEnv(SingleArmEnv):
         self_collision_safety=0.01,
         seed=0,
     ):  # noqa: D107
+        macros.SIMULATION_TIMESTEP = control_sample_time
         self.mujoco_arena = None
         self.seed = seed
         np.random.seed(self.seed)
@@ -297,7 +302,7 @@ class HumanEnv(SingleArmEnv):
 
         self.base_human_pos_offset = base_human_pos_offset
         # Input to scipy: quat = [x, y, z, w]
-        self.human_base_quat = Rotation.from_quat([0.7071068, 0, 0, 0.7071068])
+        self.human_base_quat = Rotation.from_quat([0.5, 0.5, 0.5, 0.5])
         self.human_animation_freq = human_animation_freq
         self.low_level_time = int(0)
         self.human_animation_id = 0
@@ -370,7 +375,8 @@ class HumanEnv(SingleArmEnv):
             raise ValueError("executing action in terminated episode")
 
         self.timestep += 1
-
+        # Reset collision variable
+        self.has_collision = False
         # Since the env.step frequency is slower than the mjsim timestep frequency, the internal controller will output
         # multiple torque commands in between new high level action commands. Therefore, we need to denote via
         # 'policy_step' whether the current step we're taking is simply an internal update of the controller,
@@ -394,12 +400,14 @@ class HumanEnv(SingleArmEnv):
                         self.failsafe_interventions += 1
             # Step the simulation n times
             for n in range(int(self.control_sample_time / self.model_timestep)):
-                self.sim.step()
                 self._control_human()
+                # If qpos or qvel have been modified directly, the user is required to call forward() before step() if
+                # their udd_callback requires access to MuJoCo state set during the forward dynamics.
                 self.sim.forward()
+                self.sim.step()
                 if not self.has_collision:
                     self._collision_detection()
-            self._update_observables()
+                self._update_observables()
             policy_step = False
             self.low_level_time += 1
 
@@ -420,10 +428,21 @@ class HumanEnv(SingleArmEnv):
 
         achieved_goal = self._get_achieved_goal_from_obs(observations)
         desired_goal = self._get_desired_goal_from_obs(observations)
-        self.goal_reached = self._check_success(desired_goal, achieved_goal)
+        self.goal_reached = self._check_success(
+            achieved_goal=achieved_goal,
+            desired_goal=desired_goal
+            )
         info = self._get_info()
-        reward = self._compute_reward(desired_goal, achieved_goal, info)
-        done = self._compute_done(desired_goal, achieved_goal, info)
+        reward = self._compute_reward(
+            achieved_goal=achieved_goal,
+            desired_goal=desired_goal,
+            info=info
+            )
+        done = self._compute_done(
+            achieved_goal=achieved_goal,
+            desired_goal=desired_goal,
+            info=info
+            )
 
         if self.viewer is not None and self.renderer != "mujoco":
             self.viewer.update()
@@ -623,7 +642,7 @@ class HumanEnv(SingleArmEnv):
             if robot_model.check_collision(q, collision_obstacle):
                 return False
         # Self-collision
-        return not (robot_model.has_self_collision(q, self.self_collision_safety))
+        return not robot_model.has_self_collision(q)
 
     def _collision_detection(self):
         """Detect true collisions in the simulation between the robot and the environment.
@@ -768,17 +787,14 @@ class HumanEnv(SingleArmEnv):
         self.mujoco_arena = TableArena(
             table_full_size=[1, 1, 0.05],
             table_offset=[0.0, 0.0, 0.8],
+            xml=xml_path_completion("arenas/table_arena.xml")
         )
 
         # Arena always gets set to zero origin
-        self.mujoco_arena.set_origin([0, 0, 0])
+        self._set_origin()
 
         # Modify default agentview camera
-        self.mujoco_arena.set_camera(
-            camera_name="agentview",
-            pos=[0.0, -1.5, 1.5],
-            quat=[-0.0705929, 0.0705929, 0.7035742, 0.7035742],
-        )
+        self._set_mujoco_camera()
 
         # << OBJECTS >>
         # Objects are elements that can be moved around and manipulated.
@@ -787,76 +803,155 @@ class HumanEnv(SingleArmEnv):
         # Placement sampler for objects
         bin_x_half = self.table_full_size[0] / 2 - 0.05
         bin_y_half = self.table_full_size[1] / 2 - 0.05
-        if self.object_placement_initializer is not None:
-            self.object_placement_initializer.reset()
-            self.object_placement_initializer.add_objects(self.objects)
-        else:
-            self.object_placement_initializer = UniformRandomSampler(
-                name="ObjectSampler",
-                mujoco_objects=self.objects,
-                x_range=[-bin_x_half, bin_x_half],
-                y_range=[-bin_y_half, bin_y_half],
-                rotation=(0, 0),
-                rotation_axis="z",
-                ensure_object_boundary_in_range=False,
-                ensure_valid_placement=False,
-                reference_pos=[0, 0, 0.8],
-                z_offset=0.0,
-            )
+        self.object_placement_initializer = self._setup_placement_initializer(
+            name="ObjectSampler",
+            initializer=self.object_placement_initializer,
+            objects=self.objects,
+            x_range=[-bin_x_half, bin_x_half],
+            y_range=[-bin_y_half, bin_y_half],
+        )
         # << OBSTACLES >>
+        self._setup_collision_objects(
+            add_table=True,
+            add_base=True,
+            safety_margin=0.01
+        )
         # Obstacles are elements that the robot should avoid.
-        safety_margin = 0.05
-        # Box example
-        # l = np.array([0.4, 0.4, 0.4])
-        # box = BoxObject(
-        #     name = "Table",
-        #     size = l*0.5,
-        #     rgba = [0.5, 0.5, 0.5, 1],
-        # )
         self.obstacles = []
-        # Obstacles should also have a collision object
-        coll_table = human_robot_gym.models.objects.obstacle.Box(
-            name="Table",
-            x=self.table_full_size[0] + safety_margin,
-            y=self.table_full_size[1] + safety_margin,
-            z=self.table_offset[2] + safety_margin,
-            translation=np.array(
-                [
-                    self.table_offset[0],
-                    self.table_offset[1],
-                    (self.table_offset[2] + safety_margin) / 2,
-                ]
-            ),
+        self.obstacle_placement_initializer = self._setup_placement_initializer(
+            name="ObstacleSampler",
+            initializer=self.obstacle_placement_initializer,
+            objects=self.obstacles,
         )
-        coll_base = human_robot_gym.models.objects.obstacle.Cylinder(
-            name="Base",
-            r=0.2 + safety_margin,
-            z=0.91 + safety_margin,
-            translation=np.array([-0.46, 0, 0.455]),
-        )
-        coll_computer = human_robot_gym.models.objects.obstacle.Box(
-            name="Computer", x=0.3, y=0.5, z=0.7, translation=np.array([-0.9, 0, 0.35])
-        )
-        self.collision_obstacles = [coll_table, coll_base, coll_computer]
-        # Matches sim joint names to the collision obstacles
-        # self.collision_obstacles_joints["Box"] = (box.joints[0], coll_box)
-        # Placement sampler for obstacles
-        if self.obstacle_placement_initializer is not None:
-            self.obstacle_placement_initializer.reset()
-            self.obstacle_placement_initializer.add_objects(self.obstacles)
+
+    def _setup_placement_initializer(
+        self,
+        name: str,
+        initializer: Optional[ObjectPositionSampler] = None,
+        objects: List[PrimitiveObject] = [],
+        x_range: Tuple[float, float] = (0.0, 0.0),
+        y_range: Tuple[float, float] = (0.0, 0.0),
+        rotation: Tuple[float, float] = (0, 0),
+        rotation_axis: str = "z",
+        ensure_object_boundary_in_range: bool = False,
+        ensure_valid_placement: bool = False,
+        reference_pos: List[float] = [0, 0, 0.8],
+        z_offset: float = 0.0,
+    ) -> ObjectPositionSampler:
+        """Setup a placement initializer.
+
+        Args:
+            name (str): Name of the initializer
+            initializer (ObjectPositionSampler, optional): Initializer to use. Defaults to None.
+            objects (List[PrimitiveObject], optional): Objects to initialize. Defaults to [].
+            x_range (Tuple[float, float], optional): Range for x position. Defaults to (0.0, 0.0).
+            y_range (Tuple[float, float], optional): Range for y position. Defaults to (0.0, 0.0).
+            rotation (Tuple[float, float], optional): Range for rotation. Defaults to (0, 0).
+            rotation_axis (str, optional): Rotation axis. Defaults to "z".
+            ensure_object_boundary_in_range (bool, optional): Ensure that the object boundary is in range.
+                Defaults to False.
+            ensure_valid_placement (bool, optional): Ensure that the object is placed on a valid surface.
+                Defaults to False.
+            reference_pos (List[float], optional): Reference position. Defaults to [0, 0, 0.8].
+            z_offset (float, optional): Z offset. Defaults to 0.0.
+        Returns:
+            ObjectPositionSampler: The initialized initializer
+        """
+        if initializer is not None:
+            initializer.reset()
+            initializer.add_objects(objects)
         else:
-            self.obstacle_placement_initializer = UniformRandomSampler(
-                name="ObstacleSampler",
-                mujoco_objects=self.obstacles,
-                x_range=[0.0, 0.0],
-                y_range=[-0.0, 0.0],
-                rotation=(0, 0),
-                rotation_axis="x",
-                ensure_object_boundary_in_range=False,
-                ensure_valid_placement=True,
-                reference_pos=[0, 0, 0.8],
-                z_offset=0.1,
+            initializer = UniformRandomSampler(
+                name=name,
+                mujoco_objects=objects,
+                x_range=x_range,
+                y_range=y_range,
+                rotation=rotation,
+                rotation_axis=rotation_axis,
+                ensure_object_boundary_in_range=ensure_object_boundary_in_range,
+                ensure_valid_placement=ensure_valid_placement,
+                reference_pos=reference_pos,
+                z_offset=z_offset
             )
+        return initializer
+
+    def _set_origin(self,
+                    origin: List[float] = [.0, .0, .0]):
+        """Set the origin of the arena.
+
+        Args:
+            origin (list of 3 floats): Origin of the arena
+        """
+        self.mujoco_arena.set_origin(origin)
+
+    def _set_mujoco_camera(
+        self,
+        camera_name: str = "agentview",
+        pos: List[float] = [0.0, -1.5, 1.5],
+        quat: List[float] = [-0.0705929, 0.0705929, 0.7035742, 0.7035742],
+    ):
+        """Set the mujoco camera.
+
+        Args:
+            camera_name (str): Name of the camera to be set
+            pos (list of 3 floats): Position of the camera
+            quat (list of 4 floats): Orientation of the camera as quaternion
+        """
+        # Modify default agentview camera
+        self.mujoco_arena.set_camera(
+            camera_name=camera_name,
+            pos=pos,
+            quat=quat,
+        )
+
+    def _setup_collision_objects(
+        self,
+        collision_objects: List[obstacle.ObstacleBase] = [],
+        add_table: bool = True,
+        add_base: bool = True,
+        safety_margin: float = 0.0
+    ):
+        """Define the collision objects for pinocchio.
+
+        Args:
+            collision_objects (list of ObstacleBase): Additional collision objects
+            add_table (bool): Add table collision object
+            add_base (bool): Add base collision object
+            safety_margin (float): Safety margin to add to the table and base collision objects.
+        """
+        self.collision_obstacles = collision_objects
+        # Obstacles should also have a collision object
+        if add_table:
+            coll_table = obstacle.Box(
+                name="Table",
+                x=self.table_full_size[0] + safety_margin,
+                y=self.table_full_size[1] + safety_margin,
+                z=self.table_offset[2] + safety_margin,
+                translation=np.array(
+                    [
+                        self.table_offset[0],
+                        self.table_offset[1],
+                        (self.table_offset[2] + safety_margin) / 2,
+                    ]
+                ),
+            )
+            self.collision_obstacles.append(coll_table)
+        if add_base:
+            coll_base = obstacle.Cylinder(
+                name="Base",
+                r=0.25 + safety_margin,
+                z=0.91,
+                translation=self.robot_base_offset + np.array([0.0, 0, 0.455]),
+            )
+            self.collision_obstacles.append(coll_base)
+            coll_computer = obstacle.Box(
+                name="Computer",
+                x=0.3,
+                y=0.5,
+                z=0.8,
+                translation=self.robot_base_offset + np.array([-0.4, 0, 0.35])
+            )
+            self.collision_obstacles.append(coll_computer)
 
     def _load_model(self):
         """Define the mujoco models and initialize the manipulation task.
@@ -928,6 +1023,22 @@ class HumanEnv(SingleArmEnv):
             for i in range(len(self.robots)):
                 self.robots[i].controller = self.failsafe_controller[i]
 
+    def _reset_controller(self):
+        """Reset all failsafe controllers."""
+        if self.use_failsafe_controller:
+            if self.failsafe_controller is not None:
+                for i in range(len(self.failsafe_controller)):
+                    self.failsafe_controller[i].reset(
+                        init_qpos=self.robots[i].init_qpos,
+                        base_pos=self.robots[i].base_pos,
+                        base_orientation=self.robots[i].base_ori
+                    )
+            else:
+                self._create_new_controller()
+            self._override_controller()
+        else:
+            self.failsafe_controller = None
+
     def _set_human_measurement(self, human_measurement, time):
         """Set the human measurement in the failsafe controller.
 
@@ -962,6 +1073,17 @@ class HumanEnv(SingleArmEnv):
         ), "No human animation frequency faster than {} Hz is allowed".format(
             self.model_freq
         )
+        self.human_joint_addr = []
+        self.human_joint_names = []
+        for joint_element in self.human.joint_elements:
+            for dim in ["_x", "_y", "_z"]:
+                joint_name = joint_element + dim
+                self.human_joint_names.append(joint_name)
+                self.human_joint_addr.append(
+                    self.sim.model.get_joint_qpos_addr(
+                        self.human.naming_prefix + joint_name
+                    )
+                )
 
     def _setup_observables(self):
         """Set up observables to be used for this environment.
@@ -998,7 +1120,36 @@ class HumanEnv(SingleArmEnv):
                     axis=-1,
                 )
 
-            sensors = [gripper_pos, human_joint_pos]
+            @sensor(modality=modality)
+            def human_lh_to_eff(obs_cache):
+                """Return the distance from the human left hand to the end effector in each world coordinate."""
+                if f"{pf}eef_pos" in obs_cache:
+                    return self.sim.data.get_site_xpos(self.human.left_hand)[:3] - obs_cache[f"{pf}eef_pos"][:3]
+                else:
+                    return np.zeros(3)
+
+            @sensor(modality=modality)
+            def human_rh_to_eff(obs_cache):
+                """Return the distance from the human right hand to the end effector in each world coordinate."""
+                if f"{pf}eef_pos" in obs_cache:
+                    return self.sim.data.get_site_xpos(self.human.right_hand)[:3] - obs_cache[f"{pf}eef_pos"][:3]
+                else:
+                    return np.zeros(3)
+
+            @sensor(modality=modality)
+            def human_head_to_eff(obs_cache):
+                """Return the distance from the human head to the end effector in each world coordinate."""
+                if f"{pf}eef_pos" in obs_cache:
+                    return self.sim.data.get_site_xpos(self.human.head)[:3] - obs_cache[f"{pf}eef_pos"][:3]
+                else:
+                    return np.zeros(3)
+
+            sensors = [
+                gripper_pos,
+                human_head_to_eff,
+                human_lh_to_eff,
+                human_rh_to_eff]
+
             names = [s.__name__ for s in sensors]
 
             # Create observables
@@ -1015,8 +1166,7 @@ class HumanEnv(SingleArmEnv):
         """Reset the simulation internal configurations."""
         super()._reset_internal()
 
-        self._create_new_controller()
-        self._override_controller()
+        self._reset_controller()
         self._reset_pin_models()
 
         # Reset collision information
@@ -1085,7 +1235,7 @@ class HumanEnv(SingleArmEnv):
             # Rotate to next human animation
             self.human_animation_id = (
                 self.human_animation_id + 1
-                if self.human_animation_id < len(self.human_animations) - 2
+                if self.human_animation_id < len(self.human_animations) - 1
                 else 0
             )
             self.animation_time = 0
@@ -1134,28 +1284,9 @@ class HumanEnv(SingleArmEnv):
         self.sim.model.body_pos[human_body_id] = human_pos
         self.sim.model.body_quat[human_body_id] = human_quat
         # Set rotation of all other joints
-        for joint_element in self.human.joint_elements:
-            joint_name = joint_element + "_x"
-            self.sim.data.set_joint_qpos(
-                self.human.naming_prefix + joint_name,
-                self.human_animations[self.human_animation_id][joint_name][
-                    self.animation_time
-                ],
-            )
-            joint_name = joint_element + "_y"
-            self.sim.data.set_joint_qpos(
-                self.human.naming_prefix + joint_name,
-                self.human_animations[self.human_animation_id][joint_name][
-                    self.animation_time
-                ],
-            )
-            joint_name = joint_element + "_z"
-            self.sim.data.set_joint_qpos(
-                self.human.naming_prefix + joint_name,
-                self.human_animations[self.human_animation_id][joint_name][
-                    self.animation_time
-                ],
-            )
+        all_joint_pos = [self.human_animations[self.human_animation_id][key][self.animation_time]
+                         for key in self.human_joint_names]
+        self.sim.data.qpos[self.human_joint_addr] = all_joint_pos
 
     def _human_measurement(self):
         """Retrieve the human measurements and save them to self.human_measurement."""

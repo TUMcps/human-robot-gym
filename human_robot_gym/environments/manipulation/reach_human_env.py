@@ -6,9 +6,10 @@ Owner:
     Jakob Thumm (JT)
 
 Contributors:
-
+    Julian Balletshofer JB
 Changelog:
     2.5.22 JT Formatted docstrings
+    15.7.22 JB added optional stop at collision
 """
 from human_robot_gym.environments.manipulation.human_env import HumanEnv
 
@@ -19,12 +20,11 @@ import numpy as np
 from robosuite.models.arenas import TableArena
 from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
-from robosuite.utils.placement_samplers import UniformRandomSampler
+from human_robot_gym.utils.mjcf_utils import xml_path_completion
 
 from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import (
     PinocchioManipulatorModel,
 )
-import human_robot_gym.models.objects.obstacle
 
 
 class ReachHuman(HumanEnv):
@@ -194,7 +194,7 @@ class ReachHuman(HumanEnv):
         controller_configs=None,
         gripper_types="default",
         initialization_noise="default",
-        table_full_size=(0.4, 0.8, 0.05),
+        table_full_size=(2.5, 0.80, 0.05),
         table_friction=(1.0, 5e-3, 1e-4),
         use_camera_obs=True,
         use_object_obs=True,
@@ -215,7 +215,7 @@ class ReachHuman(HumanEnv):
         horizon=1000,
         ignore_done=False,
         hard_reset=True,
-        camera_names="agentview",
+        camera_names="frontview",
         camera_heights=256,
         camera_widths=256,
         camera_depths=False,
@@ -229,7 +229,7 @@ class ReachHuman(HumanEnv):
         human_animation_names=[
             "62_01",
             "62_03",
-            "62_03",
+            "62_04",
             "62_07",
             "62_09",
             "62_10",
@@ -249,12 +249,13 @@ class ReachHuman(HumanEnv):
         randomize_initial_pos=False,
         self_collision_safety=0.01,
         seed=0,
+        done_at_collision=False
     ):  # noqa: D107
         # settings for table top
         self.table_full_size = table_full_size
         self.table_friction = table_friction
         # settings for table top (hardcoded since it's not an essential part of the environment)
-        self.table_offset = np.array((0.0, 0.0, 0.8))
+        self.table_offset = np.array((0.0, -0.4, 0.82))
         # reward configuration
         self.reward_scale = reward_scale
         self.reward_shaping = reward_shaping
@@ -268,7 +269,8 @@ class ReachHuman(HumanEnv):
         if robot_base_offset is None:
             robot_base_offset = [[0.0, 0.0, 0.0] for robot in robots]
         self.randomize_initial_pos = randomize_initial_pos
-
+        # if run should stop at collision
+        self.done_at_collision = done_at_collision
         super().__init__(
             robots=robots,
             robot_base_offset=robot_base_offset,
@@ -377,7 +379,7 @@ class ReachHuman(HumanEnv):
             reward = 0.0
         # use a shaping reward
         if self.reward_shaping:
-            dist = np.sqrt(np.sum(achieved_goal - desired_goal))
+            dist = np.sqrt(np.sum((achieved_goal - desired_goal)**2))
             reward -= dist * 0.1
         # Scale reward if requested
         if self.reward_scale is not None:
@@ -418,7 +420,9 @@ class ReachHuman(HumanEnv):
             done
         """
         done = super()._check_done(achieved_goal, desired_goal, info)
-        return done or (self._check_success(achieved_goal, desired_goal))
+        if self.done_at_collision:
+            return done or (self._check_success(achieved_goal, desired_goal))
+        return self._check_success(achieved_goal, desired_goal)
 
     def _get_achieved_goal_from_obs(
         self, observation: Union[List[float], Dict]
@@ -465,7 +469,8 @@ class ReachHuman(HumanEnv):
             ].robot_model.get_eef_transformation(self.desired_goal)
 
     def _sample_valid_pos(self):
-        """Randomly sample a new valid joint configuration without self-collisions or collisions with the static environment.
+        """Randomly sample a new valid joint configuration
+            without self-collisions or collisions with the static environment.
 
         Returns:
             joint configuration (np.array)
@@ -498,17 +503,14 @@ class ReachHuman(HumanEnv):
         self.mujoco_arena = TableArena(
             table_full_size=self.table_full_size,
             table_offset=self.table_offset,
+            xml=xml_path_completion("arenas/table_arena.xml")
         )
 
         # Arena always gets set to zero origin
-        self.mujoco_arena.set_origin([0, 0, 0])
+        self._set_origin()
 
         # Modify default agentview camera
-        self.mujoco_arena.set_camera(
-            camera_name="agentview",
-            pos=[0.0, -1.5, 1.5],
-            quat=[-0.0705929, 0.0705929, 0.7035742, 0.7035742],
-        )
+        self._set_mujoco_camera()
 
         # << OBJECTS >>
         # Objects are elements that can be moved around and manipulated.
@@ -524,76 +526,26 @@ class ReachHuman(HumanEnv):
         # Placement sampler for objects
         bin_x_half = self.table_full_size[0] / 2 - 0.05
         bin_y_half = self.table_full_size[1] / 2 - 0.05
-        if self.object_placement_initializer is not None:
-            self.object_placement_initializer.reset()
-            self.object_placement_initializer.add_objects(self.objects)
-        else:
-            self.object_placement_initializer = UniformRandomSampler(
-                name="ObjectSampler",
-                mujoco_objects=self.objects,
-                x_range=[-bin_x_half, bin_x_half],
-                y_range=[-bin_y_half, bin_y_half],
-                rotation=(0, 0),
-                rotation_axis="z",
-                ensure_object_boundary_in_range=False,
-                ensure_valid_placement=False,
-                reference_pos=self.table_offset,
-                z_offset=0.0,
-            )
+        self.object_placement_initializer = self._setup_placement_initializer(
+            name="ObjectSampler",
+            initializer=self.object_placement_initializer,
+            objects=self.objects,
+            x_range=[-bin_x_half, bin_x_half],
+            y_range=[-bin_y_half, bin_y_half],
+        )
         # << OBSTACLES >>
+        self._setup_collision_objects(
+            add_table=True,
+            add_base=True,
+            safety_margin=0.01
+        )
         # Obstacles are elements that the robot should avoid.
-        safety_margin = 0.05
-        # Box example
-        # l = np.array([0.4, 0.4, 0.4])
-        # box = BoxObject(
-        #     name = "Table",
-        #     size = l*0.5,
-        #     rgba = [0.5, 0.5, 0.5, 1],
-        # )
         self.obstacles = []
-        # Obstacles should also have a collision object
-        coll_table = human_robot_gym.models.objects.obstacle.Box(
-            name="Table",
-            x=self.table_full_size[0] + safety_margin,
-            y=self.table_full_size[1] + safety_margin,
-            z=self.table_offset[2] + safety_margin,
-            translation=np.array(
-                [
-                    self.table_offset[0],
-                    self.table_offset[1],
-                    (self.table_offset[2] + safety_margin) / 2,
-                ]
-            ),
+        self.obstacle_placement_initializer = self._setup_placement_initializer(
+            name="ObstacleSampler",
+            initializer=self.obstacle_placement_initializer,
+            objects=self.obstacles,
         )
-        coll_base = human_robot_gym.models.objects.obstacle.Cylinder(
-            name="Base",
-            r=0.25 + safety_margin,
-            z=0.91,
-            translation=np.array([-0.46, 0, 0.455]),
-        )
-        coll_computer = human_robot_gym.models.objects.obstacle.Box(
-            name="Computer", x=0.3, y=0.5, z=0.8, translation=np.array([-0.85, 0, 0.35])
-        )
-        self.collision_obstacles = [coll_table, coll_base, coll_computer]
-        # Matches sim joint names to the collision obstacles
-        # self.collision_obstacles_joints["Box"] = (box.joints[0], coll_box)
-        # Placement sampler for obstacles
-        if self.obstacle_placement_initializer is not None:
-            self.obstacle_placement_initializer.reset()
-            self.obstacle_placement_initializer.add_objects(self.obstacles)
-        else:
-            self.obstacle_placement_initializer = UniformRandomSampler(
-                name="ObstacleSampler",
-                mujoco_objects=self.obstacles,
-                x_range=[0.0, 0.0],
-                y_range=[-0.0, 0.0],
-                rotation=(0, 0),
-                rotation_axis="x",
-                ensure_object_boundary_in_range=False,
-                ensure_valid_placement=True,
-                reference_pos=self.table_offset,
-                z_offset=0.1,
-            )
 
     def _setup_references(self):
         """Set up references to important components."""
