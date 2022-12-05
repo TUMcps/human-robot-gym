@@ -25,7 +25,7 @@ class IKPositionDeltaWrapper(Wrapper):
         self,
         env,
         urdf_file,
-        x_output_max=0.2,
+        x_output_max=1,
         x_position_limits=None,
         residual_threshold=1e-3,
         max_iter=50,
@@ -39,6 +39,7 @@ class IKPositionDeltaWrapper(Wrapper):
                 Should not start with fixed joints to work as expected.
             x_output_max (double): limits the end effector velocity.
                 Maximum L1 distance of cartesian position delta.
+                If this value is not 1, the action does not represent the delta position anymore.
             x_position_limits (2D numpy array (2, 3)):
                 if not None, limits the target cartesian positions to [[mins], [maxs]].
             residual_threshold (double):
