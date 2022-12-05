@@ -803,7 +803,7 @@ class HumanEnv(SingleArmEnv):
         # Placement sampler for objects
         bin_x_half = self.table_full_size[0] / 2 - 0.05
         bin_y_half = self.table_full_size[1] / 2 - 0.05
-        self._setup_placement_initializer(
+        self.object_placement_initializer = self._setup_placement_initializer(
             name="ObjectSampler",
             initializer=self.object_placement_initializer,
             objects=self.objects,
@@ -818,7 +818,7 @@ class HumanEnv(SingleArmEnv):
         )
         # Obstacles are elements that the robot should avoid.
         self.obstacles = []
-        self._setup_placement_initializer(
+        self.obstacle_placement_initializer = self._setup_placement_initializer(
             name="ObstacleSampler",
             initializer=self.obstacle_placement_initializer,
             objects=self.obstacles,
