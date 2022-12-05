@@ -13,7 +13,7 @@ Changelog:
                 distances eef and L_hand,R_hand,Head
 """
 
-from typing import Dict, Union, List
+from typing import Dict, Union, List, Optional, Tuple
 
 import numpy as np
 import pickle
@@ -31,9 +31,10 @@ import robosuite.utils.macros as macros
 
 # from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
-from robosuite.utils.placement_samplers import UniformRandomSampler
+from robosuite.utils.placement_samplers import UniformRandomSampler, ObjectPositionSampler
 from robosuite.utils.transform_utils import quat2mat
 from robosuite.utils.control_utils import set_goal_position
+from robosuite.models.objects import PrimitiveObject
 
 from human_robot_gym.models.objects.human.human import HumanObject
 from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat
@@ -43,7 +44,7 @@ from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model impo
 from human_robot_gym.controllers.failsafe_controller.failsafe_controller.failsafe_controller import (
     FailsafeController,
 )
-import human_robot_gym.models.objects.obstacle
+import human_robot_gym.models.objects.obstacle as obstacle
 
 
 class COLLISION_TYPE(Enum):
@@ -790,14 +791,10 @@ class HumanEnv(SingleArmEnv):
         )
 
         # Arena always gets set to zero origin
-        self.mujoco_arena.set_origin([0, 0, 0])
+        self._set_origin()
 
         # Modify default agentview camera
-        self.mujoco_arena.set_camera(
-            camera_name="agentview",
-            pos=[0.0, -1.5, 1.5],
-            quat=[-0.0705929, 0.0705929, 0.7035742, 0.7035742],
-        )
+        self._set_mujoco_camera()
 
         # << OBJECTS >>
         # Objects are elements that can be moved around and manipulated.
@@ -806,76 +803,155 @@ class HumanEnv(SingleArmEnv):
         # Placement sampler for objects
         bin_x_half = self.table_full_size[0] / 2 - 0.05
         bin_y_half = self.table_full_size[1] / 2 - 0.05
-        if self.object_placement_initializer is not None:
-            self.object_placement_initializer.reset()
-            self.object_placement_initializer.add_objects(self.objects)
-        else:
-            self.object_placement_initializer = UniformRandomSampler(
-                name="ObjectSampler",
-                mujoco_objects=self.objects,
-                x_range=[-bin_x_half, bin_x_half],
-                y_range=[-bin_y_half, bin_y_half],
-                rotation=(0, 0),
-                rotation_axis="z",
-                ensure_object_boundary_in_range=False,
-                ensure_valid_placement=False,
-                reference_pos=[0, 0, 0.8],
-                z_offset=0.0,
-            )
+        self._setup_placement_initializer(
+            name="ObjectSampler",
+            initializer=self.object_placement_initializer,
+            objects=self.objects,
+            x_range=[-bin_x_half, bin_x_half],
+            y_range=[-bin_y_half, bin_y_half],
+        )
         # << OBSTACLES >>
+        self._setup_collision_objects(
+            add_table=True,
+            add_base=True,
+            safety_margin=0.01
+        )
         # Obstacles are elements that the robot should avoid.
-        safety_margin = 0.05
-        # Box example
-        # l = np.array([0.4, 0.4, 0.4])
-        # box = BoxObject(
-        #     name = "Table",
-        #     size = l*0.5,
-        #     rgba = [0.5, 0.5, 0.5, 1],
-        # )
         self.obstacles = []
-        # Obstacles should also have a collision object
-        coll_table = human_robot_gym.models.objects.obstacle.Box(
-            name="Table",
-            x=self.table_full_size[0] + safety_margin,
-            y=self.table_full_size[1] + safety_margin,
-            z=self.table_offset[2] + safety_margin,
-            translation=np.array(
-                [
-                    self.table_offset[0],
-                    self.table_offset[1],
-                    (self.table_offset[2] + safety_margin) / 2,
-                ]
-            ),
+        self._setup_placement_initializer(
+            name="ObstacleSampler",
+            initializer=self.obstacle_placement_initializer,
+            objects=self.obstacles,
         )
-        coll_base = human_robot_gym.models.objects.obstacle.Cylinder(
-            name="Base",
-            r=0.2 + safety_margin,
-            z=0.91 + safety_margin,
-            translation=np.array([-0.46, 0, 0.455]),
-        )
-        coll_computer = human_robot_gym.models.objects.obstacle.Box(
-            name="Computer", x=0.3, y=0.5, z=0.7, translation=np.array([-0.9, 0, 0.35])
-        )
-        self.collision_obstacles = [coll_table, coll_base, coll_computer]
-        # Matches sim joint names to the collision obstacles
-        # self.collision_obstacles_joints["Box"] = (box.joints[0], coll_box)
-        # Placement sampler for obstacles
-        if self.obstacle_placement_initializer is not None:
-            self.obstacle_placement_initializer.reset()
-            self.obstacle_placement_initializer.add_objects(self.obstacles)
+
+    def _setup_placement_initializer(
+        self,
+        name: str,
+        initializer: Optional[ObjectPositionSampler] = None,
+        objects: List[PrimitiveObject] = [],
+        x_range: Tuple[float, float] = (0.0, 0.0),
+        y_range: Tuple[float, float] = (0.0, 0.0),
+        rotation: Tuple[float, float] = (0, 0),
+        rotation_axis: str = "z",
+        ensure_object_boundary_in_range: bool = False,
+        ensure_valid_placement: bool = False,
+        reference_pos: List[float] = [0, 0, 0.8],
+        z_offset: float = 0.0,
+    ) -> ObjectPositionSampler:
+        """Setup a placement initializer.
+
+        Args:
+            name (str): Name of the initializer
+            initializer (ObjectPositionSampler, optional): Initializer to use. Defaults to None.
+            objects (List[PrimitiveObject], optional): Objects to initialize. Defaults to [].
+            x_range (Tuple[float, float], optional): Range for x position. Defaults to (0.0, 0.0).
+            y_range (Tuple[float, float], optional): Range for y position. Defaults to (0.0, 0.0).
+            rotation (Tuple[float, float], optional): Range for rotation. Defaults to (0, 0).
+            rotation_axis (str, optional): Rotation axis. Defaults to "z".
+            ensure_object_boundary_in_range (bool, optional): Ensure that the object boundary is in range.
+                Defaults to False.
+            ensure_valid_placement (bool, optional): Ensure that the object is placed on a valid surface.
+                Defaults to False.
+            reference_pos (List[float], optional): Reference position. Defaults to [0, 0, 0.8].
+            z_offset (float, optional): Z offset. Defaults to 0.0.
+        Returns:
+            ObjectPositionSampler: The initialized initializer
+        """
+        if initializer is not None:
+            initializer.reset()
+            initializer.add_objects(objects)
         else:
-            self.obstacle_placement_initializer = UniformRandomSampler(
-                name="ObstacleSampler",
-                mujoco_objects=self.obstacles,
-                x_range=[0.0, 0.0],
-                y_range=[-0.0, 0.0],
-                rotation=(0, 0),
-                rotation_axis="x",
-                ensure_object_boundary_in_range=False,
-                ensure_valid_placement=True,
-                reference_pos=[0, 0, 0.8],
-                z_offset=0.1,
+            initializer = UniformRandomSampler(
+                name=name,
+                mujoco_objects=objects,
+                x_range=x_range,
+                y_range=y_range,
+                rotation=rotation,
+                rotation_axis=rotation_axis,
+                ensure_object_boundary_in_range=ensure_object_boundary_in_range,
+                ensure_valid_placement=ensure_valid_placement,
+                reference_pos=reference_pos,
+                z_offset=z_offset
             )
+        return initializer
+
+    def _set_origin(self,
+                    origin: List[float] = [.0, .0, .0]):
+        """Set the origin of the arena.
+
+        Args:
+            origin (list of 3 floats): Origin of the arena
+        """
+        self.mujoco_arena.set_origin(origin)
+
+    def _set_mujoco_camera(
+        self,
+        camera_name: str = "agentview",
+        pos: List[float] = [0.0, -1.5, 1.5],
+        quat: List[float] = [-0.0705929, 0.0705929, 0.7035742, 0.7035742],
+    ):
+        """Set the mujoco camera.
+
+        Args:
+            camera_name (str): Name of the camera to be set
+            pos (list of 3 floats): Position of the camera
+            quat (list of 4 floats): Orientation of the camera as quaternion
+        """
+        # Modify default agentview camera
+        self.mujoco_arena.set_camera(
+            camera_name=camera_name,
+            pos=pos,
+            quat=quat,
+        )
+
+    def _setup_collision_objects(
+        self,
+        collision_objects: List[obstacle.ObstacleBase] = [],
+        add_table: bool = True,
+        add_base: bool = True,
+        safety_margin: float = 0.0
+    ):
+        """Define the collision objects for pinocchio.
+
+        Args:
+            collision_objects (list of ObstacleBase): Additional collision objects
+            add_table (bool): Add table collision object
+            add_base (bool): Add base collision object
+            safety_margin (float): Safety margin to add to the table and base collision objects.
+        """
+        self.collision_obstacles = collision_objects
+        # Obstacles should also have a collision object
+        if add_table:
+            coll_table = obstacle.Box(
+                name="Table",
+                x=self.table_full_size[0] + safety_margin,
+                y=self.table_full_size[1] + safety_margin,
+                z=self.table_offset[2] + safety_margin,
+                translation=np.array(
+                    [
+                        self.table_offset[0],
+                        self.table_offset[1],
+                        (self.table_offset[2] + safety_margin) / 2,
+                    ]
+                ),
+            )
+            self.collision_obstacles.append(coll_table)
+        if add_base:
+            coll_base = obstacle.Cylinder(
+                name="Base",
+                r=0.25 + safety_margin,
+                z=0.91,
+                translation=self.robot_base_offset + np.array([0.0, 0, 0.455]),
+            )
+            self.collision_obstacles.append(coll_base)
+            coll_computer = obstacle.Box(
+                name="Computer",
+                x=0.3,
+                y=0.5,
+                z=0.8,
+                translation=self.robot_base_offset + np.array([-0.4, 0, 0.35])
+            )
+            self.collision_obstacles.append(coll_computer)
 
     def _load_model(self):
         """Define the mujoco models and initialize the manipulation task.
