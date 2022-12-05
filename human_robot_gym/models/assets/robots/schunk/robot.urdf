@@ -238,7 +238,7 @@
   </link>
   <!-- joint between arm_6_link and gripper -->
   <joint name="fixed_gripper_joint" type="fixed">
-    <origin rpy="0 0 0" xyz="0 0 0.17"/>
+    <origin rpy="0 0 0" xyz="0 0 0.16"/>
     <parent link="arm_6_link"/>
     <child link="gripper"/>
     <axis xyz="0 0 1"/>
@@ -252,20 +252,20 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <cylinder radius="0.07" length="0.15"/>
+        <cylinder radius="0.07" length="0.14"/>
       </geometry>
       <material name="Blue"/>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <cylinder radius="0.07" length="0.15"/>
+        <cylinder radius="0.07" length="0.14"/>
       </geometry>
     </collision>
   </link>
   <!-- joint between gripper and end -->
   <joint name="end_joint" type="revolute">
-    <origin rpy="0 0 0" xyz="0 0 0.075"/>
+    <origin rpy="0 0 0" xyz="0 0 0.065"/>
     <parent link="gripper"/>
     <child link="end"/>
     <axis xyz="0 0 1"/>
@@ -280,14 +280,14 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <cylinder radius="0.07" length="0.000001"/>
+        <cylinder radius="0.05" length="0.000001"/>
       </geometry>
       <material name="Blue"/>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <cylinder radius="0.07" length="0.000001"/>
+        <cylinder radius="0.05" length="0.000001"/>
       </geometry>
     </collision>
   </link>

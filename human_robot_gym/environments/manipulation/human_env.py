@@ -27,6 +27,7 @@ import pinocchio as pin
 from robosuite.environments.manipulation.single_arm_env import SingleArmEnv
 from robosuite.models.arenas import TableArena
 from robosuite.models.tasks import ManipulationTask
+import robosuite.utils.macros as macros
 
 # from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
@@ -251,6 +252,7 @@ class HumanEnv(SingleArmEnv):
         self_collision_safety=0.01,
         seed=0,
     ):  # noqa: D107
+        macros.SIMULATION_TIMESTEP = control_sample_time
         self.mujoco_arena = None
         self.seed = seed
         np.random.seed(self.seed)
@@ -397,9 +399,11 @@ class HumanEnv(SingleArmEnv):
                         self.failsafe_interventions += 1
             # Step the simulation n times
             for n in range(int(self.control_sample_time / self.model_timestep)):
-                self.sim.step()
                 self._control_human()
+                # If qpos or qvel have been modified directly, the user is required to call forward() before step() if
+                # their udd_callback requires access to MuJoCo state set during the forward dynamics.
                 self.sim.forward()
+                self.sim.step()
                 if not self.has_collision:
                     self._collision_detection()
                 self._update_observables()
@@ -637,7 +641,7 @@ class HumanEnv(SingleArmEnv):
             if robot_model.check_collision(q, collision_obstacle):
                 return False
         # Self-collision
-        return not (robot_model.has_self_collision(q, self.self_collision_safety))
+        return not robot_model.has_self_collision(q)
 
     def _collision_detection(self):
         """Detect true collisions in the simulation between the robot and the environment.
@@ -993,6 +997,17 @@ class HumanEnv(SingleArmEnv):
         ), "No human animation frequency faster than {} Hz is allowed".format(
             self.model_freq
         )
+        self.human_joint_addr = []
+        self.human_joint_names = []
+        for joint_element in self.human.joint_elements:
+            for dim in ["_x", "_y", "_z"]:
+                joint_name = joint_element + dim
+                self.human_joint_names.append(joint_name)
+                self.human_joint_addr.append(
+                    self.sim.model.get_joint_qpos_addr(
+                        self.human.naming_prefix + joint_name
+                    )
+                )
 
     def _setup_observables(self):
         """Set up observables to be used for this environment.
@@ -1193,28 +1208,9 @@ class HumanEnv(SingleArmEnv):
         self.sim.model.body_pos[human_body_id] = human_pos
         self.sim.model.body_quat[human_body_id] = human_quat
         # Set rotation of all other joints
-        for joint_element in self.human.joint_elements:
-            joint_name = joint_element + "_x"
-            self.sim.data.set_joint_qpos(
-                self.human.naming_prefix + joint_name,
-                self.human_animations[self.human_animation_id][joint_name][
-                    self.animation_time
-                ],
-            )
-            joint_name = joint_element + "_y"
-            self.sim.data.set_joint_qpos(
-                self.human.naming_prefix + joint_name,
-                self.human_animations[self.human_animation_id][joint_name][
-                    self.animation_time
-                ],
-            )
-            joint_name = joint_element + "_z"
-            self.sim.data.set_joint_qpos(
-                self.human.naming_prefix + joint_name,
-                self.human_animations[self.human_animation_id][joint_name][
-                    self.animation_time
-                ],
-            )
+        all_joint_pos = [self.human_animations[self.human_animation_id][key][self.animation_time]
+                         for key in self.human_joint_names]
+        self.sim.data.qpos[self.human_joint_addr] = all_joint_pos
 
     def _human_measurement(self):
         """Retrieve the human measurements and save them to self.human_measurement."""
