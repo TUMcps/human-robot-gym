@@ -188,6 +188,7 @@ if __name__ == "__main__":
     env = make_vec_env(
         env_id="ReachHuman",
         type="env",
+        obs_keys=training_config["environment"]["obs_keys"],
         n_envs=training_config["training"]["n_envs"],
         env_kwargs=env_kwargs,
         vec_env_cls=SubprocVecEnv,
