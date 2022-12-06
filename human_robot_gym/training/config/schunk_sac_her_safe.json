@@ -76,7 +76,7 @@
         "safe_vel": 0.01,
         "self_collision_safety": 0.012,
         "replace_type": 2,
-        "done_at_collision":false
+        "done_at_collision": false
     },
     "algorithm": {
         "seed": 0,
@@ -109,6 +109,7 @@
         "test_only": false,
         "load_episode": -1,
         "run_id": -1,
-        "log_interval": 1
+        "log_interval": 1,
+        "use_env_pool": true
     }
 }

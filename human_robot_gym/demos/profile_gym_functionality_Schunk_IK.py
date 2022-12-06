@@ -76,7 +76,7 @@ if __name__ == "__main__":
         )
     )
     env = CollisionPreventionWrapper(
-        env=env, collision_check_fn=env._check_collision_action, replace_type=0
+        env=env, collision_check_fn=env.check_collision_action, replace_type=0
     )
 
     env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file)

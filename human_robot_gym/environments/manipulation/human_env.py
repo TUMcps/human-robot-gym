@@ -449,7 +449,7 @@ class HumanEnv(SingleArmEnv):
 
         return observations, reward, done, info
 
-    def _check_collision_action(self, action):
+    def check_collision_action(self, action):
         """Checks if the given action collides.
         Checks collisions with static environment and self-collision.
         Requires a pinocchio robot model.

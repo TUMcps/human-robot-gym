@@ -1,0 +1,113 @@
+"""This file describes functions for creating the human-robot-gym environments."""
+import struct
+from typing import Optional, Dict, Any, Type, Callable, Union
+from functools import partial
+import gym
+from gym.wrappers import TimeLimit
+import robosuite
+from robosuite.wrappers.gym_wrapper import GymWrapper
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
+from stable_baselines3.common.env_util import make_vec_env as sb3_make_vec_env
+from human_robot_gym.wrappers.goal_env_wrapper import GoalEnvironmentGymWrapper
+
+
+def make_robosuite_env(
+    env_id: str,
+    env_kwargs: Optional[Dict[str, Any]] = None
+) -> gym.Env:
+    """Make the robosuite environment."""
+    return robosuite.make(env_id, **env_kwargs)
+
+
+def add_time_limit(
+    env: gym.Env,
+    max_episode_steps: int = 1000
+) -> gym.Env:
+    if env.spec is None:
+        env.spec = struct
+    if max_episode_steps is not None:
+        env = TimeLimit(env, max_episode_steps=max_episode_steps)
+    return env
+
+
+def make_gym_env(
+    env_id: str,
+    env_kwargs: Optional[Dict[str, Any]] = None
+) -> gym.Env:
+    """Make the gym environment and add the optional TimeLimit wrapper.
+
+    We add the TimeLimit wrapper here because it would require a second Monitor wrapper later.
+    """
+    env = GymWrapper(make_robosuite_env(env_id, env_kwargs))
+    env = add_time_limit(env, max_episode_steps=env_kwargs.get("horizon", None))
+    return env
+
+
+def make_goal_env(
+    env_id: str,
+    env_kwargs: Optional[Dict[str, Any]] = None
+) -> gym.Env:
+    """Make the goal environment and add the optional TimeLimit wrapper.
+
+    We add the TimeLimit wrapper here because it would require a second Monitor wrapper later.
+    """
+    env = GoalEnvironmentGymWrapper(make_robosuite_env(env_id, env_kwargs))
+    env = add_time_limit(env, max_episode_steps=env_kwargs.get("horizon", None))
+    return env
+
+
+def make_vec_env(
+    env_id: str,
+    type: str = "env",
+    n_envs: int = 1,
+    seed: Optional[int] = None,
+    start_index: int = 0,
+    monitor_dir: Optional[str] = None,
+    wrapper_class: Optional[Callable[[gym.Env], gym.Env]] = None,
+    env_kwargs: Optional[Dict[str, Any]] = None,
+    vec_env_cls: Optional[Type[Union[DummyVecEnv, SubprocVecEnv]]] = None,
+    vec_env_kwargs: Optional[Dict[str, Any]] = None,
+    monitor_kwargs: Optional[Dict[str, Any]] = None,
+    wrapper_kwargs: Optional[Dict[str, Any]] = None,
+) -> VecEnv:
+    """
+    Create a wrapped, monitored ``VecEnv``.
+    By default it uses a ``DummyVecEnv`` which is usually faster
+    than a ``SubprocVecEnv``.
+
+    :param env_id: the environment ID or the environment class
+    :param type: The type of environment to create. Can be "env" or "goal_env".
+    :param n_envs: the number of environments you wish to have in parallel
+    :param seed: the initial seed for the random number generator
+    :param start_index: start rank index
+    :param monitor_dir: Path to a folder where the monitor files will be saved.
+        If None, no file will be written, however, the env will still be wrapped
+        in a Monitor wrapper to provide additional information about training.
+    :param wrapper_class: Additional wrapper to use on the environment.
+        This can also be a function with single argument that wraps the environment in many things.
+    :param env_kwargs: Optional keyword argument to pass to the env constructor
+    :param vec_env_cls: A custom ``VecEnv`` class constructor. Default: None.
+    :param vec_env_kwargs: Keyword arguments to pass to the ``VecEnv`` class constructor.
+    :param monitor_kwargs: Keyword arguments to pass to the ``Monitor`` class constructor.
+    :param wrapper_kwargs: Keyword arguments to pass to the ``Wrapper`` class constructor.
+
+    :return: The wrapped environment
+    """
+    assert type in ["env", "goal_env"], "The type of environment must be either 'env' or 'goal_env'."
+    if type == "env":
+        env_callable = partial(make_gym_env, env_id, env_kwargs)
+    else:
+        env_callable = partial(make_goal_env, env_id, env_kwargs)
+    return sb3_make_vec_env(
+        env_id=env_callable,
+        n_envs=n_envs,
+        seed=seed,
+        start_index=start_index,
+        monitor_dir=monitor_dir,
+        wrapper_class=wrapper_class,
+        env_kwargs=None,
+        vec_env_cls=vec_env_cls,
+        vec_env_kwargs=vec_env_kwargs,
+        monitor_kwargs=monitor_kwargs,
+        wrapper_kwargs=wrapper_kwargs,
+    )

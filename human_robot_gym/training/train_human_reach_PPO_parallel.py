@@ -17,34 +17,20 @@ import struct
 import numpy as np
 import argparse
 import json
+import gym
 from datetime import datetime
-from typing import Optional
+from functools import partial
 
 import torch as th
 from stable_baselines3 import PPO
-from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.evaluation import evaluate_policy
-from stable_baselines3.common.vec_env import VecEnvWrapper, VecMonitor
-from stable_baselines3.common.vec_env.base_vec_env import (
-  VecEnvObs,
-  VecEnvStepReturn,
-)
+from stable_baselines3.common.vec_env import SubprocVecEnv
 
-import envpool
-from envpool.python.protocol import EnvPool
-
-import robosuite
+import robosuite  # noqa: F401
 from robosuite.controllers import load_controller_config
 
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
-from human_robot_gym.wrappers.goal_env_wrapper import GoalEnvironmentGymWrapper
-from human_robot_gym.wrappers.time_limit import TimeLimit
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
-from human_robot_gym.wrappers.HER_buffer_add_monkey_patch import (
-    custom_add,
-    _custom_sample_transitions,
-)
-from human_robot_gym.wrappers.vec_adapter import VecAdapter
+from human_robot_gym.utils.env_util import make_vec_env
 import human_robot_gym.robots  # noqa: F401
 import human_robot_gym.environments.manipulation.reach_human_env  # noqa: F401
 from human_robot_gym.wrappers.collision_prevention_wrapper import (
@@ -54,6 +40,25 @@ from human_robot_gym.wrappers.collision_prevention_wrapper import (
 # Force PyTorch to use only one threads
 # make things faster for simple envs
 th.set_num_threads(1)
+
+
+def wrap_environment(
+    env: gym.Env,
+    use_collision_wrapper: bool = False,
+    replace_type: int = 0,
+    n_resamples: int = 20,
+    has_renderer: bool = False,
+) -> gym.Env:
+    if use_collision_wrapper:
+        env = CollisionPreventionWrapper(
+            env=env,
+            collision_check_fn=env.check_collision_action,
+            replace_type=replace_type,
+            n_resamples=n_resamples
+        )
+    if has_renderer:
+        env = VisualizationWrapper(env)
+    return env
 
 
 # Command line arguments:
@@ -115,106 +120,80 @@ if __name__ == "__main__":
     robot_config = load_controller_config(custom_fpath=robot_conig_path)
     controller_config = merge_configs(controller_config, robot_config)
     training_config["environment"]["controller_configs"] = [controller_config]
+    use_env_pool = training_config["algorithm"]["use_env_pool"]
 
-    if use_env_pool:
-        env = envpool.make(env_id, env_type="gym", num_envs=num_envs, seed=seed)
-        env.spec.id = env_id
-        env = VecAdapter(env)
-        env = VecMonitor(env)
-    else:
-        env = make_vec_env(env_id, n_envs=num_envs)
-
-        # Tuned hyperparams for Pendulum-v1, works also for CartPole-v1
-        kwargs = {}
-    if env_id == "Pendulum-v1":
-        # Use gSDE for better results
-        kwargs = dict(use_sde=True, sde_sample_freq=4)
-
-    model = PPO(
-        "MlpPolicy",
-        env,
-        n_steps=1024,
-        learning_rate=1e-3,
-        gae_lambda=0.95,
-        gamma=0.9,
-        verbose=1,
-        seed=seed,
-        **kwargs
+    env_kwargs = {
+        "robots": training_config["robot"]["name"],
+        "robot_base_offset": training_config["environment"]["robot_base_offset"],
+        "env_configuration": training_config["environment"]["env_configuration"],
+        "controller_configs": training_config["environment"]["controller_configs"],
+        "gripper_types": training_config["environment"]["gripper_types"],
+        "initialization_noise": training_config["environment"]["initialization_noise"],
+        "table_full_size": training_config["environment"]["table_full_size"],
+        "table_friction": training_config["environment"]["table_friction"],
+        "use_camera_obs": training_config["environment"]["use_camera_obs"],
+        "use_object_obs": training_config["environment"]["use_object_obs"],
+        "reward_scale": training_config["environment"]["reward_scale"],
+        "reward_shaping": training_config["environment"]["reward_shaping"],
+        "goal_dist": training_config["environment"]["goal_dist"],
+        "collision_reward": training_config["environment"]["collision_reward"],
+        "has_renderer": False,
+        "has_offscreen_renderer": training_config["environment"][
+            "has_offscreen_renderer"
+        ],
+        "render_camera": training_config["environment"]["render_camera"],
+        "render_collision_mesh": training_config["environment"][
+            "render_collision_mesh"
+        ],
+        "render_visual_mesh": training_config["environment"]["render_visual_mesh"],
+        "render_gpu_device_id": training_config["environment"]["render_gpu_device_id"],
+        "control_freq": training_config["environment"]["control_freq"],
+        "horizon": training_config["environment"]["horizon"],
+        "ignore_done": training_config["environment"]["ignore_done"],
+        "hard_reset": training_config["environment"]["hard_reset"],
+        "camera_names": training_config["environment"]["camera_names"],
+        "camera_heights": training_config["environment"]["camera_heights"],
+        "camera_widths": training_config["environment"]["camera_widths"],
+        "camera_depths": training_config["environment"]["camera_depths"],
+        "camera_segmentations": training_config["environment"]["camera_segmentations"],
+        "renderer": training_config["environment"]["renderer"],
+        "renderer_config": training_config["environment"]["renderer_config"],
+        "use_failsafe_controller": training_config["environment"][
+            "use_failsafe_controller"
+        ],
+        "visualize_failsafe_controller": training_config["environment"][
+            "visualize_failsafe_controller"
+        ],
+        "visualize_pinocchio": training_config["environment"]["visualize_pinocchio"],
+        "control_sample_time": training_config["environment"]["control_sample_time"],
+        "human_animation_names": training_config["environment"][
+            "human_animation_names"
+        ],
+        "base_human_pos_offset": training_config["environment"][
+            "base_human_pos_offset"
+        ],
+        "human_animation_freq": training_config["environment"]["human_animation_freq"],
+        "safe_vel": training_config["environment"]["safe_vel"],
+        "randomize_initial_pos": training_config["environment"][
+            "randomize_initial_pos"
+        ],
+        "self_collision_safety": training_config["environment"][
+            "self_collision_safety"
+        ],
+        "seed": training_config["algorithm"]["seed"],
+    }
+    wrapper_cls = partial(wrap_environment,
+                          use_collision_wrapper=True,
+                          replace_type=training_config["environment"]["replace_type"],
+                          has_renderer=False)
+    env = make_vec_env(
+        env_id="ReachHuman",
+        type="env",
+        n_envs=6,
+        env_kwargs=env_kwargs,
+        vec_env_cls=SubprocVecEnv,
+        wrapper_class=wrapper_cls,
     )
-    
-    env = GoalEnvironmentGymWrapper(
-        robosuite.make(
-            "ReachHuman",
-            robots=training_config["robot"]["name"],
-            robot_base_offset=training_config["environment"]["robot_base_offset"],
-            env_configuration=training_config["environment"]["env_configuration"],
-            controller_configs=training_config["environment"]["controller_configs"],
-            gripper_types=training_config["environment"]["gripper_types"],
-            initialization_noise=training_config["environment"]["initialization_noise"],
-            table_full_size=training_config["environment"]["table_full_size"],
-            table_friction=training_config["environment"]["table_friction"],
-            use_camera_obs=training_config["environment"]["use_camera_obs"],
-            use_object_obs=training_config["environment"]["use_object_obs"],
-            reward_scale=training_config["environment"]["reward_scale"],
-            reward_shaping=training_config["environment"]["reward_shaping"],
-            goal_dist=training_config["environment"]["goal_dist"],
-            collision_reward=training_config["environment"]["collision_reward"],
-            has_renderer=training_config["environment"]["has_renderer"],
-            has_offscreen_renderer=training_config["environment"][
-                "has_offscreen_renderer"
-            ],
-            render_camera=training_config["environment"]["render_camera"],
-            render_collision_mesh=training_config["environment"][
-                "render_collision_mesh"
-            ],
-            render_visual_mesh=training_config["environment"]["render_visual_mesh"],
-            render_gpu_device_id=training_config["environment"]["render_gpu_device_id"],
-            control_freq=training_config["environment"]["control_freq"],
-            horizon=training_config["environment"]["horizon"],
-            ignore_done=training_config["environment"]["ignore_done"],
-            hard_reset=training_config["environment"]["hard_reset"],
-            camera_names=training_config["environment"]["camera_names"],
-            camera_heights=training_config["environment"]["camera_heights"],
-            camera_widths=training_config["environment"]["camera_widths"],
-            camera_depths=training_config["environment"]["camera_depths"],
-            camera_segmentations=training_config["environment"]["camera_segmentations"],
-            renderer=training_config["environment"]["renderer"],
-            renderer_config=training_config["environment"]["renderer_config"],
-            use_failsafe_controller=training_config["environment"][
-                "use_failsafe_controller"
-            ],
-            visualize_failsafe_controller=training_config["environment"][
-                "visualize_failsafe_controller"
-            ],
-            visualize_pinocchio=training_config["environment"]["visualize_pinocchio"],
-            control_sample_time=training_config["environment"]["control_sample_time"],
-            human_animation_names=training_config["environment"][
-                "human_animation_names"
-            ],
-            base_human_pos_offset=training_config["environment"][
-                "base_human_pos_offset"
-            ],
-            human_animation_freq=training_config["environment"]["human_animation_freq"],
-            safe_vel=training_config["environment"]["safe_vel"],
-            randomize_initial_pos=training_config["environment"][
-                "randomize_initial_pos"
-            ],
-            self_collision_safety=training_config["environment"][
-                "self_collision_safety"
-            ],
-            seed=training_config["algorithm"]["seed"],
-        )
-    )
-    # << Environment Wrappers >>
-    if env.spec is None:
-        env.spec = struct
-    env = TimeLimit(env, max_episode_steps=training_config["algorithm"]["max_ep_len"])
-    env = CollisionPreventionWrapper(
-        env=env,
-        collision_check_fn=env._check_collision_action, replace_type=training_config["environment"]["replace_type"],
-    )
-    if training_config["environment"]["has_renderer"]:
-        env = VisualizationWrapper(env)
 
     now = datetime.now()
     load_episode = -1
@@ -228,11 +207,6 @@ if __name__ == "__main__":
 
     last_time_steps = np.ndarray(0)
 
-    # Monitor and log the training
-    # env = Monitor(env, filename=outdir, info_keywords=("collision", "criticalCollision", "goalReached"))
-
-    HerReplayBuffer.add = custom_add
-    HerReplayBuffer._sample_transitions = _custom_sample_transitions
     start_episode = 0
     if load_episode == -1:
         # << Defining the "run" for weights and biases >>
@@ -248,43 +222,19 @@ if __name__ == "__main__":
             run = struct
             run.id = int(np.random.rand(1) * 100000)
         # << Initialize the model >>
-        model = SAC(
-            "MultiInputPolicy",
+        model = PPO(
+            "MlpPolicy",
             env,
-            replay_buffer_class=HerReplayBuffer,
-            replay_buffer_kwargs=dict(
-                n_sampled_goal=training_config["algorithm"]["k_her_samples"],
-                goal_selection_strategy=training_config["algorithm"][
-                    "goal_selection_strategy"
-                ],
-                online_sampling=True,
-            ),
-            buffer_size=training_config["algorithm"]["replay_size"],
+            n_steps=128,
+            learning_rate=1e-3,
+            gae_lambda=0.95,
+            gamma=0.9,
             verbose=1,
-            learning_rate=training_config["algorithm"]["lr"],
-            learning_starts=training_config["algorithm"]["start_steps"],
-            batch_size=training_config["algorithm"]["batch_size"],
-            tau=training_config["algorithm"]["tau"],
-            gamma=training_config["algorithm"]["gamma"],
-            train_freq=(training_config["algorithm"]["update_every"], "episode"),
-            gradient_steps=training_config["algorithm"]["gradient_steps"],
-            action_noise=training_config["algorithm"]["action_noise"],
-            optimize_memory_usage=False,
-            ent_coef=training_config["algorithm"]["ent_coef"],
-            target_update_interval=training_config["algorithm"][
-                "target_update_interval"
-            ],
-            target_entropy=training_config["algorithm"]["target_entropy"],
-            use_sde=training_config["algorithm"]["use_sde"],
-            sde_sample_freq=training_config["algorithm"]["sde_sample_freq"],
-            use_sde_at_warmup=training_config["algorithm"]["use_sde_at_warmup"],
-            create_eval_env=False,
             seed=training_config["algorithm"]["seed"],
             device="auto",
             _init_setup_model=True,
             policy_kwargs=dict(net_arch=training_config["algorithm"]["hid"]),
             tensorboard_log=f"runs/{run.id}",
-            # max_episode_length=training_config["algorithm"]["max_ep_len"]
         )
     else:
         # << Defining the "run" for weights and biases >>
@@ -299,11 +249,10 @@ if __name__ == "__main__":
                 id=run_id,
             )
         # << Load the model >>
-        model = SAC.load(
+        model = PPO.load(
             "{}/model_{}".format(f"models/{run_id}", str(load_episode)), env=env
         )
         # load it into the loaded_model
-        model.load_replay_buffer("{}/replay_buffer.pkl".format(f"models/{run_id}"))
         start_episode = model._episode_num
         model.set_env(env)
         model.env.reset()
