@@ -123,7 +123,8 @@ class TensorboardCallback(WandbCallback):
             self.model.save(
                 "{}/model_{}".format(self.model_file, str(self.episode_counter))
             )
-            self.model.save_replay_buffer("{}/replay_buffer".format(self.model_file))
+            if hasattr(self.model, 'save_replay_buffer'):
+                self.model.save_replay_buffer("{}/replay_buffer".format(self.model_file))
 
     def _log_success_callback(
         self, locals_: Dict[str, Any], globals_: Dict[str, Any]

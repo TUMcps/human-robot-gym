@@ -120,7 +120,6 @@ if __name__ == "__main__":
     robot_config = load_controller_config(custom_fpath=robot_conig_path)
     controller_config = merge_configs(controller_config, robot_config)
     training_config["environment"]["controller_configs"] = [controller_config]
-    use_env_pool = training_config["algorithm"]["use_env_pool"]
 
     env_kwargs = {
         "robots": training_config["robot"]["name"],
@@ -180,7 +179,7 @@ if __name__ == "__main__":
         "self_collision_safety": training_config["environment"][
             "self_collision_safety"
         ],
-        "seed": training_config["algorithm"]["seed"],
+        "seed": training_config["training"]["seed"],
     }
     wrapper_cls = partial(wrap_environment,
                           use_collision_wrapper=True,
@@ -189,7 +188,7 @@ if __name__ == "__main__":
     env = make_vec_env(
         env_id="ReachHuman",
         type="env",
-        n_envs=6,
+        n_envs=training_config["training"]["n_envs"],
         env_kwargs=env_kwargs,
         vec_env_cls=SubprocVecEnv,
         wrapper_class=wrapper_cls,
@@ -225,16 +224,12 @@ if __name__ == "__main__":
         model = PPO(
             "MlpPolicy",
             env,
-            n_steps=128,
-            learning_rate=1e-3,
-            gae_lambda=0.95,
-            gamma=0.9,
             verbose=1,
-            seed=training_config["algorithm"]["seed"],
+            seed=training_config["training"]["seed"],
+            tensorboard_log=f"runs/{run.id}",
             device="auto",
             _init_setup_model=True,
-            policy_kwargs=dict(net_arch=training_config["algorithm"]["hid"]),
-            tensorboard_log=f"runs/{run.id}",
+            **training_config["algorithm"]
         )
     else:
         # << Defining the "run" for weights and biases >>
@@ -263,7 +258,7 @@ if __name__ == "__main__":
             gradient_save_freq=100,
             model_save_path=f"models/{run.id}",
             verbose=2,
-            save_freq=training_config["algorithm"]["save_freq"],
+            save_freq=training_config["training"]["save_freq"],
             model_file=f"models/{run.id}",
             start_episode=start_episode,
             additional_log_info_keys=[
@@ -276,14 +271,13 @@ if __name__ == "__main__":
             ],
             n_eval_episodes=0,
             deterministic=True,
-            log_interval=training_config["algorithm"]["log_interval"],
+            log_interval=training_config["training"]["log_interval"],
         )
     # << Train the agent >>
-    if not training_config["algorithm"]["test_only"]:
+    if not training_config["training"]["test_only"]:
         model.learn(
-            total_timesteps=training_config["algorithm"]["n_episodes"]
-            * training_config["algorithm"]["max_ep_len"],
-            log_interval=training_config["algorithm"]["log_interval"],
+            total_timesteps=training_config["training"]["n_steps"],
+            log_interval=training_config["training"]["log_interval"],
             reset_num_timesteps=(load_episode == -1),
             callback=callback,
         )
@@ -295,13 +289,13 @@ if __name__ == "__main__":
             eval_env=env,
             verbose=2,
             additional_log_info_keys=["goalReached", "collision", "criticalCollision"],
-            n_eval_episodes=training_config["algorithm"]["num_test_episodes"],
+            n_eval_episodes=training_config["training"]["num_test_episodes"],
             deterministic=True,
         )
     # << Evaluate model >>
     model.learn(
         total_timesteps=0,
-        log_interval=training_config["algorithm"]["log_interval"],
+        log_interval=training_config["training"]["log_interval"],
         callback=callback,
     )
     # Close everything
