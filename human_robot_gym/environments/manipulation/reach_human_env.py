@@ -198,7 +198,7 @@ class ReachHuman(HumanEnv):
         controller_configs=None,
         gripper_types="default",
         initialization_noise="default",
-        table_full_size=(2.5, 0.80, 0.05),
+        table_full_size=(1.5, 2.0, 0.05),
         table_friction=(1.0, 5e-3, 1e-4),
         use_camera_obs=True,
         use_object_obs=True,
@@ -258,7 +258,7 @@ class ReachHuman(HumanEnv):
         self.table_full_size = table_full_size
         self.table_friction = table_friction
         # settings for table top (hardcoded since it's not an essential part of the environment)
-        self.table_offset = np.array((0.0, -0.4, 0.82))
+        self.table_offset = np.array((0.0, 0.0, 0.82))
         # reward configuration
         self.reward_scale = reward_scale
         self.reward_shaping = reward_shaping
