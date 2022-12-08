@@ -40,6 +40,7 @@ from robosuite.models.objects import PrimitiveObject
 
 from human_robot_gym.models.objects.human.human import HumanObject
 from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat
+from human_robot_gym.utils.pairing import cantor_pairing
 from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import (
     PinocchioManipulatorModel,
 )
@@ -413,8 +414,7 @@ class HumanEnv(SingleArmEnv):
                 self.sim.forward()
                 # Collision detection needs to be done before the simulation step.
                 # Otherwise, the velocity of the robot might be influenced by the collision.
-                if not self.has_collision:
-                    self._collision_detection()
+                self._collision_detection()
                 try:
                     self.sim.step()
                 except MujocoException as e:
@@ -688,6 +688,7 @@ class HumanEnv(SingleArmEnv):
         """
         self.has_collision = False
         self.collision_type = COLLISION_TYPE.NULL
+        this_collision_dict = dict()
         for i in range(self.sim.data.ncon):
             # Note that the contact array has more than `ncon` entries,
             # so be careful to only read the valid entries.
@@ -704,14 +705,16 @@ class HumanEnv(SingleArmEnv):
                 contact_type2 = COLLISION_TYPE.HUMAN
             else:
                 contact_type2 = COLLISION_TYPE.STATIC
-            if (
-                contact_type1 == COLLISION_TYPE.ROBOT
-                or contact_type2 == COLLISION_TYPE.ROBOT
-            ):
-                if (
-                    contact_type1 == COLLISION_TYPE.ROBOT
-                    and contact_type2 == COLLISION_TYPE.ROBOT
-                ):
+            # Only collisions with the robot are considered
+            if (contact_type1 == COLLISION_TYPE.ROBOT or contact_type2 == COLLISION_TYPE.ROBOT):
+                # Add this collision to the current collision dictionary
+                this_collision_dict[cantor_pairing(contact.geom1, contact.geom2)] = 0
+                # If the current collision already existed previously, skip it to avoid double counting
+                if cantor_pairing(contact.geom1, contact.geom2) in self.previous_robot_collisions or\
+                   cantor_pairing(contact.geom2, contact.geom1) in self.previous_robot_collisions:
+                    continue
+                # Self-collision
+                if (contact_type1 == COLLISION_TYPE.ROBOT and contact_type2 == COLLISION_TYPE.ROBOT):
                     if self.verbose:
                         print(
                             "Self-collision detected between ",
@@ -722,10 +725,8 @@ class HumanEnv(SingleArmEnv):
                     self.has_collision = True
                     self.collision_type = COLLISION_TYPE.ROBOT
                     self.n_collisions_robot += 1
-                elif (
-                    contact_type1 == COLLISION_TYPE.HUMAN
-                    or contact_type2 == COLLISION_TYPE.HUMAN
-                ):
+                # Collision with the human
+                elif (contact_type1 == COLLISION_TYPE.HUMAN or contact_type2 == COLLISION_TYPE.HUMAN):
                     if self.verbose:
                         print(
                             "Human-robot collision detected between ",
@@ -774,6 +775,7 @@ class HumanEnv(SingleArmEnv):
                         self.n_collisions_critical += 1
                         if self.verbose:
                             print("Robot too fast during collision!")
+                # Collision with the static environment
                 else:
                     if self.verbose:
                         print(
@@ -785,6 +787,7 @@ class HumanEnv(SingleArmEnv):
                     self.has_collision = True
                     self.collision_type = COLLISION_TYPE.STATIC
                     self.n_collisions_static += 1
+        self.previous_robot_collisions = this_collision_dict
         return self.collision_type
 
     def _check_robot_vel_safe(self, robot_id, threshold, q, dq):
@@ -1216,6 +1219,7 @@ class HumanEnv(SingleArmEnv):
         self._reset_pin_models()
 
         # Reset collision information
+        self.previous_robot_collisions = dict()
         self.has_collision = False
         self.collision_type = COLLISION_TYPE.NULL
         self.failsafe_interventions = 0
