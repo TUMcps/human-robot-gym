@@ -69,4 +69,4 @@ if __name__ == "__main__":
             if done or t == t_max:
                 print("Episode finished after {} timesteps".format(t + 1))
                 break
-        print("Episode {}, fps = {}".format(i_episode, 500 / (time.time() - t1)))
+        print("Episode {}, fps = {}".format(i_episode, t_max / (time.time() - t1)))

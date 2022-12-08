@@ -40,6 +40,7 @@ from robosuite.models.objects import PrimitiveObject
 
 from human_robot_gym.models.objects.human.human import HumanObject
 from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat
+from human_robot_gym.utils.pairing import cantor_pairing
 from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import (
     PinocchioManipulatorModel,
 )
@@ -411,6 +412,9 @@ class HumanEnv(SingleArmEnv):
                 # If qpos or qvel have been modified directly, the user is required to call forward() before step() if
                 # their udd_callback requires access to MuJoCo state set during the forward dynamics.
                 self.sim.forward()
+                # Collision detection needs to be done before the simulation step.
+                # Otherwise, the velocity of the robot might be influenced by the collision.
+                self._collision_detection()
                 try:
                     self.sim.step()
                 except MujocoException as e:
@@ -434,8 +438,6 @@ class HumanEnv(SingleArmEnv):
                     done = True
                     return observations, reward, done, info
 
-                if not self.has_collision:
-                    self._collision_detection()
                 self._update_observables()
             policy_step = False
             self.low_level_time += 1
@@ -534,6 +536,11 @@ class HumanEnv(SingleArmEnv):
         info = {
             "collision": self.has_collision,
             "collision_type": self.collision_type.value,
+            "n_collisions": self.n_collisions,
+            "n_collisions_static": self.n_collisions_static,
+            "n_collisions_robot": self.n_collisions_robot,
+            "n_collisions_human": self.n_collisions_human,
+            "n_collisions_critical": self.n_collisions_critical,
             "timeout": (self.timestep >= self.horizon),
             "failsafe_interventions": self.failsafe_interventions,
             "goal_reached": self.goal_reached,
@@ -681,6 +688,7 @@ class HumanEnv(SingleArmEnv):
         """
         self.has_collision = False
         self.collision_type = COLLISION_TYPE.NULL
+        this_collision_dict = dict()
         for i in range(self.sim.data.ncon):
             # Note that the contact array has more than `ncon` entries,
             # so be careful to only read the valid entries.
@@ -697,14 +705,16 @@ class HumanEnv(SingleArmEnv):
                 contact_type2 = COLLISION_TYPE.HUMAN
             else:
                 contact_type2 = COLLISION_TYPE.STATIC
-            if (
-                contact_type1 == COLLISION_TYPE.ROBOT
-                or contact_type2 == COLLISION_TYPE.ROBOT
-            ):
-                if (
-                    contact_type1 == COLLISION_TYPE.ROBOT
-                    and contact_type2 == COLLISION_TYPE.ROBOT
-                ):
+            # Only collisions with the robot are considered
+            if (contact_type1 == COLLISION_TYPE.ROBOT or contact_type2 == COLLISION_TYPE.ROBOT):
+                # Add this collision to the current collision dictionary
+                this_collision_dict[cantor_pairing(contact.geom1, contact.geom2)] = 0
+                # If the current collision already existed previously, skip it to avoid double counting
+                if cantor_pairing(contact.geom1, contact.geom2) in self.previous_robot_collisions or\
+                   cantor_pairing(contact.geom2, contact.geom1) in self.previous_robot_collisions:
+                    continue
+                # Self-collision
+                if (contact_type1 == COLLISION_TYPE.ROBOT and contact_type2 == COLLISION_TYPE.ROBOT):
                     if self.verbose:
                         print(
                             "Self-collision detected between ",
@@ -714,10 +724,9 @@ class HumanEnv(SingleArmEnv):
                         )
                     self.has_collision = True
                     self.collision_type = COLLISION_TYPE.ROBOT
-                elif (
-                    contact_type1 == COLLISION_TYPE.HUMAN
-                    or contact_type2 == COLLISION_TYPE.HUMAN
-                ):
+                    self.n_collisions_robot += 1
+                # Collision with the human
+                elif (contact_type1 == COLLISION_TYPE.HUMAN or contact_type2 == COLLISION_TYPE.HUMAN):
                     if self.verbose:
                         print(
                             "Human-robot collision detected between ",
@@ -757,13 +766,16 @@ class HumanEnv(SingleArmEnv):
                     if vel_safe:
                         self.has_collision = True
                         self.collision_type = COLLISION_TYPE.HUMAN
+                        self.n_collisions_human += 1
                         if self.verbose:
                             print("Robot at safe speed.")
                     else:
                         self.has_collision = True
                         self.collision_type = COLLISION_TYPE.HUMAN_CRIT
+                        self.n_collisions_critical += 1
                         if self.verbose:
                             print("Robot too fast during collision!")
+                # Collision with the static environment
                 else:
                     if self.verbose:
                         print(
@@ -774,6 +786,8 @@ class HumanEnv(SingleArmEnv):
                         )
                     self.has_collision = True
                     self.collision_type = COLLISION_TYPE.STATIC
+                    self.n_collisions_static += 1
+        self.previous_robot_collisions = this_collision_dict
         return self.collision_type
 
     def _check_robot_vel_safe(self, robot_id, threshold, q, dq):
@@ -1205,9 +1219,15 @@ class HumanEnv(SingleArmEnv):
         self._reset_pin_models()
 
         # Reset collision information
+        self.previous_robot_collisions = dict()
         self.has_collision = False
         self.collision_type = COLLISION_TYPE.NULL
         self.failsafe_interventions = 0
+        self.n_collisions = 0
+        self.n_collisions_static = 0
+        self.n_collisions_robot = 0
+        self.n_collisions_human = 0
+        self.n_collisions_critical = 0
 
         self.human_animation_id = np.random.randint(0, len(self.human_animations))
         self.animation_start_time = 0
