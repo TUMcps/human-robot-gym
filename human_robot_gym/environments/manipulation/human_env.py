@@ -24,6 +24,8 @@ from enum import Enum
 
 import pinocchio as pin
 
+from mujoco_py.builder import MujocoException
+
 from robosuite.environments.manipulation.single_arm_env import SingleArmEnv
 from robosuite.models.arenas import TableArena
 from robosuite.models.tasks import ManipulationTask
@@ -247,7 +249,6 @@ class HumanEnv(SingleArmEnv):
             "62_18",
             "62_19",
             "62_20",
-            "62_21",
         ],
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_freq=120,
@@ -281,6 +282,8 @@ class HumanEnv(SingleArmEnv):
         # Human animation definition
         self.human_animation_names = human_animation_names
         self.animation_info = {}
+        # Rotation of the human in animation info is given in scipy quaternion format:
+        # (x, y, z, w)
         with open(
             xml_path_completion("human/animations/animation_info.json")
         ) as json_file:
@@ -408,7 +411,29 @@ class HumanEnv(SingleArmEnv):
                 # If qpos or qvel have been modified directly, the user is required to call forward() before step() if
                 # their udd_callback requires access to MuJoCo state set during the forward dynamics.
                 self.sim.forward()
-                self.sim.step()
+                try:
+                    self.sim.step()
+                except MujocoException as e:
+                    # There may occur numerical instabilities since we set the human qpos manually.
+                    # If this happens, we terminate the episode.
+                    print("[WARNING] Terminating the episode due to numerical instabilities in the simulation.")
+                    print(e)
+                    print("Human animation id: {}".format(self.human_animation_id))
+                    observations = self._get_observations()
+                    achieved_goal = self._get_achieved_goal_from_obs(observations)
+                    desired_goal = self._get_desired_goal_from_obs(observations)
+                    self.goal_reached = False
+                    info = self._get_info()
+                    reward = self._compute_reward(
+                        achieved_goal=achieved_goal,
+                        desired_goal=desired_goal,
+                        info=info
+                        )
+                    # Add a penalty for breaking the simulation
+                    reward -= 10
+                    done = True
+                    return observations, reward, done, info
+
                 if not self.has_collision:
                     self._collision_detection()
                 self._update_observables()
@@ -1184,6 +1209,7 @@ class HumanEnv(SingleArmEnv):
         self.collision_type = COLLISION_TYPE.NULL
         self.failsafe_interventions = 0
 
+        self.human_animation_id = np.random.randint(0, len(self.human_animations))
         self.animation_start_time = 0
         self.low_level_time = 0
         self.animation_time = -1
@@ -1237,17 +1263,9 @@ class HumanEnv(SingleArmEnv):
             return
         self.animation_time = control_time - self.animation_start_time
         # Check if current animation is finished
-        if (
-            self.animation_time
-            > self.human_animations[self.human_animation_id]["Pelvis_pos_x"].shape[0]
-            - 1
-        ):
+        if (self.animation_time > self.human_animations[self.human_animation_id]["Pelvis_pos_x"].shape[0]-1):
             # Rotate to next human animation
-            self.human_animation_id = (
-                self.human_animation_id + 1
-                if self.human_animation_id < len(self.human_animations) - 1
-                else 0
-            )
+            self.human_animation_id = np.random.randint(0, len(self.human_animations))
             self.animation_time = 0
             self.animation_start_time = control_time
 
