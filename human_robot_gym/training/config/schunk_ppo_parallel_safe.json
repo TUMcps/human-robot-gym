@@ -79,7 +79,7 @@
         "obs_keys": [
             "object-state",
             "robot0_proprio-state",
-            "desired_goal"
+            "goal_difference"
         ]
     },
     "training": {

@@ -75,7 +75,12 @@
         "safe_vel": 0.01,
         "self_collision_safety": 0.012,
         "replace_type": 2,
-        "done_at_collision": false
+        "done_at_collision": false,
+        "obs_keys": [
+            "object-state",
+            "robot0_proprio-state",
+            "desired_goal"
+        ]
     },
     "algorithm": {
         "seed": 0,

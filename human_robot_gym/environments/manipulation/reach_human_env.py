@@ -594,7 +594,11 @@ class ReachHuman(HumanEnv):
         def desired_goal(obs_cache):
             return self.desired_goal
 
-        sensors = [desired_goal]
+        @sensor(modality=modality)
+        def goal_difference(obs_cache):
+            return self.desired_goal - np.array([self.sim.data.qpos[x] for x in self.robots[0]._ref_joint_pos_indexes])
+
+        sensors = [desired_goal, goal_difference]
         names = [s.__name__ for s in sensors]
 
         # Create observables

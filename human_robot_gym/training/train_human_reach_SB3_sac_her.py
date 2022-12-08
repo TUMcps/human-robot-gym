@@ -160,7 +160,8 @@ if __name__ == "__main__":
             ],
             seed=training_config["algorithm"]["seed"],
             done_at_collision=training_config["environment"]["done_at_collision"]
-        )
+        ),
+        keys=training_config["environment"]["obs_keys"]
     )
     # << Environment Wrappers >>
     if env.spec is None:
