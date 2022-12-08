@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
     env = VisualizationWrapper(env)
 
-    t_max = 100
+    t_max = 1000
     for i_episode in range(20):
         observation = env.reset()
         t1 = time.time()
