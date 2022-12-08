@@ -14,8 +14,8 @@
         "gripper_types": "default",
         "initialization_noise": "default",
         "table_full_size": [
-            2.5,
-            0.8,
+            1.5,
+            2.0,
             0.05
         ],
         "table_friction": [
@@ -63,8 +63,7 @@
             "62_15",
             "62_16",
             "62_18",
-            "62_19",
-            "62_20"
+            "62_19"
         ],
         "base_human_pos_offset": [
             0.0,
