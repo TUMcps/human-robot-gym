@@ -182,6 +182,10 @@ class ReachHuman(HumanEnv):
 
         seed (int): Random seed for np.random
 
+        verbose (bool): If True, print out debug information
+
+        done_at_collision (bool): If True, the episode is terminated when a collision occurs
+
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
@@ -249,6 +253,7 @@ class ReachHuman(HumanEnv):
         randomize_initial_pos=False,
         self_collision_safety=0.01,
         seed=0,
+        verbose=False,
         done_at_collision=False
     ):  # noqa: D107
         # settings for table top
@@ -308,6 +313,7 @@ class ReachHuman(HumanEnv):
             safe_vel=safe_vel,
             self_collision_safety=self_collision_safety,
             seed=seed,
+            verbose=verbose,
         )
 
     def step(self, action):
