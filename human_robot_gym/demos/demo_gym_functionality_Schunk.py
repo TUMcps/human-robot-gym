@@ -58,14 +58,15 @@ if __name__ == "__main__":
 
     env = VisualizationWrapper(env)
 
-    t_max = 100
+    t_max = 1000
     for i_episode in range(20):
         observation = env.reset()
         t1 = time.time()
         for t in range(t_max):
-            action = env.action_space.sample()
+            # action = env.action_space.sample()
+            action = np.array([-0.0, 1, 0, 0, 0, 0, 0])
             observation, reward, done, info = env.step(action)
             if done or t == t_max:
                 print("Episode finished after {} timesteps".format(t + 1))
                 break
-        print("Episode {}, fps = {}".format(i_episode, 500 / (time.time() - t1)))
+        print("Episode {}, fps = {}".format(i_episode, t_max / (time.time() - t1)))

@@ -505,6 +505,11 @@ class HumanEnv(SingleArmEnv):
         info = {
             "collision": self.has_collision,
             "collision_type": self.collision_type.value,
+            "n_collisions": self.n_collisions,
+            "n_collisions_static": self.n_collisions_static,
+            "n_collisions_robot": self.n_collisions_robot,
+            "n_collisions_human": self.n_collisions_human,
+            "n_collisions_critical": self.n_collisions_critical,
             "timeout": (self.timestep >= self.horizon),
             "failsafe_interventions": self.failsafe_interventions,
             "goal_reached": self.goal_reached,
@@ -684,6 +689,7 @@ class HumanEnv(SingleArmEnv):
                     )
                     self.has_collision = True
                     self.collision_type = COLLISION_TYPE.ROBOT
+                    self.n_collisions_robot += 1
                 elif (
                     contact_type1 == COLLISION_TYPE.HUMAN
                     or contact_type2 == COLLISION_TYPE.HUMAN
@@ -725,10 +731,12 @@ class HumanEnv(SingleArmEnv):
                     if vel_safe:
                         self.has_collision = True
                         self.collision_type = COLLISION_TYPE.HUMAN
+                        self.n_collisions_human += 1
                         print("Robot at safe speed.")
                     else:
                         self.has_collision = True
                         self.collision_type = COLLISION_TYPE.HUMAN_CRIT
+                        self.n_collisions_critical += 1
                         print("Robot too fast during collision!")
                 else:
                     print(
@@ -739,6 +747,7 @@ class HumanEnv(SingleArmEnv):
                     )
                     self.has_collision = True
                     self.collision_type = COLLISION_TYPE.STATIC
+                    self.n_collisions_static += 1
         return self.collision_type
 
     def _check_robot_vel_safe(self, robot_id, threshold, q, dq):
@@ -1173,6 +1182,11 @@ class HumanEnv(SingleArmEnv):
         self.has_collision = False
         self.collision_type = COLLISION_TYPE.NULL
         self.failsafe_interventions = 0
+        self.n_collisions = 0
+        self.n_collisions_static = 0
+        self.n_collisions_robot = 0
+        self.n_collisions_human = 0
+        self.n_collisions_critical = 0
 
         self.animation_start_time = 0
         self.low_level_time = 0
