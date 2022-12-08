@@ -404,9 +404,9 @@ class HumanEnv(SingleArmEnv):
                 # If qpos or qvel have been modified directly, the user is required to call forward() before step() if
                 # their udd_callback requires access to MuJoCo state set during the forward dynamics.
                 self.sim.forward()
-                self.sim.step()
                 if not self.has_collision:
                     self._collision_detection()
+                self.sim.step()
                 self._update_observables()
             policy_step = False
             self.low_level_time += 1
