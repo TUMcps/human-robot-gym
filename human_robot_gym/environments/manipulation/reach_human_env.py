@@ -240,8 +240,6 @@ class ReachHuman(HumanEnv):
             "62_16",
             "62_18",
             "62_19",
-            "62_20",
-            "62_21",
         ],
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_freq=120,
