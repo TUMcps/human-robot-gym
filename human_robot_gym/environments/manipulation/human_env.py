@@ -196,6 +196,8 @@ class HumanEnv(SingleArmEnv):
 
         seed (int): Random seed for np.random
 
+        verbose (bool): Whether or not to print out debug statements
+
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
@@ -253,10 +255,12 @@ class HumanEnv(SingleArmEnv):
         safe_vel=0.001,
         self_collision_safety=0.01,
         seed=0,
+        verbose=False
     ):  # noqa: D107
         macros.SIMULATION_TIMESTEP = control_sample_time
         self.mujoco_arena = None
         self.seed = seed
+        self.verbose = verbose
         np.random.seed(self.seed)
         # Robot base offset
         self.robot_base_offset = np.array(robot_base_offset)
@@ -708,12 +712,13 @@ class HumanEnv(SingleArmEnv):
                     contact_type1 == COLLISION_TYPE.ROBOT
                     and contact_type2 == COLLISION_TYPE.ROBOT
                 ):
-                    print(
-                        "Self-collision detected between ",
-                        self.sim.model.geom_id2name(contact.geom1),
-                        " and ",
-                        self.sim.model.geom_id2name(contact.geom2),
-                    )
+                    if self.verbose:
+                        print(
+                            "Self-collision detected between ",
+                            self.sim.model.geom_id2name(contact.geom1),
+                            " and ",
+                            self.sim.model.geom_id2name(contact.geom2),
+                        )
                     self.has_collision = True
                     self.collision_type = COLLISION_TYPE.ROBOT
                     self.n_collisions_robot += 1
@@ -721,12 +726,13 @@ class HumanEnv(SingleArmEnv):
                     contact_type1 == COLLISION_TYPE.HUMAN
                     or contact_type2 == COLLISION_TYPE.HUMAN
                 ):
-                    print(
-                        "Human-robot collision detected between ",
-                        self.sim.model.geom_id2name(contact.geom1),
-                        " and ",
-                        self.sim.model.geom_id2name(contact.geom2),
-                    )
+                    if self.verbose:
+                        print(
+                            "Human-robot collision detected between ",
+                            self.sim.model.geom_id2name(contact.geom1),
+                            " and ",
+                            self.sim.model.geom_id2name(contact.geom2),
+                        )
                     # <<< This value may not be correct since it rapidely changes BEFORE the collision >>>
                     # Ways to handle this:
                     # 1) forward dynamic of the robot
@@ -744,8 +750,9 @@ class HumanEnv(SingleArmEnv):
                     """
                     # 2) Use the velocity of the simulation
                     if contact_type1 == COLLISION_TYPE.ROBOT:
-                        print("Robot speed:")
-                        print(self.sim.data.geom_xvelp[contact.geom1])
+                        if self.verbose:
+                            print("Robot speed:")
+                            print(self.sim.data.geom_xvelp[contact.geom1])
                         # print(self.sim.data.geom_xvelr[contact.geom1])
                         vel_safe = self._check_vel_safe(
                             self.sim.data.geom_xvelp[contact.geom1], self.safe_vel
@@ -759,19 +766,22 @@ class HumanEnv(SingleArmEnv):
                         self.has_collision = True
                         self.collision_type = COLLISION_TYPE.HUMAN
                         self.n_collisions_human += 1
-                        print("Robot at safe speed.")
+                        if self.verbose:
+                            print("Robot at safe speed.")
                     else:
                         self.has_collision = True
                         self.collision_type = COLLISION_TYPE.HUMAN_CRIT
                         self.n_collisions_critical += 1
-                        print("Robot too fast during collision!")
+                        if self.verbose:
+                            print("Robot too fast during collision!")
                 else:
-                    print(
-                        "Collision with static environment detected between ",
-                        self.sim.model.geom_id2name(contact.geom1),
-                        " and ",
-                        self.sim.model.geom_id2name(contact.geom2),
-                    )
+                    if self.verbose:
+                        print(
+                            "Collision with static environment detected between ",
+                            self.sim.model.geom_id2name(contact.geom1),
+                            " and ",
+                            self.sim.model.geom_id2name(contact.geom2),
+                        )
                     self.has_collision = True
                     self.collision_type = COLLISION_TYPE.STATIC
                     self.n_collisions_static += 1
