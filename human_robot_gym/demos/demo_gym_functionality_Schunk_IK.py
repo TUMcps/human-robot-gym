@@ -48,7 +48,7 @@ if __name__ == "__main__":
         suite.make(
             "ReachHumanCart",
             robots="Schunk",  # use Schunk robot
-            robot_base_offset=[-0.36, 0, 0],
+            robot_base_offset=[0.0, 0, 0],
             use_camera_obs=False,  # do not use pixel observations
             has_offscreen_renderer=False,  # not needed since not using pixel obs
             has_renderer=True,  # make sure we can render to the screen
@@ -62,8 +62,9 @@ if __name__ == "__main__":
             use_failsafe_controller=True,
             visualize_failsafe_controller=False,
             visualize_pinocchio=False,
-            base_human_pos_offset=[1.0, 0.0, 0.0],
+            base_human_pos_offset=[0.0, 0.0, 0.0],
             init_joint_pos=np.array([0, 0.0, -np.pi / 2, 0, -np.pi / 2, 0]),
+            verbose=True,
         )
     )
     env = CollisionPreventionWrapper(

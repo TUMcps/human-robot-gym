@@ -49,6 +49,7 @@ if __name__ == "__main__":
             visualize_failsafe_controller=False,
             visualize_pinocchio=False,
             base_human_pos_offset=[0.0, 0.0, 0.0],
+            verbose=True,
         )
     )
 
@@ -58,7 +59,7 @@ if __name__ == "__main__":
 
     env = VisualizationWrapper(env)
 
-    t_max = 100
+    t_max = 1000
     for i_episode in range(20):
         observation = env.reset()
         t1 = time.time()
@@ -68,4 +69,4 @@ if __name__ == "__main__":
             if done or t == t_max:
                 print("Episode finished after {} timesteps".format(t + 1))
                 break
-        print("Episode {}, fps = {}".format(i_episode, 500 / (time.time() - t1)))
+        print("Episode {}, fps = {}".format(i_episode, t_max / (time.time() - t1)))

@@ -24,6 +24,7 @@ if __name__ == "__main__":
             reward_shaping=True,  # use dense rewards
             control_freq=20,  # control should happen fast enough so that simulation looks smooth
             hard_reset=False,
+            verbose=True,
         )
     )
 

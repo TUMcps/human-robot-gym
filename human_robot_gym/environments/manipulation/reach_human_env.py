@@ -182,6 +182,10 @@ class ReachHuman(HumanEnv):
 
         seed (int): Random seed for np.random
 
+        verbose (bool): If True, print out debug information
+
+        done_at_collision (bool): If True, the episode is terminated when a collision occurs
+
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
@@ -194,7 +198,7 @@ class ReachHuman(HumanEnv):
         controller_configs=None,
         gripper_types="default",
         initialization_noise="default",
-        table_full_size=(2.5, 0.80, 0.05),
+        table_full_size=(1.5, 2.0, 0.05),
         table_friction=(1.0, 5e-3, 1e-4),
         use_camera_obs=True,
         use_object_obs=True,
@@ -240,8 +244,6 @@ class ReachHuman(HumanEnv):
             "62_16",
             "62_18",
             "62_19",
-            "62_20",
-            "62_21",
         ],
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_freq=120,
@@ -249,13 +251,14 @@ class ReachHuman(HumanEnv):
         randomize_initial_pos=False,
         self_collision_safety=0.01,
         seed=0,
+        verbose=False,
         done_at_collision=False
     ):  # noqa: D107
         # settings for table top
         self.table_full_size = table_full_size
         self.table_friction = table_friction
         # settings for table top (hardcoded since it's not an essential part of the environment)
-        self.table_offset = np.array((0.0, -0.4, 0.82))
+        self.table_offset = np.array((0.0, 0.0, 0.82))
         # reward configuration
         self.reward_scale = reward_scale
         self.reward_shaping = reward_shaping
@@ -308,6 +311,7 @@ class ReachHuman(HumanEnv):
             safe_vel=safe_vel,
             self_collision_safety=self_collision_safety,
             seed=seed,
+            verbose=verbose,
         )
 
     def step(self, action):

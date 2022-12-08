@@ -169,6 +169,10 @@ class ReachHumanCart(ReachHuman):
 
         seed (int): Random seed for np.random
 
+        verbose (bool): If True, print out debug information
+
+        done_at_collision (bool): If True, the episode is terminated when a collision occurs
+
         init_joint_pos (np.array): initial joint configuration of the robot
 
     Raises:
@@ -183,7 +187,7 @@ class ReachHumanCart(ReachHuman):
         controller_configs=None,
         gripper_types="default",
         initialization_noise="default",
-        table_full_size=(1.0, 2.50, 0.05),
+        table_full_size=(1.5, 2.0, 0.05),
         table_friction=(1.0, 5e-3, 1e-4),
         use_camera_obs=True,
         use_object_obs=True,
@@ -229,14 +233,14 @@ class ReachHumanCart(ReachHuman):
             "62_16",
             "62_18",
             "62_19",
-            "62_20",
-            "62_21",
         ],
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_freq=120,
         safe_vel=0.001,
         self_collision_safety=0.01,
         seed=0,
+        verbose=False,
+        done_at_collision=False,
         init_joint_pos=np.array([0, 0.0, -np.pi / 2, 0, -np.pi / 2, np.pi / 4]),
     ):  # noqa: D107
         self.init_joint_pos = init_joint_pos
@@ -286,6 +290,8 @@ class ReachHumanCart(ReachHuman):
             safe_vel=safe_vel,
             self_collision_safety=self_collision_safety,
             seed=seed,
+            verbose=verbose,
+            done_at_collision=done_at_collision,
         )
 
     def _get_achieved_goal_from_obs(
