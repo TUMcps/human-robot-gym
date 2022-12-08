@@ -404,6 +404,8 @@ class HumanEnv(SingleArmEnv):
                 # If qpos or qvel have been modified directly, the user is required to call forward() before step() if
                 # their udd_callback requires access to MuJoCo state set during the forward dynamics.
                 self.sim.forward()
+                # Collision detection needs to be done before the simulation step.
+                # Otherwise, the velocity of the robot might be influenced by the collision.
                 if not self.has_collision:
                     self._collision_detection()
                 self.sim.step()
