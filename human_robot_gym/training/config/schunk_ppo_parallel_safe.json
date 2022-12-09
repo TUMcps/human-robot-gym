@@ -83,7 +83,7 @@
         ]
     },
     "training": {
-        "n_envs": 10,
+        "n_envs": 3,
         "n_steps": 1000000,
         "save_freq": 10,
         "test_only": false,
@@ -95,9 +95,9 @@
     },
     "algorithm": {
         "learning_rate": 3e-4,
-        "n_steps": 32,
-        "batch_size": 64,
-        "n_epochs": 4,
+        "n_steps": 16,
+        "batch_size": 128,
+        "n_epochs": 8,
         "gamma": 0.99,
         "gae_lambda": 0.95,
         "clip_range": 0.2,
