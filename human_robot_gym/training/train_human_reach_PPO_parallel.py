@@ -283,9 +283,9 @@ if __name__ == "__main__":
     if not training_config["training"]["test_only"]:
         model.learn(
             total_timesteps=training_config["training"]["n_steps"],
-            log_interval=training_config["training"]["log_interval"],
+            log_interval=1,
             reset_num_timesteps=(load_episode == -1),
-            callback=callback,
+            callback=callback
         )
         model.save(f"models/{run.id}/model_final")
 

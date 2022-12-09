@@ -376,8 +376,6 @@ class ReachHuman(HumanEnv):
             reward
         """
         reward = -1.0
-        if info["collision"]:
-            return self.collision_reward
         # sparse completion reward
         if self._check_success(achieved_goal, desired_goal):
             reward = 0.0
@@ -389,6 +387,8 @@ class ReachHuman(HumanEnv):
         # Scale reward if requested
         if self.reward_scale is not None:
             reward *= self.reward_scale / 1.0
+        if info["collision"]:
+            reward += self.collision_reward
         return reward
 
     def _check_success(

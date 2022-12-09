@@ -100,6 +100,7 @@ class TensorboardCallback(WandbCallback):
     def _on_step(self) -> bool:
         for i in range(len(self.locals["dones"])):
             if self.locals["dones"][i]:
+                self.episode_counter += 1
                 for key in self.additional_log_info_keys:
                     if key in self.locals["infos"][i]:
                         self._info_buffer[key].append(self.locals["infos"][i][key])
@@ -119,7 +120,6 @@ class TensorboardCallback(WandbCallback):
                 self.logger.record(key, self.locals["infos"][0][key])
         """
         # self.logger.dump(self.episode_counter)
-        self.episode_counter += 1
         if self.episode_counter % self.save_freq == 0:
             self.model.save(
                 "{}/model_{}".format(self.model_file, str(self.episode_counter))
