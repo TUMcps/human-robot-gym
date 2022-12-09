@@ -193,7 +193,7 @@ class ReachHumanCart(ReachHuman):
         use_object_obs=True,
         reward_scale=1.0,
         reward_shaping=False,
-        goal_dist=0.01,
+        goal_dist=0.05,
         collision_reward=-10,
         object_placement_initializer=None,
         obstacle_placement_initializer=None,
