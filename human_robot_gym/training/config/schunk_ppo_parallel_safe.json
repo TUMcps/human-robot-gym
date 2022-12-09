@@ -27,7 +27,7 @@
         "use_object_obs": true,
         "reward_scale": 1.0,
         "reward_shaping": true,
-        "goal_dist": 0.1,
+        "goal_dist": 0.00001,
         "collision_reward": -1,
         "has_renderer": false,
         "has_offscreen_renderer": false,
@@ -83,7 +83,7 @@
         ]
     },
     "training": {
-        "n_envs": 3,
+        "n_envs": 8,
         "n_steps": 1000000,
         "save_freq": 10,
         "test_only": false,
@@ -94,12 +94,12 @@
         "num_test_episodes": 20
     },
     "algorithm": {
-        "learning_rate": 3e-4,
-        "n_steps": 16,
-        "batch_size": 128,
-        "n_epochs": 8,
+        "learning_rate": 3e-5,
+        "n_steps": 256,
+        "batch_size": 64,
+        "n_epochs": 20,
         "gamma": 0.99,
-        "gae_lambda": 0.95,
+        "gae_lambda": 0.9,
         "clip_range": 0.2,
         "clip_range_vf": null,
         "normalize_advantage": true,
@@ -107,15 +107,15 @@
         "vf_coef": 0.5,
         "max_grad_norm": 0.5,
         "use_sde": false,
-        "sde_sample_freq": -1,
+        "sde_sample_freq": 4,
         "target_kl": null,
         "policy_kwargs": {
             "net_arch": [
                 256,
                 256
             ],
-            "ortho_init": true,
-            "log_std_init": 0.0,
+            "ortho_init": false,
+            "log_std_init": -2.7,
             "full_std": true,
             "use_expln": false,
             "squash_output": true
