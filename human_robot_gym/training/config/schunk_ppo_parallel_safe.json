@@ -77,13 +77,11 @@
         "replace_type": 1,
         "done_at_collision": false,
         "obs_keys": [
-            "object-state",
-            "robot0_proprio-state",
             "goal_difference"
         ]
     },
     "training": {
-        "n_envs": 8,
+        "n_envs": 10,
         "n_steps": 1000000,
         "save_freq": 500,
         "test_only": false,
@@ -111,8 +109,8 @@
         "target_kl": null,
         "policy_kwargs": {
             "net_arch": [
-                256,
-                256
+                64,
+                64
             ],
             "ortho_init": false,
             "log_std_init": -2.7,
