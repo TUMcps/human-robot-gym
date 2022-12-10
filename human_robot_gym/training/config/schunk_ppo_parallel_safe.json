@@ -97,7 +97,7 @@
         "learning_rate": 7e-5,
         "n_steps": 64,
         "batch_size": 64,
-        "n_epochs": 10,
+        "n_epochs": 20,
         "gamma": 0.99,
         "gae_lambda": 0.9,
         "clip_range": 0.2,
