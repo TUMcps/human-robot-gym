@@ -19,4 +19,5 @@ hpp-fcl>=1.7
 tensorboard>=2.8
 pydocstyle>=6.1
 mypy>=0.950
+envpool==0.6.1
 pybullet>=3.2.1

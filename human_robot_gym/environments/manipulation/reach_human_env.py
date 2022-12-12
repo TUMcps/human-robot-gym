@@ -204,7 +204,7 @@ class ReachHuman(HumanEnv):
         use_object_obs=True,
         reward_scale=1.0,
         reward_shaping=False,
-        goal_dist=0.01,
+        goal_dist=0.1,
         collision_reward=-10,
         object_placement_initializer=None,
         obstacle_placement_initializer=None,
@@ -376,18 +376,19 @@ class ReachHuman(HumanEnv):
             reward
         """
         reward = -1.0
-        if info["collision"]:
-            return self.collision_reward
         # sparse completion reward
         if self._check_success(achieved_goal, desired_goal):
             reward = 0.0
         # use a shaping reward
         if self.reward_shaping:
+            reward += 1.0
             dist = np.sqrt(np.sum((achieved_goal - desired_goal)**2))
             reward -= dist * 0.1
         # Scale reward if requested
         if self.reward_scale is not None:
             reward *= self.reward_scale / 1.0
+        if info["collision"]:
+            reward += self.collision_reward
         return reward
 
     def _check_success(
@@ -594,7 +595,11 @@ class ReachHuman(HumanEnv):
         def desired_goal(obs_cache):
             return self.desired_goal
 
-        sensors = [desired_goal]
+        @sensor(modality=modality)
+        def goal_difference(obs_cache):
+            return self.desired_goal - np.array([self.sim.data.qpos[x] for x in self.robots[0]._ref_joint_pos_indexes])
+
+        sensors = [desired_goal, goal_difference]
         names = [s.__name__ for s in sensors]
 
         # Create observables

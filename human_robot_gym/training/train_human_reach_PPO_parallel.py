@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""This file describes the training functionality for a human reach env with SB3 SAC + HER.
+"""This file describes the training functionality for a human reach env with PPO in parallel.
 
 Commandline args:
     config (str): Name of the config file.
@@ -11,30 +11,35 @@ Owner:
 Contributors:
 
 Changelog:
-    2.5.22 JT Formatted docstrings
+    7.6.2022 JT Created file
 """
 import struct
 import numpy as np
 import argparse
 import json
+import gym
 from datetime import datetime
 from functools import partial
-import gym
 
-from stable_baselines3 import SAC, HerReplayBuffer
-from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv  # noqa: F401
+import torch as th
+from stable_baselines3 import PPO
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
+
+import robosuite  # noqa: F401
 from robosuite.controllers import load_controller_config
 
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
-from human_robot_gym.utils.env_util import make_vec_env
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
-from human_robot_gym.wrappers.collision_prevention_wrapper import CollisionPreventionWrapper
-from human_robot_gym.wrappers.HER_buffer_add_monkey_patch import (
-    custom_add,
-    _custom_sample_transitions,
-)
+from human_robot_gym.utils.env_util import make_vec_env
 import human_robot_gym.robots  # noqa: F401
 import human_robot_gym.environments.manipulation.reach_human_env  # noqa: F401
+from human_robot_gym.wrappers.collision_prevention_wrapper import (
+    CollisionPreventionWrapper,
+)
+
+# Force PyTorch to use only one threads
+# make things faster for simple envs
+th.set_num_threads(1)
 
 
 def wrap_environment(
@@ -116,7 +121,7 @@ if __name__ == "__main__":
     controller_config = merge_configs(controller_config, robot_config)
     training_config["environment"]["controller_configs"] = [controller_config]
 
-    env_kwargs = env_kwargs = {
+    env_kwargs = {
         "robots": training_config["robot"]["name"],
         "robot_base_offset": training_config["environment"]["robot_base_offset"],
         "env_configuration": training_config["environment"]["env_configuration"],
@@ -165,10 +170,10 @@ if __name__ == "__main__":
                           replace_type=training_config["environment"]["replace_type"],
                           has_renderer=False)
     n_envs = training_config["training"]["n_envs"]
-    assert n_envs == 1, "HER in SB3 is currently only supported for single environments."
+    assert n_envs >= 1, "n_envs must be >= 1"
     env = make_vec_env(
         env_id="ReachHuman",
-        type="goal_env",
+        type="env",
         obs_keys=training_config["environment"]["obs_keys"],
         n_envs=n_envs,
         env_kwargs=env_kwargs,
@@ -188,11 +193,6 @@ if __name__ == "__main__":
 
     last_time_steps = np.ndarray(0)
 
-    # Monitor and log the training
-    # env = Monitor(env, filename=outdir, info_keywords=("collision", "criticalCollision", "goalReached"))
-
-    HerReplayBuffer.add = custom_add
-    HerReplayBuffer._sample_transitions = _custom_sample_transitions
     start_episode = 0
     if load_episode == -1:
         # << Defining the "run" for weights and biases >>
@@ -208,12 +208,9 @@ if __name__ == "__main__":
             run = struct
             run.id = int(np.random.rand(1) * 100000)
         # << Initialize the model >>
-        if isinstance(training_config["algorithm"]["train_freq"], list):
-            training_config["algorithm"]["train_freq"] = tuple(training_config["algorithm"]["train_freq"])
-        model = SAC(
-            "MultiInputPolicy",
+        model = PPO(
+            "MlpPolicy",
             env,
-            replay_buffer_class=HerReplayBuffer,
             verbose=1,
             seed=training_config["training"]["seed"],
             tensorboard_log=f"runs/{run.id}",
@@ -234,11 +231,10 @@ if __name__ == "__main__":
                 id=run_id,
             )
         # << Load the model >>
-        model = SAC.load(
+        model = PPO.load(
             "{}/model_{}".format(f"models/{run_id}", str(load_episode)), env=env
         )
         # load it into the loaded_model
-        model.load_replay_buffer("{}/replay_buffer.pkl".format(f"models/{run_id}"))
         start_episode = model._episode_num
         model.set_env(env)
         model.env.reset()
