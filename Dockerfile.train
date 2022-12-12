@@ -18,6 +18,7 @@ RUN apt-get update -q && \
         subversion \
         wget \
         ssh \
+        software-properties-common \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -62,6 +63,7 @@ ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
 
 ## Install apt packages
+RUN add-apt-repository ppa:ubuntu-toolchain-r/test -y
 RUN apt-get update --fix-missing \
   && apt-get install --no-install-recommends -y \
     tzdata \
@@ -102,7 +104,8 @@ RUN apt-get update --fix-missing \
     libgtest-dev \
     patchelf \
     liboctomap-dev
-
+RUN apt-get upgrade libstdc++6 -y
+RUN apt-get dist-upgrade
 ## conda docker
 # Create the environment:
 COPY environment.yml .
