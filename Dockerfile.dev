@@ -151,6 +151,12 @@ RUN curl -LJO https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.
 RUN tar -xvf eigen-3.4.0.tar.bz2
 RUN rm eigen-3.4.0.tar.bz2
 RUN echo export CMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH:$(pwd)/eigen-3.4.0" >> ~/.bashrc
+RUN echo export EIGEN3_INCLUDE_DIR="/usr/include/eigen3/eigen-3.4.0" >> ~/.bashrc
+WORKDIR ~/eigen3/eigen-3.4.0/
+RUN mkdir build
+WORKDIR ~/eigen3/eigen-3.4.0/build
+RUN cmake .. && make install
+WORKDIR ~/
 #-------------------------------------------------------------------------------------------------------------
 # User docker
 #-------------------------------------------------------------------------------------------------------------
@@ -183,6 +189,12 @@ RUN curl -LJO https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.
 RUN tar -xvf eigen-3.4.0.tar.bz2
 RUN rm eigen-3.4.0.tar.bz2
 RUN echo export CMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH:$(pwd)/eigen-3.4.0" >> /home/$USERNAME/.bashrc
+RUN echo export EIGEN3_INCLUDE_DIR="/usr/include/eigen3/eigen-3.4.0" >> /home/$USERNAME/.bashrc
+WORKDIR /home/$USERNAME/eigen3/eigen-3.4.0/
+RUN mkdir build
+WORKDIR /home/$USERNAME/eigen3/eigen-3.4.0/build
+RUN cmake .. && make install
+WORKDIR /home/$USERNAME/
 #-------------------------------------------------------------------------------------------------------------
 # Final docker
 #-------------------------------------------------------------------------------------------------------------
