@@ -23,7 +23,7 @@ from functools import partial
 
 import torch as th
 from stable_baselines3 import PPO
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 
 import robosuite  # noqa: F401
 from robosuite.controllers import load_controller_config
@@ -137,13 +137,9 @@ if __name__ == "__main__":
         "goal_dist": training_config["environment"]["goal_dist"],
         "collision_reward": training_config["environment"]["collision_reward"],
         "has_renderer": False,
-        "has_offscreen_renderer": training_config["environment"][
-            "has_offscreen_renderer"
-        ],
+        "has_offscreen_renderer": training_config["environment"]["has_offscreen_renderer"],
         "render_camera": training_config["environment"]["render_camera"],
-        "render_collision_mesh": training_config["environment"][
-            "render_collision_mesh"
-        ],
+        "render_collision_mesh": training_config["environment"]["render_collision_mesh"],
         "render_visual_mesh": training_config["environment"]["render_visual_mesh"],
         "render_gpu_device_id": training_config["environment"]["render_gpu_device_id"],
         "control_freq": training_config["environment"]["control_freq"],
@@ -157,41 +153,31 @@ if __name__ == "__main__":
         "camera_segmentations": training_config["environment"]["camera_segmentations"],
         "renderer": training_config["environment"]["renderer"],
         "renderer_config": training_config["environment"]["renderer_config"],
-        "use_failsafe_controller": training_config["environment"][
-            "use_failsafe_controller"
-        ],
-        "visualize_failsafe_controller": training_config["environment"][
-            "visualize_failsafe_controller"
-        ],
+        "use_failsafe_controller": training_config["environment"]["use_failsafe_controller"],
+        "visualize_failsafe_controller": training_config["environment"]["visualize_failsafe_controller"],
         "visualize_pinocchio": training_config["environment"]["visualize_pinocchio"],
         "control_sample_time": training_config["environment"]["control_sample_time"],
-        "human_animation_names": training_config["environment"][
-            "human_animation_names"
-        ],
-        "base_human_pos_offset": training_config["environment"][
-            "base_human_pos_offset"
-        ],
+        "human_animation_names": training_config["environment"]["human_animation_names"],
+        "base_human_pos_offset": training_config["environment"]["base_human_pos_offset"],
         "human_animation_freq": training_config["environment"]["human_animation_freq"],
         "safe_vel": training_config["environment"]["safe_vel"],
-        "randomize_initial_pos": training_config["environment"][
-            "randomize_initial_pos"
-        ],
-        "self_collision_safety": training_config["environment"][
-            "self_collision_safety"
-        ],
+        "randomize_initial_pos": training_config["environment"]["randomize_initial_pos"],
+        "self_collision_safety": training_config["environment"]["self_collision_safety"],
         "seed": training_config["training"]["seed"],
     }
     wrapper_cls = partial(wrap_environment,
                           use_collision_wrapper=True,
                           replace_type=training_config["environment"]["replace_type"],
                           has_renderer=False)
+    n_envs = training_config["training"]["n_envs"]
+    assert n_envs >= 1, "n_envs must be >= 1"
     env = make_vec_env(
         env_id="ReachHuman",
         type="env",
         obs_keys=training_config["environment"]["obs_keys"],
-        n_envs=training_config["training"]["n_envs"],
+        n_envs=n_envs,
         env_kwargs=env_kwargs,
-        vec_env_cls=SubprocVecEnv,
+        vec_env_cls=DummyVecEnv if n_envs == 1 else SubprocVecEnv,
         wrapper_class=wrapper_cls,
     )
 
@@ -294,7 +280,19 @@ if __name__ == "__main__":
         callback = TensorboardCallback(
             eval_env=env,
             verbose=2,
-            additional_log_info_keys=["goalReached", "collision", "criticalCollision"],
+            additional_log_info_keys=[
+                "goal_reached",
+                "collision",
+                "collision_type",
+                "n_collisions",
+                "n_collisions_static",
+                "n_collisions_robot",
+                "n_collisions_human",
+                "n_collisions_critical",
+                "timeout",
+                "failsafe_interventions",
+                "action_resamples",
+            ],
             n_eval_episodes=training_config["training"]["num_test_episodes"],
             deterministic=True,
         )
