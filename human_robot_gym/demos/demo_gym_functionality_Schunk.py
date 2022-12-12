@@ -40,8 +40,8 @@ if __name__ == "__main__":
             has_renderer=True,  # make sure we can render to the screen
             render_camera=None,
             render_collision_mesh=False,
-            reward_shaping=False,  # use dense rewards
-            control_freq=10,  # control should happen fast enough so that simulation looks smooth
+            reward_shaping=True,  # use dense rewards
+            control_freq=5,  # control should happen fast enough so that simulation looks smooth
             hard_reset=False,
             horizon=1000,
             controller_configs=controller_configs,
@@ -50,23 +50,33 @@ if __name__ == "__main__":
             visualize_pinocchio=False,
             base_human_pos_offset=[0.0, 0.0, 0.0],
             verbose=True,
-        )
+            goal_dist=0.0001,
+        ),
+        keys=[
+            "object-state",
+            "robot0_proprio-state",
+            "goal_difference"
+        ]
     )
 
     env = CollisionPreventionWrapper(
-        env=env, collision_check_fn=env._check_collision_action, replace_type=0
+        env=env, collision_check_fn=env.check_collision_action, replace_type=0
     )
 
     env = VisualizationWrapper(env)
 
-    t_max = 1000
+    t_max = 100
     for i_episode in range(20):
         observation = env.reset()
         t1 = time.time()
         for t in range(t_max):
             action = env.action_space.sample()
+            pos = np.array([env.sim.data.qpos[x] for x in env.robots[0]._ref_joint_pos_indexes])
+            goal = env.desired_goal
+            action[:pos.shape[0]] = np.clip(goal-pos, -0.5, 0.5)
             observation, reward, done, info = env.step(action)
+            print("Reward: {}".format(reward))
             if done or t == t_max:
                 print("Episode finished after {} timesteps".format(t + 1))
                 break
-        print("Episode {}, fps = {}".format(i_episode, t_max / (time.time() - t1)))
+        print("Episode {}, fps = {}".format(i_episode, t / (time.time() - t1)))

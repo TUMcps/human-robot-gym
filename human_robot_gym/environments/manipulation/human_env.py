@@ -391,57 +391,54 @@ class HumanEnv(SingleArmEnv):
         # or an actual policy update
         policy_step = True
         failsafe_intervention = False
-
-        # Loop through the simulation at the model timestep rate until we're ready to take the next policy step
-        # (as defined by the control frequency specified at the environment level)
-        for i in range(int(self.control_timestep / self.control_sample_time)):
-            self.sim.forward()
-            self._human_measurement()
-            self._set_human_measurement(self.human_measurement, self.sim.data.time)
-            # The first step i=0 is a policy step, the rest not.
-            # Only in a policy step, set_goal of controller will be called.
-            self._pre_action(action, policy_step)
-            if self.use_failsafe_controller and not failsafe_intervention:
-                for i in range(len(self.robots)):
-                    if self.robots[i].controller.get_safety() is False:
-                        failsafe_intervention = True
-                        self.failsafe_interventions += 1
-            # Step the simulation n times
-            for n in range(int(self.control_sample_time / self.model_timestep)):
-                self._control_human()
-                # If qpos or qvel have been modified directly, the user is required to call forward() before step() if
-                # their udd_callback requires access to MuJoCo state set during the forward dynamics.
+        try:
+            # Loop through the simulation at the model timestep rate until we're ready to take the next policy step
+            # (as defined by the control frequency specified at the environment level)
+            for i in range(int(self.control_timestep / self.control_sample_time)):
                 self.sim.forward()
-                # Collision detection needs to be done before the simulation step.
-                # Otherwise, the velocity of the robot might be influenced by the collision.
-                self._collision_detection()
-                try:
+                self._human_measurement()
+                self._set_human_measurement(self.human_measurement, self.sim.data.time)
+                # The first step i=0 is a policy step, the rest not.
+                # Only in a policy step, set_goal of controller will be called.
+                self._pre_action(action, policy_step)
+                if self.use_failsafe_controller and not failsafe_intervention:
+                    for i in range(len(self.robots)):
+                        if self.robots[i].controller.get_safety() is False:
+                            failsafe_intervention = True
+                            self.failsafe_interventions += 1
+                # Step the simulation n times
+                for n in range(int(self.control_sample_time / self.model_timestep)):
+                    self._control_human()
+                    # If qpos or qvel have been modified directly, the user is required to call forward() before step()
+                    # if their udd_callback requires access to MuJoCo state set during the forward dynamics.
+                    self.sim.forward()
+                    # Collision detection needs to be done before the simulation step.
+                    # Otherwise, the velocity of the robot might be influenced by the collision.
+                    self._collision_detection()
                     self.sim.step()
-                except MujocoException as e:
-                    # There may occur numerical instabilities since we set the human qpos manually.
-                    # If this happens, we terminate the episode.
-                    print("[WARNING] Terminating the episode due to numerical instabilities in the simulation.")
-                    print(e)
-                    print("Human animation id: {}".format(self.human_animation_id))
-                    observations = self._get_observations()
-                    achieved_goal = self._get_achieved_goal_from_obs(observations)
-                    desired_goal = self._get_desired_goal_from_obs(observations)
-                    self.goal_reached = False
-                    info = self._get_info()
-                    reward = self._compute_reward(
-                        achieved_goal=achieved_goal,
-                        desired_goal=desired_goal,
-                        info=info
-                        )
-                    # Add a penalty for breaking the simulation
-                    reward -= 10
-                    done = True
-                    return observations, reward, done, info
-
-                self._update_observables()
-            policy_step = False
-            self.low_level_time += 1
-
+                    self._update_observables()
+                policy_step = False
+                self.low_level_time += 1
+        except MujocoException as e:
+            # There may occur numerical instabilities since we set the human qpos manually.
+            # If this happens, we terminate the episode.
+            print("[WARNING] Terminating the episode due to numerical instabilities in the simulation.")
+            print(e)
+            print("Human animation id: {}".format(self.human_animation_id))
+            observations = self._get_observations()
+            achieved_goal = self._get_achieved_goal_from_obs(observations)
+            desired_goal = self._get_desired_goal_from_obs(observations)
+            self.goal_reached = False
+            info = self._get_info()
+            reward = self._compute_reward(
+                achieved_goal=achieved_goal,
+                desired_goal=desired_goal,
+                info=info
+                )
+            # Add a penalty for breaking the simulation
+            reward -= 10
+            done = True
+            return observations, reward, done, info
         if (
             self.use_failsafe_controller
             and self.visualize_failsafe_controller
@@ -480,7 +477,7 @@ class HumanEnv(SingleArmEnv):
 
         return observations, reward, done, info
 
-    def _check_collision_action(self, action):
+    def check_collision_action(self, action):
         """Checks if the given action collides.
         Checks collisions with static environment and self-collision.
         Requires a pinocchio robot model.

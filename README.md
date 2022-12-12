@@ -69,6 +69,20 @@ python human_robot_gym/demos/demo_gym_functionality_Schunk.py
 python human_robot_gym/training/train_human_reach_SB3_sac_her.py schunk_sac_her_safe.json --wandb
 ```
 
+# Known issues
+### `GLIBCXX_3.4.29' not found
+```
+ImportError: /lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.29' not found (required by /opt/conda/envs/hrgym/lib/python3.8/site-packages/google/protobuf/pyext/_message.cpython-38-x86_64-linux-gnu.so
+```
+Solution
+```
+sudo apt-get install software-properties-common
+sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+sudo apt-get update
+sudo apt-get upgrade libstdc++6
+sudo apt-get dist-upgrade
+```
+
 # Developer's guide
 To check your code for linting style:
 ```

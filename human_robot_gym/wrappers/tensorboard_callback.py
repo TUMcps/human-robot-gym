@@ -97,18 +97,20 @@ class TensorboardCallback(WandbCallback):
         else:
             self.model_evaluated = False
 
-    def _on_step(self) -> None:
-        if self.locals["dones"][0]:
-            for key in self.additional_log_info_keys:
-                if key in self.locals["infos"][0]:
-                    self._info_buffer[key].append(self.locals["infos"][0][key])
-            if (self.episode_counter + 1) % self.log_interval == 0:
+    def _on_step(self) -> bool:
+        for i in range(len(self.locals["dones"])):
+            if self.locals["dones"][i]:
+                self.episode_counter += 1
                 for key in self.additional_log_info_keys:
-                    if key in self.locals["infos"][0]:
+                    if key in self.locals["infos"][i]:
+                        self._info_buffer[key].append(self.locals["infos"][i][key])
+                if (self.episode_counter + 1) % self.log_interval == 0:
+                    for key in self._info_buffer:
                         self.logger.record(
                             "rollout/{}".format(key), safe_mean(self._info_buffer[key])
                         )
                         self._info_buffer[key] = []
+        return True
 
     def _on_rollout_end(self) -> None:
         """After each n-th rollout (episode), log data."""
@@ -118,12 +120,12 @@ class TensorboardCallback(WandbCallback):
                 self.logger.record(key, self.locals["infos"][0][key])
         """
         # self.logger.dump(self.episode_counter)
-        self.episode_counter += 1
         if self.episode_counter % self.save_freq == 0:
             self.model.save(
                 "{}/model_{}".format(self.model_file, str(self.episode_counter))
             )
-            self.model.save_replay_buffer("{}/replay_buffer".format(self.model_file))
+            if hasattr(self.model, 'save_replay_buffer'):
+                self.model.save_replay_buffer("{}/replay_buffer".format(self.model_file))
 
     def _log_success_callback(
         self, locals_: Dict[str, Any], globals_: Dict[str, Any]
