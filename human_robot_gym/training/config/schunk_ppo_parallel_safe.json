@@ -77,6 +77,7 @@
         "replace_type": 1,
         "done_at_collision": false,
         "obs_keys": [
+            "object-state",
             "goal_difference"
         ]
     },
@@ -86,7 +87,7 @@
         "save_freq": 500,
         "test_only": false,
         "load_episode": -1,
-        "run_id": -1,
+        "run_id": null,
         "log_interval": 10,
         "seed": 0,
         "num_test_episodes": 20
