@@ -73,6 +73,8 @@ class ReachHumanCart(ReachHuman):
 
         collision_reward (double): Reward to be given in the case of a collision.
 
+        goal_reward (double): Reward to be given in the case of reaching the goal.
+
         object_placement_initializer (ObjectPositionSampler): if provided, will
             be used to place objects on every reset, else a UniformRandomSampler
             is used by default.
@@ -197,6 +199,7 @@ class ReachHumanCart(ReachHuman):
         reward_shaping=False,
         goal_dist=0.05,
         collision_reward=-10,
+        goal_reward=1,
         object_placement_initializer=None,
         obstacle_placement_initializer=None,
         human_placement_initializer=None,
@@ -263,6 +266,7 @@ class ReachHumanCart(ReachHuman):
             reward_shaping=reward_shaping,
             goal_dist=goal_dist,
             collision_reward=collision_reward,
+            goal_reward=goal_reward,
             object_placement_initializer=object_placement_initializer,
             obstacle_placement_initializer=obstacle_placement_initializer,
             human_placement_initializer=human_placement_initializer,

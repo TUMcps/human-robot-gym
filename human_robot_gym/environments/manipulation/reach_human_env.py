@@ -83,6 +83,8 @@ class ReachHuman(HumanEnv):
 
         collision_reward (double): Reward to be given in the case of a collision.
 
+        goal_reward (double): Reward to be given in the case of reaching the goal.
+
         object_placement_initializer (ObjectPositionSampler): if provided, will
             be used to place objects on every reset, else a UniformRandomSampler
             is used by default.
@@ -208,6 +210,7 @@ class ReachHuman(HumanEnv):
         reward_shaping=False,
         goal_dist=0.1,
         collision_reward=-10,
+        goal_reward=1,
         object_placement_initializer=None,
         obstacle_placement_initializer=None,
         human_placement_initializer=None,
@@ -266,6 +269,7 @@ class ReachHuman(HumanEnv):
         self.reward_scale = reward_scale
         self.reward_shaping = reward_shaping
         self.collision_reward = collision_reward
+        self.goal_reward = goal_reward
         self.goal_dist = goal_dist
         self.desired_goal = np.array([0.0])
         # object placement initializer
@@ -387,10 +391,11 @@ class ReachHuman(HumanEnv):
         Returns:
             reward
         """
-        reward = -1.0
         # sparse completion reward
         if self._check_success(achieved_goal, desired_goal):
-            reward = 0.0
+            reward = self.goal_reward
+        else:
+            reward = -1.0
         # use a shaping reward
         if self.reward_shaping:
             reward += 1.0
