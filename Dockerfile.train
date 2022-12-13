@@ -3,6 +3,8 @@ FROM ubuntu:20.04
 # FROM continuumio/miniconda3 
 # https://github.com/ContinuumIO/docker-images/blob/master/miniconda3/debian/Dockerfile
 #-------------------------------------------------------------------------------------------------------------
+ARG DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update -q && \
     apt-get install -q -y --no-install-recommends \
         bzip2 \
@@ -54,9 +56,6 @@ RUN set -x && \
     find /opt/conda/ -follow -type f -name '*.a' -delete && \
     find /opt/conda/ -follow -type f -name '*.js.map' -delete && \
     /opt/conda/bin/conda clean -afy
-
-# Avoid warnings by switching to noninteractive
-ENV DEBIAN_FRONTEND=noninteractive
 
 # setup environment
 ENV LANG C.UTF-8
