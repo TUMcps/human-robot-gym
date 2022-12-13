@@ -65,7 +65,8 @@ if __name__ == "__main__":
             base_human_pos_offset=[0.0, 0.0, 0.0],
             init_joint_pos=np.array([0, 0.0, -np.pi / 2, 0, -np.pi / 2, 0]),
             verbose=True,
-        )
+        ),
+        keys=["object-state", "goal_difference"]
     )
     env = CollisionPreventionWrapper(
         env=env, collision_check_fn=env.check_collision_action, replace_type=0

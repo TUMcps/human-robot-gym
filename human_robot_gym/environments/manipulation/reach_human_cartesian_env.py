@@ -373,7 +373,14 @@ class ReachHumanCart(ReachHuman):
 
         eef_velp.__name__ = f"{prefix}eef_velp"
 
-        sensors = [eef_velp]
+        # Override goal difference observable
+        modality = "goal"
+
+        @sensor(modality=modality)
+        def goal_difference(obs_cache):
+            return self.desired_goal - np.array(self.sim.data.site_xpos[self.robots[0].eef_site_id])
+
+        sensors = [eef_velp, goal_difference]
         names = [s.__name__ for s in sensors]
 
         # Create observables
