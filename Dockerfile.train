@@ -3,6 +3,8 @@ FROM ubuntu:20.04
 # FROM continuumio/miniconda3 
 # https://github.com/ContinuumIO/docker-images/blob/master/miniconda3/debian/Dockerfile
 #-------------------------------------------------------------------------------------------------------------
+ARG DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update -q && \
     apt-get install -q -y --no-install-recommends \
         bzip2 \
@@ -18,6 +20,7 @@ RUN apt-get update -q && \
         subversion \
         wget \
         ssh \
+        software-properties-common \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -54,14 +57,12 @@ RUN set -x && \
     find /opt/conda/ -follow -type f -name '*.js.map' -delete && \
     /opt/conda/bin/conda clean -afy
 
-# Avoid warnings by switching to noninteractive
-ENV DEBIAN_FRONTEND=noninteractive
-
 # setup environment
 ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
 
 ## Install apt packages
+RUN add-apt-repository ppa:ubuntu-toolchain-r/test -y
 RUN apt-get update --fix-missing \
   && apt-get install --no-install-recommends -y \
     tzdata \
@@ -102,7 +103,8 @@ RUN apt-get update --fix-missing \
     libgtest-dev \
     patchelf \
     liboctomap-dev
-
+RUN apt-get upgrade libstdc++6 -y
+RUN apt-get dist-upgrade
 ## conda docker
 # Create the environment:
 COPY environment.yml .
@@ -122,6 +124,7 @@ ENV DEBIAN_FRONTEND=dialog
 #-------------------------------------------------------------------------------------------------------------
 # Adjust .bashrc
 COPY .bashrc_docker ~/.bashrc
+RUN echo "echo 'bashrc loaded'" >> ~/.bashrc
 RUN echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc
 RUN echo "conda activate hrgym" >> ~/.bashrc
 RUN echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/.mujoco/mujoco210/bin" >> ~/.bashrc
@@ -130,9 +133,16 @@ RUN curl -LJO https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.
 RUN tar -xvf eigen-3.4.0.tar.bz2
 RUN rm eigen-3.4.0.tar.bz2
 RUN echo export CMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH:$(pwd)/eigen-3.4.0" >> ~/.bashrc
+RUN echo 'export EIGEN3_INCLUDE_DIR="$(pwd)/eigen-3.4.0"' >> ~/.bashrc
+WORKDIR eigen-3.4.0/
+RUN ls -la
+RUN mkdir /eigen-3.4.0/build
+WORKDIR /eigen-3.4.0/build
+RUN cmake .. && make install
+WORKDIR /
 # Entrypoint: Install safety_shield_py and human_robot_gym
 COPY ./ /tmp/human-robot-gym/
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT export EIGEN3_INCLUDE_DIR=/eigen-3.4.0 && ./entrypoint.sh; bash
 CMD ["/bin/bash"]
