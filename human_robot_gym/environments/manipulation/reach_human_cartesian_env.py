@@ -173,6 +173,8 @@ class ReachHumanCart(ReachHuman):
 
         done_at_collision (bool): If True, the episode is terminated when a collision occurs
 
+        done_at_success (bool): If True, the episode is terminated when the goal is reached
+
         init_joint_pos (np.array): initial joint configuration of the robot
 
     Raises:
@@ -241,6 +243,7 @@ class ReachHumanCart(ReachHuman):
         seed=0,
         verbose=False,
         done_at_collision=False,
+        done_at_success=False,
         init_joint_pos=np.array([0, 0.0, -np.pi / 2, 0, -np.pi / 2, np.pi / 4]),
     ):  # noqa: D107
         self.init_joint_pos = init_joint_pos
@@ -292,6 +295,7 @@ class ReachHumanCart(ReachHuman):
             seed=seed,
             verbose=verbose,
             done_at_collision=done_at_collision,
+            done_at_success=done_at_success
         )
 
     def _get_achieved_goal_from_obs(

@@ -186,6 +186,8 @@ class ReachHuman(HumanEnv):
 
         done_at_collision (bool): If True, the episode is terminated when a collision occurs
 
+        done_at_success (bool): If True, the episode is terminated when the goal is reached
+
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
@@ -252,7 +254,8 @@ class ReachHuman(HumanEnv):
         self_collision_safety=0.01,
         seed=0,
         verbose=False,
-        done_at_collision=False
+        done_at_collision=False,
+        done_at_success=False
     ):  # noqa: D107
         # settings for table top
         self.table_full_size = table_full_size
@@ -274,6 +277,7 @@ class ReachHuman(HumanEnv):
         self.randomize_initial_pos = randomize_initial_pos
         # if run should stop at collision
         self.done_at_collision = done_at_collision
+        self.done_at_success = done_at_success
         super().__init__(
             robots=robots,
             robot_base_offset=robot_base_offset,
@@ -424,10 +428,13 @@ class ReachHuman(HumanEnv):
         Returns:
             done
         """
-        done = super()._check_done(achieved_goal, desired_goal, info)
-        if self.done_at_collision:
-            return done or (self._check_success(achieved_goal, desired_goal))
-        return self._check_success(achieved_goal, desired_goal)
+        collision = info["collision"]
+        if self.done_at_collision and collision:
+            return True
+        success = self._check_success(achieved_goal, desired_goal)
+        if self.done_at_success and success:
+            return True
+        return False
 
     def _get_achieved_goal_from_obs(
         self, observation: Union[List[float], Dict]
