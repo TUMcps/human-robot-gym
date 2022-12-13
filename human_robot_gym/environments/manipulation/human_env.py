@@ -385,6 +385,7 @@ class HumanEnv(SingleArmEnv):
         self.timestep += 1
         # Reset collision variable
         self.has_collision = False
+        self.collision_type = COLLISION_TYPE.NULL
         # Since the env.step frequency is slower than the mjsim timestep frequency, the internal controller will output
         # multiple torque commands in between new high level action commands. Therefore, we need to denote via
         # 'policy_step' whether the current step we're taking is simply an internal update of the controller,
@@ -683,8 +684,6 @@ class HumanEnv(SingleArmEnv):
         Returns:
             CollisionType
         """
-        self.has_collision = False
-        self.collision_type = COLLISION_TYPE.NULL
         this_collision_dict = dict()
         for i in range(self.sim.data.ncon):
             # Note that the contact array has more than `ncon` entries,
