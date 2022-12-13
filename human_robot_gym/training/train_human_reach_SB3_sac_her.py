@@ -131,6 +131,7 @@ if __name__ == "__main__":
         "reward_shaping": training_config["environment"]["reward_shaping"],
         "goal_dist": training_config["environment"]["goal_dist"],
         "collision_reward": training_config["environment"]["collision_reward"],
+        "goal_reward": training_config["environment"]["goal_reward"],
         "has_renderer": False,
         "has_offscreen_renderer": training_config["environment"]["has_offscreen_renderer"],
         "render_camera": training_config["environment"]["render_camera"],
@@ -158,6 +159,8 @@ if __name__ == "__main__":
         "safe_vel": training_config["environment"]["safe_vel"],
         "randomize_initial_pos": training_config["environment"]["randomize_initial_pos"],
         "self_collision_safety": training_config["environment"]["self_collision_safety"],
+        "done_at_collision": training_config["environment"]["done_at_collision"],
+        "done_at_success": training_config["environment"]["done_at_success"],
         "seed": training_config["training"]["seed"],
     }
     wrapper_cls = partial(wrap_environment,

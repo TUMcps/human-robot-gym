@@ -77,6 +77,7 @@
         "self_collision_safety": 0.012,
         "replace_type": 1,
         "done_at_collision": false,
+        "done_at_success": true,
         "obs_keys": [
             "object-state"
         ]
