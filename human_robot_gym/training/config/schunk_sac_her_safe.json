@@ -77,9 +77,7 @@
         "replace_type": 1,
         "done_at_collision": false,
         "obs_keys": [
-            "object-state",
-            "robot0_proprio-state",
-            "desired_goal"
+            "object-state"
         ]
     },
     "training": {
