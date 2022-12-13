@@ -73,6 +73,8 @@ class ReachHumanCart(ReachHuman):
 
         collision_reward (double): Reward to be given in the case of a collision.
 
+        goal_reward (double): Reward to be given in the case of reaching the goal.
+
         object_placement_initializer (ObjectPositionSampler): if provided, will
             be used to place objects on every reset, else a UniformRandomSampler
             is used by default.
@@ -173,6 +175,8 @@ class ReachHumanCart(ReachHuman):
 
         done_at_collision (bool): If True, the episode is terminated when a collision occurs
 
+        done_at_success (bool): If True, the episode is terminated when the goal is reached
+
         init_joint_pos (np.array): initial joint configuration of the robot
 
     Raises:
@@ -195,6 +199,7 @@ class ReachHumanCart(ReachHuman):
         reward_shaping=False,
         goal_dist=0.05,
         collision_reward=-10,
+        goal_reward=1,
         object_placement_initializer=None,
         obstacle_placement_initializer=None,
         human_placement_initializer=None,
@@ -241,6 +246,7 @@ class ReachHumanCart(ReachHuman):
         seed=0,
         verbose=False,
         done_at_collision=False,
+        done_at_success=False,
         init_joint_pos=np.array([0, 0.0, -np.pi / 2, 0, -np.pi / 2, np.pi / 4]),
     ):  # noqa: D107
         self.init_joint_pos = init_joint_pos
@@ -260,6 +266,7 @@ class ReachHumanCart(ReachHuman):
             reward_shaping=reward_shaping,
             goal_dist=goal_dist,
             collision_reward=collision_reward,
+            goal_reward=goal_reward,
             object_placement_initializer=object_placement_initializer,
             obstacle_placement_initializer=obstacle_placement_initializer,
             human_placement_initializer=human_placement_initializer,
@@ -292,7 +299,29 @@ class ReachHumanCart(ReachHuman):
             seed=seed,
             verbose=verbose,
             done_at_collision=done_at_collision,
+            done_at_success=done_at_success
         )
+
+    def step(self, action):
+        """Override base step function.
+
+        Changes the goal position to the Cartesian end-effector position.
+
+        Args:
+            action (np.array): Action to execute within the environment
+        Returns:
+            4-tuple:
+                - (OrderedDict) observations from the environment
+                - (float) reward from the environment
+                - (bool) whether the current episode is completed or not
+                - (dict) misc information
+        Raises:
+            ValueError: [Steps past episode termination]
+        """
+        obs, reward, done, info = super().step(action)
+        # We have to set this in every step since the goal can change.
+        self.desired_goal = self.goal_marker_trans
+        return obs, reward, done, info
 
     def _get_achieved_goal_from_obs(
         self, observation: Union[List[float], Dict]
@@ -348,7 +377,14 @@ class ReachHumanCart(ReachHuman):
 
         eef_velp.__name__ = f"{prefix}eef_velp"
 
-        sensors = [eef_velp]
+        # Override goal difference observable
+        modality = "goal"
+
+        @sensor(modality=modality)
+        def goal_difference(obs_cache):
+            return self.desired_goal - np.array(self.sim.data.site_xpos[self.robots[0].eef_site_id])
+
+        sensors = [eef_velp, goal_difference]
         names = [s.__name__ for s in sensors]
 
         # Create observables

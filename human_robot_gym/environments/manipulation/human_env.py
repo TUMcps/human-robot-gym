@@ -385,6 +385,7 @@ class HumanEnv(SingleArmEnv):
         self.timestep += 1
         # Reset collision variable
         self.has_collision = False
+        self.collision_type = COLLISION_TYPE.NULL
         # Since the env.step frequency is slower than the mjsim timestep frequency, the internal controller will output
         # multiple torque commands in between new high level action commands. Therefore, we need to denote via
         # 'policy_step' whether the current step we're taking is simply an internal update of the controller,
@@ -460,6 +461,8 @@ class HumanEnv(SingleArmEnv):
             achieved_goal=achieved_goal,
             desired_goal=desired_goal
             )
+        if self.goal_reached:
+            self.n_goal_reached += 1
         info = self._get_info()
         reward = self._compute_reward(
             achieved_goal=achieved_goal,
@@ -540,7 +543,7 @@ class HumanEnv(SingleArmEnv):
             "n_collisions_critical": self.n_collisions_critical,
             "timeout": (self.timestep >= self.horizon),
             "failsafe_interventions": self.failsafe_interventions,
-            "goal_reached": self.goal_reached,
+            "n_goal_reached": self.n_goal_reached
         }
         return info
 
@@ -683,8 +686,6 @@ class HumanEnv(SingleArmEnv):
         Returns:
             CollisionType
         """
-        self.has_collision = False
-        self.collision_type = COLLISION_TYPE.NULL
         this_collision_dict = dict()
         for i in range(self.sim.data.ncon):
             # Note that the contact array has more than `ncon` entries,
@@ -1218,6 +1219,7 @@ class HumanEnv(SingleArmEnv):
         # Reset collision information
         self.previous_robot_collisions = dict()
         self.has_collision = False
+        self.goal_reached = False
         self.collision_type = COLLISION_TYPE.NULL
         self.failsafe_interventions = 0
         self.n_collisions = 0
@@ -1225,6 +1227,7 @@ class HumanEnv(SingleArmEnv):
         self.n_collisions_robot = 0
         self.n_collisions_human = 0
         self.n_collisions_critical = 0
+        self.n_goal_reached = 0
 
         self.human_animation_id = np.random.randint(0, len(self.human_animations))
         self.animation_start_time = 0

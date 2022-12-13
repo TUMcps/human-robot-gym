@@ -83,6 +83,8 @@ class ReachHuman(HumanEnv):
 
         collision_reward (double): Reward to be given in the case of a collision.
 
+        goal_reward (double): Reward to be given in the case of reaching the goal.
+
         object_placement_initializer (ObjectPositionSampler): if provided, will
             be used to place objects on every reset, else a UniformRandomSampler
             is used by default.
@@ -186,6 +188,8 @@ class ReachHuman(HumanEnv):
 
         done_at_collision (bool): If True, the episode is terminated when a collision occurs
 
+        done_at_success (bool): If True, the episode is terminated when the goal is reached
+
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
@@ -206,6 +210,7 @@ class ReachHuman(HumanEnv):
         reward_shaping=False,
         goal_dist=0.1,
         collision_reward=-10,
+        goal_reward=1,
         object_placement_initializer=None,
         obstacle_placement_initializer=None,
         human_placement_initializer=None,
@@ -252,7 +257,8 @@ class ReachHuman(HumanEnv):
         self_collision_safety=0.01,
         seed=0,
         verbose=False,
-        done_at_collision=False
+        done_at_collision=False,
+        done_at_success=False
     ):  # noqa: D107
         # settings for table top
         self.table_full_size = table_full_size
@@ -263,6 +269,7 @@ class ReachHuman(HumanEnv):
         self.reward_scale = reward_scale
         self.reward_shaping = reward_shaping
         self.collision_reward = collision_reward
+        self.goal_reward = goal_reward
         self.goal_dist = goal_dist
         self.desired_goal = np.array([0.0])
         # object placement initializer
@@ -274,6 +281,7 @@ class ReachHuman(HumanEnv):
         self.randomize_initial_pos = randomize_initial_pos
         # if run should stop at collision
         self.done_at_collision = done_at_collision
+        self.done_at_success = done_at_success
         super().__init__(
             robots=robots,
             robot_base_offset=robot_base_offset,
@@ -331,6 +339,14 @@ class ReachHuman(HumanEnv):
             ValueError: [Steps past episode termination]
         """
         obs, reward, done, info = super().step(action)
+        if self.goal_reached:
+            # if goal is reached, calculate a new goal.
+            self.desired_goal = self._sample_valid_pos()
+            if isinstance(self.robots[0].robot_model, PinocchioManipulatorModel):
+                (self.goal_marker_trans, self.goal_marker_rot) = self.robots[
+                    0
+                ].robot_model.get_eef_transformation(self.desired_goal)
+            self.goal_reached = False
         if self.has_renderer:
             self._visualize_goal()
         return obs, reward, done, info
@@ -375,10 +391,11 @@ class ReachHuman(HumanEnv):
         Returns:
             reward
         """
-        reward = -1.0
         # sparse completion reward
         if self._check_success(achieved_goal, desired_goal):
-            reward = 0.0
+            reward = self.goal_reward
+        else:
+            reward = -1.0
         # use a shaping reward
         if self.reward_shaping:
             reward += 1.0
@@ -424,10 +441,13 @@ class ReachHuman(HumanEnv):
         Returns:
             done
         """
-        done = super()._check_done(achieved_goal, desired_goal, info)
-        if self.done_at_collision:
-            return done or (self._check_success(achieved_goal, desired_goal))
-        return self._check_success(achieved_goal, desired_goal)
+        collision = info["collision"]
+        if self.done_at_collision and collision:
+            return True
+        success = self._check_success(achieved_goal, desired_goal)
+        if self.done_at_success and success:
+            return True
+        return False
 
     def _get_achieved_goal_from_obs(
         self, observation: Union[List[float], Dict]
@@ -599,7 +619,10 @@ class ReachHuman(HumanEnv):
         def goal_difference(obs_cache):
             return self.desired_goal - np.array([self.sim.data.qpos[x] for x in self.robots[0]._ref_joint_pos_indexes])
 
-        sensors = [desired_goal, goal_difference]
+        sensors = [desired_goal]
+        if len(self.robots[0]._ref_joint_pos_indexes) == self.desired_goal.shape[0]:
+            sensors.append(goal_difference)
+
         names = [s.__name__ for s in sensors]
 
         # Create observables
