@@ -335,6 +335,14 @@ class ReachHuman(HumanEnv):
             ValueError: [Steps past episode termination]
         """
         obs, reward, done, info = super().step(action)
+        if self.goal_reached:
+            # if goal is reached, calculate a new goal.
+            self.desired_goal = self._sample_valid_pos()
+            if isinstance(self.robots[0].robot_model, PinocchioManipulatorModel):
+                (self.goal_marker_trans, self.goal_marker_rot) = self.robots[
+                    0
+                ].robot_model.get_eef_transformation(self.desired_goal)
+            self.goal_reached = False
         if self.has_renderer:
             self._visualize_goal()
         return obs, reward, done, info

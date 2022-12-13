@@ -298,6 +298,27 @@ class ReachHumanCart(ReachHuman):
             done_at_success=done_at_success
         )
 
+    def step(self, action):
+        """Override base step function.
+
+        Changes the goal position to the Cartesian end-effector position.
+
+        Args:
+            action (np.array): Action to execute within the environment
+        Returns:
+            4-tuple:
+                - (OrderedDict) observations from the environment
+                - (float) reward from the environment
+                - (bool) whether the current episode is completed or not
+                - (dict) misc information
+        Raises:
+            ValueError: [Steps past episode termination]
+        """
+        obs, reward, done, info = super().step(action)
+        # We have to set this in every step since the goal can change.
+        self.desired_goal = self.goal_marker_trans
+        return obs, reward, done, info
+
     def _get_achieved_goal_from_obs(
         self, observation: Union[List[float], Dict]
     ) -> List[float]:

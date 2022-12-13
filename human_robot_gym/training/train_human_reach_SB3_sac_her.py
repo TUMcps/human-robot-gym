@@ -253,7 +253,7 @@ if __name__ == "__main__":
             model_file=f"models/{run.id}",
             start_episode=start_episode,
             additional_log_info_keys=[
-                "goal_reached",
+                "n_goal_reached",
                 "collision",
                 "collision_type",
                 "n_collisions",
@@ -285,7 +285,7 @@ if __name__ == "__main__":
             eval_env=env,
             verbose=2,
             additional_log_info_keys=[
-                "goal_reached",
+                "n_goal_reached",
                 "collision",
                 "collision_type",
                 "n_collisions",
