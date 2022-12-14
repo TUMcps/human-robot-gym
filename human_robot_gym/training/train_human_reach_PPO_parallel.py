@@ -24,6 +24,7 @@ from functools import partial
 import torch as th
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
+from stable_baselines3.common.evaluation import evaluate_policy
 
 import robosuite  # noqa: F401
 from robosuite.controllers import load_controller_config
@@ -170,7 +171,7 @@ if __name__ == "__main__":
     wrapper_cls = partial(wrap_environment,
                           use_collision_wrapper=True,
                           replace_type=training_config["environment"]["replace_type"],
-                          has_renderer=False)
+                          has_renderer=training_config["environment"]["has_renderer"])
     n_envs = training_config["training"]["n_envs"]
     assert n_envs >= 1, "n_envs must be >= 1"
     env = make_vec_env(
@@ -298,12 +299,21 @@ if __name__ == "__main__":
             n_eval_episodes=training_config["training"]["num_test_episodes"],
             deterministic=True,
         )
-    # << Evaluate model >>
-    model.learn(
-        total_timesteps=0,
-        log_interval=training_config["training"]["log_interval"],
-        callback=callback,
-    )
+        # << Evaluate model >>
+        model.learn(
+            total_timesteps=0,
+            log_interval=training_config["training"]["log_interval"],
+            callback=callback,
+        )
+    else:
+        mean_reward, std_reward = evaluate_policy(
+            model=model,
+            env=env,
+            n_eval_episodes=training_config["training"]["num_test_episodes"],
+            deterministic=True,
+            return_episode_rewards=True
+        )
+        print("Mean evaluation reward: {} +/- {}".format(mean_reward, std_reward))
     # Close everything
     if use_wandb:
         run.finish()
