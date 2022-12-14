@@ -137,7 +137,7 @@ if __name__ == "__main__":
         "reward_shaping": training_config["environment"]["reward_shaping"],
         "goal_dist": training_config["environment"]["goal_dist"],
         "collision_reward": training_config["environment"]["collision_reward"],
-        "has_renderer": False,
+        "has_renderer": training_config["environment"]["has_renderer"],
         "has_offscreen_renderer": training_config["environment"]["has_offscreen_renderer"],
         "render_camera": training_config["environment"]["render_camera"],
         "render_collision_mesh": training_config["environment"]["render_collision_mesh"],
