@@ -1407,3 +1407,14 @@ class HumanEnv(SingleArmEnv):
             robot.robot_model.visualize(viz)
 
         return viz
+
+    def render(self, **kwargs):
+        """Render the environment.
+
+        Args:
+            **kwargs: Keyword arguments for the render function of the viewer.
+
+        Returns:
+            np.ndarray: The rendered image.
+        """
+        self.viewer.render()
