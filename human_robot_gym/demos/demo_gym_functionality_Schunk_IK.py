@@ -72,8 +72,8 @@ if __name__ == "__main__":
         env=env, collision_check_fn=env.check_collision_action, replace_type=0
     )
     env = VisualizationWrapper(env)
-
-    env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file)
+    action_limits = np.array([[-0.15, -0.15, -0.15], [0.15, 0.15, 0.15]])
+    env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file, action_limits=action_limits)
 
     t_max = 100
     for i_episode in range(20):

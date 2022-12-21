@@ -25,6 +25,7 @@ class IKPositionDeltaWrapper(Wrapper):
         self,
         env,
         urdf_file,
+        action_limits=np.array([[-0.15, -0.15, -0.15], [0.15, 0.15, 0.15]]),
         x_output_max=1,
         x_position_limits=None,
         residual_threshold=1e-3,
@@ -37,6 +38,7 @@ class IKPositionDeltaWrapper(Wrapper):
             env (gym.env): The gym environment
             urdf_file (string): path to robot urdf file, used for inverse kinematics.
                 Should not start with fixed joints to work as expected.
+            action_limits (2D numpy array (2, 3)): limits the action to [[mins], [maxs]].
             x_output_max (double): limits the end effector velocity.
                 Maximum L1 distance of cartesian position delta.
                 If this value is not 1, the action does not represent the delta position anymore.
@@ -79,8 +81,9 @@ class IKPositionDeltaWrapper(Wrapper):
 
         # Redefining action space
         self.gripper_action_dim = env.robots[0].gripper.dof
-        ub = np.ones(self.control_dim + self.gripper_action_dim)
-        self.action_space = Box(-ub, ub)
+        action_lb = np.append(action_limits[0], -np.ones(self.gripper_action_dim))
+        action_ub = np.append(action_limits[1], np.ones(self.gripper_action_dim))
+        self.action_space = Box(low=action_lb, high=action_ub)
 
         # Cartesian action limits and x
         self.x_output_max = x_output_max
@@ -93,6 +96,9 @@ class IKPositionDeltaWrapper(Wrapper):
         append gripper action (if present),
         and apply action to the environment.
         """
+        # Clip action to action space
+        action = np.clip(action, self.action_space.low, self.action_space.high)
+
         ws_action = np.zeros(self.control_dim)
         ws_action[: self.control_dim] = action[: self.control_dim]
 
