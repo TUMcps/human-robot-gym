@@ -55,7 +55,7 @@ if __name__ == "__main__":
             render_camera=None,
             render_collision_mesh=False,
             reward_shaping=False,  # use dense rewards
-            control_freq=10,  # control should happen fast enough so that simulation looks smooth
+            control_freq=5,  # control should happen fast enough so that simulation looks smooth
             hard_reset=False,
             horizon=1000,
             controller_configs=controller_configs,
@@ -72,10 +72,10 @@ if __name__ == "__main__":
         env=env, collision_check_fn=env.check_collision_action, replace_type=0
     )
     env = VisualizationWrapper(env)
+    action_limits = np.array([[-0.1, -0.1, -0.1], [0.1, 0.1, 0.1]])
+    env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file, action_limits=action_limits)
 
-    env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file)
-
-    t_max = 100
+    t_max = 300
     for i_episode in range(20):
         observation = env.reset()
         t1 = time.time()

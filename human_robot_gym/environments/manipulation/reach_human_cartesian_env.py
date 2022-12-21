@@ -13,6 +13,10 @@ from robosuite.utils.observables import Observable, sensor
 
 from human_robot_gym.environments.manipulation.reach_human_env import ReachHuman
 
+from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import (
+    PinocchioManipulatorModel,
+)
+
 
 class ReachHumanCart(ReachHuman):
     """
@@ -250,7 +254,7 @@ class ReachHumanCart(ReachHuman):
         init_joint_pos=np.array([0, 0.0, -np.pi / 2, 0, -np.pi / 2, np.pi / 4]),
     ):  # noqa: D107
         self.init_joint_pos = init_joint_pos
-
+        self.sampling_space = np.array([[0.1, -0.5, 0.8], [0.5, 0.5, 1.3]])
         super().__init__(
             robots=robots,
             robot_base_offset=robot_base_offset,
@@ -396,3 +400,34 @@ class ReachHumanCart(ReachHuman):
             )
 
         return observables
+
+    def _sample_valid_pos(self):
+        """Randomly sample a new valid joint configuration
+            without self-collisions or collisions with the static environment.
+
+        The end effector position of the valid pos lies in a box in front of the robot.
+
+        Returns:
+            joint configuration (np.array)
+        """
+        robot = self.robots[0]
+        pos_limits = np.array(robot.controller.position_limits)
+        goal = self.init_joint_pos
+        for i in range(20):
+            rand = np.random.rand(pos_limits.shape[1])
+            goal = pos_limits[0] + (pos_limits[1] - pos_limits[0]) * rand
+            if isinstance(robot.robot_model, PinocchioManipulatorModel):
+                if not self._check_action_safety(robot.robot_model, goal):
+                    goal = self.init_joint_pos
+                    if self.visualize_pinocchio:
+                        self.visualize_pin(self.pin_viz)
+                else:
+                    eef_goal_pos, _ = robot.robot_model.get_eef_transformation(goal)
+                    if np.all(eef_goal_pos >= self.sampling_space[0]) and\
+                       np.all(eef_goal_pos <= self.sampling_space[1]):
+                        break
+                    else:
+                        goal = self.init_joint_pos
+            else:
+                break
+        return goal
