@@ -48,9 +48,10 @@ if __name__ == "__main__":
             use_failsafe_controller=True,
             visualize_failsafe_controller=False,
             visualize_pinocchio=False,
-            base_human_pos_offset=[0.0, 0.0, 0.0],
+            base_human_pos_offset=[1.0, 0.0, 0.0],
             verbose=True,
             goal_dist=0.0001,
+            human_rand=[1.0, 0.5, 0.2]
         ),
         keys=[
             "object-state",

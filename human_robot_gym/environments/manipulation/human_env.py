@@ -39,7 +39,7 @@ from robosuite.utils.control_utils import set_goal_position
 from robosuite.models.objects import PrimitiveObject
 
 from human_robot_gym.models.objects.human.human import HumanObject
-from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat
+from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat, quat_to_rot
 from human_robot_gym.utils.pairing import cantor_pairing
 from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import (
     PinocchioManipulatorModel,
@@ -190,6 +190,8 @@ class HumanEnv(SingleArmEnv):
 
         human_animation_freq (double): Speed of the human animation in fps.
 
+        human_rand (list[double]): Max. randomization of the human [x-pos, y-pos, z-angle]
+
         safe_vel (double): Safe cartesian velocity. The robot is allowed to move with this velocity in the vacinity of
             humans.
 
@@ -213,7 +215,6 @@ class HumanEnv(SingleArmEnv):
         initialization_noise="default",
         use_camera_obs=True,
         use_object_obs=True,
-        human_placement_initializer=None,
         has_renderer=False,
         has_offscreen_renderer=True,
         render_camera="frontview",
@@ -253,6 +254,7 @@ class HumanEnv(SingleArmEnv):
         ],
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_freq=120,
+        human_rand=[1.0, 1.0, 0.1],
         safe_vel=0.001,
         self_collision_safety=0.01,
         seed=0,
@@ -315,7 +317,8 @@ class HumanEnv(SingleArmEnv):
         self.low_level_time = int(0)
         self.human_animation_id = 0
         self.animation_start_time = 0
-        self.human_placement_initializer = human_placement_initializer
+        self.human_placement_initializer = None
+        self.human_rand = human_rand
 
         # Pinocchio visualizer
         self.visualize_pinocchio = visualize_pinocchio
@@ -1028,13 +1031,13 @@ class HumanEnv(SingleArmEnv):
             self.human_placement_initializer = UniformRandomSampler(
                 name="HumanSampler",
                 mujoco_objects=self.human,
-                x_range=[-0.0, 0.0],
-                y_range=[-0.0, 0.0],
-                rotation=(0, 0),
-                rotation_axis="x",
+                x_range=[-self.human_rand[0], self.human_rand[0]],
+                y_range=[-self.human_rand[1], self.human_rand[1]],
+                rotation=(-self.human_rand[2], self.human_rand[2]),
+                rotation_axis="z",
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,
-                reference_pos=[0.0, 0.0, 0.8],
+                reference_pos=[0.0, 0.0, 0.0],
                 z_offset=0.0,
             )
 
@@ -1245,6 +1248,7 @@ class HumanEnv(SingleArmEnv):
             self.human_pos_offset = [
                 self.base_human_pos_offset[i] + human_pos[i] for i in range(3)
             ]
+            self.human_rot_offset = human_quat
             # Loop through all objects and reset their positions
             for obj_pos, obj_quat, obj in object_placements.values():
                 self.sim.data.set_joint_qpos(
@@ -1274,6 +1278,7 @@ class HumanEnv(SingleArmEnv):
 
     def _control_human(self):
         """Set the human joint positions according to the human animation files."""
+        # <<< Time management and animation selection >>>
         # Convert low level time to human animation time
         control_time = math.floor(
             self.low_level_time / self.human_animation_step_length
@@ -1306,9 +1311,9 @@ class HumanEnv(SingleArmEnv):
         ]["position_offset"]
         # These settings are adjusted to fit the CMU motion capture BVH files!
         human_pos = [
-            (animation_pos[0] + self.human_pos_offset[0] + animation_offset[0]),
-            (animation_pos[1] + self.human_pos_offset[1] + animation_offset[1]),
-            (animation_pos[2] + self.human_pos_offset[2] + animation_offset[2]),
+            (animation_pos[0] + animation_offset[0]),
+            (animation_pos[1] + animation_offset[1]),
+            (animation_pos[2] + animation_offset[2]),
         ]
         # Base rotation (without animation)
         animation_offset_rot = Rotation.from_quat(
@@ -1319,6 +1324,10 @@ class HumanEnv(SingleArmEnv):
         human_rot = self.human_base_quat.__mul__(animation_offset_rot)
         # Apply rotation to position
         human_pos = human_rot.apply(human_pos)
+        # Add human base translation
+        human_pos = [human_pos[i] + self.human_pos_offset[i] for i in range(3)]
+        human_base_rotation = quat_to_rot(self.human_rot_offset)
+        human_rot = human_base_rotation.__mul__(human_rot)
         # Animation rotation
         rot = Rotation.from_quat(
             self.human_animations[self.human_animation_id]["Pelvis_quat"][
