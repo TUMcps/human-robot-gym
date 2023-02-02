@@ -242,7 +242,7 @@ class ReachHumanCart(ReachHuman):
         ],
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_freq=120,
-        human_rand=[1.0, 1.0, 0.1],
+        human_rand=[0.0, 0.0, 0.0],
         safe_vel=0.001,
         self_collision_safety=0.01,
         seed=0,
