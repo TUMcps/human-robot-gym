@@ -9,7 +9,7 @@ Author:
 
 from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE, HumanEnv
 
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -697,19 +697,14 @@ class PickPlaceHumanCart(HumanEnv):
 
         return observables
 
-    def _visualize_goal(self):
-        """Visualize the goal state."""
-        # sphere (type 2)
-        self.viewer.viewer.add_marker(
-            pos=self.desired_goal,
-            type=2,
-            size=[0.02, 0.02, 0.02],
-            rgba=[0.0, 1.0, 0.0, 0.7],
-            label="",
-            shininess=0.0,
-        )
+    def _get_object_bin_boundaries(self) -> Tuple[float, float, float, float]:
+        """Get the x and y boundaries of the object sampling space.
 
-    def _get_object_bin_boundaries(self):
+        Returns:
+            (float, float, float, float):
+                Boundaries of sampling space in the form (xmin, xmax, ymin, ymax)
+
+        """
         bin_x_half = self.table_full_size[0] / 2 - 0.05
         bin_y_half = self.table_full_size[1] / 2 - 0.05
 
@@ -720,7 +715,13 @@ class PickPlaceHumanCart(HumanEnv):
             bin_y_half * 0.45,
         )
 
-    def _get_target_bin_boundaries(self):
+    def _get_target_bin_boundaries(self) -> Tuple[float, float, float, float]:
+        """Get the x and y boundaries of the target sampling space.
+
+        Returns:
+            (float, float, float, float):
+                Boundaries of the sampling space in the form (xmin, xmax, ymin, ymax)
+        """
         bin_x_half = self.table_full_size[0] / 2 - 0.05
         bin_y_half = self.table_full_size[1] / 2 - 0.05
 
@@ -731,42 +732,68 @@ class PickPlaceHumanCart(HumanEnv):
             bin_y_half * -0.25,
         )
 
-    def _visualize_object_sample_space(self):
-        bin_boundaries = self._get_object_bin_boundaries()
-
+    def _visualize_goal(self):
+        """Draw a sphere at the target location."""
+        # sphere (type 2)
         self.viewer.viewer.add_marker(
-            pos=np.array([
-                (bin_boundaries[0] + bin_boundaries[1]) / 2,
-                (bin_boundaries[2] + bin_boundaries[3]) / 2,
-                self.desired_goal[2],
-            ]),
-            type=6,
-            size=[
-                (bin_boundaries[1] - bin_boundaries[0]) * 0.5,
-                (bin_boundaries[3] - bin_boundaries[2]) * 0.5,
-                0.1,
-            ],
-            rgba=[1.0, 0.0, 0.0, 0.3],
+            pos=self.desired_goal,
+            type=2,
+            size=[0.02, 0.02, 0.02],
+            rgba=[0.0, 1.0, 0.0, 0.7],
             label="",
             shininess=0.0,
         )
 
-    def _visualize_target_sample_space(self):
-        bin_boundaries = self._get_target_bin_boundaries()
+    def _visualize_object_sample_space(self):
+        """Draw a box to display the object sampling space
+        """
+        self.draw_box(
+            self._get_object_bin_boundaries() + (  # Add z boundaries
+                self.desired_goal[2] - 0.05,
+                self.desired_goal[2] + 0.05,
+            ),
+            (1.0, 0.0, 0.0, 0.3),
+        )
 
+    def _visualize_target_sample_space(self):
+        """Draw a box to display the target sampling space
+        """
+        self.draw_box(
+            self._get_target_bin_boundaries() + (  # Add z boundaries
+                self.desired_goal[2] - 0.05,
+                self.desired_goal[2] + 0.05
+            ),
+            (0.0, 0.0, 1.0, 0.3),
+        )
+
+    def draw_box(
+        self,
+        boundaries: Tuple[float, float, float, float, float, float],
+        color: Tuple[float, float, float, float],
+    ):
+        print(boundaries)
+        """Render a box in the scene.
+
+        Args:
+            boundaries (float, float, float, float, float, float):
+                Box boundaries in the form (xmin, xmax, ymin, ymax, zmin, zmax)
+            color (float, float, float, float):
+                Color in the form (r, g, b, a)
+        """
+        # Box (type 2)
         self.viewer.viewer.add_marker(
             pos=np.array([
-                (bin_boundaries[0] + bin_boundaries[1]) / 2,
-                (bin_boundaries[2] + bin_boundaries[3]) / 2,
-                self.desired_goal[2],
+                (boundaries[0] + boundaries[1]) / 2,
+                (boundaries[2] + boundaries[3]) / 2,
+                (boundaries[5] + boundaries[4]) / 2,
             ]),
             type=6,
             size=[
-                (bin_boundaries[1] - bin_boundaries[0]) * 0.5,
-                (bin_boundaries[3] - bin_boundaries[2]) * 0.5,
-                0.1,
+                (boundaries[1] - boundaries[0]) * 0.5,
+                (boundaries[3] - boundaries[2]) * 0.5,
+                (boundaries[5] - boundaries[4]) * 0.5,
             ],
-            rgba=[0.0, 0.0, 1.0, 0.3],
+            rgba=color,
             label="",
             shininess=0.0,
         )
