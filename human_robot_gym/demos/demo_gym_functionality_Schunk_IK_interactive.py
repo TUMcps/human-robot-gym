@@ -16,15 +16,12 @@ g: close gripper
 
 q: reset environment
 
-Can be used with our provided training function
-to train a safe RL agent with work space position actions.
-
 Note that some goals are not reachable
 and the motion remains well-behaved at workspace boundaries.
 
-Author: Felix Trost
+Author: 
+    Felix Trost
 """
-
 import robosuite as suite
 import time
 import numpy as np
@@ -33,7 +30,7 @@ from robosuite.wrappers import GymWrapper
 from robosuite.controllers import load_controller_config
 
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
-from human_robot_gym.utils.cart_keyboard_controller import CartKeyboardController
+from human_robot_gym.utils.cart_keyboard_controller import KeyboardControllerAgentCart
 import human_robot_gym.environments.manipulation.reach_human_cartesian_env  # noqa: F401
 import human_robot_gym.robots  # noqa: F401
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
@@ -88,18 +85,17 @@ if __name__ == "__main__":
     action_limits = np.array([[-0.1, -0.1, -0.1], [0.1, 0.1, 0.1]])
     env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file, action_limits=action_limits)
 
-    agent = CartKeyboardController(env, 0.1, 1)
+    agent = KeyboardControllerAgentCart(env, 0.1, 1)
 
     t_max = 300
     for i_episode in range(20):
         observation = env.reset()
         t1 = time.time()
         for t in range(t_max):
-            action = env.action_space.sample()
             # testing environment structure
             eef_pos = env.sim.data.site_xpos[env.robots[0].eef_site_id]
             goal = env.desired_goal
-            action[:] = agent()
+            action = agent()
             observation, reward, done, info = env.step(action)
             if done or t == t_max:
                 print("Episode finished after {} timesteps".format(t + 1))
