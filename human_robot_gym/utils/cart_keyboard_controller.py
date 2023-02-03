@@ -12,6 +12,7 @@ from typing import Any, Callable, Literal, Union
 from gym import Env
 from robosuite.renderers.mujoco.mujoco_py_renderer import MujocoPyRenderer
 
+
 class KeyboardController:
     """Keyboard controller base class.
 
@@ -27,70 +28,71 @@ class KeyboardController:
         self._env = env
         self._mj_renderer = self._get_mj_renderer(env)
 
-    def _get_mj_renderer(self, env: Env)-> MujocoPyRenderer:
+    def _get_mj_renderer(self, env: Env) -> MujocoPyRenderer:
         """Extracts the MuJoCo renderer from the environment.
-        
+
         Args:
             env (Env): gym environment containing the renderer
-        
+
         Returns:
             MujocoPyRenderer: renderer
         """
         return env.unwrapped.viewer
 
     def add_keypress_callback(
-        self, 
-        key: Union[int, Literal["any"]], 
+        self,
+        key: Union[int, Literal["any"]],
         fn: Callable[[Any, int, Any, int, Any], None],
     ):
         """Registers a callback to the event when a key is pressed.
 
         Args:
             key (int | 'any'): The associated key
-                Choosing 'any' disables the standard MjViewer hotkeys 
+                Choosing 'any' disables the standard MjViewer hotkeys
                 (see CustomMjViewer)
             fn ((Any, int, Any, int, Any)-> None):
                 the callback to execute. The second and fourth argument
-                are relevant, specifying the key and the action 
+                are relevant, specifying the key and the action
                 (press/release/repeat)
         """
         self._mj_renderer.add_keypress_callback(key, fn)
 
     def add_keyup_callback(
-        self, 
-        key: Union[int, Literal["any"]], 
+        self,
+        key: Union[int, Literal["any"]],
         fn: Callable[[Any, int, Any, int, Any], None],
     ):
         """Registers a callback to the event when a key is released.
 
         Args:
             key (int | 'any'): The associated key
-                Choosing 'any' disables the standard MjViewer hotkeys 
+                Choosing 'any' disables the standard MjViewer hotkeys
                 (see CustomMjViewer)
             fn ((Any, int, Any, int, Any)-> None):
                 the callback to execute. The second and fourth argument
-                are relevant, specifying the key and the action 
+                are relevant, specifying the key and the action
                 (press/release/repeat)
         """
         self._mj_renderer.add_keyup_callback(key, fn)
 
     def add_keyrepeat_callback(
-        self, 
-        key: Union[int, Literal["any"]], 
+        self,
+        key: Union[int, Literal["any"]],
         fn: Callable[[Any, int, Any, int, Any], None],
     ):
         """Registers a callback to the event when a key is repeated.
 
         Args:
             key (int | 'any'): The associated key
-                Choosing 'any' disables the standard MjViewer hotkeys 
+                Choosing 'any' disables the standard MjViewer hotkeys
                 (see CustomMjViewer)
             fn ((Any, int, Any, int, Any)-> None):
                 the callback to execute. The second and fourth argument
-                are relevant, specifying the key and the action 
+                are relevant, specifying the key and the action
                 (press/release/repeat)
         """
         self._mj_renderer.add_keyrepeat_callback(key, fn)
+
 
 class KeyboardControllerAgentCart(KeyboardController):
     """Carthesian action space keyboard controller.
@@ -117,9 +119,9 @@ class KeyboardControllerAgentCart(KeyboardController):
     """
 
     def __init__(
-            self, 
+            self,
             env: Env,
-            speed: float, 
+            speed: float,
             gripper_torque_scale: float,
     ):
         super().__init__(env)
@@ -127,7 +129,7 @@ class KeyboardControllerAgentCart(KeyboardController):
         self._gripper_torque_scale = gripper_torque_scale
         self._dir = np.zeros(3)
         self._gripper_torque = np.zeros(1)
-        self._add_key_callbacks()    
+        self._add_key_callbacks()
 
     def _add_key_callbacks(self):
         """Register the keypress callbacks."""
@@ -136,20 +138,20 @@ class KeyboardControllerAgentCart(KeyboardController):
         self.add_keyrepeat_callback("any", self.motion_key_callback)
 
         self.add_keypress_callback(
-            glfw.KEY_Q, 
+            glfw.KEY_Q,
             lambda *_: self._env.reset()
         )
 
     def motion_key_callback(
-        self, 
-        window: Any, 
-        key: int, 
-        scancode: Any, 
-        action: int, 
+        self,
+        window: Any,
+        key: int,
+        scancode: Any,
+        action: int,
         mods: Any,
     ):
         """Describes how to handle motion key events.
-        
+
         Args:
             key (int): the keycode from the key event
             action (int): the action associated with the event (press/release/repeat)
@@ -168,7 +170,7 @@ class KeyboardControllerAgentCart(KeyboardController):
             self._dir[2] -= sign
         elif key == glfw.KEY_R:
             self._dir[2] += sign
-        
+
         if key == glfw.KEY_T:
             self._gripper_torque -= sign
         elif key == glfw.KEY_G:

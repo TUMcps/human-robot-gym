@@ -19,7 +19,7 @@ q: reset environment
 Note that some goals are not reachable
 and the motion remains well-behaved at workspace boundaries.
 
-Author: 
+Author:
     Felix Trost
 """
 import robosuite as suite
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     robot_config = load_controller_config(custom_fpath=robot_conig_path)
     controller_config = merge_configs(controller_config, robot_config)
     controller_configs = [controller_config]
-    
+
     rs_env = suite.make(
             "ReachHumanCart",
             robots="Schunk",  # use Schunk robot
