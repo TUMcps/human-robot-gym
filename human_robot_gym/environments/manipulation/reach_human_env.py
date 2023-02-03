@@ -95,10 +95,6 @@ class ReachHuman(HumanEnv):
             is used by default.
             Obstacles are elements that should be avoided.
 
-        human_placement_initializer (ObjectPositionSampler): if provided, will
-            be used to place the human on every reset, else a UniformRandomSampler
-            is used by default.
-
         has_renderer (bool): If true, render the simulation state in
             a viewer instead of headless mode.
 
@@ -174,6 +170,8 @@ class ReachHuman(HumanEnv):
 
         human_animation_freq (double): Speed of the human animation in fps.
 
+        human_rand (list[double]): Max. randomization of the human [x-pos, y-pos, z-angle]
+
         safe_vel (double): Safe cartesian velocity. The robot is allowed to move with this velocity in the vacinity of
             humans.
 
@@ -213,7 +211,6 @@ class ReachHuman(HumanEnv):
         goal_reward=1,
         object_placement_initializer=None,
         obstacle_placement_initializer=None,
-        human_placement_initializer=None,
         has_renderer=False,
         has_offscreen_renderer=True,
         render_camera="frontview",
@@ -252,6 +249,7 @@ class ReachHuman(HumanEnv):
         ],
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_freq=120,
+        human_rand=[0.0, 0.0, 0.0],
         safe_vel=0.001,
         randomize_initial_pos=False,
         self_collision_safety=0.01,
@@ -291,7 +289,6 @@ class ReachHuman(HumanEnv):
             initialization_noise=initialization_noise,
             use_camera_obs=use_camera_obs,
             use_object_obs=use_object_obs,
-            human_placement_initializer=human_placement_initializer,
             has_renderer=has_renderer,
             has_offscreen_renderer=has_offscreen_renderer,
             render_camera=render_camera,
@@ -316,6 +313,7 @@ class ReachHuman(HumanEnv):
             human_animation_names=human_animation_names,
             base_human_pos_offset=base_human_pos_offset,
             human_animation_freq=human_animation_freq,
+            human_rand=human_rand,
             safe_vel=safe_vel,
             self_collision_safety=self_collision_safety,
             seed=seed,

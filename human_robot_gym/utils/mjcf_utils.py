@@ -91,6 +91,12 @@ def rot_to_quat(rot: Rotation) -> List:
     return [quat[3], quat[0], quat[1], quat[2]]
 
 
+def quat_to_rot(quat: List) -> Rotation:
+    """Convert a mujoco conform quaternion (w, x, y, z) to a scipy rotation."""
+    scipy_quat = [quat[1], quat[2], quat[3], quat[0]]
+    return Rotation.from_quat(scipy_quat)
+
+
 def merge_configs(config1: dict, config2: dict) -> dict:
     """Merge two dictionaries with the following strategy.
 
