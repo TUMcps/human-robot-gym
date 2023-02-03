@@ -74,4 +74,3 @@ class ReparameterizedOrnsteinUhlenbeckProcess(OrnsteinUhlenbeckProcess):
             beta=sigma*np.sqrt(2*alpha),
             gamma=mu,
         )
-
