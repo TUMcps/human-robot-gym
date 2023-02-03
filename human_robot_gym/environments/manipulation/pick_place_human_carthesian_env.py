@@ -211,7 +211,6 @@ class PickPlaceHumanCart(HumanEnv):
         object_placement_initializer=None,
         target_placement_initializer=None,
         obstacle_placement_initializer=None,
-        human_placement_initializer=None,
         has_renderer=False,
         has_offscreen_renderer=True,
         render_camera="frontview",
@@ -290,7 +289,6 @@ class PickPlaceHumanCart(HumanEnv):
             initialization_noise=initialization_noise,
             use_camera_obs=use_camera_obs,
             use_object_obs=use_object_obs,
-            human_placement_initializer=human_placement_initializer,
             has_renderer=has_renderer,
             has_offscreen_renderer=has_offscreen_renderer,
             render_camera=render_camera,
@@ -486,7 +484,7 @@ class PickPlaceHumanCart(HumanEnv):
         Returns:
             The desired goal
         """
-        return observation["desired_goal"]
+        return observation["target_pos"]
 
     def _reset_internal(self):
         """Reset the simulation internal configurations."""
