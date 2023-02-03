@@ -76,3 +76,80 @@ class ReparameterizedOrnsteinUhlenbeckProcess(OrnsteinUhlenbeckProcess):
             beta=sigma*np.sqrt(2*alpha),
             gamma=mu,
         )
+
+
+if __name__ == "__main__":
+    """Plot noise using custom parameters.
+    """
+    from argparse import ArgumentParser
+    import matplotlib.pyplot as plt
+
+    parser = ArgumentParser(
+        description="Create Ornstein-Uhlenbeck noise processes with custom parameters."
+    )
+
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        help="Rubber band parameter",
+    )
+
+    parser.add_argument(
+        "--mu",
+        type=float,
+        default=0,
+        help="Mean value of the distribution",
+    )
+
+    parser.add_argument(
+        "--sigma",
+        type=float,
+        default=1.0,
+        help="Variance of the distribution",
+    )
+
+    parser.add_argument(
+        "--dt",
+        type=float,
+        default=0.01,
+        help="Time delta between samples",
+    )
+
+    parser.add_argument(
+        "--n_proc",
+        type=int,
+        default=10,
+        help="Number of processes",
+    )
+
+    parser.add_argument(
+        "--n_steps",
+        type=int,
+        default=10000,
+        help="Number of samples per process"
+    )
+
+    args = parser.parse_args()
+
+    noise = ReparameterizedOrnsteinUhlenbeckProcess(
+        size=args.n_proc,
+        alpha=args.alpha,
+        mu=args.mu,
+        sigma=args.sigma,
+    )
+
+    proc = []
+    for _ in range(args.n_steps):
+        proc.append(noise.step(args.dt))
+
+    proc = np.array(proc)
+
+    fig, (ax_proc, ax_hist) = plt.subplots(2)
+    ax_proc.plot(proc)
+    _, bins, _ = ax_hist.hist(proc[:], density=True, bins=50)
+    approx = (
+        (1 / (np.sqrt(2 * np.pi) * args.sigma)) *
+        np.exp(-0.5 * (1 / args.sigma * (args.mu - bins))**2)
+    )
+    ax_hist.plot(bins, approx, '--')
+    plt.show()
