@@ -1,17 +1,29 @@
-"""This file contains classes to generate Ornstein-Uhlenbeck noise.
+"""This file contains classes to generate Ornstein-Uhlenbeck processes.
 
 Author:
     Felix Trost (FT)
+
+Changelog:
+    05.02.23 FT File creation
 """
 
 import numpy as np
 
 
 class OrnsteinUhlenbeckProcess:
-    """
-    This class can be used to generate Ornstein-Uhlenbeck noise signals.
-    Discretized using Euler-Maruyama method.
-    Starting value is the mean (gamma)
+    """This class can be used to generate Ornstein-Uhlenbeck processes:
+        https://en.wikipedia.org/wiki/Ornstein%E2%80%93Uhlenbeck_process
+
+    dX_t = alpha * (gamma - X_t) dt + beta * dW_t
+
+    W_t refers to values of a Wiener process W at time t:
+        https://en.wikipedia.org/wiki/Wiener_process
+
+    Discretized using Euler-Maruyama method:
+        X_{t+1} = X_t + alpha * (gamma - X_t) * dt + beta * sqrt(dt) * N(0;1)
+        N: Normal distribution
+
+    Starting value is the mean (X_0 = gamma).
 
     Args:
         size (int): number of processes,
@@ -51,8 +63,8 @@ class OrnsteinUhlenbeckProcess:
 
 
 class ReparameterizedOrnsteinUhlenbeckProcess(OrnsteinUhlenbeckProcess):
-    """
-    This class re-parameterizes the Ornstein-Uhlenbeck process.
+    """This class re-parameterizes the Ornstein-Uhlenbeck process.
+
     It generates Ornstein-Uhlenbeck noise signals based on asymptotic mean and variance values.
     Starting value is the mean (mu)
 
