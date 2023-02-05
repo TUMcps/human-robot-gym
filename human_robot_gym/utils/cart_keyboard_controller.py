@@ -4,6 +4,9 @@ Includes a keyboard controller agent for the carthesian action space
 
 Author:
     Felix Trost (FT)
+
+Changelog:
+    05.02.23 FT File creation
 """
 import glfw
 import numpy as np
@@ -29,7 +32,7 @@ class KeyboardController:
         self._mj_renderer = self._get_mj_renderer(env)
 
     def _get_mj_renderer(self, env: Env) -> MujocoPyRenderer:
-        """Extracts the MuJoCo renderer from the environment.
+        """Extract the MuJoCo renderer from the environment.
 
         Args:
             env (Env): gym environment containing the renderer
@@ -44,7 +47,7 @@ class KeyboardController:
         key: Union[int, Literal["any"]],
         fn: Callable[[Any, int, Any, int, Any], None],
     ):
-        """Registers a callback to the event when a key is pressed.
+        """Register a callback to the event when a key is pressed.
 
         Args:
             key (int | 'any'): The associated key
@@ -62,7 +65,7 @@ class KeyboardController:
         key: Union[int, Literal["any"]],
         fn: Callable[[Any, int, Any, int, Any], None],
     ):
-        """Registers a callback to the event when a key is released.
+        """Register a callback to the event when a key is released.
 
         Args:
             key (int | 'any'): The associated key
@@ -80,7 +83,7 @@ class KeyboardController:
         key: Union[int, Literal["any"]],
         fn: Callable[[Any, int, Any, int, Any], None],
     ):
-        """Registers a callback to the event when a key is repeated.
+        """Register a callback to the event when a key is repeated.
 
         Args:
             key (int | 'any'): The associated key
@@ -117,12 +120,11 @@ class KeyboardControllerAgentCart(KeyboardController):
         speed (float): Length of the 3D motion vector
         gripper_torque_scale (float): Magnitude of non-zero torque values
     """
-
     def __init__(
             self,
             env: Env,
-            speed: float,
-            gripper_torque_scale: float,
+            speed: float = 0.1,
+            gripper_torque_scale: float = 1,
     ):
         super().__init__(env)
         self._speed = speed
@@ -150,7 +152,7 @@ class KeyboardControllerAgentCart(KeyboardController):
         action: int,
         mods: Any,
     ):
-        """Describes how to handle motion key events.
+        """Describe how to handle motion key events.
 
         Args:
             key (int): the keycode from the key event

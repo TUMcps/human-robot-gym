@@ -21,6 +21,9 @@ and the motion remains well-behaved at workspace boundaries.
 
 Author:
     Felix Trost
+
+Changelog:
+    05.02.23 FT File creation
 """
 import robosuite as suite
 import time
@@ -53,7 +56,8 @@ if __name__ == "__main__":
     controller_config = merge_configs(controller_config, robot_config)
     controller_configs = [controller_config]
 
-    rs_env = suite.make(
+    env = GymWrapper(
+        env=suite.make(
             "ReachHumanCart",
             robots="Schunk",  # use Schunk robot
             robot_base_offset=[0.0, 0, 0],
@@ -73,19 +77,27 @@ if __name__ == "__main__":
             base_human_pos_offset=[0.0, 0.0, 0.0],
             init_joint_pos=np.array([0, 0.0, -np.pi / 2, 0, -np.pi / 2, 0]),
             verbose=True,
-        )
-    env = GymWrapper(
-        rs_env,
+        ),
         keys=["object-state", "goal_difference"]
     )
     env = CollisionPreventionWrapper(
-        env=env, collision_check_fn=env.check_collision_action, replace_type=0
+        env=env,
+        collision_check_fn=env.check_collision_action,
+        replace_type=0,
     )
     env = VisualizationWrapper(env)
     action_limits = np.array([[-0.1, -0.1, -0.1], [0.1, 0.1, 0.1]])
-    env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file, action_limits=action_limits)
+    env = IKPositionDeltaWrapper(
+        env=env,
+        urdf_file=pybullet_urdf_file,
+        action_limits=action_limits
+    )
 
-    agent = KeyboardControllerAgentCart(env, 0.1, 1)
+    agent = KeyboardControllerAgentCart(
+        env=env,
+        speed=0.1,
+        gripper_torque_scale=1,
+    )
 
     t_max = 300
     for i_episode in range(20):
