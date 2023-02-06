@@ -4,7 +4,10 @@ for a single robot with a human doing tasks nearby.
 This class is based on the human environment.
 
 Author:
-    Felix Trost
+    Felix Trost (FT)
+
+Changelog:
+    06.02.23 FT File creation
 """
 
 from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE, HumanEnv
@@ -22,8 +25,7 @@ from human_robot_gym.utils.pairing import cantor_pairing
 
 
 class PickPlaceHumanCart(HumanEnv):
-    """
-    This class corresponds to the pick place task for a single robot arm in a human environment.
+    """This class corresponds to the pick place task for a single robot arm in a human environment.
 
     Args:
         robots (str or list of str): Specification for specific robot arm(s) to be instantiated within this env
