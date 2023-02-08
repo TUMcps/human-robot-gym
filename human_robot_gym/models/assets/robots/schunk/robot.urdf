@@ -250,22 +250,26 @@
       <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01"/>
     </inertial>
     <visual>
-      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <!-- Manually edited!! original value: xyz="0 0 0"-->
+      <origin rpy="0 0 0" xyz="0 0 -0.02"/>
       <geometry>
-        <cylinder radius="0.07" length="0.14"/>
+        <!--Manually edited!! original value: length="0.14"-->
+        <cylinder radius="0.07" length="0.1"/>
       </geometry>
       <material name="Blue"/>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <cylinder radius="0.07" length="0.14"/>
+        <!--Manually edited!! original value: length="0.14"-->
+        <cylinder radius="0.07" length="0.1"/>
       </geometry>
     </collision>
   </link>
   <!-- joint between gripper and end -->
   <joint name="end_joint" type="revolute">
-    <origin rpy="0 0 0" xyz="0 0 0.065"/>
+    <!--Manually edited!! original value: xyz="0 0 0.065"-->
+    <origin rpy="0 0 0" xyz="0 0 0.045"/>
     <parent link="gripper"/>
     <child link="end"/>
     <axis xyz="0 0 1"/>

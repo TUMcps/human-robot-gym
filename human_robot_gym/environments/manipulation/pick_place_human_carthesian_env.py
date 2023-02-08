@@ -773,7 +773,6 @@ class PickPlaceHumanCart(HumanEnv):
         boundaries: Tuple[float, float, float, float, float, float],
         color: Tuple[float, float, float, float],
     ):
-        print(boundaries)
         """Render a box in the scene.
 
         Args:

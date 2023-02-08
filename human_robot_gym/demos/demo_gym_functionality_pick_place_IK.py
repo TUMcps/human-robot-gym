@@ -5,6 +5,9 @@ to train a safe RL agent with work space position actions.
 
 Author:
     Felix Trost
+
+Changelog:
+    08.02.23 FT File creation
 """
 
 import robosuite as suite
@@ -15,6 +18,7 @@ from robosuite.wrappers import GymWrapper
 from robosuite.controllers import load_controller_config
 
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
+from human_robot_gym.utils.cart_keyboard_controller import KeyboardControllerAgentCart
 import human_robot_gym.robots  # noqa: F401
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.collision_prevention_wrapper import (
@@ -54,7 +58,7 @@ if __name__ == "__main__":
             controller_configs=controller_configs,
             use_failsafe_controller=True,
             visualize_failsafe_controller=False,
-            visualize_pinocchio=False,
+            visualize_pinocchio=True,
             base_human_pos_offset=[0.0, 0.0, 0.0],
             verbose=True,
         ),
@@ -71,7 +75,7 @@ if __name__ == "__main__":
     env = VisualizationWrapper(env)
     action_limits = np.array([[-0.1, -0.1, -0.1], [0.1, 0.1, 0.1]])
     env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file, action_limits=action_limits)
-
+    agent = KeyboardControllerAgentCart(env=env)
     for i_episode in range(20):
         observation = env.reset()
         t1 = time.time()
@@ -81,8 +85,7 @@ if __name__ == "__main__":
             action = env.action_space.sample()
             # testing environment structure
             eef_pos = env.sim.data.site_xpos[env.robots[0].eef_site_id]
-            goal = env.desired_goal
-            action[:3] = goal - eef_pos
+            action[:] = agent()
             observation, reward, done, info = env.step(action)
             if done:
                 print("Episode finished after {} timesteps".format(t + 1))
