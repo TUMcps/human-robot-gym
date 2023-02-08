@@ -631,7 +631,7 @@ class PickPlaceHumanCart(HumanEnv):
             return np.array(self.sim.data.body_xpos[self.box_body_id])
 
         # Vector from robot end-effector to object
-        @sensor(modality="object")
+        @sensor(modality=obj_mod)
         def eef_to_object(obs_cache) -> np.ndarray:
             return (
                 obs_cache["object_pos"] - obs_cache[f"{pf}eef_pos"]
