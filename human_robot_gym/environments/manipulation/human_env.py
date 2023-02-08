@@ -1171,7 +1171,7 @@ class HumanEnv(SingleArmEnv):
                 )
 
             @sensor(modality=modality)
-            def human_lh_to_eff(obs_cache):
+            def eef_to_human_lh(obs_cache):
                 """Return the distance from the human left hand to the end effector in each world coordinate."""
                 if f"{pf}eef_pos" in obs_cache:
                     return self.sim.data.get_site_xpos(self.human.left_hand)[:3] - obs_cache[f"{pf}eef_pos"][:3]
@@ -1179,7 +1179,7 @@ class HumanEnv(SingleArmEnv):
                     return np.zeros(3)
 
             @sensor(modality=modality)
-            def human_rh_to_eff(obs_cache):
+            def eef_to_human_rh(obs_cache):
                 """Return the distance from the human right hand to the end effector in each world coordinate."""
                 if f"{pf}eef_pos" in obs_cache:
                     return self.sim.data.get_site_xpos(self.human.right_hand)[:3] - obs_cache[f"{pf}eef_pos"][:3]
@@ -1187,7 +1187,7 @@ class HumanEnv(SingleArmEnv):
                     return np.zeros(3)
 
             @sensor(modality=modality)
-            def human_head_to_eff(obs_cache):
+            def eef_to_human_head(obs_cache):
                 """Return the distance from the human head to the end effector in each world coordinate."""
                 if f"{pf}eef_pos" in obs_cache:
                     return self.sim.data.get_site_xpos(self.human.head)[:3] - obs_cache[f"{pf}eef_pos"][:3]
@@ -1196,9 +1196,9 @@ class HumanEnv(SingleArmEnv):
 
             sensors = [
                 gripper_pos,
-                human_head_to_eff,
-                human_lh_to_eff,
-                human_rh_to_eff]
+                eef_to_human_lh,
+                eef_to_human_rh,
+                eef_to_human_head]
 
             names = [s.__name__ for s in sensors]
 
