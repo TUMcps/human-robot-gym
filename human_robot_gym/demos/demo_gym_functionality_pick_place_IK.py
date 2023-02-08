@@ -3,6 +3,57 @@
 Can be used with our provided training function
 to train a safe RL agent with work space position actions.
 
+Available observations (possible GymWrapper keys):
+    robot0_eef_pos:
+        (x,y,z) absolute position the end effector position
+    robot0_gripper_qpos
+        (l,r) gripper joint position
+    robot0_gripper_qvel
+        (l,r) gripper joint velocity
+    human_head_to_eff
+        (x,y,z) vector from end effector to human head
+    human_lh_to_eff
+        (x,y,z) vector from end effector to human left hand
+    human_rh_to_eff
+        (x,y,z) vector from end effector to human right hand
+    target_pos
+        (x,y,z) absolute position of the target
+    object_pos
+        (x,y,z) absolute position of the object
+    object_gripped
+        (True/False) whether the object has contact to both fingerpads
+    eef_to_object
+        (x,y,z) vector from end effector to object (object_pos - robot0_eef_pos)
+    object_to_target
+        (x,y,z) vector from object to target (target_pos - object_pos)
+    eef_to_target
+        (x,y,z) vector from end effector to target (target_pos - robot0_eef_pos)
+    dist_to_next_objective
+        (x,y,z)
+            if the object is gripped (object_gripped):
+                vector from object to target (object_to_target)
+            otherwise:
+                vector from end effector to object (eef_to_object)
+    robot0_proprio-state
+        (7-tuple) concatenation of
+            -robot0_eef_pos (robot0_proprio-state[0:3])
+            -robot0_gripper_qpos (robot0_proprio-state[3:5])
+            -robot0_gripper_qvel (robot0_proprio-state[5:7])
+    object-state
+        (16-tuple) concatenation of
+            -human_head_to_eff (object-state[0:3])
+            -human_lh_to_eff (object-state[3:6])
+            -human_rh_to_eff (object-state[6:9])
+            -object_pos (object-state[9:12])
+            -eef_to_object (object-state[12-15])
+            -object_gripped (object-state[15])
+    goal-state
+        (12-tuple) concatenation of
+            -target_pos (object-state[0:3])
+            -object_to_target (object-state[3:6])
+            -eef_to_target (object-state[6:9])
+            -dist_to_next_objective (object-state[9:12])
+
 Author:
     Felix Trost
 
@@ -58,7 +109,7 @@ if __name__ == "__main__":
             controller_configs=controller_configs,
             use_failsafe_controller=True,
             visualize_failsafe_controller=False,
-            visualize_pinocchio=True,
+            visualize_pinocchio=False,
             base_human_pos_offset=[0.0, 0.0, 0.0],
             verbose=True,
         ),
@@ -76,6 +127,7 @@ if __name__ == "__main__":
     action_limits = np.array([[-0.1, -0.1, -0.1], [0.1, 0.1, 0.1]])
     env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file, action_limits=action_limits)
     agent = KeyboardControllerAgentCart(env=env)
+
     for i_episode in range(20):
         observation = env.reset()
         t1 = time.time()
