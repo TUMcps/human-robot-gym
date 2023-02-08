@@ -178,7 +178,7 @@ class CartActionsExpertImitationRewardWrapper(ExpertImitationRewardWrapper):
         Returns:
             float: similarity based on distance
         """
-        # exp form
+        # exp form:
         # norm_factor = np.sqrt(2 * np.log(2))
         # return np.exp(-0.5 * (dist * norm_factor / hwhm)**2)
 
