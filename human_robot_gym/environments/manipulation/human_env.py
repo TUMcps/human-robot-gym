@@ -989,7 +989,7 @@ class HumanEnv(SingleArmEnv):
         if add_base:
             coll_base = obstacle.Cylinder(
                 name="Base",
-                r=0.25 + safety_margin,
+                r=0.2 + safety_margin,
                 z=0.91,
                 translation=self.robot_base_offset + np.array([0.0, 0, 0.455]),
             )
