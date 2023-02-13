@@ -92,6 +92,7 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         )
 
         reward = self._combine_reward(env_rew, imitation_reward)
+        dict["imitation_reward"] = imitation_reward
         return obs, reward, done, info
 
     def _combine_reward(
