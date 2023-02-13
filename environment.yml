@@ -4,6 +4,7 @@ channels:
 dependencies:
   - pip>=22.0.4
   - python=3.8
+  - setuptools==65.5.0
   - pip:
     # works for regular pip packages
     - bvh==0.3
