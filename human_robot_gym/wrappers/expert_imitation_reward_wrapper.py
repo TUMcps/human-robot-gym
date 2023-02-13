@@ -8,7 +8,7 @@ Changelog:
     06.02.23 FT File creation
     13.02.23 FT Integration of requested changes
 """
-from typing import Tuple
+from typing import List, Tuple, Union
 
 import numpy as np
 from gym.core import Env, Wrapper
@@ -97,19 +97,28 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
 
     def _combine_reward(
         self,
-        env_reward: float,
-        imitation_reward: float,
+        env_reward: Union[float, List[float]],
+        imitation_reward: Union[float, List[float]],
     ) -> float:
         """Combine the environment and imitation reward values by linear interpolation.
+        Values either given as single values or as two lists of values.
 
         Args:
-            env_reward (float): reward given from wrapped env
-            imitation_reward (float): reward obtained from imitating the expert
+            env_reward (float | List[float]): reward given from wrapped env
+            imitation_reward (float | List[float]): reward obtained from imitating the expert
 
         Returns:
             float: combined reward
+
+        Raises:
+            ValueError ["Either both or none of env and imitation are expected to be lists"]
         """
-        return imitation_reward * self._alpha + env_reward * (1 - self._alpha)
+        if isinstance(env_reward, List) and isinstance(imitation_reward, List):
+            return [r_im * self._alpha + r_env * (1 - self._alpha) for r_im, r_env in zip(imitation_reward, env_reward)]
+        elif isinstance(env_reward, List) or isinstance(imitation_reward, List):
+            raise ValueError("Either both or none of env and imitation are expected to be lists")
+        else:
+            return imitation_reward * self._alpha + env_reward * (1 - self._alpha)
 
     def get_imitation_reward(
         self,
