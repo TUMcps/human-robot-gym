@@ -189,7 +189,7 @@ class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewa
         Use a Gaussian density function with mean 0 and variance 1.
         Rescale distances so that dist=0 => reward=1 and dist=iota => reward=0.5.
         DeepMimic (Peng et al., 2018) uses a similar model for the end-effector similarity reward.
-        https://arxiv.org/abs/1804.02717
+        Link to paper: https://arxiv.org/abs/1804.02717
 
         Exponential form:
         exp(-1/2 * (dist * nu / iota)^2)
