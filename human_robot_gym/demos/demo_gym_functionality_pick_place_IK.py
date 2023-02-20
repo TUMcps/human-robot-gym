@@ -1,4 +1,7 @@
 """Demo script for the pick place environment using a failsafe controller.
+Uses a scripted expert to demonstrate the environment functionality.
+
+Pressing 'o' switches between scripted policy and keyboard control.
 
 Can be used with our provided training function
 to train a safe RL agent with work space position actions.
@@ -59,11 +62,13 @@ Author:
 
 Changelog:
     08.02.23 FT File creation
+    20.02.23 FT Added scripted policy
 """
 
 import robosuite as suite
 import time
 import numpy as np
+import glfw
 
 from robosuite.controllers import load_controller_config
 
@@ -156,7 +161,6 @@ if __name__ == "__main__":
         signal_to_noise_ratio=0.98,
     )
 
-    import glfw
     use_kb_agent = False
 
     def switch_agent():
