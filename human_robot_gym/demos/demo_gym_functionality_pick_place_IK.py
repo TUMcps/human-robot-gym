@@ -10,11 +10,11 @@ Available observations (possible GymWrapper keys):
         (l,r) gripper joint position
     robot0_gripper_qvel
         (l,r) gripper joint velocity
-    human_head_to_eff
+    eef_to_human_head
         (x,y,z) vector from end effector to human head
-    human_lh_to_eff
+    eef_to_human_lh
         (x,y,z) vector from end effector to human left hand
-    human_rh_to_eff
+    eef_to_human_rh
         (x,y,z) vector from end effector to human right hand
     target_pos
         (x,y,z) absolute position of the target
@@ -65,17 +65,19 @@ import robosuite as suite
 import time
 import numpy as np
 
-from robosuite.wrappers import GymWrapper
 from robosuite.controllers import load_controller_config
 
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 from human_robot_gym.utils.cart_keyboard_controller import KeyboardControllerAgentCart
+from human_robot_gym.utils.env_util import ExpertObsWrapper
+from human_robot_gym.demonstrations.experts import PickPlaceExpert
 import human_robot_gym.robots  # noqa: F401
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.collision_prevention_wrapper import (
     CollisionPreventionWrapper,
 )
 from human_robot_gym.wrappers.ik_position_delta_wrapper import IKPositionDeltaWrapper
+from human_robot_gym.wrappers.expert_imitation_reward_wrapper import CartActionBasedExpertImitationRewardWrapper
 
 if __name__ == "__main__":
     pybullet_urdf_file = file_path_completion(
@@ -91,7 +93,7 @@ if __name__ == "__main__":
     controller_config = merge_configs(controller_config, robot_config)
     controller_configs = [controller_config]
 
-    env = GymWrapper(
+    env = ExpertObsWrapper(
         suite.make(
             "PickPlaceHumanCart",
             robots="Schunk",  # use Schunk robot
@@ -113,7 +115,13 @@ if __name__ == "__main__":
             base_human_pos_offset=[0.0, 0.0, 0.0],
             verbose=True,
         ),
-        keys=[
+        agent_keys=[
+            "object_gripped",
+            "dist_to_next_objective",
+            "robot0_gripper_qpos",
+            "robot0_gripper_qvel",
+        ],
+        expert_keys=[
             "object_gripped",
             "dist_to_next_objective",
             "robot0_gripper_qpos",
@@ -121,12 +129,41 @@ if __name__ == "__main__":
         ]
     )
     env = CollisionPreventionWrapper(
-        env=env, collision_check_fn=env.check_collision_action, replace_type=0
+        env=env, collision_check_fn=env.check_collision_action, replace_type=0,
     )
     env = VisualizationWrapper(env)
     action_limits = np.array([[-0.1, -0.1, -0.1], [0.1, 0.1, 0.1]])
     env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file, action_limits=action_limits)
-    agent = KeyboardControllerAgentCart(env=env)
+    kb_agent = KeyboardControllerAgentCart(env=env)
+    expert = PickPlaceExpert(
+        observation_space=env.observation_space,
+        action_space=env.action_space,
+        signal_to_noise_ratio=0.99,
+    )
+
+    env = CartActionBasedExpertImitationRewardWrapper(
+        env=env,
+        expert=expert,
+        alpha=0.1,
+        beta=0.95,
+        iota_m=0.01,
+        iota_g=0.01,
+    )
+
+    sc_agent = PickPlaceExpert(
+        observation_space=env.observation_space,
+        action_space=env.action_space,
+        signal_to_noise_ratio=0.98,
+    )
+
+    import glfw
+    use_kb_agent = False
+
+    def switch_agent():
+        global use_kb_agent
+        use_kb_agent = not use_kb_agent
+
+    kb_agent.add_keypress_callback(glfw.KEY_O, lambda *_: switch_agent())
 
     for i_episode in range(20):
         observation = env.reset()
@@ -137,7 +174,13 @@ if __name__ == "__main__":
             action = env.action_space.sample()
             # testing environment structure
             eef_pos = env.sim.data.site_xpos[env.robots[0].eef_site_id]
-            action[:] = agent()
+            obs_dict = {
+                "object_gripped": observation[0],
+                "dist_to_next_objective": observation[1:4],
+                "robot0_gripper_qpos": observation[4:6],
+                "robot0_gripper_qvel": observation[6:8],
+            }
+            action[:] = kb_agent() if use_kb_agent else sc_agent(obs_dict)
             observation, reward, done, info = env.step(action)
             if done:
                 print("Episode finished after {} timesteps".format(t + 1))
