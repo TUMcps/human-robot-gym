@@ -52,19 +52,7 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
 
         super().__init__(env)
         self._expert = expert
-        self._last_obs = self.observation_space.sample()
         self._alpha = alpha
-
-    def reset(self) -> np.ndarray:
-        """Extend env reset method to store previous observation,
-        as it is required for querying the expert.
-
-        Returns:
-            np.ndarray: observation after reset
-        """
-        obs: np.ndarray = super().reset()
-        self._last_obs = obs.copy()
-        return obs
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, dict]:
         """Extend environment's step method to query the expert on the same observation
@@ -82,17 +70,19 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
 
         Raises:
             NotImplementedError [get_imitation_reward method not implemented in ExpertImitationRewardWrapper]
+            AssertionError [Expert observation not stored in info dict]
         """
-        expert_action = self._expert(self._last_obs)
         obs, env_rew, done, info = super().step(action)
-        self._last_obs = obs.copy()
+
+        assert "previous_expert_observation" in info, "Expert observation not stored in info dict"
+        expert_action = self._expert(info["previous_expert_observation"])
         imitation_reward = self.get_imitation_reward(
             action,
             expert_action,
         )
 
         reward = self._combine_reward(env_rew, imitation_reward)
-        dict["imitation_reward"] = imitation_reward
+        info["imitation_reward"] = imitation_reward
         return obs, reward, done, info
 
     def _combine_reward(
@@ -234,6 +224,8 @@ class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewa
         Returns:
             float: Imitation reward
         """
+
+        # Action values limited in each direction separately -> maximum distance: 2*sqrt(3)*action_max
         motion_imitation_rew = self._similarity_fn(
             dist=np.linalg.norm(agent_action[:3] - expert_action[:3]),
             iota=self._iota_m,

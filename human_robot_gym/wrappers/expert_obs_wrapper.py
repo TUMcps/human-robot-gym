@@ -61,7 +61,7 @@ class ExpertObsWrapper(Wrapper, Env):
         obs = self.env.reset()
         self.agent_modality_dims = {key: obs[key].shape for key in self.agent_keys}
         self.expert_modality_dims = {key: obs[key].shape for key in self.expert_keys}
-        flat_ob = self._flatten_obs(obs)
+        flat_ob = self._flatten_obs(agent_keys, obs)
         self.obs_dim = flat_ob.size
         high = np.inf * np.ones(self.obs_dim)
         low = -high
