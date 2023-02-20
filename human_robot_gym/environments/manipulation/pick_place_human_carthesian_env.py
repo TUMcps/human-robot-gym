@@ -712,7 +712,7 @@ class PickPlaceHumanCart(HumanEnv):
 
         return (
             bin_x_half * 0.35,
-            bin_x_half * 0.7,
+            bin_x_half * 0.6,
             bin_y_half * 0.25,
             bin_y_half * 0.45,
         )
@@ -729,7 +729,7 @@ class PickPlaceHumanCart(HumanEnv):
 
         return (
             bin_x_half * 0.35,
-            bin_x_half * 0.7,
+            bin_x_half * 0.6,
             bin_y_half * -0.45,
             bin_y_half * -0.25,
         )
