@@ -1,0 +1,138 @@
+ARG MODE=root
+
+FROM continuumio/miniconda3 as base
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+SHELL ["/bin/bash", "--login", "-c"]
+
+# setup environment
+ENV LANG C.UTF-8
+ENV LC_ALL C.UTF-8
+
+RUN apt-get update --fix-missing && \
+    apt-get install --no-install-recommends -y \
+        tzdata \
+        dirmngr \
+        gnupg2 \
+        psmisc \
+        python3.6 \
+        python3-pip \
+        python-is-python3 \
+        mpich \
+        python3-tk \
+        python3-dev \
+        libosmesa6-dev \
+        libgl1-mesa-glx \
+        libglfw3 \
+        apt-utils dialog 2>&1 \
+        git \
+        iproute2 \
+        procps \
+        lsb-release \
+        nano \
+        libopenmpi-dev \
+        swig \
+        wget \
+        ca-certificates \
+        curl \
+        git \
+        bzip2 \
+        sudo \
+        cmake \
+        build-essential \
+        tar \
+        unzip \
+        curl \
+        g++ \
+        gcc-9 \
+        clang \
+        libgtest-dev \
+        patchelf \
+        liboctomap-dev
+RUN apt-get upgrade libstdc++6 -y
+RUN apt-get dist-upgrade
+
+RUN apt-get autoremove -y && \
+    apt-get clean -y && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV DEBIAN_FRONTEND=dialog
+
+# Pull and install eigen
+RUN curl -LJO https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.bz2 && \
+    tar -xvf eigen-3.4.0.tar.bz2 && \
+    rm eigen-3.4.0.tar.bz2
+
+WORKDIR /eigen-3.4.0/build
+RUN cmake .. && make install
+
+#-------------------------------------------------------------------------------------------------------------
+# User docker
+#-------------------------------------------------------------------------------------------------------------
+FROM base as branch-user
+
+ARG USERNAME=robot
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+RUN groupadd --gid $USER_GID $USERNAME && \
+    useradd --create-home --no-log-init --uid $USER_UID --gid $USER_GID $USERNAME
+
+# ARG is scoped -> has to be set as environment variable
+ENV HOME_PATH=/home/$USERNAME
+USER $USERNAME
+RUN conda init bash
+
+#-------------------------------------------------------------------------------------------------------------
+# Root docker
+#-------------------------------------------------------------------------------------------------------------
+FROM base as branch-root
+
+ARG USERNAME=root
+ENV HOME_PATH=/root
+
+#-------------------------------------------------------------------------------------------------------------
+# Final docker
+#-------------------------------------------------------------------------------------------------------------
+FROM branch-${MODE} AS final
+
+# Pull mujoco
+WORKDIR $HOME_PATH/.mujoco
+RUN curl -LJO https://mujoco.org/download/mujoco210-linux-x86_64.tar.gz && \
+    tar -xvf mujoco210-linux-x86_64.tar.gz && \
+    rm mujoco210-linux-x86_64.tar.gz
+
+RUN echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME_PATH/.mujoco/mujoco210/bin" >> $HOME_PATH/.bashrc
+
+WORKDIR $HOME_PATH
+
+ARG USERNAME=root
+COPY --chown=$USERNAME ./ human-robot-gym/
+
+WORKDIR $HOME_PATH/human-robot-gym
+
+# Create environment
+RUN conda env create -f environment.yml
+RUN echo "conda activate hrgym" >> $HOME_PATH/.bashrc
+
+# Create directories to mount 
+RUN mkdir -p models && \
+    mkdir -p runs && \
+    mkdir -p wandb
+
+# Build SaRA shield
+WORKDIR $HOME_PATH/human-robot-gym/human_robot_gym/controllers/failsafe_controller/sara-shield
+RUN rm -rf build && \
+    rm -rf safety_shield/build
+
+# Change shell to have an activated conda environment
+# Otherwise, $(which python) will point to the wrong executable
+# See https://pythonspeed.com/articles/activate-conda-dockerfile/
+SHELL ["conda", "run", "--no-capture-output", "-n", "hrgym", "/bin/bash", "-c"]
+RUN export EIGEN3_INCLUDE_DIR="/eigen-3.4.0" && \
+    python setup.py install
+
+WORKDIR $HOME_PATH/human-robot-gym
+RUN pip install -e .
+
+CMD ["/bin/bash"]
