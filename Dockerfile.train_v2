@@ -1,5 +1,6 @@
 ARG MODE=root
 
+# We use the if else method as described here: https://stackoverflow.com/a/60820156/13397059
 FROM continuumio/miniconda3 as base
 
 ARG DEBIAN_FRONTEND=noninteractive
