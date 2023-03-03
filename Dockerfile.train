@@ -108,21 +108,15 @@ RUN echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME_PATH/.mujoco/mujoco210/b
 WORKDIR $HOME_PATH
 
 ARG USERNAME=root
-COPY --chown=$USERNAME ./ human-robot-gym/
-
-WORKDIR $HOME_PATH/human-robot-gym
 
 # Create environment
-RUN conda env create -f environment.yml
-RUN echo "conda activate hrgym" >> $HOME_PATH/.bashrc
-
-# Create directories to mount 
-RUN mkdir -p models && \
-    mkdir -p runs && \
-    mkdir -p wandb
+COPY --chown=$USERNAME environment.yml ./
+RUN conda env create -f environment.yml && \
+    echo "conda activate hrgym" >> $HOME_PATH/.bashrc
 
 # Build SaRA shield
-WORKDIR $HOME_PATH/human-robot-gym/human_robot_gym/controllers/failsafe_controller/sara-shield
+COPY --chown=$USERNAME human_robot_gym/controllers/failsafe_controller/sara-shield ./sara-shield
+WORKDIR $HOME_PATH/sara-shield
 RUN rm -rf build && \
     rm -rf safety_shield/build
 
@@ -133,7 +127,7 @@ SHELL ["conda", "run", "--no-capture-output", "-n", "hrgym", "/bin/bash", "-c"]
 RUN export EIGEN3_INCLUDE_DIR="/eigen-3.4.0" && \
     python setup.py install
 
-WORKDIR $HOME_PATH/human-robot-gym
-RUN pip install -e .
+WORKDIR $HOME_PATH
+SHELL ["/bin/bash", "-c"]
 
-CMD ["/bin/bash"]
+ENTRYPOINT cd human-robot-gym; conda run --no-capture-output -n hrgym /bin/bash -c pip install -e .; /bin/bash
