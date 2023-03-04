@@ -1,33 +1,23 @@
-#! /bin/bash
-# Run this file either with ./build_docker.sh user or ./build_docker.sh root. 
-# User mode will create a user in docker so that the files you create are not made by root.
+# Run this file either with `./run_docker_train_v2.sh user` or `./run_docker_train_v2.sh root`.
+# User mode ensures that the files you create are not made by root.
 # Root mode creates a "classic" root user in docker.
-# Currently, only root allows building safety_shield_py properly. Sorry.
+# The /runs, /models, and /wandb folders are mounted 
+# to store training results outside the docker.
 
-user=${1:-root}
-echo "Chosen user mode"=$user
+user=${1:-user}
+echo "Chosen mode: $user"
 if [ "$user" = "root" ]
 then
     docker run -it \
-        --volume="$(pwd):/home/human-robot-gym/" \
-        --volume="/home/$USER/.mujoco/:/home/.mujoco/" \
-        --net=host \
-        --privileged \
-        human-robot-gym-train/$USER:v1
+    --net=host \
+    --volume="$(pwd)/:/root/human-robot-gym/" \
+    human-robot-gym-train/root:v2
 elif [ "$user" = "user" ]
 then
     docker run -it \
-        --user "$(id -u):$(id -g)" \
-        --volume="$(pwd):/home/$USER/human-robot-gym/" \
-        --volume="/home/$USER/.mujoco/:/home/$USER/.mujoco/" \
         --net=host \
-        --privileged \
-        --entrypoint bash \
-        human-robot-gym-train/$USER:v1
+        --volume="$(pwd)/:/home/$USER/human-robot-gym/" \
+        human-robot-gym-train/$USER:v2
 else
-    echo "User mode unkown. Please choose user, root, or leave it out for default user"
+    echo "User mode unknown. Please choose user, root, or leave out for default user"
 fi
-
-
-
-

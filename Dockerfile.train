@@ -1,148 +1,133 @@
-FROM ubuntu:20.04
-#-------------------------------------------------------------------------------------------------------------
-# FROM continuumio/miniconda3 
-# https://github.com/ContinuumIO/docker-images/blob/master/miniconda3/debian/Dockerfile
-#-------------------------------------------------------------------------------------------------------------
+ARG MODE=root
+
+# We use the if else method as described here: https://stackoverflow.com/a/60820156/13397059
+FROM continuumio/miniconda3 as base
+
 ARG DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update -q && \
-    apt-get install -q -y --no-install-recommends \
-        bzip2 \
-        ca-certificates \
-        git \
-        libglib2.0-0 \
-        libsm6 \
-        libxext6 \
-        libxrender1 \
-        mercurial \
-        openssh-client \
-        procps \
-        subversion \
-        wget \
-        ssh \
-        software-properties-common \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-ENV PATH /opt/conda/bin:$PATH
-
-# Leave these args here to better use the Docker build cache
-ARG CONDA_VERSION=py39_4.11.0
-
-RUN set -x && \
-    UNAME_M="$(uname -m)" && \
-    if [ "${UNAME_M}" = "x86_64" ]; then \
-        MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-${CONDA_VERSION}-Linux-x86_64.sh"; \
-        SHA256SUM="4ee9c3aa53329cd7a63b49877c0babb49b19b7e5af29807b793a76bdb1d362b4"; \
-    elif [ "${UNAME_M}" = "s390x" ]; then \
-        MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-${CONDA_VERSION}-Linux-s390x.sh"; \
-        SHA256SUM="e5e5e89cdcef9332fe632cd25d318cf71f681eef029a24495c713b18e66a8018"; \
-    elif [ "${UNAME_M}" = "aarch64" ]; then \
-        MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-${CONDA_VERSION}-Linux-aarch64.sh"; \
-        SHA256SUM="00c7127a8a8d3f4b9c2ab3391c661239d5b9a88eafe895fd0f3f2a8d9c0f4556"; \
-    elif [ "${UNAME_M}" = "ppc64le" ]; then \
-        MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-${CONDA_VERSION}-Linux-ppc64le.sh"; \
-        SHA256SUM="8ee1f8d17ef7c8cb08a85f7d858b1cb55866c06fcf7545b98c3b82e4d0277e66"; \
-    fi && \
-    wget "${MINICONDA_URL}" -O miniconda.sh -q && \
-    echo "${SHA256SUM} miniconda.sh" > shasum && \
-    if [ "${CONDA_VERSION}" != "latest" ]; then sha256sum --check --status shasum; fi && \
-    mkdir -p /opt && \
-    sh miniconda.sh -b -p /opt/conda && \
-    rm miniconda.sh shasum && \
-    ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
-    echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc && \
-    echo "conda activate base" >> ~/.bashrc && \
-    find /opt/conda/ -follow -type f -name '*.a' -delete && \
-    find /opt/conda/ -follow -type f -name '*.js.map' -delete && \
-    /opt/conda/bin/conda clean -afy
+SHELL ["/bin/bash", "--login", "-c"]
 
 # setup environment
 ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
 
-## Install apt packages
-RUN add-apt-repository ppa:ubuntu-toolchain-r/test -y
-RUN apt-get update --fix-missing \
-  && apt-get install --no-install-recommends -y \
-    tzdata \
-    dirmngr \
-    gnupg2 \
-    psmisc \
-    python3.6 \
-    python3-pip \
-    python-is-python3 \
-    mpich \
-    python3-tk \
-    python3-dev \
-    libosmesa6-dev \
-    libgl1-mesa-glx \
-    libglfw3 \
-    apt-utils dialog 2>&1 \
-    git \
-    iproute2 \
-    procps \
-    lsb-release \
-    nano \
-    libopenmpi-dev \
-    swig \
-    wget \
-    ca-certificates \
-    curl \
-    git \
-    bzip2 \
-    sudo \
-    cmake \
-    build-essential \
-    tar \
-    unzip \
-    curl \
-    g++ \
-    gcc-9 \
-    clang-10 \
-    libgtest-dev \
-    patchelf \
-    liboctomap-dev
+RUN apt-get update --fix-missing && \
+    apt-get install --no-install-recommends -y \
+        tzdata \
+        dirmngr \
+        gnupg2 \
+        psmisc \
+        python3.6 \
+        python3-pip \
+        python-is-python3 \
+        mpich \
+        python3-tk \
+        python3-dev \
+        libosmesa6-dev \
+        libgl1-mesa-glx \
+        libglfw3 \
+        apt-utils dialog 2>&1 \
+        git \
+        iproute2 \
+        procps \
+        lsb-release \
+        nano \
+        libopenmpi-dev \
+        swig \
+        wget \
+        ca-certificates \
+        curl \
+        git \
+        bzip2 \
+        sudo \
+        cmake \
+        build-essential \
+        tar \
+        unzip \
+        curl \
+        g++ \
+        gcc-9 \
+        clang \
+        libgtest-dev \
+        patchelf \
+        liboctomap-dev
 RUN apt-get upgrade libstdc++6 -y
 RUN apt-get dist-upgrade
-## conda docker
-# Create the environment:
-COPY environment.yml .
-RUN conda env create -f environment.yml
 
-# Clean up
-RUN apt-get autoremove -y \
-    && apt-get autoremove \
-    && apt-get clean -y \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get autoremove -y && \
+    apt-get clean -y && \
+    rm -rf /var/lib/apt/lists/*
 
-# Switch back to dialog for any ad-hoc use of apt-get
 ENV DEBIAN_FRONTEND=dialog
+
+# Pull and install eigen
+RUN curl -LJO https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.bz2 && \
+    tar -xvf eigen-3.4.0.tar.bz2 && \
+    rm eigen-3.4.0.tar.bz2
+
+WORKDIR /eigen-3.4.0/build
+RUN cmake .. && make install
+
+#-------------------------------------------------------------------------------------------------------------
+# User docker
+#-------------------------------------------------------------------------------------------------------------
+FROM base as branch-user
+
+ARG USERNAME=robot
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+RUN groupadd --gid $USER_GID $USERNAME && \
+    useradd --create-home --no-log-init --uid $USER_UID --gid $USER_GID $USERNAME
+
+# ARG is scoped -> has to be set as environment variable
+ENV HOME_PATH=/home/$USERNAME
+USER $USERNAME
+RUN conda init bash
 
 #-------------------------------------------------------------------------------------------------------------
 # Root docker
 #-------------------------------------------------------------------------------------------------------------
-# Adjust .bashrc
-COPY .bashrc_docker ~/.bashrc
-RUN echo "echo 'bashrc loaded'" >> ~/.bashrc
-RUN echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc
-RUN echo "conda activate hrgym" >> ~/.bashrc
-RUN echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/.mujoco/mujoco210/bin" >> ~/.bashrc
-# Get Eigen3.4
-RUN curl -LJO https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.bz2
-RUN tar -xvf eigen-3.4.0.tar.bz2
-RUN rm eigen-3.4.0.tar.bz2
-RUN echo export CMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH:$(pwd)/eigen-3.4.0" >> ~/.bashrc
-RUN echo 'export EIGEN3_INCLUDE_DIR="$(pwd)/eigen-3.4.0"' >> ~/.bashrc
-WORKDIR eigen-3.4.0/
-RUN ls -la
-RUN mkdir /eigen-3.4.0/build
-WORKDIR /eigen-3.4.0/build
-RUN cmake .. && make install
-WORKDIR /
-# Entrypoint: Install safety_shield_py and human_robot_gym
-COPY ./ /tmp/human-robot-gym/
-COPY entrypoint.sh ./
-RUN chmod +x entrypoint.sh
-ENTRYPOINT export EIGEN3_INCLUDE_DIR=/eigen-3.4.0 && ./entrypoint.sh; bash
-CMD ["/bin/bash"]
+FROM base as branch-root
+
+ARG USERNAME=root
+ENV HOME_PATH=/root
+
+#-------------------------------------------------------------------------------------------------------------
+# Final docker
+#-------------------------------------------------------------------------------------------------------------
+FROM branch-${MODE} AS final
+
+# Pull mujoco
+WORKDIR $HOME_PATH/.mujoco
+RUN curl -LJO https://mujoco.org/download/mujoco210-linux-x86_64.tar.gz && \
+    tar -xvf mujoco210-linux-x86_64.tar.gz && \
+    rm mujoco210-linux-x86_64.tar.gz
+
+RUN echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME_PATH/.mujoco/mujoco210/bin" >> $HOME_PATH/.bashrc
+
+WORKDIR $HOME_PATH
+
+ARG USERNAME=root
+
+# Create environment
+COPY --chown=$USERNAME environment.yml ./
+RUN conda env create -f environment.yml && \
+    echo "conda activate hrgym" >> $HOME_PATH/.bashrc
+
+# Build SaRA shield
+COPY --chown=$USERNAME human_robot_gym/controllers/failsafe_controller/sara-shield ./sara-shield
+WORKDIR $HOME_PATH/sara-shield
+RUN rm -rf build && \
+    rm -rf safety_shield/build
+
+# Change shell to have an activated conda environment
+# Otherwise, $(which python) will point to the wrong executable
+# See https://pythonspeed.com/articles/activate-conda-dockerfile/
+SHELL ["conda", "run", "--no-capture-output", "-n", "hrgym", "/bin/bash", "-c"]
+RUN export EIGEN3_INCLUDE_DIR="/eigen-3.4.0" && \
+    python setup.py install
+
+WORKDIR $HOME_PATH
+SHELL ["/bin/bash", "-c"]
+
+ENTRYPOINT cd human-robot-gym; conda run --no-capture-output -n hrgym pip install -e .; /bin/bash
