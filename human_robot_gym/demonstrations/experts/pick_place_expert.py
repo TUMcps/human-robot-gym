@@ -181,8 +181,8 @@ class PickPlaceExpert(Expert):
     def _at_next_objective(self, obs: PickPlaceExpertObservation) -> bool:
         """Determine whether the distance to the next objective is below a given threshold"""
         return (
-            np.linalg.norm(obs.dist_to_next_objective[:2]) < self._horiz_dist_to_next_objective_threshold and
-            -obs.dist_to_next_objective[2] < self._vert_dist_to_next_objective_threshold
+            np.linalg.norm(obs.vec_to_next_objective[:2]) < self._horiz_dist_to_next_objective_threshold and
+            -obs.vec_to_next_objective[2] < self._vert_dist_to_next_objective_threshold
         )
 
     def _above_next_objective(self, obs: PickPlaceExpertObservation) -> bool:
@@ -194,19 +194,19 @@ class PickPlaceExpert(Expert):
         Minimum radius of the cone: self._dist_to_next_objective_threshold
         Cone angle: arctan(self._tan_theta)
         """
-        max_radius = self._horiz_dist_to_next_objective_threshold - obs.dist_to_next_objective[2] * self._tan_theta
+        max_radius = self._horiz_dist_to_next_objective_threshold - obs.vec_to_next_objective[2] * self._tan_theta
         return (
-            np.linalg.norm(obs.dist_to_next_objective[:2]) < max_radius and
-            obs.dist_to_next_objective[2] < 0
+            np.linalg.norm(obs.vec_to_next_objective[:2]) < max_radius and
+            obs.vec_to_next_objective[2] < 0
         )
 
     def _move_to_next_objective(self, obs: PickPlaceExpertObservation) -> np.ndarray:
         """Get the motion vector toward the next objective position (object or target)"""
-        return obs.dist_to_next_objective
+        return obs.vec_to_next_objective
 
     def _move_to_above_next_objective(self, obs: PickPlaceExpertObservation) -> np.ndarray:
         """Get the motion vector toward a point a given distance above the next objective (object or target)"""
-        vector_to_above_next_objective = obs.dist_to_next_objective + np.array([0, 0, self._hover_dist])
+        vector_to_above_next_objective = obs.vec_to_next_objective + np.array([0, 0, self._hover_dist])
         vector_to_above_next_objective[2] *= 5
         return vector_to_above_next_objective
 
