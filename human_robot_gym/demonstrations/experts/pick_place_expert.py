@@ -34,13 +34,10 @@ class PickPlaceExpertObservation:
                 vector from robot end effector to object
         robot0_gripper_qpos (np.ndarray):
             joint positions of the two fingers
-        robot0_gripper_qvel (np.ndarray):
-            joint velocities of the two fingers
     """
     object_gripped: bool
     vec_to_next_objective: np.ndarray
     robot0_gripper_qpos: np.ndarray
-    robot0_gripper_qvel: np.ndarray
 
 
 class PickPlaceExpert(Expert):
@@ -150,7 +147,6 @@ class PickPlaceExpert(Expert):
             object_gripped=obs_dict["object_gripped"],
             vec_to_next_objective=obs_dict["vec_to_next_objective"],
             robot0_gripper_qpos=obs_dict["robot0_gripper_qpos"],
-            robot0_gripper_qvel=obs_dict["robot0_gripper_qvel"],
         )
 
     def _select_motion(self, obs: PickPlaceExpertObservation) -> np.ndarray:
