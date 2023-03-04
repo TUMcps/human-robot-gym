@@ -31,7 +31,7 @@ Available observations (possible GymWrapper keys):
         (x,y,z) vector from object to target (target_pos - object_pos)
     eef_to_target
         (x,y,z) vector from end effector to target (target_pos - robot0_eef_pos)
-    dist_to_next_objective
+    vec_to_next_objective
         (x,y,z)
             if the object is gripped (object_gripped):
                 vector from object to target (object_to_target)
@@ -55,7 +55,7 @@ Available observations (possible GymWrapper keys):
             -target_pos (object-state[0:3])
             -object_to_target (object-state[3:6])
             -eef_to_target (object-state[6:9])
-            -dist_to_next_objective (object-state[9:12])
+            -vec_to_next_objective (object-state[9:12])
 
 Author:
     Felix Trost
@@ -122,13 +122,13 @@ if __name__ == "__main__":
         ),
         agent_keys=[
             "object_gripped",
-            "dist_to_next_objective",
+            "vec_to_next_objective",
             "robot0_gripper_qpos",
             "robot0_gripper_qvel",
         ],
         expert_keys=[
             "object_gripped",
-            "dist_to_next_objective",
+            "vec_to_next_objective",
             "robot0_gripper_qpos",
             "robot0_gripper_qvel",
         ]
@@ -180,7 +180,7 @@ if __name__ == "__main__":
             eef_pos = env.sim.data.site_xpos[env.robots[0].eef_site_id]
             obs_dict = {
                 "object_gripped": observation[0],
-                "dist_to_next_objective": observation[1:4],
+                "vec_to_next_objective": observation[1:4],
                 "robot0_gripper_qpos": observation[4:6],
                 "robot0_gripper_qvel": observation[6:8],
             }

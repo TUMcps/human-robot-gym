@@ -671,7 +671,7 @@ class PickPlaceHumanCart(HumanEnv):
             return coll
 
         @sensor(modality=goal_mod)
-        def dist_to_next_objective(obs_cache) -> np.ndarray:
+        def vec_to_next_objective(obs_cache) -> np.ndarray:
             if all([key in obs_cache for key in ["eef_to_object", "object_to_target", "object_gripped"]]):
                 return obs_cache["object_to_target"] if obs_cache["object_gripped"] else obs_cache["eef_to_object"]
             else:
@@ -684,7 +684,7 @@ class PickPlaceHumanCart(HumanEnv):
             object_to_target,
             eef_to_target,
             object_gripped,
-            dist_to_next_objective,
+            vec_to_next_objective,
         ]
 
         names = [s.__name__ for s in sensors]

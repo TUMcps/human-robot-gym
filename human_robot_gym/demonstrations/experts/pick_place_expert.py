@@ -38,7 +38,7 @@ class PickPlaceExpertObservation:
             joint velocities of the two fingers
     """
     object_gripped: bool
-    dist_to_next_objective: np.ndarray
+    vec_to_next_objective: np.ndarray
     robot0_gripper_qpos: np.ndarray
     robot0_gripper_qvel: np.ndarray
 
@@ -148,7 +148,7 @@ class PickPlaceExpert(Expert):
         """Convert observation dictionary to PickPlaceExpertObservation data object."""
         return PickPlaceExpertObservation(
             object_gripped=obs_dict["object_gripped"],
-            dist_to_next_objective=obs_dict["dist_to_next_objective"],
+            vec_to_next_objective=obs_dict["vec_to_next_objective"],
             robot0_gripper_qpos=obs_dict["robot0_gripper_qpos"],
             robot0_gripper_qvel=obs_dict["robot0_gripper_qvel"],
         )
