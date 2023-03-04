@@ -150,7 +150,14 @@ class PickPlaceExpert(Expert):
         )
 
     def _select_motion(self, obs: PickPlaceExpertObservation) -> np.ndarray:
-        """Select motion arguments of action (action[0:3])"""
+        """Select motion arguments of action (action[0:3]).
+        To ensure the next objective can be reached (grip object or deliver object to target),
+        the expert first moves towards a point a given distance above the next objective.
+        If the gripper is sufficiently close to this point and some conditions for meeting the next objective are met
+        (gripper fully opened if next objective is to grip the object,
+        or object gripped if the next objective is to deliver it to the target),
+        proceed down towards the next objective.
+        """
         if self._above_next_objective(obs) and (obs.object_gripped or self._gripper_fully_opened(obs)):
             return self._move_to_next_objective(obs)
         else:
