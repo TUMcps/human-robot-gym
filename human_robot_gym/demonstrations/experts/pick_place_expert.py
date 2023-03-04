@@ -16,6 +16,8 @@ import time
 
 from gym.spaces import Box
 
+from robosuite.models.grippers import GripperModel
+
 from human_robot_gym.utils.ou_noise import ReparameterizedOrnsteinUhlenbeckProcess
 from human_robot_gym.demonstrations.experts import Expert
 
@@ -62,6 +64,7 @@ class PickPlaceExpert(Expert):
     Args:
         observation_space (Space): the environment observation space
         action_space (Space): the environment action space
+        gripper_model (GripperModel): the gripper model of the robot
         signal_to_noise_ratio (float): interpolation between
             noise signal (Ornstein-Uhlenbeck process): signal_to_noise_ratio = 0
             and expert policy: signal_to_noise_ratio = 1
@@ -69,14 +72,18 @@ class PickPlaceExpert(Expert):
             while moving above the next objective
         tan_theta (float): tangent of the opening angle of the cone describing
             points above the next objective the expert should reach
+        horizontal_epsilon (float): maximum horizontal distance for the expertt to be considered
+            at the next objective position
     """
     def __init__(
         self,
         observation_space: Box,
         action_space: Box,
+        gripper_model: GripperModel,
         signal_to_noise_ratio: float = 1,
         hover_dist: float = 0.2,
         tan_theta: float = 0.5,
+        horizontal_epsilon: float = 0.02,
     ):
         super().__init__(
             observation_space=observation_space,
@@ -87,10 +94,11 @@ class PickPlaceExpert(Expert):
         self._gripper_action_limit = action_space.high[-1]
         # Minimum difference of both gripper joint positions at which
         # the gripper is considered to be fully opened
-        self._gripper_fully_opened_threshold = 0.02
-        # Maximum horizontal distance for the expert
-        # to be considered at the next objective position
-        self._horiz_dist_to_next_objective_threshold = 0.02
+        # TODO the init_qpos value of the gripper is wrong
+        self._gripper_fully_opened_threshold = gripper_model.init_qpos[0]
+        print(gripper_model)
+        print(f"gripper init qpos: {gripper_model.init_qpos}")
+        self._horizontal_epsilon = horizontal_epsilon
         # Maximum vertical distance for the expert to be considered at the next objective position
         # Has to be chosen high enough to respect the safety margin to the table
         # and low enough to ensure the object can be gripped
@@ -164,7 +172,10 @@ class PickPlaceExpert(Expert):
             return self._move_to_above_next_objective(obs)
 
     def _select_gripper_action(self, obs: PickPlaceExpertObservation) -> np.ndarray:
-        """Select gripper actuation argument of action (action[3])"""
+        """Select gripper actuation argument of action (action[3]).
+        Select the action to close the gripper if the object is gripped or can be gripped.
+        Otherwise (object not yet gripped or dropped) select the action to open the gripper.
+        """
         if obs.object_gripped or self._at_next_objective(obs):
             return self._close_gripper()
         else:
@@ -172,13 +183,14 @@ class PickPlaceExpert(Expert):
 
     def _gripper_fully_opened(self, obs: PickPlaceExpertObservation) -> bool:
         """Determine whether the gripper is opened further than a given threshold"""
-        gripper_pos = obs.robot0_gripper_qpos
-        return gripper_pos[0] - gripper_pos[1] > self._gripper_fully_opened_threshold
+        gripper_aperture = obs.robot0_gripper_qpos[0] - obs.robot0_gripper_qpos[1]
+        print(f"gripper qpos: {obs.robot0_gripper_qpos}")
+        return gripper_aperture > self._gripper_fully_opened_threshold
 
     def _at_next_objective(self, obs: PickPlaceExpertObservation) -> bool:
         """Determine whether the distance to the next objective is below a given threshold"""
         return (
-            np.linalg.norm(obs.vec_to_next_objective[:2]) < self._horiz_dist_to_next_objective_threshold and
+            np.linalg.norm(obs.vec_to_next_objective[:2]) < self._horizontal_epsilon and
             -obs.vec_to_next_objective[2] < self._vert_dist_to_next_objective_threshold
         )
 
@@ -191,7 +203,7 @@ class PickPlaceExpert(Expert):
         Minimum radius of the cone: self._dist_to_next_objective_threshold
         Cone angle: arctan(self._tan_theta)
         """
-        max_radius = self._horiz_dist_to_next_objective_threshold - obs.vec_to_next_objective[2] * self._tan_theta
+        max_radius = self._horizontal_epsilon - obs.vec_to_next_objective[2] * self._tan_theta
         return (
             np.linalg.norm(obs.vec_to_next_objective[:2]) < max_radius and
             obs.vec_to_next_objective[2] < 0
@@ -204,7 +216,6 @@ class PickPlaceExpert(Expert):
     def _move_to_above_next_objective(self, obs: PickPlaceExpertObservation) -> np.ndarray:
         """Get the motion vector toward a point a given distance above the next objective (object or target)"""
         vector_to_above_next_objective = obs.vec_to_next_objective + np.array([0, 0, self._hover_dist])
-        vector_to_above_next_objective[2] *= 5
         return vector_to_above_next_objective
 
     def _open_gripper(self) -> np.ndarray:
