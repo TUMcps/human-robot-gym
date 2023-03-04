@@ -151,16 +151,10 @@ class PickPlaceExpert(Expert):
 
     def _select_motion(self, obs: PickPlaceExpertObservation) -> np.ndarray:
         """Select motion arguments of action (action[0:3])"""
-        if self._above_next_objective(obs):
-            if obs.object_gripped or self._gripper_fully_opened(obs):
-                return self._move_to_next_objective(obs)
-            else:
-                return self._move_to_above_next_objective(obs)
+        if self._above_next_objective(obs) and (obs.object_gripped or self._gripper_fully_opened(obs)):
+            return self._move_to_next_objective(obs)
         else:
-            if obs.object_gripped:
-                return self._move_to_above_next_objective(obs)
-            else:
-                return self._move_to_above_next_objective(obs)
+            return self._move_to_above_next_objective(obs)
 
     def _select_gripper_action(self, obs: PickPlaceExpertObservation) -> np.ndarray:
         """Select gripper actuation argument of action (action[3])"""
