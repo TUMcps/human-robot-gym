@@ -7,13 +7,13 @@ echo "Chosen mode: $user"
 
 if [ "$user" = "root" ]
 then
-    docker build \
+    DOCKER_BUILDKIT=1 docker build \
         -f Dockerfile.train \
         --build-arg MODE=root \
         -t human-robot-gym-train/root:v2 .
 elif [ "$user" = "user" ]
 then
-    docker build \
+    DOCKER_BUILDKIT=1 docker build \
         -f Dockerfile.train \
         --build-arg MODE=user \
         --build-arg USER_UID=$(id -u) \
