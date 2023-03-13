@@ -145,7 +145,6 @@ if __name__ == "__main__":
     expert = PickPlaceExpert(
         observation_space=env.observation_space,
         action_space=env.action_space,
-        gripper_model=rsenv.robots[0].gripper,
         signal_to_noise_ratio=0.99,
     )
 
@@ -161,7 +160,6 @@ if __name__ == "__main__":
     sc_agent = PickPlaceExpert(
         observation_space=env.observation_space,
         action_space=env.action_space,
-        gripper_model=rsenv.robots[0].gripper,
         signal_to_noise_ratio=0.98,
     )
 
