@@ -560,6 +560,7 @@ class PickPlaceHumanCart(HumanEnv):
             objects=[target],
             x_range=[target_bin_boundaries[0], target_bin_boundaries[1]],
             y_range=[target_bin_boundaries[2], target_bin_boundaries[3]],
+            z_offset=box_size[2] * 0.5,
         )
 
         # << OBSTACLES >>
