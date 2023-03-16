@@ -136,14 +136,12 @@ class ExpertObsWrapper(Wrapper, Env):
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
         """Extend environment's step function call to return flattened observation instead of normal OrderedDict.
-        The observation from before the step is added to the info dictionary.
+        Expert observations from before and after the environment step are added to the info dictionary.
 
         Args:
             action (np.array): Action to take in environment
-
         Returns:
             4-tuple:
-
                 - (np.array) flattened observations from the environment
                 - (float) reward from the environment
                 - (bool) whether the current episode is completed or not
@@ -152,6 +150,7 @@ class ExpertObsWrapper(Wrapper, Env):
         obs_dict, reward, done, info = self.env.step(action)
         info["previous_expert_observation"] = self._prev_expert_obs
         self._prev_expert_obs = {key: obs_dict[key] for key in self.expert_keys if key in obs_dict}
+        info["current_expert_observation"] = self._prev_expert_obs
 
         flat_agent_obs = self._flatten_obs(
             keys=self.agent_keys,
