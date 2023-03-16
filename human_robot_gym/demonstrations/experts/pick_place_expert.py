@@ -69,10 +69,9 @@ class PickPlaceExpert(Expert):
             while moving above the next objective
         tan_theta (float): tangent of the opening angle of the cone describing
             points above the next objective the expert should reach
-        horizontal_epsilon (float): maximum horizontal distance for the expert to be considered
-            at the next objective position. May depend on the gripper type
-        vertical_epsilon (float): maximum vertical distance for the expert to be considered
-            at the next objective position;
+        horizontal_epsilon (float): maximum horizontal tolerance for the expert to be able to grip the object.
+            May depend on the gripper type
+        vertical_epsilon (float): maximum vertical tolerance for the expert to be able to grip the object;
             has to be chosen high enough to respect the safety margin to the table
             and low enough to ensure the object can be gripped. Depends on the gripper type
         gripper_fully_opened_threshold (float): minimum difference of both gripper joint positions
@@ -85,8 +84,9 @@ class PickPlaceExpert(Expert):
         signal_to_noise_ratio: float = 1,
         hover_dist: float = 0.2,
         tan_theta: float = 0.5,
-        horizontal_epsilon: float = 0.02,
+        horizontal_epsilon: float = 0.03,
         vertical_epsilon: float = 0.015,
+        goal_dist: float = 0.08,
         gripper_fully_opened_threshold: float = 0.02,
     ):
         super().__init__(
@@ -102,6 +102,7 @@ class PickPlaceExpert(Expert):
         self._gripper_fully_opened_threshold = gripper_fully_opened_threshold
         self._horizontal_epsilon = horizontal_epsilon
         self._vertical_epsilon = vertical_epsilon
+        self._goal_dist = goal_dist
         self._tan_theta = tan_theta
         self._hover_dist = hover_dist
         self._signal_to_noise_ratio = signal_to_noise_ratio
@@ -122,7 +123,7 @@ class PickPlaceExpert(Expert):
         Returns:
             np.ndarray: action
         """
-        obs = self._expert_observation_from_dict(obs_dict)
+        obs = self._expert_observation_from_dict(obs_dict=obs_dict)
         action = np.zeros(4)
         motion = self._select_motion(obs).clip(
             -self._motion_action_limit,
@@ -132,7 +133,7 @@ class PickPlaceExpert(Expert):
         # Interpolate between expert policy and noise signal
         action[:3] = (
             motion * self._signal_to_noise_ratio +
-            self._motion_noise.step(self._get_delta_time()) * (1 - self._signal_to_noise_ratio)
+            self._motion_noise.step(dt=self._get_delta_time()) * (1 - self._signal_to_noise_ratio)
         ).clip(-self._motion_action_limit, self._motion_action_limit)
 
         action[3] = self._select_gripper_action(obs).clip(
@@ -150,7 +151,6 @@ class PickPlaceExpert(Expert):
 
     def _expert_observation_from_dict(self, obs_dict: Dict[str, Any]) -> PickPlaceExpertObservation:
         """Convert observation dictionary to PickPlaceExpertObservation data object."""
-        print(obs_dict)
         return PickPlaceExpertObservation(
             object_gripped=obs_dict["object_gripped"],
             eef_to_object=obs_dict["eef_to_object"],
@@ -166,13 +166,13 @@ class PickPlaceExpert(Expert):
         (gripper fully opened if next objective is to grip the object,
         or object gripped if the next objective is to deliver it to the target),
         proceed down towards the next objective.
-        If the object is within vicinity of the target, move the gripper above the object.
+        If the object is within vicinity of the target and the gripper opened again, move the gripper above the object.
         """
-        if self._object_delivered(obs):
-            return self._move_to_above_object(obs)
-        elif self._above_object(abs) and self._gripper_fully_opened(obs):
+        if self._object_delivered(obs) and self._gripper_fully_opened(obs):
+            return self._move_to_above_object(obs=obs)
+        elif self._above_object(obs) and self._gripper_fully_opened(obs):
             return self._move_to_object(obs)
-        elif self._above_target(abs) and obs.object_gripped:
+        elif self._above_target(obs) and obs.object_gripped:
             return self._move_to_target(obs)
         elif obs.object_gripped:
             return self._move_to_above_target(obs)
@@ -203,7 +203,7 @@ class PickPlaceExpert(Expert):
         )
 
     def _object_delivered(self, obs: PickPlaceExpertObservation) -> bool:
-        """Determine whether the object is delivered to the target"""
+        """Determine whether the object is at the target location"""
         object_to_target = obs.eef_to_target - obs.eef_to_object
         return (
             np.linalg.norm(object_to_target[:2]) < self._horizontal_epsilon and

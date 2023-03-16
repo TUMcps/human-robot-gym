@@ -37,6 +37,9 @@ class ExpertObsWrapper(Wrapper, Env):
             optionally combined with object-state, and/or image,
             depending on flags set in wrapped environment (use_object_obs, use_camera_obs)
     """
+    PREVIOUS_EXPERT_OBSERVATION_KEY = "previous_expert_observation"
+    CURRENT_EXPERT_OBSERVATION_KEY = "current_expert_observation"
+
     def __init__(
         self,
         env: MujocoEnv,

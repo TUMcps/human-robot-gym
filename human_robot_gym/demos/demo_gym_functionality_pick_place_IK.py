@@ -130,9 +130,9 @@ if __name__ == "__main__":
         ],
         expert_keys=[
             "object_gripped",
-            "vec_to_next_objective",
+            "eef_to_object",
+            "eef_to_target",
             "robot0_gripper_qpos",
-            "robot0_gripper_qvel",
         ]
     )
     env = CollisionPreventionWrapper(
@@ -173,6 +173,7 @@ if __name__ == "__main__":
 
     for i_episode in range(20):
         observation = env.reset()
+        expert_observation = None
         t1 = time.time()
         t = 0
         while True:
@@ -180,14 +181,11 @@ if __name__ == "__main__":
             action = env.action_space.sample()
             # testing environment structure
             eef_pos = env.sim.data.site_xpos[env.robots[0].eef_site_id]
-            obs_dict = {
-                "object_gripped": observation[0],
-                "vec_to_next_objective": observation[1:4],
-                "robot0_gripper_qpos": observation[4:6],
-                "robot0_gripper_qvel": observation[6:8],
-            }
-            action[:] = kb_agent() if use_kb_agent else sc_agent(obs_dict)
+
+            if expert_observation is not None:
+                action[:] = kb_agent() if use_kb_agent else sc_agent(expert_observation)
             observation, reward, done, info = env.step(action)
+            expert_observation = info[ExpertObsWrapper.CURRENT_EXPERT_OBSERVATION_KEY]
             if done:
                 print("Episode finished after {} timesteps".format(t + 1))
                 break

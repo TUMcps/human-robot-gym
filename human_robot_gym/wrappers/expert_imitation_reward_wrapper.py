@@ -14,6 +14,7 @@ import numpy as np
 from gym.core import Env, Wrapper
 
 from human_robot_gym.demonstrations.experts.expert import Expert
+from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
 
 
 class ActionBasedExpertImitationRewardWrapper(Wrapper):
@@ -75,7 +76,7 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         obs, env_rew, done, info = super().step(action)
 
         assert "previous_expert_observation" in info, "Expert observation not stored in info dict"
-        expert_action = self._expert(info["previous_expert_observation"])
+        expert_action = self._expert(info[ExpertObsWrapper.PREVIOUS_EXPERT_OBSERVATION_KEY])
         imitation_reward = self.get_imitation_reward(
             action,
             expert_action,
