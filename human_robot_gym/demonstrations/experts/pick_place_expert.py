@@ -27,16 +27,16 @@ class PickPlaceExpertObservation:
     Args:
         object_gripped (bool): whether both finger pads of the robot
             have contact with the object
-        dist_to_next_objective (np.ndarray):
-            if the object is gripped:
-                vector from object to target
-            otherwise:
-                vector from robot end effector to object
+        eef_to_object (np.ndarray):
+            vector from robot end effector to object
+        eef_to_target (np.ndarray):
+            vector from robot end effector to target
         robot0_gripper_qpos (np.ndarray):
             joint positions of the two fingers
     """
     object_gripped: bool
-    vec_to_next_objective: np.ndarray
+    eef_to_object: np.ndarray
+    eef_to_target: np.ndarray
     robot0_gripper_qpos: np.ndarray
 
 
@@ -51,9 +51,9 @@ class PickPlaceExpert(Expert):
         -Close gripper
         -Move above target
         -Move to target
-        -Repeat
+        -Open gripper and move above object
 
-    Noise can be added to the motion parameters. We use Ornstein-Uhlenbeck (OU) processes
+    Noise can be added to the motion parameters. We draw from an Ornstein-Uhlenbeck (OU) process
     with asymptotic mean 0 and variance of half the motion action limit as described in the action space.
     The OU discretization time delta reflects the clock time between two calls of the expert policy.
     Formula to obtain motion action parameters:
@@ -150,9 +150,11 @@ class PickPlaceExpert(Expert):
 
     def _expert_observation_from_dict(self, obs_dict: Dict[str, Any]) -> PickPlaceExpertObservation:
         """Convert observation dictionary to PickPlaceExpertObservation data object."""
+        print(obs_dict)
         return PickPlaceExpertObservation(
             object_gripped=obs_dict["object_gripped"],
-            vec_to_next_objective=obs_dict["vec_to_next_objective"],
+            eef_to_object=obs_dict["eef_to_object"],
+            eef_to_target=obs_dict["eef_to_target"],
             robot0_gripper_qpos=obs_dict["robot0_gripper_qpos"],
         )
 
@@ -164,18 +166,26 @@ class PickPlaceExpert(Expert):
         (gripper fully opened if next objective is to grip the object,
         or object gripped if the next objective is to deliver it to the target),
         proceed down towards the next objective.
+        If the object is within vicinity of the target, move the gripper above the object.
         """
-        if self._above_next_objective(obs) and (obs.object_gripped or self._gripper_fully_opened(obs)):
-            return self._move_to_next_objective(obs)
+        if self._object_delivered(obs):
+            return self._move_to_above_object(obs)
+        elif self._above_object(abs) and self._gripper_fully_opened(obs):
+            return self._move_to_object(obs)
+        elif self._above_target(abs) and obs.object_gripped:
+            return self._move_to_target(obs)
+        elif obs.object_gripped:
+            return self._move_to_above_target(obs)
         else:
-            return self._move_to_above_next_objective(obs)
+            return self._move_to_above_object(obs)
 
     def _select_gripper_action(self, obs: PickPlaceExpertObservation) -> np.ndarray:
         """Select gripper actuation argument of action (action[3]).
-        Select the action to close the gripper if the object is gripped or can be gripped.
-        Otherwise (object not yet gripped or dropped) select the action to open the gripper.
+        Select the action to close the gripper if the object is gripped or can be gripped
+        but was not yet delivered to the target.
+        Otherwise (object not yet gripped, dropped or successfully delivered), select the action to open the gripper.
         """
-        if obs.object_gripped or self._at_next_objective(obs):
+        if (obs.object_gripped or self._at_object(obs)) and not self._object_delivered(obs):
             return self._close_gripper()
         else:
             return self._open_gripper()
@@ -185,36 +195,72 @@ class PickPlaceExpert(Expert):
         gripper_aperture = obs.robot0_gripper_qpos[0] - obs.robot0_gripper_qpos[1]
         return gripper_aperture > self._gripper_fully_opened_threshold
 
-    def _at_next_objective(self, obs: PickPlaceExpertObservation) -> bool:
-        """Determine whether the distance to the next objective is below a given threshold"""
+    def _at_object(self, obs: PickPlaceExpertObservation) -> bool:
+        """Determine whether the distance from gripper to the object is below a given threshold"""
         return (
-            np.linalg.norm(obs.vec_to_next_objective[:2]) < self._horizontal_epsilon and
-            -obs.vec_to_next_objective[2] < self._vertical_epsilon
+            np.linalg.norm(obs.eef_to_object[:2]) < self._horizontal_epsilon and
+            -obs.eef_to_object[2] < self._vertical_epsilon
         )
 
-    def _above_next_objective(self, obs: PickPlaceExpertObservation) -> bool:
-        """If the object is gripped:
-            Determine whether the object is within a truncated cone above the target.
-        Otherwise:
-            Determine whether the gripper is within a truncated cone above the object.
+    def _object_delivered(self, obs: PickPlaceExpertObservation) -> bool:
+        """Determine whether the object is delivered to the target"""
+        object_to_target = obs.eef_to_target - obs.eef_to_object
+        return (
+            np.linalg.norm(object_to_target[:2]) < self._horizontal_epsilon and
+            -object_to_target[2] < self._vertical_epsilon
+        )
 
-        Minimum radius of the cone: self._dist_to_next_objective_threshold
+    def _is_within_truncated_cone(self, vec: np.ndarray) -> bool:
+        """Determine if the vector points to a point within a truncated cone.
+        This cone is characterized by its:
+            -Minimum radius (self._horizontal_epsilon)
+            -Opening angle (arctan(self._tan_theta))
+        and is opened towards the negative z-axis.
+
+        This function is used to define a volume in which the gripper is considered to be
+        above the next objective (object and target locations).
+        Opposed to a simple cylinder, this truncated cone gives more tolerance to the gripper at increasing
+        vertical distances to the next objective.
+
+        Args:
+            vec (np.ndarray): vector pointing to the point to be checked
+        Returns:
+            bool: whether the point is within the truncated cone
+        """
+        max_radius = self._horizontal_epsilon - vec[2] * self._tan_theta
+        return np.linalg.norm(vec[:2]) < max_radius and vec[2] < 0
+
+    def _above_object(self, obs: PickPlaceExpertObservation) -> bool:
+        """Determine whether the gripper is within a truncated cone above the object.
+
+        Minimum radius of the cone: self._horizontal_epsilon
         Cone angle: arctan(self._tan_theta)
         """
-        max_radius = self._horizontal_epsilon - obs.vec_to_next_objective[2] * self._tan_theta
-        return (
-            np.linalg.norm(obs.vec_to_next_objective[:2]) < max_radius and
-            obs.vec_to_next_objective[2] < 0
-        )
+        return self._is_within_truncated_cone(vec=obs.eef_to_object)
 
-    def _move_to_next_objective(self, obs: PickPlaceExpertObservation) -> np.ndarray:
-        """Get the motion vector toward the next objective position (object or target)"""
-        return obs.vec_to_next_objective
+    def _above_target(self, obs: PickPlaceExpertObservation) -> bool:
+        """Determine whether the object is within a truncated cone above the target.
 
-    def _move_to_above_next_objective(self, obs: PickPlaceExpertObservation) -> np.ndarray:
-        """Get the motion vector toward a point a given distance above the next objective (object or target)"""
-        vector_to_above_next_objective = obs.vec_to_next_objective + np.array([0, 0, self._hover_dist])
-        return vector_to_above_next_objective
+        Minimum radius of the cone: self._horizontal_epsilon
+        Cone angle: arctan(self._tan_theta)
+        """
+        return self._is_within_truncated_cone(vec=obs.eef_to_target)
+
+    def _move_to_object(self, obs: PickPlaceExpertObservation) -> np.ndarray:
+        """Get the motion vector toward the object position"""
+        return obs.eef_to_object
+
+    def _move_to_target(self, obs: PickPlaceExpertObservation) -> np.ndarray:
+        """Get the motion vector toward the target position"""
+        return obs.eef_to_target
+
+    def _move_to_above_object(self, obs: PickPlaceExpertObservation) -> np.ndarray:
+        """Get the motion vector toward a point a given distance above the object"""
+        return self._move_to_object(obs) + np.array([0, 0, self._hover_dist])
+
+    def _move_to_above_target(self, obs: PickPlaceExpertObservation) -> np.ndarray:
+        """Get the motion vector toward a point a given distance above the target"""
+        return self._move_to_target(obs) + np.array([0, 0, self._hover_dist])
 
     def _open_gripper(self) -> np.ndarray:
         """Get a gripper actuation for opening the gripper"""
