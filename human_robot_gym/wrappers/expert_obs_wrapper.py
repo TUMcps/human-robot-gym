@@ -37,6 +37,9 @@ class ExpertObsWrapper(Wrapper, Env):
             optionally combined with object-state, and/or image,
             depending on flags set in wrapped environment (use_object_obs, use_camera_obs)
     """
+    PREVIOUS_EXPERT_OBSERVATION_KEY = "previous_expert_observation"
+    CURRENT_EXPERT_OBSERVATION_KEY = "current_expert_observation"
+
     def __init__(
         self,
         env: MujocoEnv,
@@ -61,7 +64,7 @@ class ExpertObsWrapper(Wrapper, Env):
         obs = self.env.reset()
         self.agent_modality_dims = {key: obs[key].shape for key in self.agent_keys}
         self.expert_modality_dims = {key: obs[key].shape for key in self.expert_keys}
-        flat_ob = self._flatten_obs(obs)
+        flat_ob = self._flatten_obs(agent_keys, obs)
         self.obs_dim = flat_ob.size
         high = np.inf * np.ones(self.obs_dim)
         low = -high
@@ -136,14 +139,12 @@ class ExpertObsWrapper(Wrapper, Env):
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
         """Extend environment's step function call to return flattened observation instead of normal OrderedDict.
-        The observation from before the step is added to the info dictionary.
+        Expert observations from before and after the environment step are added to the info dictionary.
 
         Args:
             action (np.array): Action to take in environment
-
         Returns:
             4-tuple:
-
                 - (np.array) flattened observations from the environment
                 - (float) reward from the environment
                 - (bool) whether the current episode is completed or not
@@ -152,6 +153,7 @@ class ExpertObsWrapper(Wrapper, Env):
         obs_dict, reward, done, info = self.env.step(action)
         info["previous_expert_observation"] = self._prev_expert_obs
         self._prev_expert_obs = {key: obs_dict[key] for key in self.expert_keys if key in obs_dict}
+        info["current_expert_observation"] = self._prev_expert_obs
 
         flat_agent_obs = self._flatten_obs(
             keys=self.agent_keys,

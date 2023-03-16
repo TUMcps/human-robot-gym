@@ -1,4 +1,7 @@
 """Demo script for the pick place environment using a failsafe controller.
+Uses a scripted expert to demonstrate the environment functionality.
+
+Pressing 'o' switches between scripted policy and keyboard control.
 
 Can be used with our provided training function
 to train a safe RL agent with work space position actions.
@@ -10,11 +13,11 @@ Available observations (possible GymWrapper keys):
         (l,r) gripper joint position
     robot0_gripper_qvel
         (l,r) gripper joint velocity
-    human_head_to_eff
+    eef_to_human_head
         (x,y,z) vector from end effector to human head
-    human_lh_to_eff
+    eef_to_human_lh
         (x,y,z) vector from end effector to human left hand
-    human_rh_to_eff
+    eef_to_human_rh
         (x,y,z) vector from end effector to human right hand
     target_pos
         (x,y,z) absolute position of the target
@@ -28,7 +31,7 @@ Available observations (possible GymWrapper keys):
         (x,y,z) vector from object to target (target_pos - object_pos)
     eef_to_target
         (x,y,z) vector from end effector to target (target_pos - robot0_eef_pos)
-    dist_to_next_objective
+    vec_to_next_objective
         (x,y,z)
             if the object is gripped (object_gripped):
                 vector from object to target (object_to_target)
@@ -52,30 +55,34 @@ Available observations (possible GymWrapper keys):
             -target_pos (object-state[0:3])
             -object_to_target (object-state[3:6])
             -eef_to_target (object-state[6:9])
-            -dist_to_next_objective (object-state[9:12])
+            -vec_to_next_objective (object-state[9:12])
 
 Author:
     Felix Trost
 
 Changelog:
     08.02.23 FT File creation
+    20.02.23 FT Added scripted policy
 """
 
 import robosuite as suite
 import time
 import numpy as np
+import glfw
 
-from robosuite.wrappers import GymWrapper
 from robosuite.controllers import load_controller_config
 
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 from human_robot_gym.utils.cart_keyboard_controller import KeyboardControllerAgentCart
+from human_robot_gym.utils.env_util import ExpertObsWrapper
+from human_robot_gym.demonstrations.experts import PickPlaceExpert
 import human_robot_gym.robots  # noqa: F401
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.collision_prevention_wrapper import (
     CollisionPreventionWrapper,
 )
 from human_robot_gym.wrappers.ik_position_delta_wrapper import IKPositionDeltaWrapper
+from human_robot_gym.wrappers.expert_imitation_reward_wrapper import CartActionBasedExpertImitationRewardWrapper
 
 if __name__ == "__main__":
     pybullet_urdf_file = file_path_completion(
@@ -91,45 +98,82 @@ if __name__ == "__main__":
     controller_config = merge_configs(controller_config, robot_config)
     controller_configs = [controller_config]
 
-    env = GymWrapper(
-        suite.make(
-            "PickPlaceHumanCart",
-            robots="Schunk",  # use Schunk robot
-            robot_base_offset=[0, 0, 0],
-            use_camera_obs=False,  # do not use pixel observations
-            has_offscreen_renderer=False,  # not needed since not using pixel obs
-            has_renderer=True,  # make sure we can render to the screen
-            render_camera=None,
-            render_collision_mesh=False,
-            reward_shaping=False,  # use dense rewards
-            control_freq=5,  # control should happen fast enough so that simulation looks smooth
-            hard_reset=False,
-            horizon=1000,
-            done_at_success=False,
-            controller_configs=controller_configs,
-            use_failsafe_controller=True,
-            visualize_failsafe_controller=False,
-            visualize_pinocchio=False,
-            base_human_pos_offset=[0.0, 0.0, 0.0],
-            verbose=True,
-        ),
-        keys=[
+    rsenv = suite.make(
+        "PickPlaceHumanCart",
+        robots="Schunk",  # use Schunk robot
+        robot_base_offset=[0, 0, 0],
+        use_camera_obs=False,  # do not use pixel observations
+        has_offscreen_renderer=False,  # not needed since not using pixel obs
+        has_renderer=True,  # make sure we can render to the screen
+        render_camera=None,
+        render_collision_mesh=False,
+        reward_shaping=False,  # use dense rewards
+        control_freq=5,  # control should happen fast enough so that simulation looks smooth
+        hard_reset=False,
+        horizon=1000,
+        done_at_success=False,
+        controller_configs=controller_configs,
+        use_failsafe_controller=True,
+        visualize_failsafe_controller=False,
+        visualize_pinocchio=False,
+        base_human_pos_offset=[0.0, 0.0, 0.0],
+        verbose=True,
+    )
+
+    env = ExpertObsWrapper(
+        env=rsenv,
+        agent_keys=[
             "object_gripped",
-            "dist_to_next_objective",
+            "vec_to_next_objective",
             "robot0_gripper_qpos",
             "robot0_gripper_qvel",
+        ],
+        expert_keys=[
+            "object_gripped",
+            "eef_to_object",
+            "eef_to_target",
+            "robot0_gripper_qpos",
         ]
     )
     env = CollisionPreventionWrapper(
-        env=env, collision_check_fn=env.check_collision_action, replace_type=0
+        env=env, collision_check_fn=env.check_collision_action, replace_type=0,
     )
     env = VisualizationWrapper(env)
     action_limits = np.array([[-0.1, -0.1, -0.1], [0.1, 0.1, 0.1]])
     env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file, action_limits=action_limits)
-    agent = KeyboardControllerAgentCart(env=env)
+    kb_agent = KeyboardControllerAgentCart(env=env)
+    expert = PickPlaceExpert(
+        observation_space=env.observation_space,
+        action_space=env.action_space,
+        signal_to_noise_ratio=0.99,
+    )
+
+    env = CartActionBasedExpertImitationRewardWrapper(
+        env=env,
+        expert=expert,
+        alpha=0.1,
+        beta=0.95,
+        iota_m=0.01,
+        iota_g=0.01,
+    )
+
+    sc_agent = PickPlaceExpert(
+        observation_space=env.observation_space,
+        action_space=env.action_space,
+        signal_to_noise_ratio=0.98,
+    )
+
+    use_kb_agent = False
+
+    def switch_agent():
+        global use_kb_agent
+        use_kb_agent = not use_kb_agent
+
+    kb_agent.add_keypress_callback(glfw.KEY_O, lambda *_: switch_agent())
 
     for i_episode in range(20):
         observation = env.reset()
+        expert_observation = None
         t1 = time.time()
         t = 0
         while True:
@@ -137,8 +181,11 @@ if __name__ == "__main__":
             action = env.action_space.sample()
             # testing environment structure
             eef_pos = env.sim.data.site_xpos[env.robots[0].eef_site_id]
-            action[:] = agent()
+
+            if expert_observation is not None:
+                action[:] = kb_agent() if use_kb_agent else sc_agent(expert_observation)
             observation, reward, done, info = env.step(action)
+            expert_observation = info[ExpertObsWrapper.CURRENT_EXPERT_OBSERVATION_KEY]
             if done:
                 print("Episode finished after {} timesteps".format(t + 1))
                 break

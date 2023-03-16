@@ -8,6 +8,7 @@ Changelog:
 """
 from gym import Space
 import numpy as np
+from typing import Any, Dict
 
 
 class Expert:
@@ -27,7 +28,7 @@ class Expert:
         self.observation_space = observation_space
         self.action_space = action_space
 
-    def __call__(self, observation: np.ndarray) -> np.ndarray:
+    def __call__(self, observation: Dict[str, Any]) -> np.ndarray:
         """Query an action based on the given observation.
 
         Args:
