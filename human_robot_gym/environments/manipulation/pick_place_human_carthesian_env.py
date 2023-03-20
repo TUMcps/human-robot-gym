@@ -32,8 +32,9 @@ class PickPlaceHumanCart(HumanEnv):
             (e.g: "Sawyer" would generate one arm; ["Panda", "Panda", "Sawyer"] would generate three robot arms)
             Note: Must be a single single-arm robot!
 
-        robot_base_offset (list[double] or list[list[double]]): Offset (x, y, z) of robot bases. If more than one
-            robot is loaded, provide a list of list of doubles, one for each robot.
+        robot_base_offset (None or list[double] or list[list[double]]): Offset (x, y, z) of the robot bases.
+            If more than one robot is loaded provide a list of doubles, one for each robot.
+            Specify None for an offset of (0, 0, 0) for each robot.
 
         env_configuration (str): Specifies how to position the robots within the environment (default is "default").
             For most single arm environments, this argument has no impact on the robot setup.
@@ -276,9 +277,6 @@ class PickPlaceHumanCart(HumanEnv):
         self.target_placement_initializer = target_placement_initializer
         self.obstacle_placement_initializer = obstacle_placement_initializer
         self.box_body_id = None
-        # Robot Base offset
-        if robot_base_offset is None:
-            robot_base_offset = [[0.0, 0.0, 0.0] for robot in robots]
         # if run should stop at collision
         self.done_at_collision = done_at_collision
         self.done_at_success = done_at_success

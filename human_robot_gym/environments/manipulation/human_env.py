@@ -75,8 +75,9 @@ class HumanEnv(SingleArmEnv):
             (e.g: "Sawyer" would generate one arm; ["Panda", "Panda", "Sawyer"] would generate three robot arms)
             Note: Must be a single single-arm robot!
 
-        robot_base_offset (list[double] or list[list[double]]): Offset (x, y, z) of robot bases. If more than one
-            robot is loaded, provide a list of list of doubles, one for each robot.
+        robot_base_offset (None or list[double] or list[list[double]]): Offset (x, y, z) of the robot bases.
+            If more than one robot is loaded provide a list of doubles, one for each robot.
+            Specify None for an offset of (0, 0, 0) for each robot.
 
         env_configuration (str): Specifies how to position the robots within the environment (default is "default").
             For most single arm environments, this argument has no impact on the robot setup.
@@ -266,6 +267,11 @@ class HumanEnv(SingleArmEnv):
         self.verbose = verbose
         np.random.seed(self.seed)
         # Robot base offset
+        if robot_base_offset is None:
+            if isinstance(robots, str) or len(robots) == 1:
+                robot_base_offset = [0, 0, 0]
+            else:
+                robot_base_offset = [[0, 0, 0] for robot in robots]
         self.robot_base_offset = np.array(robot_base_offset)
         # Failsafe controller settings
         self.failsafe_controller = None

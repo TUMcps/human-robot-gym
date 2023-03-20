@@ -29,6 +29,10 @@ class ReachHumanCart(ReachHuman):
         robots (str or list of str): Specification for specific robot arm(s) to be instantiated within this env
             (e.g: "Sawyer" would generate one arm; ["Panda", "Panda", "Sawyer"] would generate three robot arms)
             Note: Must be a single single-arm robot!
+            
+        robot_base_offset (None or list[double] or list[list[double]]): Offset (x, y, z) of the robot bases.
+            If more than one robot is loaded provide a list of doubles, one for each robot.
+            Specify None for an offset of (0, 0, 0) for each robot.
 
         env_configuration (str): Specifies how to position the robots within the environment (default is "default").
             For most single arm environments, this argument has no impact on the robot setup.
