@@ -16,7 +16,7 @@ import time
 
 from gym.spaces import Box
 
-from human_robot_gym.utils.ou_noise import ReparameterizedOrnsteinUhlenbeckProcess
+from human_robot_gym.utils.ou_process import ReparameterizedOrnsteinUhlenbeckProcess
 from human_robot_gym.demonstrations.experts import Expert
 
 
