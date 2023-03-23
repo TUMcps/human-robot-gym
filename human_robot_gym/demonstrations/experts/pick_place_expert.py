@@ -9,14 +9,14 @@ Author:
 Changelog:
     08.02.23 FT File creation
 """
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from dataclasses import dataclass
 import numpy as np
 import time
 
 from gym.spaces import Box
 
-from human_robot_gym.utils.ou_noise import ReparameterizedOrnsteinUhlenbeckProcess
+from human_robot_gym.utils.ou_process import ReparameterizedOrnsteinUhlenbeckProcess
 from human_robot_gym.demonstrations.experts import Expert
 
 
@@ -56,6 +56,7 @@ class PickPlaceExpert(Expert):
     Noise can be added to the motion parameters. We draw from an Ornstein-Uhlenbeck (OU) process
     with asymptotic mean 0 and variance of half the motion action limit as described in the action space.
     The OU discretization time delta reflects the clock time between two calls of the expert policy.
+    Note that the OU process maintains a custom random number generator that is not affected by np.random.seed calls.
     Formula to obtain motion action parameters:
         motion = expert_policy * signal_to_noise_ratio + noise * (1 - signal_to_noise_ratio)
 
@@ -76,6 +77,7 @@ class PickPlaceExpert(Expert):
             and low enough to ensure the object can be gripped. Depends on the gripper type
         gripper_fully_opened_threshold (float): minimum difference of both gripper joint positions
             at which the gripper is considered to be fully opened. Depends on the gripper type
+        seed (int): random seed for the noise signal
     """
     def __init__(
         self,
@@ -88,6 +90,7 @@ class PickPlaceExpert(Expert):
         vertical_epsilon: float = 0.015,
         goal_dist: float = 0.08,
         gripper_fully_opened_threshold: float = 0.02,
+        seed: Optional[int] = None,
     ):
         super().__init__(
             observation_space=observation_space,
@@ -112,6 +115,7 @@ class PickPlaceExpert(Expert):
             alpha=0.5,
             mu=0,
             sigma=self._motion_action_limit * 0.5,
+            seed=seed,
         )
 
     def __call__(self, obs_dict: Dict[str, Any]) -> np.ndarray:
