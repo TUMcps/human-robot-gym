@@ -1,0 +1,39 @@
+robot_base_offset:
+  - 0.0
+  - 0.0
+  - 0.0
+env_configuration: default
+gripper_types: default
+initialization_noise: default
+table_full_size:
+  - 1.5
+  - 2.0
+  - 0.05
+table_friction:
+  - 1.0
+  - 5e-3
+  - 1e-4
+use_camera_obs: false
+use_object_obs: true
+reward_scale: 1.0
+reward_shaping: true
+goal_dist: 0.1
+collision_reward: 0
+goal_reward: 1
+has_renderer: false
+has_offscreen_renderer: false
+render_camera: null
+render_collision_mesh: true
+render_visual_mesh: true
+render_gpu_device_id: -1
+control_freq: 5
+horizon: 100
+ignore_done: true
+hard_reset: false
+camera_names: agentview
+camera_heights: 256
+camera_widths: 256
+camera_depths: false
+camera_segmentations: null
+renderer: mujoco
+renderer_config: null
