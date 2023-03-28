@@ -13,7 +13,6 @@ Changelog:
     27.3.23 FT Created file
 """
 import numpy as np
-import traceback
 
 from robosuite.models.grippers import RethinkGripper
 
@@ -21,14 +20,14 @@ from robosuite.models.grippers import RethinkGripper
 class RethinkValidGripper(RethinkGripper):
     """Rethink gripper with valid init_qpos."""
     @property
-    def init_qpos(self):
-        """Override parent property by choosing a value within the actual joint limits."""
-        traceback.print_stack()
-        return np.array([0.011499, -0.011499])
+    def init_qpos(self) -> np.ndarray:
+        """Override parent property by choosing a value within the actual joint limits.
+        We choose the value that corresponds to a fully opened gripper."""
+        return self.qpos_range[1]
 
     @property
     def qpos_range(self) -> np.ndarray:
-        """Range of the gripper joint positions.
+        """Range of the gripper joint positions. Values determined empirically.
 
         Returns:
             np.ndarray: Range of the gripper joint positions. 2D array of shape (2, 2):
