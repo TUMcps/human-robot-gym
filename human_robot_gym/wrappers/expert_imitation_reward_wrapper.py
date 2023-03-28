@@ -55,6 +55,16 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         self._expert = expert
         self._alpha = alpha
 
+        self._imitation_rewards = None
+        self._environment_rewards = None
+
+    def reset(self) -> np.ndarray:
+        """Extend environment's reset method to empty the list of environment and imitation rewards collected."""
+        self._imitation_rewards = []
+        self._environment_rewards = []
+
+        return super().reset()
+
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, dict]:
         """Extend environment's step method to query the expert on the same observation
         and add an imitation reward.
@@ -83,8 +93,29 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         )
 
         reward = self._combine_reward(env_rew, imitation_reward)
-        info["imitation_reward"] = imitation_reward
+
+        # Log the imitation and env rewards
+        if done:
+            self._add_reward_to_info(info)
+
         return obs, reward, done, info
+
+    def _add_reward_to_info(self, info: dict):
+        """Add the following data to the info dict:
+            - ep_im_rew_mean: sum of imitation rewards in episode
+            - ep_env_rew_mean: sum of environment rewards in episode
+            - im_rew_mean: mean of imitation rewards in episode
+            - env_rew_mean: mean of environment rewards in episode
+        """
+        ep_im_rew = sum(self._imitation_rewards)
+        ep_env_rew = sum(self._environment_rewards)
+        ep_len = len(self._imitation_rewards)
+        info["ep_im_rew_mean"] = ep_im_rew
+        info["ep_env_rew_mean"] = ep_env_rew
+
+        if ep_len > 0:
+            info["im_rew_mean"] = ep_im_rew / ep_len
+            info["env_rew_mean"] = ep_env_rew / ep_len
 
     def _combine_reward(
         self,
