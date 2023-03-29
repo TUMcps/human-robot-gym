@@ -30,6 +30,7 @@ from robosuite.environments.manipulation.single_arm_env import SingleArmEnv
 from robosuite.models.arenas import TableArena
 from robosuite.models.tasks import ManipulationTask
 import robosuite.utils.macros as macros
+from robosuite.robots import SingleArm, Bimanual
 
 # from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
@@ -1221,6 +1222,18 @@ class HumanEnv(SingleArmEnv):
     def _reset_internal(self):
         """Reset the simulation internal configurations."""
         super()._reset_internal()
+
+        # Quick fix for an open issue in robosuite:
+        # reset the current_action values of all grippers to 0 so that actions prior to the reset have
+        # no effect on the next episode
+        for robot in self.robots:
+            if isinstance(robot, SingleArm):
+                if robot.has_gripper:
+                    robot.gripper.current_action = np.zeros(robot.gripper.dof)
+            elif isinstance(robot, Bimanual):
+                for arm in robot.arms:
+                    if robot.has_gripper[arm]:
+                        robot.gripper[arm].current_action = np.zeros(robot.gripper[arm].dof)
 
         self._reset_controller()
         self._reset_pin_models()
