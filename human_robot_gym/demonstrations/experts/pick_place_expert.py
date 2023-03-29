@@ -77,6 +77,7 @@ class PickPlaceExpert(Expert):
             and low enough to ensure the object can be gripped. Depends on the gripper type
         gripper_fully_opened_threshold (float): minimum difference of both gripper joint positions
             at which the gripper is considered to be fully opened. Depends on the gripper type
+        delta_time (float): approximate time between two calls of the expert policy. Only used to step the OU process
         seed (int): random seed for the noise signal
     """
     def __init__(
@@ -90,6 +91,7 @@ class PickPlaceExpert(Expert):
         vertical_epsilon: float = 0.015,
         goal_dist: float = 0.08,
         gripper_fully_opened_threshold: float = 0.02,
+        delta_time: float = 0.01,
         seed: Optional[int] = None,
     ):
         super().__init__(
@@ -110,6 +112,7 @@ class PickPlaceExpert(Expert):
         self._hover_dist = hover_dist
         self._signal_to_noise_ratio = signal_to_noise_ratio
         self._time = time.time()
+        self._delta_time = delta_time
         self._motion_noise = ReparameterizedOrnsteinUhlenbeckProcess(
             size=3,
             alpha=0.5,
@@ -137,7 +140,7 @@ class PickPlaceExpert(Expert):
         # Interpolate between expert policy and noise signal
         action[:3] = (
             motion * self._signal_to_noise_ratio +
-            self._motion_noise.step(dt=self._get_delta_time()) * (1 - self._signal_to_noise_ratio)
+            self._motion_noise.step(dt=self._delta_time) * (1 - self._signal_to_noise_ratio)
         ).clip(-self._motion_action_limit, self._motion_action_limit)
 
         action[3] = self._select_gripper_action(obs).clip(
@@ -146,12 +149,6 @@ class PickPlaceExpert(Expert):
         )
 
         return action
-
-    def _get_delta_time(self) -> float:
-        """Get time difference between now and last call of this function."""
-        delta_time = time.time() - self._time
-        self._time = time.time()
-        return delta_time
 
     def _expert_observation_from_dict(self, obs_dict: Dict[str, Any]) -> PickPlaceExpertObservation:
         """Convert observation dictionary to PickPlaceExpertObservation data object."""
