@@ -1,0 +1,3 @@
+name: Schunk
+controller_config: controllers/failsafe_controller/config/failsafe.json
+robot_config: models/robots/config/schunk.json

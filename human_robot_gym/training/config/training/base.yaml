@@ -1,0 +1,9 @@
+n_envs: 1
+n_steps: 1_000_000
+save_freq: 500
+test_only: false
+load_episode: -1
+run_id: null
+log_interval: 10
+seed: 0
+num_test_episodes: 20

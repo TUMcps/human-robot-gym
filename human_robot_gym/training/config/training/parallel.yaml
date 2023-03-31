@@ -1,0 +1,4 @@
+defaults:
+  - base
+
+n_envs: 10
