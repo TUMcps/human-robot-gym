@@ -2,29 +2,31 @@
 defaults:
   - human_env
 
+env_id: PickPlaceHumanCart
+kwargs:
 # robot_base_offset: null
 # env_configuration: default
 # controller_configs: null
 # gripper_types: default
 # initialization_noise: default
-table_full_size:
-  - 1.5
-  - 2.0
-  - 0.05
-table_friction:
-  - 1.0
-  - 5e-3
-  - 1e-4
+  table_full_size:
+    - 1.5
+    - 2.0
+    - 0.05
+  table_friction:
+    - 1.0
+    - 5e-3
+    - 1e-4
 # use_camera_obs: true
 # use_object_obs: true
-reward_scale: 1.0
-reward_shaping: false
-goal_dist: 0.1
-collision_reward: -10
-goal_reward: 1
-object_placement_initializer: null
-target_placement_initializer: null
-obstacle_placement_initializer: null
+  reward_scale: 1.0
+  reward_shaping: false
+  goal_dist: 0.1
+  collision_reward: -10
+  goal_reward: 1
+  object_placement_initializer: null
+  target_placement_initializer: null
+  obstacle_placement_initializer: null
 # has_renderer: false
 # has_offscreen_renderer: true
 # render_camera: frontview
@@ -46,20 +48,20 @@ obstacle_placement_initializer: null
 # visualize_failsafe_controller: false
 # visualize_pinocchio: false
 # control_sample_time: 0.004
-human_animation_names: 
-    "62_01"
-    "62_03"
-    "62_04"
-    "62_07"
-    "62_09"
-    "62_10"
-    "62_12"
-    "62_13"
-    "62_14"
-    "62_15"
-    "62_16"
-    "62_18"
-    "62_19"
+  human_animation_names: 
+      "62_01"
+      "62_03"
+      "62_04"
+      "62_07"
+      "62_09"
+      "62_10"
+      "62_12"
+      "62_13"
+      "62_14"
+      "62_15"
+      "62_16"
+      "62_18"
+      "62_19"
 # base_human_pos_offset:
 #   - 0.0
 #   - 0.0
@@ -73,5 +75,5 @@ human_animation_names:
 # self_collision_safety: 0.01
 # seed: 0
 # verbose: false
-done_at_collision: false
-done_at_success: false
+  done_at_collision: false
+  done_at_success: false

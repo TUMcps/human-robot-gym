@@ -2,6 +2,8 @@
 defaults:
   - reach_human
 
+env_id: ReachHumanCart
+kwargs:
 # robot_base_offset: null
 # env_configuration: default
 # controller_configs: null
@@ -11,15 +13,15 @@ defaults:
 #   - 1.5
 #   - 2.0
 #   - 0.05
-table_friction: 
-  - 1.0  # reach_human: 1.5
-  - 5e-3  # reach_human: 2.0
-  - 1e-4  # reach_human: 0.05
+  table_friction: 
+    - 1.0  # reach_human: 1.5
+    - 5e-3  # reach_human: 2.0
+    - 1e-4  # reach_human: 0.05
 # use_camera_obs: true
 # use_object_obs: true
 # reward_scale: 1.0
 # reward_shaping: false
-goal_dist: 0.05  # reach_human: 0.1
+  goal_dist: 0.05  # reach_human: 0.1
 # collision_reward: -10
 # goal_reward: 1
 # object_placement_initializer: null

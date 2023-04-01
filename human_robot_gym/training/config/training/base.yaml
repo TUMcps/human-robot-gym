@@ -6,4 +6,11 @@ load_episode: -1
 run_id: null
 log_interval: 10
 seed: 0
+start_index: 0
 num_test_episodes: 20
+env_type: env
+obs_keys: null
+expert_obs_keys: null
+monitor_dir: null
+vec_env_kwargs: null
+monitor_kwargs: null
