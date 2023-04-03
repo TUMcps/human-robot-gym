@@ -1,5 +1,6 @@
 env_id: HumanEnv
 kwargs:
+  robots: ???
   robot_base_offset: null
   env_configuration: default
   controller_configs: null

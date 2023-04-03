@@ -43,7 +43,7 @@ def get_controller_configs(config: Config) -> List[Dict[str, Any]]:
         load_controller_config(custom_fpath=robot_config_path),
     )
 
-    return [controller_config]
+    return controller_config
 
 
 def create_environment(config: Config) -> VecEnv:
@@ -52,9 +52,9 @@ def create_environment(config: Config) -> VecEnv:
     env_kwargs = deepcopy(config.environment.kwargs)
 
     # Add missing kwargs
-    env_kwargs.robot = config.robot.name
-    env_kwargs.controller_configs = get_controller_configs(config)
     env_kwargs.seed = config.training.seed
+    env_kwargs.robots = config.robot.name
+    env_kwargs.controller_configs = get_controller_configs(config)
 
     env = make_vec_env(
         env_id=config.environment.env_id,
@@ -66,7 +66,7 @@ def create_environment(config: Config) -> VecEnv:
         start_index=config.training.start_index,
         monitor_dir=config.training.monitor_dir,
         wrapper_class=wrapper_class,
-        env_kwargs=env_kwargs,
+        env_kwargs=OmegaConf.to_container(cfg=env_kwargs, resolve=True, throw_on_missing=True),
         vec_env_cls=DummyVecEnv if config.training.n_envs == 1 else SubprocVecEnv,
         vec_env_kwargs=config.training.vec_env_kwargs,
         monitor_kwargs=config.training.monitor_kwargs,
@@ -81,6 +81,7 @@ def get_environment_wrap_fn(config: Config) -> Callable[[gym.Env], gym.Env]:
         if config.wrappers.collision_prevention is not None and config.wrappers.collision_prevention.enabled:
             env = CollisionPreventionWrapper(
                 env=env,
+                collision_check_fn=env.check_collision_action,
                 **config.wrappers.collision_prevention.kwargs,
             )
 
@@ -93,6 +94,8 @@ def get_environment_wrap_fn(config: Config) -> Callable[[gym.Env], gym.Env]:
                 **config.wrappers.ik_position_delta.kwargs
             )
 
+        return env
+
     return wrap_fn
 
 
@@ -101,9 +104,10 @@ def create_model(env: VecEnv, config: Config, run_id: str, save_logs: bool) -> B
         print(f"Creating new model for run {run_id}")
 
     kwargs = deepcopy(config.algorithm.kwargs)
-    kwargs.env = env
-    kwargs.seed = config.training.seed
-    kwargs.tensorboard_log = f"runs/{run_id}" if save_logs else None
+    kwargs = OmegaConf.to_container(cfg=kwargs, resolve=True, throw_on_missing=False)
+    kwargs["env"] = env
+    kwargs["seed"] = config.training.seed
+    kwargs["tensorboard_log"] = f"runs/{run_id}" if save_logs else None
 
     return SB3_ALGORITHMS[config.algorithm.name](**kwargs)
 

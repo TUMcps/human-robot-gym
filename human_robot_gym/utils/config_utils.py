@@ -2,6 +2,7 @@ from typing import Any, List, Optional
 from dataclasses import dataclass
 
 from hydra.core.config_store import ConfigStore
+
 from omegaconf import MISSING
 
 
@@ -11,8 +12,8 @@ class TrainingConfig:
     n_steps: int
     save_freq: int
     test_only: bool
-    load_episode: Any = None  # Optional[Union[int, str]]
-    run_id: Optional[str] = MISSING
+    load_episode: Any  # Optional[Union[int, str]]
+    run_id: Optional[str]
     run_type: str
     log_interval: int
     seed: int
@@ -30,7 +31,9 @@ class TrainingConfig:
 
 @dataclass
 class EnvironmentKwargsConfig:
-    pass
+    seed: int
+    robots: Any = MISSING
+    controller_configs: Any = MISSING
 
 
 @dataclass
@@ -41,7 +44,9 @@ class EnvironmentConfig:
 
 @dataclass
 class AlgorithmKwargsConfig:
-    pass
+    seed: int
+    tensorboard_log: Optional[str]
+    env: Any = MISSING
 
 
 @dataclass
@@ -86,9 +91,9 @@ class IKPositionDeltaWrapperConfig:
 
 @dataclass
 class WrappersConfig:
-    collision_prevention: Optional[CollisionPreventionWrapperConfig] = None
-    visualization: Optional[VisualizationWrapperConfig] = None
-    ik_position_delta: Optional[IKPositionDeltaWrapperConfig] = None
+    collision_prevention: Optional[CollisionPreventionWrapperConfig]
+    visualization: Optional[VisualizationWrapperConfig]
+    ik_position_delta: Optional[IKPositionDeltaWrapperConfig]
 
 
 @dataclass

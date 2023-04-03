@@ -1,5 +1,7 @@
 name: SAC
 kwargs:
+  policy: MlpPolicy
+  env: ???
   learning_rate: 3e-4
   buffer_size: 1_000_000
   learning_starts: 100

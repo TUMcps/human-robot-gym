@@ -1,4 +1,7 @@
 defaults:
-  - base
-  - collision_prevention: default_collision_prevention
+  - default_wrappers
+  - override collision_prevention: default_collision_prevention
   - _self_
+
+visualization: null
+ik_position_delta: null
