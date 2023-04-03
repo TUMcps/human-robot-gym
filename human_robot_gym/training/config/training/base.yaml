@@ -2,12 +2,12 @@ n_envs: 1
 n_steps: 1_000_000
 save_freq: 500
 test_only: false
-load_episode: -1
-run_id: null
+load_episode: ???
+run_id: ???
 log_interval: 10
 seed: 0
 start_index: 0
-num_test_episodes: 20
+n_test_episodes: 20
 env_type: env
 obs_keys: null
 expert_obs_keys: null
