@@ -1,0 +1,7 @@
+defaults:
+  robot: schunk
+  environment: reach_human
+  wrappers: safe
+  training: default_training
+  algorithm: ppo
+  wandb: null

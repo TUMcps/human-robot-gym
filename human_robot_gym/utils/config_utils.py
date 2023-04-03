@@ -19,9 +19,9 @@ class TrainingConfig:
     start_index: int
     n_test_episodes: int
     env_type: str
-    obs_keys: List[str]
-    expert_obs_keys: List[str]
-    log_info_keys: List[str]
+    obs_keys: Optional[List[str]]
+    expert_obs_keys: Optional[List[str]]
+    log_info_keys: Optional[List[str]]
     monitor_dir: str
     vec_env_kwargs: dict
     monitor_kwargs: dict
@@ -94,8 +94,8 @@ class WrappersConfig:
 @dataclass
 class WandbConfig:
     project: str
-    entity: str
-    group: str
+    entity: Optional[str]
+    group: Optional[str]
     name: Optional[str]
     tags: Optional[List[str]]
 
@@ -107,21 +107,8 @@ class Config:
     wrappers: WrappersConfig
     training: TrainingConfig
     algorithm: AlgorithmConfig
-    wandb: WandbConfig
+    wandb: Optional[WandbConfig] = None
 
 
 cs = ConfigStore.instance()
-cs.store(name="base_training_config", node=TrainingConfig)
-cs.store(name="base_environment_kwargs_config", node=EnvironmentKwargsConfig)
-cs.store(name="base_environment_config", node=EnvironmentConfig)
-cs.store(name="base_algorithm_kwargs_config", node=AlgorithmKwargsConfig)
-cs.store(name="base_algorithm_config", node=AlgorithmConfig)
-cs.store(name="base_robot_config", node=RobotConfig)
-cs.store(name="base_collision_prevention_wrapper_kwargs_config", node=CollisionPreventionWrapperKwargsConfig)
-cs.store(name="base_collision_prevention_wrapper_config", node=CollisionPreventionWrapperConfig)
-cs.store(name="base_visualization_wrapper_config", node=VisualizationWrapperConfig)
-cs.store(name="base_ik_position_delta_wrapper_kwargs_config", node=IKPositionDeltaWrapperKwargsConfig)
-cs.store(name="base_ik_position_delta_config", node=IKPositionDeltaWrapperConfig)
-cs.store(name="base_wrappers_config", node=WrappersConfig)
-cs.store(name="base_wandb_config", node=WandbConfig)
-cs.store(name="base_config", node=Config)
+cs.store(name="base", node=Config)

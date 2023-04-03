@@ -1,0 +1,5 @@
+defaults:
+  - default_training
+  - _self_
+
+n_envs: 10

@@ -1,0 +1,5 @@
+defaults:
+  - collision_prevention: null
+  - ik_position_delta: null
+  - visualization: null
+  - _self_

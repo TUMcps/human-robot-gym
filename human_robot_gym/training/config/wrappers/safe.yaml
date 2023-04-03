@@ -1,0 +1,4 @@
+defaults:
+  - base
+  - collision_prevention: default_collision_prevention
+  - _self_

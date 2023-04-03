@@ -1,6 +1,7 @@
 # Parameters from parent configs commented out
 defaults:
-  - base/reach_human@_here_
+  - default/reach_human@_here_
+  - _self_
 
 kwargs:
   robot_base_offset:
