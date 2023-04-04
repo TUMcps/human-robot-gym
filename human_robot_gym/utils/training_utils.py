@@ -582,5 +582,4 @@ def train_and_evaluate(config: Config):
         model = run_training(config)
         if config.training.verbose:
             print("Finished training, evaluating model...")
-        model.set_env(create_environment(config=config))
         evaluate_model(model, config)
