@@ -1,5 +1,9 @@
+defaults:
+  - override wrappers/visualization: default_visualization
+
 environment:
-  has_renderer: true
+  kwargs:
+    has_renderer: true
 training:
   n_envs: 1
   test_only: true

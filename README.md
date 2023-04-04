@@ -66,7 +66,7 @@ python human_robot_gym/demos/demo_gym_functionality_Schunk.py
 
 # Run a RL training
 ```
-python human_robot_gym/training/train_human_reach_SB3_sac_her.py schunk_sac_her_safe.json --wandb
+python human_robot_gym/training/train_human_reach_SAC_HER.py
 ```
 
 # Known issues

@@ -479,6 +479,7 @@ def evaluate_model_simple(config: Config, model: BaseAlgorithm):
         model (BaseAlgorithm): The model to evaluate
     """
     env = create_environment(config=config, evaluation_mode=True)
+    model.set_env(env)
 
     mean_reward, std_reward = evaluate_policy(
         model=model,
@@ -506,6 +507,7 @@ def evaluate_model_wandb(config: Config, model: BaseAlgorithm):
     """
     with init_wandb(config):
         env = create_environment(config=config, evaluation_mode=True)
+        model.set_env(env)
 
         callback = TensorboardCallback(
             eval_env=env,
