@@ -108,8 +108,9 @@ def create_model(env: VecEnv, config: Config, run_id: str, save_logs: bool) -> B
     kwargs = OmegaConf.to_container(cfg=kwargs, resolve=True, throw_on_missing=False)
     kwargs["env"] = env
     kwargs["seed"] = config.training.seed
+    kwargs["verbose"] = 1 if config.training.verbose else 0
     kwargs["tensorboard_log"] = f"runs/{run_id}" if save_logs else None
-    if isinstance(kwargs["train_freq"], list):
+    if "train_freq" in kwargs and isinstance(kwargs["train_freq"], list):
         kwargs["train_freq"] = tuple(kwargs["train_freq"])
 
     if config.training.env_type == "goal_env":
@@ -188,7 +189,7 @@ def init_wandb(config: Config) -> Any:
     )
 
 
-def run_debug_training(config: Config):
+def run_debug_training(config: Config) -> BaseAlgorithm:
     env = create_environment(config=config)
     model = create_model(env, config, "", save_logs=False)
     model.learn(
@@ -199,8 +200,10 @@ def run_debug_training(config: Config):
 
     env.close()
 
+    return model
 
-def run_training_tensorboard(config: Config):
+
+def run_training_tensorboard(config: Config) -> BaseAlgorithm:
     run_id = "%05i" % np.random.randint(100_000) if config.training.run_id is None else config.training.run_id
     env = create_environment(config=config)
     model = create_model(env, config, run_id, save_logs=True)
@@ -210,8 +213,12 @@ def run_training_tensorboard(config: Config):
         reset_num_timesteps=config.training.load_episode is None,
     )
 
+    env.close()
 
-def run_training_wandb(config: Config):
+    return model
+
+
+def run_training_wandb(config: Config) -> BaseAlgorithm:
     with init_wandb(config) as run:
         env = create_environment(config=config)
         model = get_model(env=env, config=config, run_id=run.id, save_logs=True)
@@ -240,35 +247,35 @@ def run_training_wandb(config: Config):
 
         env.close()
 
+        return model
 
-def evaluate_training_simple(config: Config):
-    env = create_environment(config=config)
-    model = load_model(
-        env=env,
-        config=config,
-        run_id=config.training.run_id,
-        load_episode=config.training.load_episode
-    )
 
+def run_training(config: Config) -> BaseAlgorithm:
+    if config.training.run_type == "tensorboard":
+        return run_training_tensorboard(config)
+    elif config.training.run_type == "wandb":
+        return run_training_wandb(config)
+    else:
+        print("Performing debug run without storing to disk")
+        return run_debug_training(config)
+
+
+def evaluate_model_simple(model: BaseAlgorithm, config: Config):
     mean_reward, std_reward = evaluate_policy(
         model=model,
-        env=env,
+        env=model.get_env(),
         n_eval_episodes=config.training.n_test_episodes,
         deterministic=True,
         return_episode_rewards=True,
     )
 
-    print("Mean evaluation reward: {} +/- {}".format(mean_reward, std_reward))
-
-    env.close()
+    print(f"Mean evaluation reward: {mean_reward} +/- {std_reward}")
 
 
-def evaluate_training_wandb(config: Config):
-    with init_wandb(config) as run:
-        env = create_environment(config=config)
-        model = load_model(env=env, config=config, run_id=run.id, load_episode=config.training.load_episode)
+def evaluate_model_wandb(model: BaseAlgorithm, config: Config):
+    with init_wandb(config):
         callback = TensorboardCallback(
-            eval_env=env,
+            eval_env=model.get_env(),
             verbose=2,
             additional_log_info_keys=config.training.log_info_keys,
             n_eval_episodes=config.training.n_test_episodes,
@@ -281,14 +288,34 @@ def evaluate_training_wandb(config: Config):
             callback=callback,
         )
 
-        env.close()
 
-
-def train(config: Config):
-    if config.training.run_type == "tensorboard":
-        run_training_tensorboard(config)
-    elif config.training.run_type == "wandb":
-        run_training_wandb(config)
+def evaluate_model(model: BaseAlgorithm, config: Config):
+    if config.training.run_type == "wandb":
+        evaluate_model_wandb(model, config)
     else:
-        print("Performing debug run without storing to disk")
-        run_debug_training(config)
+        evaluate_model_simple(model, config)
+
+
+def load_and_evaluate_model(config: Config):
+    env = create_environment(config=config)
+    model = load_model(
+        env=env,
+        config=config,
+        run_id=config.training.run_id,
+        load_episode=config.training.load_episode
+    )
+
+    evaluate_model(model, config)
+
+    env.close()
+
+
+def train_and_evaluate(config: Config):
+    if config.training.test_only:
+        load_and_evaluate_model(config)
+    else:
+        model = run_training(config)
+        if config.training.verbose:
+            print("Finished training, evaluating model...")
+        model.set_env(create_environment(config=config))
+        evaluate_model(model, config)

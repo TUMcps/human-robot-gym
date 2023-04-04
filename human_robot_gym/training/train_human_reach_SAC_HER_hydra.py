@@ -3,10 +3,8 @@ from omegaconf import OmegaConf
 
 import robosuite  # noqa: F401
 
-from stable_baselines3 import HerReplayBuffer
-
 from human_robot_gym.utils.config_utils import Config
-from human_robot_gym.utils.training_utils import train
+from human_robot_gym.utils.training_utils import train_and_evaluate
 import human_robot_gym.robots  # noqa: F401
 
 
@@ -15,7 +13,7 @@ def main(config: Config):
     if config.training.verbose:
         print(OmegaConf.to_yaml(config))
 
-    train(config)
+    train_and_evaluate(config)
 
 
 if __name__ == "__main__":
