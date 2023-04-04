@@ -1,3 +1,14 @@
+"""This file defines dataclasses outlining the structure of the used hydra config files.
+
+To reduce redundancy and verbosity, these classes are held as generic as possible.
+They serve as a overview of the general structure of the config files and all fields that are directly used in the code.
+
+Author:
+    Felix Trost (FT)
+
+Changelog:
+    04.04.23 FT File creation
+"""
 from typing import Any, List, Optional
 from dataclasses import dataclass
 
@@ -8,6 +19,7 @@ from omegaconf import MISSING
 
 @dataclass
 class TrainingConfig:
+    """Outline of training run properties."""
     n_envs: int
     n_steps: int
     save_freq: int
@@ -32,6 +44,7 @@ class TrainingConfig:
 
 @dataclass
 class EnvironmentKwargsConfig:
+    """Keyword arguments for environment creation."""
     seed: int
     robots: Any = MISSING
     controller_configs: Any = MISSING
@@ -39,12 +52,14 @@ class EnvironmentKwargsConfig:
 
 @dataclass
 class EnvironmentConfig:
+    """Environment sub-configuration."""
     env_id: str
     kwargs: EnvironmentKwargsConfig
 
 
 @dataclass
 class AlgorithmKwargsConfig:
+    """Keyword arguments for agent creation."""
     seed: int
     tensorboard_log: Optional[str]
     env: Any = MISSING
@@ -52,12 +67,14 @@ class AlgorithmKwargsConfig:
 
 @dataclass
 class AlgorithmConfig:
+    """Agent algorithm sub-configuration."""
     name: str
     kwargs: AlgorithmKwargsConfig
 
 
 @dataclass
 class RobotConfig:
+    """Robot sub-configuration."""
     name: str
     controller_config_path: str
     robot_config_path: str
@@ -65,33 +82,39 @@ class RobotConfig:
 
 @dataclass
 class CollisionPreventionWrapperKwargsConfig:
+    """Keyword arguments for the collision prevention wrapper."""
     pass
 
 
 @dataclass
 class CollisionPreventionWrapperConfig:
+    """Collision prevention wrapper configuration."""
     enabled: bool
     kwargs: CollisionPreventionWrapperKwargsConfig
 
 
 @dataclass
 class VisualizationWrapperConfig:
+    """Visualization wrapper configuration."""
     enabled: bool
 
 
 @dataclass
 class IKPositionDeltaWrapperKwargsConfig:
+    """Keyword arguments for the IK position delta wrapper."""
     pass
 
 
 @dataclass
 class IKPositionDeltaWrapperConfig:
+    """IK position delta wrapper configuration."""
     enabled: bool
     kwargs: IKPositionDeltaWrapperKwargsConfig
 
 
 @dataclass
 class WrappersConfig:
+    """Sub-configuration for selected wrappers."""
     collision_prevention: Optional[CollisionPreventionWrapperConfig]
     visualization: Optional[VisualizationWrapperConfig]
     ik_position_delta: Optional[IKPositionDeltaWrapperConfig]
@@ -99,6 +122,7 @@ class WrappersConfig:
 
 @dataclass
 class WandbConfig:
+    """WandB sub-configuration."""
     project: str
     entity: Optional[str]
     group: Optional[str]
@@ -108,6 +132,7 @@ class WandbConfig:
 
 @dataclass
 class Config:
+    """Main configuration class. Holds all sub-configurations."""
     robot: RobotConfig
     environment: EnvironmentConfig
     wrappers: WrappersConfig
@@ -116,5 +141,6 @@ class Config:
     wandb: Optional[WandbConfig] = None
 
 
+# Register config class
 cs = ConfigStore.instance()
 cs.store(name="base", node=Config)
