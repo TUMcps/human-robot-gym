@@ -14,8 +14,9 @@ from stable_baselines3.common.vec_env.base_vec_env import VecEnv
 from stable_baselines3.common.vec_env.dummy_vec_env import DummyVecEnv
 from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
 from stable_baselines3.common.base_class import BaseAlgorithm
+from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.evaluation import evaluate_policy
-from stable_baselines3 import SAC, PPO
+from stable_baselines3 import SAC, PPO, HerReplayBuffer
 
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 from human_robot_gym.utils.env_util import make_vec_env
@@ -24,7 +25,7 @@ from human_robot_gym.utils.config_utils import Config
 from human_robot_gym.wrappers.collision_prevention_wrapper import CollisionPreventionWrapper
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.ik_position_delta_wrapper import IKPositionDeltaWrapper
-
+from human_robot_gym.wrappers.HER_buffer_add_monkey_patch import custom_add, _custom_sample_transitions
 from human_robot_gym.wrappers.tensorboard_callback import TensorboardCallback
 
 
@@ -108,6 +109,19 @@ def create_model(env: VecEnv, config: Config, run_id: str, save_logs: bool) -> B
     kwargs["env"] = env
     kwargs["seed"] = config.training.seed
     kwargs["tensorboard_log"] = f"runs/{run_id}" if save_logs else None
+    if isinstance(kwargs["train_freq"], list):
+        kwargs["train_freq"] = tuple(kwargs["train_freq"])
+
+    if config.training.env_type == "goal_env":
+        assert issubclass(SB3_ALGORITHMS[config.algorithm.name], OffPolicyAlgorithm), \
+            "Only off-policy algorithms accepted for goal environments!"
+
+        assert config.training.n_envs == 1, "HER does not support vectorized environments!"
+
+        HerReplayBuffer.add = custom_add
+        HerReplayBuffer._sample_transitions = _custom_sample_transitions
+
+        kwargs["replay_buffer_class"] = HerReplayBuffer
 
     return SB3_ALGORITHMS[config.algorithm.name](**kwargs)
 
@@ -126,7 +140,7 @@ def load_model(env: VecEnv, config: Config, run_id: str, load_episode: Union[int
 
     model.set_env(env)
 
-    if hasattr(model, "replay_buffer"):
+    if isinstance(model, OffPolicyAlgorithm):
         model.load_replay_buffer(f"models/{run_id}/replay_buffer.pkl")
 
     model.env.reset()

@@ -23,7 +23,7 @@ kwargs:
   tensorboard_log: null
   create_eval_env: False
   policy_kwargs: null
-  verbose: 0
-  seed: null
+  verbose: ???  # set in training config
+  seed: ???  # set in training config
   device: auto
   _init_setup_model: True

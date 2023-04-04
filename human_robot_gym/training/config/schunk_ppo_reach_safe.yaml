@@ -1,7 +1,0 @@
-defaults:
-  robot: schunk
-  environment: reach_human
-  algorithm: ppo
-  training: parallel
-  wrappers:
-    - collision_prevention/base

@@ -2,7 +2,7 @@ defaults:
   - robot: schunk
   - environment: reach_human
   - wrappers: safe
-  - training: default_training
+  - training: her_training
   - algorithm: sac_her
   - wandb: default_wandb
   - _self_
