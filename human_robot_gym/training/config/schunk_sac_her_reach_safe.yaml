@@ -1,0 +1,14 @@
+defaults:
+  - robot: schunk
+  - environment: reach_human
+  - wrappers: safe
+  - training: default_training
+  - algorithm: sac_her
+  - wandb: default_wandb
+  - _self_
+
+training:
+  run_type: wandb
+  obs_keys:
+    - object-state
+    - goal_difference

@@ -156,7 +156,7 @@ def init_wandb(config: Config) -> Any:
     config_dict = OmegaConf.to_container(
         cfg=config,
         resolve=True,
-        throw_on_missing=True,
+        throw_on_missing=False,
     )
 
     return wandb.init(
