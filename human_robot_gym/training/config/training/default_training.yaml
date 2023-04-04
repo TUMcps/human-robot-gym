@@ -7,6 +7,7 @@ run_id: null
 run_type: debug
 log_interval: 10
 seed: 0
+eval_seed: null
 start_index: 0
 n_test_episodes: 20
 env_type: env

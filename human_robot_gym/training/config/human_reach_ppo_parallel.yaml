@@ -12,3 +12,6 @@ training:
   obs_keys:
     - object-state
     - goal_difference
+environment:
+  kwargs:
+    reward_shaping: true

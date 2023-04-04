@@ -16,7 +16,8 @@ class TrainingConfig:
     run_id: Optional[str]
     run_type: str
     log_interval: int
-    seed: int
+    seed: Optional[int]
+    eval_seed: Optional[int]
     start_index: int
     n_test_episodes: int
     env_type: str
