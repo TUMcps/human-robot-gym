@@ -67,8 +67,8 @@ def get_controller_configs(config: Config) -> List[Dict[str, Any]]:
     return [controller_config]
 
 
-def _extract_environment_kwargs_from_config(config: Config, evaluation_mode: bool) -> Dict[str, Any]:
-    """Extract a dictionary of all configured keyword arguments for the environment.
+def _compose_environment_kwargs(config: Config, evaluation_mode: bool) -> Dict[str, Any]:
+    """Compose a dictionary of all configured keyword arguments for the environment.
 
     Args:
         config (Config): The config object containing information about the environment
@@ -100,7 +100,7 @@ def create_environment(config: Config, evaluation_mode: bool = False) -> VecEnv:
     wrapper_class = get_environment_wrap_fn(config)
 
     # Get the environment keword arguments as a dict
-    env_kwargs = _extract_environment_kwargs_from_config(config=config, evaluation_mode=evaluation_mode)
+    env_kwargs = _compose_environment_kwargs(config=config, evaluation_mode=evaluation_mode)
 
     env = make_vec_env(
         env_id=config.environment.env_id,
@@ -122,8 +122,8 @@ def create_environment(config: Config, evaluation_mode: bool = False) -> VecEnv:
     return env
 
 
-def _extract_ik_position_delta_wrapper_kwargs_from_config(config: Config) -> Dict[str, Any]:
-    """Extract a dictionary of all configured keyword arguments for the IKPositionDeltaWrapper.
+def _compose_ik_position_delta_wrapper_kwargs(config: Config) -> Dict[str, Any]:
+    """Compose a dictionary of all configured keyword arguments for the IKPositionDeltaWrapper.
 
     Args:
         config (Config): The config object containing information about the wrapper
@@ -165,7 +165,7 @@ def get_environment_wrap_fn(config: Config) -> Callable[[gym.Env], gym.Env]:
             env = VisualizationWrapper(env=env)
 
         if hasattr(config.wrappers, "ik_position_delta") and config.wrappers.ik_position_delta is not None:
-            ikPositionDeltaKwargs = _extract_ik_position_delta_wrapper_kwargs_from_config(config=config)
+            ikPositionDeltaKwargs = _compose_ik_position_delta_wrapper_kwargs(config=config)
             env = IKPositionDeltaWrapper(
                 env=env,
                 **ikPositionDeltaKwargs,
@@ -176,13 +176,13 @@ def get_environment_wrap_fn(config: Config) -> Callable[[gym.Env], gym.Env]:
     return wrap_fn
 
 
-def _extract_algorithm_kwargs_from_config(
+def _compose_algorithm_kwargs(
     config: Config,
     env: Optional[VecEnv] = None,
     run_id: Optional[str] = None,
     save_logs: bool = False,
 ) -> Dict[str, Any]:
-    """Extract a dictionary of all configured keyword arguments for the algorithm.
+    """Compose a dictionary of all configured keyword arguments for the algorithm.
 
     Args:
         config (Config): The config object containing information about the algorithm
@@ -250,7 +250,7 @@ def create_model(
     if config.training.verbose:
         print(f"Creating new model for run {run_id}")
 
-    algorithm_kwargs = _extract_algorithm_kwargs_from_config(
+    algorithm_kwargs = _compose_algorithm_kwargs(
         config=config,
         env=env,
         run_id=run_id,
