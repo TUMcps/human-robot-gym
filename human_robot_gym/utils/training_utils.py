@@ -395,7 +395,7 @@ def run_debug_training(config: Config) -> BaseAlgorithm:
     Returns:
         BaseAlgorithm: The trained model
     """
-    env = create_environment(config=config)
+    env = create_environment(config=config, evaluation_mode=False)
     model = create_model(config=config, env=env, run_id="~~debug~~", save_logs=False)
     model.learn(
         total_timesteps=config.training.n_steps,
@@ -420,7 +420,7 @@ def run_training_tensorboard(config: Config) -> BaseAlgorithm:
         BaseAlgorithm: The trained model
     """
     run_id = "%05i" % np.random.randint(100_000) if config.training.run_id is None else config.training.run_id
-    env = create_environment(config=config)
+    env = create_environment(config=config, evaluation_mode=False)
     model = create_model(config=config, env=env, run_id=run_id, save_logs=True)
     model.learn(
         total_timesteps=config.training.n_steps,
@@ -428,7 +428,7 @@ def run_training_tensorboard(config: Config) -> BaseAlgorithm:
         reset_num_timesteps=config.training.load_episode is None,
     )
 
-    model.save(f"models/{run_id}/model_final")
+    model.save(path=f"models/{run_id}/model_final")
 
     env.close()
 
@@ -450,8 +450,8 @@ def run_training_wandb(config: Config) -> BaseAlgorithm:
     Returns:
         BaseAlgorithm: The trained model
     """
-    with init_wandb(config) as run:
-        env = create_environment(config=config)
+    with init_wandb(config=config) as run:
+        env = create_environment(config=config, evaluation_mode=False)
         model = get_model(config=config, env=env, run_id=run.id, save_logs=True)
         callback = TensorboardCallback(
             eval_env=env,
@@ -501,15 +501,15 @@ def run_training(config: Config) -> BaseAlgorithm:
         BaseAlgorithm: The trained model
     """
     if config.training.run_type == "tensorboard":
-        return run_training_tensorboard(config)
+        return run_training_tensorboard(config=config)
     elif config.training.run_type == "wandb":
-        return run_training_wandb(config)
+        return run_training_wandb(config=config)
     else:
         print("Performing debug run without storing to disk")
-        return run_debug_training(config)
+        return run_debug_training(config=config)
 
 
-def evaluate_model_simple(config: Config, model: BaseAlgorithm):
+def evaluate_model_simple(config: Config, model: BaseAlgorithm, eval_env: VecEnv):
     """Evaluate a model and print the reward mean and std.
 
     Creates a new environment based on the information from the config.
@@ -519,13 +519,13 @@ def evaluate_model_simple(config: Config, model: BaseAlgorithm):
     Args:
         config (Config): The config object containing information about the model
         model (BaseAlgorithm): The model to evaluate
+        eval_env (VecEnv): The environment to evaluate the model in
     """
-    env = create_environment(config=config, evaluation_mode=True)
-    model.set_env(env)
+    model.set_env(env=eval_env)
 
     mean_reward, std_reward = evaluate_policy(
         model=model,
-        env=env,
+        env=eval_env,
         n_eval_episodes=config.training.n_test_episodes,
         deterministic=True,
         return_episode_rewards=True,
@@ -533,10 +533,8 @@ def evaluate_model_simple(config: Config, model: BaseAlgorithm):
 
     print(f"Mean evaluation reward: {mean_reward} +/- {std_reward}")
 
-    env.close()
 
-
-def evaluate_model_wandb(config: Config, model: BaseAlgorithm):
+def evaluate_model_wandb(config: Config, model: BaseAlgorithm, eval_env: VecEnv):
     """Evaluate a model and upload the results to WandB.
 
     Creates a new environment based on the information from the config.
@@ -546,13 +544,13 @@ def evaluate_model_wandb(config: Config, model: BaseAlgorithm):
     Args:
         config (Config): The config object containing information about the model
         model (BaseAlgorithm): The model to evaluate
+        env (VecEnv): The environment to use for evaluation.
     """
-    with init_wandb(config):
-        env = create_environment(config=config, evaluation_mode=True)
-        model.set_env(env)
+    with init_wandb(config=config):
+        model.set_env(env=eval_env)
 
         callback = TensorboardCallback(
-            eval_env=env,
+            eval_env=eval_env,
             verbose=2,
             additional_log_info_keys=config.training.log_info_keys,
             n_eval_episodes=config.training.n_test_episodes,
@@ -565,10 +563,8 @@ def evaluate_model_wandb(config: Config, model: BaseAlgorithm):
             callback=callback,
         )
 
-        env.close()
 
-
-def evaluate_model(config: Config, model: BaseAlgorithm):
+def evaluate_model(config: Config, model: BaseAlgorithm, eval_env: VecEnv):
     """Evaluate a model and either print the results to the console or upload them to WandB.
 
     Which method is used depends on the run_type specified in the training sub-config.
@@ -580,11 +576,12 @@ def evaluate_model(config: Config, model: BaseAlgorithm):
     Args:
         config (Config): The config object containing information about the model
         model (BaseAlgorithm): The model to evaluate
+        eval_env (VecEnv): The environment to evaluate the model in
     """
     if config.training.run_type == "wandb":
-        evaluate_model_wandb(config=config, model=model)
+        evaluate_model_wandb(config=config, model=model, eval_env=eval_env)
     else:
-        evaluate_model_simple(config=config, model=model)
+        evaluate_model_simple(config=config, model=model, eval_env=eval_env)
 
 
 def load_and_evaluate_model(config: Config):
@@ -598,14 +595,17 @@ def load_and_evaluate_model(config: Config):
     Args:
         config (Config): The config object containing information about the model to load and the evaluation environment
     """
+    eval_env = create_environment(config=config, evaluation_mode=True)
     model = load_model(
         config=config,
-        env=None,
+        env=eval_env,
         run_id=config.training.run_id,
         load_episode=config.training.load_episode
     )
 
-    evaluate_model(config=config, model=model)
+    evaluate_model(config=config, model=model, eval_env=eval_env)
+
+    eval_env.close()
 
 
 def train_and_evaluate(config: Config):
@@ -619,9 +619,10 @@ def train_and_evaluate(config: Config):
         config (Config): The config object describing the environment, model, and training process
     """
     if config.training.test_only:
-        load_and_evaluate_model(config)
+        load_and_evaluate_model(config=config)
     else:
-        model = run_training(config)
+        model = run_training(config=config)
         if config.training.verbose:
             print("Finished training, evaluating model...")
-        evaluate_model(model, config)
+        eval_env = create_environment(config=config, evaluation_mode=True)
+        evaluate_model(config=config, model=model, eval_env=eval_env)

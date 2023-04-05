@@ -7,7 +7,7 @@ defaults:
   - wandb: default_wandb
   - _self_
   - consistent_seeding
-  - eval  # uncomment to evaluate with renderer instead of training
+#  - eval  # uncomment to evaluate with renderer instead of training
 
 training:
   run_type: wandb
