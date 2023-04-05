@@ -6,6 +6,7 @@ defaults:
   - algorithm: ppo
   - wandb: default_wandb
   - _self_
+  - consistent_seeding
 #  - eval  # uncomment to evaluate with renderer instead of training
 
 training:
@@ -14,5 +15,4 @@ training:
     - object-state
     - goal_difference
 environment:
-  kwargs:
-    reward_shaping: true
+  reward_shaping: true

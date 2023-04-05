@@ -67,30 +67,40 @@ def get_controller_configs(config: Config) -> List[Dict[str, Any]]:
     return [controller_config]
 
 
+def _extract_environment_kwargs_from_config(config: Config, evaluation_mode: bool) -> Dict[str, Any]:
+    """Extract a dictionary of all configured keyword arguments for the environment.
+
+    Args:
+        config (Config): The config object containing information about the environment
+        evaluation_mode (bool): If True, use training.eval_seed instead of environment.seed. Defaults to False.
+
+    Returns:
+        Dict[str, Any]: A dictionary of all configured keyword arguments for the environment.
+    """
+    kwargs = OmegaConf.to_container(cfg=deepcopy(config.environment), resolve=True, throw_on_missing=True)
+    del kwargs["env_id"]
+    kwargs["robots"] = config.robot.name
+    kwargs["controller_configs"] = get_controller_configs(config)
+    if evaluation_mode:
+        kwargs["seed"] = config.training.eval_seed
+
+    return kwargs
+
+
 def create_environment(config: Config, evaluation_mode: bool = False) -> VecEnv:
     """Create an environment from a config and optionally wrap it in specified wrappers.
-
-    The environment seed, robots and controller_configs arguments are overwritten:
-        -seed: we take the seed from the training sub-config (eval_seed if evaluation_mode is True)
-        -robots: we take the robot name from the robot sub-config
-        -controller_configs: we assemble the controller configs using the robot sub-config
 
     If the config specifies more than one environment, they are run on different threads using a SubprocVecEnv.
     Otherwise, a DummyVecEnv is created.
 
     Args:
         config (Config): The config object containing information about the environment and optional wrappers
-        evaluation_mode (bool): If True, the evaluation seed is used. Defaults to False.
+        evaluation_mode (bool): If True, use training.eval_seed instead of environment.seed. Defaults to False.
     """
     wrapper_class = get_environment_wrap_fn(config)
 
-    # Create copy of the config to avoid modifying the original config
-    env_kwargs = deepcopy(config.environment.kwargs)
-
-    # Add missing kwargs
-    env_kwargs.seed = config.training.eval_seed if evaluation_mode else config.training.seed
-    env_kwargs.robots = config.robot.name
-    env_kwargs.controller_configs = get_controller_configs(config)
+    # Get the environment keword arguments as a dict
+    env_kwargs = _extract_environment_kwargs_from_config(config=config, evaluation_mode=evaluation_mode)
 
     env = make_vec_env(
         env_id=config.environment.env_id,
@@ -102,7 +112,7 @@ def create_environment(config: Config, evaluation_mode: bool = False) -> VecEnv:
         start_index=config.training.start_index,
         monitor_dir=config.training.monitor_dir,
         wrapper_class=wrapper_class,
-        env_kwargs=OmegaConf.to_container(cfg=env_kwargs, resolve=True, throw_on_missing=True),
+        env_kwargs=env_kwargs,
         vec_env_cls=DummyVecEnv if config.training.n_envs == 1 else SubprocVecEnv,
         vec_env_kwargs=config.training.vec_env_kwargs,
         monitor_kwargs=config.training.monitor_kwargs,
@@ -110,6 +120,28 @@ def create_environment(config: Config, evaluation_mode: bool = False) -> VecEnv:
     )
 
     return env
+
+
+def _extract_ik_position_delta_wrapper_kwargs_from_config(config: Config) -> Dict[str, Any]:
+    """Extract a dictionary of all configured keyword arguments for the IKPositionDeltaWrapper.
+
+    Args:
+        config (Config): The config object containing information about the wrapper
+
+    Returns:
+        Dict[str, Any]: A dictionary of all configured keyword arguments for the IKPositionDeltaWrapper.
+    """
+    kwargs = OmegaConf.to_container(
+        cfg=deepcopy(config.wrappers.ik_position_delta),
+        resolve=True,
+        throw_on_missing=True
+    )
+    kwargs["urdf_file"] = file_path_completion(kwargs["urdf_file"])
+    kwargs["action_limits"] = np.array(kwargs["action_limits"])
+    if kwargs["x_position_limits"] is not None:
+        kwargs["x_position_limits"] = np.array(kwargs["x_position_limits"])
+
+    return kwargs
 
 
 def get_environment_wrap_fn(config: Config) -> Callable[[gym.Env], gym.Env]:
@@ -122,32 +154,21 @@ def get_environment_wrap_fn(config: Config) -> Callable[[gym.Env], gym.Env]:
         Callable[[gym.Env], gym.Env]: A function that wraps the environment as specified in the config.
     """
     def wrap_fn(env: gym.Env):
-        if (
-            hasattr(config.wrappers, "collision_prevention") and
-            config.wrappers.collision_prevention is not None and
-            config.wrappers.collision_prevention.enabled
-        ):
+        if hasattr(config.wrappers, "collision_prevention") and config.wrappers.collision_prevention is not None:
             env = CollisionPreventionWrapper(
                 env=env,
                 collision_check_fn=env.check_collision_action,
-                **config.wrappers.collision_prevention.kwargs,
+                **config.wrappers.collision_prevention,
             )
 
-        if (
-            hasattr(config.wrappers, "visualization") and
-            config.wrappers.visualization is not None and
-            config.wrappers.visualization.enabled
-        ):
+        if hasattr(config.wrappers, "visualization") and config.wrappers.visualization is not None:
             env = VisualizationWrapper(env=env)
 
-        if (
-            hasattr(config.wrappers, "ik_position_delta") and
-            config.wrappers.ik_position_delta is not None and
-            config.wrappers.ik_position_delta.enabled
-        ):
+        if hasattr(config.wrappers, "ik_position_delta") and config.wrappers.ik_position_delta is not None:
+            ikPositionDeltaKwargs = _extract_ik_position_delta_wrapper_kwargs_from_config(config=config)
             env = IKPositionDeltaWrapper(
                 env=env,
-                **config.wrappers.ik_position_delta.kwargs
+                **ikPositionDeltaKwargs,
             )
 
         return env
@@ -155,48 +176,31 @@ def get_environment_wrap_fn(config: Config) -> Callable[[gym.Env], gym.Env]:
     return wrap_fn
 
 
-def create_model(
+def _extract_algorithm_kwargs_from_config(
     config: Config,
-    save_logs: bool,
     env: Optional[VecEnv] = None,
     run_id: Optional[str] = None,
-) -> BaseAlgorithm:
-    """Create a new model according to the config for the given environment.
-
-    The model env, seed, verbose and tensorboard_log arguments are overwritten:
-        -env: is not serializable, created with the parameters specified in the config
-        -seed: we take the seed from the training sub-config
-        -verbose: we take the verbose flag from the training sub-config
-        -tensorboard_log: path generated according to run id
-
-    Additionally, if the env_type is set to 'goal_env' in the training sub-config,
-    we use a HerReplayBuffer to support Hindsight Experience Replay.
+    save_logs: bool = False,
+) -> Dict[str, Any]:
+    """Extract a dictionary of all configured keyword arguments for the algorithm.
 
     Args:
-        config (Config): The config object containing information about the model
-        save_logs (bool): Whether to save logs to tensorboard (or WandB)
-        env (VecEnv | None): The environment to train the model on. Can be set to None for later initialization.
+        config (Config): The config object containing information about the algorithm
+        env (VecEnv | None): The environment to train the algorithm on. Can be set to None for later initialization
         run_id (str | None): Can be set to override the run id specified in the training sub-config,
-            as this value is usually set to None in training runs.
+            as this value is usually set to None in training runs and generated at runtime.
+        save_logs (bool): If True, save logs to the tensorboard log directory. Defaults to False.
 
     Returns:
-        BaseAlgorithm: The model created according to the config for the given environment.
-
-    Raises:
-        AssertionError: [Only off-policy algorithms accepted for goal environments (HER)]
-        AssertionError: [HER does not support vectorized environments!]
+        Dict[str, Any]: A dictionary of all configured keyword arguments for the algorithm.
     """
     if run_id is None:
         run_id = config.training.run_id
 
-    if config.training.verbose:
-        print(f"Creating new model for run {run_id}")
+    kwargs = OmegaConf.to_container(cfg=deepcopy(config.algorithm), resolve=True, throw_on_missing=True)
+    del kwargs["name"]
 
-    kwargs = deepcopy(config.algorithm.kwargs)
-    kwargs = OmegaConf.to_container(cfg=kwargs, resolve=True, throw_on_missing=False)
     kwargs["env"] = env
-    kwargs["seed"] = config.training.seed
-    kwargs["verbose"] = 1 if config.training.verbose else 0
     kwargs["tensorboard_log"] = f"runs/{run_id}" if save_logs else None
 
     # Stable-baselines3 throws an error if train_freq is a list (expects tuple or int)
@@ -215,7 +219,45 @@ def create_model(
 
         kwargs["replay_buffer_class"] = HerReplayBuffer
 
-    return SB3_ALGORITHMS[config.algorithm.name](**kwargs)
+    return kwargs
+
+
+def create_model(
+    config: Config,
+    env: Optional[VecEnv] = None,
+    run_id: Optional[str] = None,
+    save_logs: bool = False,
+) -> BaseAlgorithm:
+    """Create a new model according to the config for the given environment.
+
+    If the env_type is set to 'goal_env' in the training sub-config,
+    we use a HerReplayBuffer to support Hindsight Experience Replay.
+
+    Args:
+        config (Config): The config object containing information about the model
+        env (VecEnv | None): The environment to train the model on. Can be set to None for later initialization.
+        run_id (str | None): Can be set to override the run id specified in the training sub-config,
+            as this value is usually set to None in training runs and generated at runtime.
+        save_logs (bool): Whether to save logs to tensorboard (or WandB)
+
+    Returns:
+        BaseAlgorithm: The model created according to the config for the given environment.
+
+    Raises:
+        AssertionError: [Only off-policy algorithms accepted for goal environments (HER)]
+        AssertionError: [HER does not support vectorized environments!]
+    """
+    if config.training.verbose:
+        print(f"Creating new model for run {run_id}")
+
+    algorithm_kwargs = _extract_algorithm_kwargs_from_config(
+        config=config,
+        env=env,
+        run_id=run_id,
+        save_logs=save_logs,
+    )
+
+    return SB3_ALGORITHMS[config.algorithm.name](**algorithm_kwargs)
 
 
 def load_model(
@@ -272,25 +314,25 @@ def load_model(
 
 def get_model(
     config: Config,
-    save_logs: bool,
     env: Optional[VecEnv] = None,
-    run_id: Optional[str] = None
+    run_id: Optional[str] = None,
+    save_logs: bool = False,
 ) -> BaseAlgorithm:
     """Create a new model or load an existing model from disk,
         depending on whether a load episode is specified in the training sub-config.
 
     Args:
         config (Config): The config object containing information about the model
-        save_logs (bool): Whether to save logs to tensorboard (or WandB)
         env (VecEnv | None): The environment to use. Can be set to None for later initialization.
         run_id (str | None): Can be set to override the run id specified in the training sub-config,
             as this value is usually set to None in training runs.
+        save_logs (bool): Whether to save logs to tensorboard (or WandB)
 
     Returns:
         BaseAlgorithm: The model created according to the config for the given environment.
     """
     if config.training.load_episode is None:
-        return create_model(config=config, env=env, save_logs=save_logs, run_id=run_id)
+        return create_model(config=config, env=env, run_id=run_id, save_logs=save_logs)
     else:
         return load_model(config=config, env=env, run_id=run_id, load_episode=config.training.load_episode)
 
@@ -354,7 +396,7 @@ def run_debug_training(config: Config) -> BaseAlgorithm:
         BaseAlgorithm: The trained model
     """
     env = create_environment(config=config)
-    model = create_model(config=config, save_logs=False, env=env, run_id="~~debug~~")
+    model = create_model(config=config, env=env, run_id="~~debug~~", save_logs=False)
     model.learn(
         total_timesteps=config.training.n_steps,
         log_interval=1,
@@ -379,7 +421,7 @@ def run_training_tensorboard(config: Config) -> BaseAlgorithm:
     """
     run_id = "%05i" % np.random.randint(100_000) if config.training.run_id is None else config.training.run_id
     env = create_environment(config=config)
-    model = create_model(config=config, save_logs=True, env=env, run_id=run_id)
+    model = create_model(config=config, env=env, run_id=run_id, save_logs=True)
     model.learn(
         total_timesteps=config.training.n_steps,
         log_interval=1,
@@ -410,7 +452,7 @@ def run_training_wandb(config: Config) -> BaseAlgorithm:
     """
     with init_wandb(config) as run:
         env = create_environment(config=config)
-        model = get_model(config=config, save_logs=True, env=env, run_id=run.id)
+        model = get_model(config=config, env=env, run_id=run.id, save_logs=True)
         callback = TensorboardCallback(
             eval_env=env,
             gradient_save_freq=100,

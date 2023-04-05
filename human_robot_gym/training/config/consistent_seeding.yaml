@@ -1,0 +1,4 @@
+environment:
+  seed: ${training.seed}
+algorithm:
+  seed: ${training.seed}

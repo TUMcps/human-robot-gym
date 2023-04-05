@@ -2,8 +2,7 @@ defaults:
   - override wrappers/visualization: default_visualization
 
 environment:
-  kwargs:
-    has_renderer: true
+  has_renderer: true
 training:
   n_envs: 1
   test_only: true

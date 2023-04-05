@@ -14,8 +14,6 @@ from dataclasses import dataclass
 
 from hydra.core.config_store import ConfigStore
 
-from omegaconf import MISSING
-
 
 @dataclass
 class TrainingConfig:
@@ -43,33 +41,38 @@ class TrainingConfig:
 
 
 @dataclass
-class EnvironmentKwargsConfig:
-    """Keyword arguments for environment creation."""
-    seed: int
-    robots: Any = MISSING
-    controller_configs: Any = MISSING
-
-
-@dataclass
 class EnvironmentConfig:
     """Environment sub-configuration."""
     env_id: str
-    kwargs: EnvironmentKwargsConfig
-
-
-@dataclass
-class AlgorithmKwargsConfig:
-    """Keyword arguments for agent creation."""
+    gripper_types: str
+    use_object_obs: bool
+    use_camera_obs: bool
+    has_renderer: bool
+    has_offscreen_renderer: bool
+    render_camera: str
+    control_freq: int
+    horizon: int
+    ignore_done: bool
+    hard_reset: bool
+    use_failsafe_controller: bool
+    control_sample_time: float
+    human_animation_names: List[str]
+    safe_vel: float
+    self_collision_safety: float
     seed: int
-    tensorboard_log: Optional[str]
-    env: Any = MISSING
+    verbose: bool
 
 
 @dataclass
 class AlgorithmConfig:
     """Agent algorithm sub-configuration."""
     name: str
-    kwargs: AlgorithmKwargsConfig
+    policy: str
+    learning_rate: float
+    batch_size: int
+    verbose: int
+    seed: int
+    device: str
 
 
 @dataclass
@@ -81,35 +84,27 @@ class RobotConfig:
 
 
 @dataclass
-class CollisionPreventionWrapperKwargsConfig:
-    """Keyword arguments for the collision prevention wrapper."""
-    pass
-
-
-@dataclass
 class CollisionPreventionWrapperConfig:
     """Collision prevention wrapper configuration."""
-    enabled: bool
-    kwargs: CollisionPreventionWrapperKwargsConfig
+    replace_type: int
+    n_resamples: int
 
 
 @dataclass
 class VisualizationWrapperConfig:
     """Visualization wrapper configuration."""
-    enabled: bool
-
-
-@dataclass
-class IKPositionDeltaWrapperKwargsConfig:
-    """Keyword arguments for the IK position delta wrapper."""
     pass
 
 
 @dataclass
 class IKPositionDeltaWrapperConfig:
     """IK position delta wrapper configuration."""
-    enabled: bool
-    kwargs: IKPositionDeltaWrapperKwargsConfig
+    urdf_file: str
+    action_limits: List[List[float]]
+    x_output_max: float
+    x_position_limits: Optional[List[List[float]]]
+    residual_threshold: float
+    max_iter: int
 
 
 @dataclass
