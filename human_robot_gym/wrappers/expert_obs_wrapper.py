@@ -73,16 +73,16 @@ class ExpertObsWrapper(Wrapper, Env):
         low, high = self.env.action_spec
         self.action_space = spaces.Box(low=low, high=high)
 
-        self._current_expert_observation: Dict[str, Any] = {}
-        self._previous_expert_observation: Dict[str, Any] = {}
+        self._current_expert_observation: Optional[Dict[str, Any]] = None
+        self._previous_expert_observation: Optional[Dict[str, Any]] = None
 
     @property
-    def previous_expert_observation(self) -> Dict[str, Any]:
+    def previous_expert_observation(self) -> Optional[Dict[str, Any]]:
         """Return the previous expert observation."""
         return self._previous_expert_observation
 
     @property
-    def current_expert_observation(self) -> Dict[str, Any]:
+    def current_expert_observation(self) -> Optional[Dict[str, Any]]:
         """Return the current expert observation."""
         return self._current_expert_observation
 
@@ -143,7 +143,7 @@ class ExpertObsWrapper(Wrapper, Env):
         """
         obs_dict = self.env.reset()
 
-        self._previous_expert_observation = {}
+        self._previous_expert_observation = None
         self._current_expert_observation = {key: obs_dict[key] for key in self.expert_keys if key in obs_dict}
 
         return self._flatten_obs(
