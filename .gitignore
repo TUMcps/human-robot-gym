@@ -4,7 +4,7 @@ build/
 /models
 outputs/
 runs/
-wandb/
+/wandb/
 __pycache__/
 *.py[cod]
 *.egg-info/
