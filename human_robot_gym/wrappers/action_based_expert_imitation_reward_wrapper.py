@@ -86,7 +86,7 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         obs, env_rew, done, info = super().step(action)
 
         assert "previous_expert_observation" in info, "Expert observation not stored in info dict"
-        expert_action = self._expert(info[ExpertObsWrapper.PREVIOUS_EXPERT_OBSERVATION_KEY])
+        expert_action = self._expert(ExpertObsWrapper.get_previous_expert_observation_from_info(info))
         imitation_reward = self.get_imitation_reward(
             action,
             expert_action,

@@ -10,6 +10,7 @@ Author:
 
 Changelog:
     15.02.23 FT File creation
+    29.03.23 FT Current and previous expert observation as member variables
 """
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
@@ -72,7 +73,18 @@ class ExpertObsWrapper(Wrapper, Env):
         low, high = self.env.action_spec
         self.action_space = spaces.Box(low=low, high=high)
 
-        self._prev_expert_obs: Dict[str, Any] = {}
+        self._current_expert_observation: Dict[str, Any] = {}
+        self._previous_expert_observation: Dict[str, Any] = {}
+
+    @property
+    def previous_expert_observation(self) -> Dict[str, Any]:
+        """Return the previous expert observation."""
+        return self._previous_expert_observation
+
+    @property
+    def current_expert_observation(self) -> Dict[str, Any]:
+        """Return the current expert observation."""
+        return self._current_expert_observation
 
     def _get_keys(self, keys: Optional[List[str]]) -> List[str]:
         """Implement default values for keys.
@@ -130,7 +142,9 @@ class ExpertObsWrapper(Wrapper, Env):
             np.array: Flattened environment observation space after reset occurs
         """
         obs_dict = self.env.reset()
-        self._prev_expert_obs = {key: obs_dict[key] for key in self.expert_keys if key in obs_dict}
+
+        self._previous_expert_observation = {}
+        self._current_expert_observation = {key: obs_dict[key] for key in self.expert_keys if key in obs_dict}
 
         return self._flatten_obs(
             keys=self.agent_keys,
@@ -151,9 +165,12 @@ class ExpertObsWrapper(Wrapper, Env):
                 - (dict) misc information
         """
         obs_dict, reward, done, info = self.env.step(action)
-        info["previous_expert_observation"] = self._prev_expert_obs
-        self._prev_expert_obs = {key: obs_dict[key] for key in self.expert_keys if key in obs_dict}
-        info["current_expert_observation"] = self._prev_expert_obs
+
+        self._previous_expert_observation = self._current_expert_observation
+        self._current_expert_observation = {key: obs_dict[key] for key in self.expert_keys if key in obs_dict}
+
+        info["previous_expert_observation"] = self._previous_expert_observation
+        info["current_expert_observation"] = self._current_expert_observation
 
         flat_agent_obs = self._flatten_obs(
             keys=self.agent_keys,
@@ -192,3 +209,57 @@ class ExpertObsWrapper(Wrapper, Env):
         """
         # Dummy args used to mimic Wrapper interface
         return self.env.reward()
+
+    @staticmethod
+    def get_current_expert_observation_from_info(info: dict) -> dict:
+        """Extract the current expert observation from the info dict.
+
+        Args:
+            info (dict): info dictionary from environment step
+
+        Returns:
+            dict: current expert observation
+
+        Raises:
+            AssertionError: [Current expert observation not stored in info dict!]
+        """
+        assert ExpertObsWrapper.CURRENT_EXPERT_OBSERVATION_KEY in info, \
+            "Current expert observation not stored in info dict!"
+        return info[ExpertObsWrapper.CURRENT_EXPERT_OBSERVATION_KEY]
+
+    @staticmethod
+    def get_previous_expert_observation_from_info(info: dict) -> dict:
+        """Extract the previous expert observation from the info dict.
+
+        Args:
+            info (dict): info dictionary from environment step
+
+        Returns:
+            dict: previous expert observation
+
+        Raises:
+            AssertionError: [Previous expert observation not stored in info dict!]
+        """
+        assert ExpertObsWrapper.PREVIOUS_EXPERT_OBSERVATION_KEY in info, \
+            "Previous expert observation not stored in info dict!"
+        return info[ExpertObsWrapper.PREVIOUS_EXPERT_OBSERVATION_KEY]
+
+    @staticmethod
+    def get_from_wrapped_env(env: Env) -> Optional['ExpertObsWrapper']:
+        """Get the ExpertObsWrapper from the wrapped environment.
+
+        Returns None if the environment is not wrapped with an ExpertObsWrapper.
+
+        Args:
+            env (Env): wrapped environment
+
+        Returns:
+            Optional[ExpertObsWrapper]: ExpertObsWrapper if it exists, None otherwise
+        """
+        while not isinstance(env, ExpertObsWrapper):
+            if hasattr(env, 'env'):
+                env = env.env
+            else:
+                return None
+
+        return env
