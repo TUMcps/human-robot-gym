@@ -82,7 +82,9 @@ from human_robot_gym.wrappers.collision_prevention_wrapper import (
     CollisionPreventionWrapper,
 )
 from human_robot_gym.wrappers.ik_position_delta_wrapper import IKPositionDeltaWrapper
-from human_robot_gym.wrappers.action_based_expert_imitation_reward_wrapper import CartActionBasedExpertImitationRewardWrapper
+from human_robot_gym.wrappers.action_based_expert_imitation_reward_wrapper import (
+    CartActionBasedExpertImitationRewardWrapper
+)
 
 if __name__ == "__main__":
     pybullet_urdf_file = file_path_completion(
