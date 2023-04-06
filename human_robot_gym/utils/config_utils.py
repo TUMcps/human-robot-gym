@@ -122,6 +122,7 @@ class WrappersConfig:
     action_based_expert_imitation_reward: Optional[ActionBasedExpertImitationRewardWrapperConfig]
 
 
+@dataclass
 class ExpertConfig:
     """Expert sub-configuration."""
     id: str

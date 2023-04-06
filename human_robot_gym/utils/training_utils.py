@@ -140,11 +140,12 @@ def _compose_expert_kwargs(config: Config) -> Dict[str, Any]:
     return kwargs
 
 
-def create_expert(config: Config) -> Expert:
+def create_expert(config: Config, env: gym.Env) -> Expert:
     """Create an expert from a config.
 
     Args:
         config (Config): The config object containing information about the expert
+        env (gym.Env): The environment the expert is defined for
 
     Returns:
         Expert: The expert specified in the config
@@ -156,7 +157,11 @@ def create_expert(config: Config) -> Expert:
     kwargs = _compose_expert_kwargs(config=config)
     assert config.expert is not None, "No expert specified in config!"
     assert config.expert.id in REGISTERED_EXPERTS, f"Expert {config.expert.id} not registered!"
-    return REGISTERED_EXPERTS[config.expert.id](**kwargs)
+    return REGISTERED_EXPERTS[config.expert.id](
+        observation_space=env.observation_space,
+        action_space=env.action_space,
+        **kwargs
+    )
 
 
 def _compose_ik_position_delta_wrapper_kwargs(config: Config) -> Dict[str, Any]:
@@ -201,6 +206,7 @@ def get_environment_wrap_fn(config: Config) -> Callable[[gym.Env], gym.Env]:
         Callable[[gym.Env], gym.Env]: A function that wraps the environment as specified in the config.
     """
     def wrap_fn(env: gym.Env):
+        # Collision prevention wrapper
         if hasattr(config.wrappers, "collision_prevention") and config.wrappers.collision_prevention is not None:
             env = CollisionPreventionWrapper(
                 env=env,
@@ -208,9 +214,11 @@ def get_environment_wrap_fn(config: Config) -> Callable[[gym.Env], gym.Env]:
                 **config.wrappers.collision_prevention,
             )
 
+        # Visualization wrapper
         if hasattr(config.wrappers, "visualization") and config.wrappers.visualization is not None:
             env = VisualizationWrapper(env=env)
 
+        # Inverse kinematics wrapper
         if env_has_cartesian_action_space(config=config):
             ikPositionDeltaKwargs = _compose_ik_position_delta_wrapper_kwargs(config=config)
             env = IKPositionDeltaWrapper(
@@ -218,24 +226,23 @@ def get_environment_wrap_fn(config: Config) -> Callable[[gym.Env], gym.Env]:
                 **ikPositionDeltaKwargs,
             )
 
-        # Configure wrappers requiring access to an expert
-        if hasattr(config, "expert") and config.expert is not None:
-            expert = create_expert(config=config)
+        # Action based expert imitation reward wrapper
+        if (
+            hasattr(config.wrappers, "action_based_expert_imitation_reward") and
+            config.wrappers.action_based_expert_imitation_reward is not None
+        ):
+            assert hasattr(config, "expert") and config.expert is not None, "No expert specified in config!"
 
-            if (
-                hasattr(config.wrappers, "action_based_expert_imitation_reward") and
-                config.wrappers.action_based_expert_imitation_reward is not None
-            ):
-                if env_has_cartesian_action_space(config=config):
-                    env = CartActionBasedExpertImitationRewardWrapper(
-                        env=env,
-                        expert=expert,
-                        **config.wrappers.action_based_expert_imitation_reward,
-                    )
-                else:
-                    raise NotImplementedError(
-                        "Action based expert imitation reward wrapper not implemented for joint action space!"
-                    )
+            if env_has_cartesian_action_space(config=config):
+                env = CartActionBasedExpertImitationRewardWrapper(
+                    env=env,
+                    expert=create_expert(config=config, env=env),
+                    **config.wrappers.action_based_expert_imitation_reward,
+                )
+            else:
+                raise NotImplementedError(
+                    "Action based expert imitation reward wrapper not implemented for joint action space!"
+                )
 
         return env
 

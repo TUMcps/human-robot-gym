@@ -9,6 +9,8 @@ robot_base_offset:
 use_camera_obs: false
 use_object_obs: true
 collision_reward: 0
+has_offscreen_renderer: false
+render_camera: null
 horizon: 500
 hard_reset: false
 done_at_collision: false
