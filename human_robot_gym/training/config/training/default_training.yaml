@@ -28,4 +28,4 @@ log_info_keys:
 monitor_dir: null
 vec_env_kwargs: null
 monitor_kwargs: null
-verbose: True
+verbose: true

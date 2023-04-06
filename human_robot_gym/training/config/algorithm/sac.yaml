@@ -22,4 +22,4 @@ policy_kwargs:
   net_arch:
     - 64
     - 64
-verbose: ${training.verbose}
+verbose: 1

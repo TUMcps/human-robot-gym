@@ -26,4 +26,4 @@ policy_kwargs:
   full_std: true
   use_expln: false
   squash_output: true
-verbose: ${training.verbose}
+verbose: 1
