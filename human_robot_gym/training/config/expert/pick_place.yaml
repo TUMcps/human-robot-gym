@@ -1,0 +1,6 @@
+defaults:
+  - default/pick_place@_here_
+  - _self_
+
+signal_to_noise_ratio: 0.9
+horizontal_epsilon: 0.035

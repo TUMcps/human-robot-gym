@@ -27,6 +27,8 @@ from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3 import SAC, PPO, HerReplayBuffer
 
+from human_robot_gym.demonstrations.experts import Expert, REGISTERED_EXPERTS
+
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 from human_robot_gym.utils.env_util import make_vec_env
 from human_robot_gym.utils.config_utils import Config
@@ -34,6 +36,7 @@ from human_robot_gym.utils.config_utils import Config
 from human_robot_gym.wrappers.collision_prevention_wrapper import CollisionPreventionWrapper
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.ik_position_delta_wrapper import IKPositionDeltaWrapper
+from human_robot_gym.wrappers.expert_imitation_reward_wrapper import CartActionBasedExpertImitationRewardWrapper
 from human_robot_gym.wrappers.HER_buffer_add_monkey_patch import custom_add, _custom_sample_transitions
 from human_robot_gym.wrappers.tensorboard_callback import TensorboardCallback
 
@@ -90,8 +93,8 @@ def _compose_environment_kwargs(config: Config, evaluation_mode: bool) -> Dict[s
 def create_environment(config: Config, evaluation_mode: bool = False) -> VecEnv:
     """Create an environment from a config and optionally wrap it in specified wrappers.
 
-    If the config specifies more than one environment, they are run on different threads using a SubprocVecEnv.
-    Otherwise, a DummyVecEnv is created.
+    If the config specifies more than one environment (training.n_envs > 1),
+    they are run on different threads using a SubprocVecEnv. Otherwise, a DummyVecEnv is created.
 
     Args:
         config (Config): The config object containing information about the environment and optional wrappers
@@ -122,6 +125,40 @@ def create_environment(config: Config, evaluation_mode: bool = False) -> VecEnv:
     return env
 
 
+def _compose_expert_kwargs(config: Config) -> Dict[str, Any]:
+    """Compose a dictionary of all configured keyword arguments for the expert.
+
+    Args:
+        config (Config): The config object containing information about the expert
+
+    Returns:
+        Dict[str, Any]: A dictionary of all configured keyword arguments for the expert.
+    """
+    kwargs = OmegaConf.to_container(cfg=deepcopy(config.expert), resolve=True, throw_on_missing=True)
+    del kwargs["id"]
+    del kwargs["obs_keys"]
+    return kwargs
+
+
+def create_expert(config: Config) -> Expert:
+    """Create an expert from a config.
+
+    Args:
+        config (Config): The config object containing information about the expert
+
+    Returns:
+        Expert: The expert specified in the config
+
+    Raises:
+        AssertionError: [No expert specified in config!]
+        AssertionError: [Expert {config.expert.id} not registered!]
+    """
+    kwargs = _compose_expert_kwargs(config=config)
+    assert config.expert is not None, "No expert specified in config!"
+    assert config.expert.id in REGISTERED_EXPERTS, f"Expert {config.expert.id} not registered!"
+    return REGISTERED_EXPERTS[config.expert.id](**kwargs)
+
+
 def _compose_ik_position_delta_wrapper_kwargs(config: Config) -> Dict[str, Any]:
     """Compose a dictionary of all configured keyword arguments for the IKPositionDeltaWrapper.
 
@@ -149,6 +186,11 @@ def _compose_ik_position_delta_wrapper_kwargs(config: Config) -> Dict[str, Any]:
     return kwargs
 
 
+def env_has_cartesian_action_space(config: Config) -> bool:
+    """Checks whether the wrapped environment has a Cartesian action space."""
+    return hasattr(config.wrappers, "ik_position_delta") and config.wrappers.ik_position_delta is not None
+
+
 def get_environment_wrap_fn(config: Config) -> Callable[[gym.Env], gym.Env]:
     """Create a function that wraps the environment as specified in the config.
 
@@ -169,12 +211,31 @@ def get_environment_wrap_fn(config: Config) -> Callable[[gym.Env], gym.Env]:
         if hasattr(config.wrappers, "visualization") and config.wrappers.visualization is not None:
             env = VisualizationWrapper(env=env)
 
-        if hasattr(config.wrappers, "ik_position_delta") and config.wrappers.ik_position_delta is not None:
+        if env_has_cartesian_action_space(config=config):
             ikPositionDeltaKwargs = _compose_ik_position_delta_wrapper_kwargs(config=config)
             env = IKPositionDeltaWrapper(
                 env=env,
                 **ikPositionDeltaKwargs,
             )
+
+        # Configure wrappers requiring access to an expert
+        if hasattr(config, "expert") and config.expert is not None:
+            expert = create_expert(config=config)
+
+            if (
+                hasattr(config.wrappers, "action_based_expert_imitation_reward") and
+                config.wrappers.action_based_expert_imitation_reward is not None
+            ):
+                if env_has_cartesian_action_space(config=config):
+                    env = CartActionBasedExpertImitationRewardWrapper(
+                        env=env,
+                        expert=expert,
+                        **config.wrappers.action_based_expert_imitation_reward,
+                    )
+                else:
+                    raise NotImplementedError(
+                        "Action based expert imitation reward wrapper not implemented for joint action space!"
+                    )
 
         return env
 

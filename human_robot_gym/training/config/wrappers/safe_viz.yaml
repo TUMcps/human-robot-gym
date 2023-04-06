@@ -1,5 +1,0 @@
-defaults:
-  - default_wrappers
-  - override collision_prevention: default_collision_prevention
-  - override visualization: default_visualization
-  - _self_

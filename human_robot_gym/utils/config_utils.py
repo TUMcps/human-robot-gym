@@ -108,11 +108,24 @@ class IKPositionDeltaWrapperConfig:
 
 
 @dataclass
+class ActionBasedExpertImitationRewardWrapperConfig:
+    """Action based expert imitation reward wrapper configuration."""
+    alpha: float
+
+
+@dataclass
 class WrappersConfig:
     """Sub-configuration for selected wrappers."""
     collision_prevention: Optional[CollisionPreventionWrapperConfig]
     visualization: Optional[VisualizationWrapperConfig]
     ik_position_delta: Optional[IKPositionDeltaWrapperConfig]
+    action_based_expert_imitation_reward: Optional[ActionBasedExpertImitationRewardWrapperConfig]
+
+
+class ExpertConfig:
+    """Expert sub-configuration."""
+    id: str
+    obs_keys: List[str]
 
 
 @dataclass
@@ -133,6 +146,7 @@ class Config:
     wrappers: WrappersConfig
     training: TrainingConfig
     algorithm: AlgorithmConfig
+    expert: Optional[ExpertConfig] = None
     wandb: Optional[WandbConfig] = None
 
 
