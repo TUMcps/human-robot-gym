@@ -13,7 +13,6 @@ def main(config: Config):
     if config.training.verbose:
         print(OmegaConf.to_yaml(cfg=config, resolve=True))
 
-    print(config.algorithm.verbose)
     train_and_evaluate(config)
 
 
