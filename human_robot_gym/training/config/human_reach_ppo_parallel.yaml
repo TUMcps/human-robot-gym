@@ -4,7 +4,7 @@ defaults:
   - wrappers: safe
   - training: parallel_training
   - algorithm: ppo
-  - wandb: default_wandb
+  - wandb_run: default_wandb
   - _self_
   - consistent_seeding
 #  - eval  # uncomment to evaluate with renderer instead of training

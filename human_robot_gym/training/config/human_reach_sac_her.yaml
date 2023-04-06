@@ -4,7 +4,7 @@ defaults:
   - wrappers: safe
   - training: her_training
   - algorithm: sac_her
-  - wandb: default_wandb
+  - wandb_run: default_wandb
   - _self_
   - consistent_seeding
 #  - eval  # uncomment to evaluate with renderer instead of training
