@@ -100,7 +100,7 @@ class VisualizationWrapperConfig:
 class IKPositionDeltaWrapperConfig:
     """IK position delta wrapper configuration."""
     urdf_file: str
-    action_limits: List[List[float]]
+    motion_limit: float
     x_output_max: float
     x_position_limits: Optional[List[List[float]]]
     residual_threshold: float
