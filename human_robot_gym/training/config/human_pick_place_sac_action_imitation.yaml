@@ -8,6 +8,7 @@ defaults:
   - wandb_run: default_wandb
   - _self_
   - consistent_seeding
+#  - eval
 
 training:
   run_type: wandb
