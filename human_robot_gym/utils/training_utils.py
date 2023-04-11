@@ -36,7 +36,9 @@ from human_robot_gym.utils.config_utils import Config
 from human_robot_gym.wrappers.collision_prevention_wrapper import CollisionPreventionWrapper
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.ik_position_delta_wrapper import IKPositionDeltaWrapper
-from human_robot_gym.wrappers.expert_imitation_reward_wrapper import CartActionBasedExpertImitationRewardWrapper
+from human_robot_gym.wrappers.action_based_expert_imitation_reward_wrapper import (
+    CartActionBasedExpertImitationRewardWrapper
+)
 from human_robot_gym.wrappers.HER_buffer_add_monkey_patch import custom_add, _custom_sample_transitions
 from human_robot_gym.wrappers.tensorboard_callback import TensorboardCallback
 
@@ -443,11 +445,11 @@ def init_wandb(config: Config) -> Run:
     )
 
     return wandb.init(
-        project=config.wandb.project,
-        entity=config.wandb.entity,
-        group=config.wandb.group,
-        name=config.wandb.name,
-        tags=config.wandb.tags,
+        project=config.wandb_run.project,
+        entity=config.wandb_run.entity,
+        group=config.wandb_run.group,
+        name=config.wandb_run.name,
+        tags=config.wandb_run.tags,
         config=config_dict,
         save_code=False,
         monitor_gym=True,

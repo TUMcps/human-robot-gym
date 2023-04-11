@@ -148,7 +148,7 @@ class Config:
     training: TrainingConfig
     algorithm: AlgorithmConfig
     expert: Optional[ExpertConfig] = None
-    wandb: Optional[WandbConfig] = None
+    wandb_run: Optional[WandbConfig] = None
 
 
 # Register config class
