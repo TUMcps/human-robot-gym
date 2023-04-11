@@ -30,6 +30,7 @@ from robosuite.environments.manipulation.single_arm_env import SingleArmEnv
 from robosuite.models.arenas import TableArena
 from robosuite.models.tasks import ManipulationTask
 import robosuite.utils.macros as macros
+from robosuite.robots import SingleArm, Bimanual
 
 # from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
@@ -371,6 +372,11 @@ class HumanEnv(SingleArmEnv):
         # Setup collision variables
         self._setup_collision_info()
 
+        self.n_collisions_robot = 0
+        self.n_collisions_static = 0
+        self.n_collisions_human = 0
+        self.n_collisions_critical = 0
+
     def step(self, action):
         """Override base step function.
 
@@ -542,10 +548,14 @@ class HumanEnv(SingleArmEnv):
                 * failsafe_intervention: if the failsafe controller intervened
                     in this step or not
         """
+        n_collisions = (
+            self.n_collisions_static + self.n_collisions_robot + self.n_collisions_human + self.n_collisions_critical
+        )
+
         info = {
             "collision": self.has_collision,
             "collision_type": self.collision_type.value,
-            "n_collisions": self.n_collisions,
+            "n_collisions": n_collisions,
             "n_collisions_static": self.n_collisions_static,
             "n_collisions_robot": self.n_collisions_robot,
             "n_collisions_human": self.n_collisions_human,
@@ -1222,6 +1232,18 @@ class HumanEnv(SingleArmEnv):
         """Reset the simulation internal configurations."""
         super()._reset_internal()
 
+        # Quick fix for an open issue in robosuite:
+        # reset the current_action values of all grippers to 0 so that actions prior to the reset have
+        # no effect on the next episode
+        for robot in self.robots:
+            if isinstance(robot, SingleArm):
+                if robot.has_gripper:
+                    robot.gripper.current_action = np.zeros(robot.gripper.dof)
+            elif isinstance(robot, Bimanual):
+                for arm in robot.arms:
+                    if robot.has_gripper[arm]:
+                        robot.gripper[arm].current_action = np.zeros(robot.gripper[arm].dof)
+
         self._reset_controller()
         self._reset_pin_models()
 
@@ -1231,7 +1253,6 @@ class HumanEnv(SingleArmEnv):
         self.goal_reached = False
         self.collision_type = COLLISION_TYPE.NULL
         self.failsafe_interventions = 0
-        self.n_collisions = 0
         self.n_collisions_static = 0
         self.n_collisions_robot = 0
         self.n_collisions_human = 0
