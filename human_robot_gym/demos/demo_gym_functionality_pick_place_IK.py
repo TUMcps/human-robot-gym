@@ -82,7 +82,9 @@ from human_robot_gym.wrappers.collision_prevention_wrapper import (
     CollisionPreventionWrapper,
 )
 from human_robot_gym.wrappers.ik_position_delta_wrapper import IKPositionDeltaWrapper
-from human_robot_gym.wrappers.expert_imitation_reward_wrapper import CartActionBasedExpertImitationRewardWrapper
+from human_robot_gym.wrappers.action_based_expert_imitation_reward_wrapper import (
+    CartActionBasedExpertImitationRewardWrapper
+)
 
 if __name__ == "__main__":
     pybullet_urdf_file = file_path_completion(
@@ -170,22 +172,20 @@ if __name__ == "__main__":
 
     kb_agent.add_keypress_callback(glfw.KEY_O, lambda *_: switch_agent())
 
+    expert_obs_wrapper = ExpertObsWrapper.get_from_wrapped_env(env)
+
     for i_episode in range(20):
         observation = env.reset()
-        expert_observation = None
         t1 = time.time()
         t = 0
         while True:
             t += 1
-            action = env.action_space.sample()
-            # testing environment structure
-            eef_pos = env.sim.data.site_xpos[env.robots[0].eef_site_id]
+            expert_observation = expert_obs_wrapper.current_expert_observation
 
-            if expert_observation is not None:
-                action[:] = kb_agent() if use_kb_agent else sc_agent(expert_observation)
+            action = kb_agent() if use_kb_agent else sc_agent(expert_observation)
+
             observation, reward, done, info = env.step(action)
-            expert_observation = info[ExpertObsWrapper.CURRENT_EXPERT_OBSERVATION_KEY]
             if done:
                 print("Episode finished after {} timesteps".format(t + 1))
                 break
-        print("Episode {}, fps = {}".format(i_episode, 500 / (time.time() - t1)))
+        print("Episode {}, fps = {}".format(i_episode, t / (time.time() - t1)))
