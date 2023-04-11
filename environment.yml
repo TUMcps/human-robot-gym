@@ -30,4 +30,4 @@ dependencies:
     - pydocstyle==6.1.1
     - mypy==0.971
     - pytest==7.1.1
-
+    - hydra-core==1.3.2

@@ -1,0 +1,10 @@
+defaults:
+  - override wrappers/visualization: default_visualization
+
+environment:
+  has_renderer: true
+training:
+  n_envs: 1
+  test_only: true
+  load_episode: final
+  run_id: null  # needs to be overwritten
