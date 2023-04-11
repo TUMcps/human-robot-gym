@@ -1,0 +1,31 @@
+n_envs: 1
+n_steps: 1_000_000
+save_freq: 500
+test_only: false
+load_episode: null
+run_id: null
+run_type: debug
+log_interval: 10
+seed: 0
+eval_seed: null
+start_index: 0
+n_test_episodes: 20
+env_type: env
+obs_keys: null
+expert_obs_keys: null
+log_info_keys:
+  - n_goal_reached
+  - collision
+  - collision_type
+  - n_collisions
+  - n_collisions_static
+  - n_collisions_robot
+  - n_collisions_human
+  - n_collisions_critical
+  - timeout
+  - failsafe_interventions
+  - action_resamples
+monitor_dir: null
+vec_env_kwargs: null
+monitor_kwargs: null
+verbose: true

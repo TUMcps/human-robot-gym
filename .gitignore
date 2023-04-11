@@ -2,6 +2,7 @@
 devel/
 build/
 /models
+outputs/
 runs/
 wandb/
 __pycache__/
