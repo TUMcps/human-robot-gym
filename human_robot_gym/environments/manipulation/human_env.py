@@ -372,6 +372,11 @@ class HumanEnv(SingleArmEnv):
         # Setup collision variables
         self._setup_collision_info()
 
+        self.n_collisions_robot = 0
+        self.n_collisions_static = 0
+        self.n_collisions_human = 0
+        self.n_collisions_critical = 0
+
     def step(self, action):
         """Override base step function.
 
@@ -543,10 +548,14 @@ class HumanEnv(SingleArmEnv):
                 * failsafe_intervention: if the failsafe controller intervened
                     in this step or not
         """
+        n_collisions = (
+            self.n_collisions_static + self.n_collisions_robot + self.n_collisions_human + self.n_collisions_critical
+        )
+
         info = {
             "collision": self.has_collision,
             "collision_type": self.collision_type.value,
-            "n_collisions": self.n_collisions,
+            "n_collisions": n_collisions,
             "n_collisions_static": self.n_collisions_static,
             "n_collisions_robot": self.n_collisions_robot,
             "n_collisions_human": self.n_collisions_human,
@@ -1244,7 +1253,6 @@ class HumanEnv(SingleArmEnv):
         self.goal_reached = False
         self.collision_type = COLLISION_TYPE.NULL
         self.failsafe_interventions = 0
-        self.n_collisions = 0
         self.n_collisions_static = 0
         self.n_collisions_robot = 0
         self.n_collisions_human = 0
