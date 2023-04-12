@@ -77,7 +77,7 @@ def _compose_environment_kwargs(config: Config, evaluation_mode: bool) -> Dict[s
 
     Args:
         config (Config): The config object containing information about the environment
-        evaluation_mode (bool): If True, use training.eval_seed instead of environment.seed. Defaults to False.
+        evaluation_mode (bool): If `True`, use `training.eval_seed` instead of `environment.seed`. Defaults to `False`.
 
     Returns:
         Dict[str, Any]: A dictionary of all configured keyword arguments for the environment.
@@ -95,12 +95,12 @@ def _compose_environment_kwargs(config: Config, evaluation_mode: bool) -> Dict[s
 def create_environment(config: Config, evaluation_mode: bool = False) -> VecEnv:
     """Create an environment from a config and optionally wrap it in specified wrappers.
 
-    If the config specifies more than one environment (training.n_envs > 1),
-    they are run on different threads using a SubprocVecEnv. Otherwise, a DummyVecEnv is created.
+    If the config specifies more than one environment (`training.n_envs > 1`),
+    they are run on different threads using a `SubprocVecEnv`. Otherwise, a `DummyVecEnv` is created.
 
     Args:
         config (Config): The config object containing information about the environment and optional wrappers
-        evaluation_mode (bool): If True, use training.eval_seed instead of environment.seed. Defaults to False.
+        evaluation_mode (bool): If `True`, use `training.eval_seed` instead of `environment.seed`. Defaults to `False`.
     """
     wrapper_class = get_environment_wrap_fn(config)
 
@@ -154,7 +154,7 @@ def create_expert(config: Config, env: gym.Env) -> Expert:
 
     Raises:
         AssertionError: [No expert specified in config!]
-        AssertionError: [Expert {config.expert.id} not registered!]
+        AssertionError: [Expert {`config.expert.id`} not registered!]
     """
     kwargs = _compose_expert_kwargs(config=config)
     assert config.expert is not None, "No expert specified in config!"
@@ -167,13 +167,13 @@ def create_expert(config: Config, env: gym.Env) -> Expert:
 
 
 def _compose_ik_position_delta_wrapper_kwargs(config: Config) -> Dict[str, Any]:
-    """Compose a dictionary of all configured keyword arguments for the IKPositionDeltaWrapper.
+    """Compose a dictionary of all configured keyword arguments for the `IKPositionDeltaWrapper`.
 
     Args:
         config (Config): The config object containing information about the wrapper
 
     Returns:
-        Dict[str, Any]: A dictionary of all configured keyword arguments for the IKPositionDeltaWrapper.
+        Dict[str, Any]: A dictionary of all configured keyword arguments for the `IKPositionDeltaWrapper`.
     """
     kwargs = OmegaConf.to_container(
         cfg=deepcopy(config.wrappers.ik_position_delta),
@@ -261,10 +261,10 @@ def _compose_algorithm_kwargs(
 
     Args:
         config (Config): The config object containing information about the algorithm
-        env (VecEnv | None): The environment to train the algorithm on. Can be set to None for later initialization
+        env (VecEnv | None): The environment to train the algorithm on. Can be set to `None` for later initialization
         run_id (str | None): Can be set to override the run id specified in the training sub-config,
-            as this value is usually set to None in training runs and generated at runtime.
-        save_logs (bool): If True, save logs to the tensorboard log directory. Defaults to False.
+            as this value is usually set to `None` in training runs and generated at runtime.
+        save_logs (bool): If `True`, save logs to the tensorboard log directory. Defaults to `False`.
 
     Returns:
         Dict[str, Any]: A dictionary of all configured keyword arguments for the algorithm.
@@ -306,13 +306,13 @@ def create_model(
     """Create a new model according to the config for the given environment.
 
     If the env_type is set to 'goal_env' in the training sub-config,
-    we use a HerReplayBuffer to support Hindsight Experience Replay.
+    we use a `HerReplayBuffer` to support Hindsight Experience Replay.
 
     Args:
         config (Config): The config object containing information about the model
-        env (VecEnv | None): The environment to train the model on. Can be set to None for later initialization.
+        env (VecEnv | None): The environment to train the model on. Can be set to `None` for later initialization.
         run_id (str | None): Can be set to override the run id specified in the training sub-config,
-            as this value is usually set to None in training runs and generated at runtime.
+            as this value is usually set to `None` in training runs and generated at runtime.
         save_logs (bool): Whether to save logs to tensorboard (or WandB)
 
     Returns:
@@ -347,13 +347,13 @@ def load_model(
 
     Args:
         config (Config): The config object containing information about the model
-        env (VecEnv | None): The environment to use. Can be set to None for later initialization.
+        env (VecEnv | None): The environment to use. Can be set to `None` for later initialization.
         run_id (str | None): The run id to load the model from.
             Can be set to override the value specified in the training sub-config
         load_episode (int | str | None): The episode to load the model from.
             Can be set to override the value specified in the training sub-config
-            There has to exist a model file at models/{run_id}/model_{load_episode}.zip
-            Generally, load_episode should be set to a positive integer or 'final'
+            There has to exist a model file at `models/{run_id}/model_{load_episode}.zip`.
+            Generally, load_episode should be set to a positive integer or `"final"`
 
     Returns:
         BaseAlgorithm: The loaded model
@@ -398,9 +398,9 @@ def get_model(
 
     Args:
         config (Config): The config object containing information about the model
-        env (VecEnv | None): The environment to use. Can be set to None for later initialization.
+        env (VecEnv | None): The environment to use. Can be set to `None` for later initialization.
         run_id (str | None): Can be set to override the run id specified in the training sub-config,
-            as this value is usually set to None in training runs.
+            as this value is usually set to `None` in training runs.
         save_logs (bool): Whether to save logs to tensorboard (or WandB)
 
     Returns:
@@ -415,7 +415,7 @@ def get_model(
 def init_wandb(config: Config) -> Run:
     """Initialize WandB.
 
-    If a run_id is already specified in the training sub-config, this run will be resumed.
+    If a `run_id` is already specified in the training sub-config, this run will be resumed.
     Otherwise, a new run is created.
 
     Args:
@@ -515,7 +515,7 @@ def run_training_wandb(config: Config) -> BaseAlgorithm:
 
     The WandB run is closed at the end of the training.
     Models are saved in regular intervals and at the end of the training.
-    The frequency is specified in @config.training.save_freq.
+    The frequency is specified in `config.training.save_freq`.
 
     Link: https://wandb.ai
 
@@ -589,7 +589,7 @@ def evaluate_model_simple(config: Config, model: BaseAlgorithm, eval_env: VecEnv
 
     Creates a new environment based on the information from the config.
     The environment is created in evaluation mode, which employs a different seed
-        (config.training.eval_seed instead of config.training.seed)
+        (`config.training.eval_seed` instead of `config.training.seed`)
 
     Args:
         config (Config): The config object containing information about the model
@@ -614,7 +614,7 @@ def evaluate_model_wandb(config: Config, model: BaseAlgorithm, eval_env: VecEnv)
 
     Creates a new environment based on the information from the config.
     The environment is created in evaluation mode, which employs a different seed
-        (config.training.eval_seed instead of config.training.seed)
+        (`config.training.eval_seed` instead of `config.training.seed`)
 
     Args:
         config (Config): The config object containing information about the model
@@ -642,11 +642,11 @@ def evaluate_model_wandb(config: Config, model: BaseAlgorithm, eval_env: VecEnv)
 def evaluate_model(config: Config, model: BaseAlgorithm, eval_env: VecEnv):
     """Evaluate a model and either print the results to the console or upload them to WandB.
 
-    Which method is used depends on the run_type specified in the training sub-config.
+    Which method is used depends on the `run_type` specified in the training sub-config.
 
     Creates a new environment based on the information from the config.
     The environment is created in evaluation mode, which employs a different seed
-        (config.training.eval_seed instead of config.training.seed)
+        (`config.training.eval_seed` instead of `config.training.seed`)
 
     Args:
         config (Config): The config object containing information about the model
@@ -663,9 +663,10 @@ def load_and_evaluate_model(config: Config):
     """Load a model from disk and evaluate it.
 
     Results are either printed to the console or uploaded to WandB.
-    Which method is used depends on the run_type specified in the training sub-config.
+    Which method is used depends on the `run_type` specified in the training sub-config.
 
-    The environment created for evaluation uses the evaluation seed specified in the config (config.training.eval_seed).
+    The environment created for evaluation uses the evaluation seed
+    specified in the config (`config.training.eval_seed`).
 
     Args:
         config (Config): The config object containing information about the model to load and the evaluation environment
@@ -686,9 +687,10 @@ def load_and_evaluate_model(config: Config):
 def train_and_evaluate(config: Config):
     """Train a model and evaluate it.
 
-    If the test_only flag is set in the training sub-config, the model is only loaded and not trained before evaluation.
+    If the `test_only` flag is set in the training sub-config,
+    the model is only loaded and not trained before evaluation.
     For evaluation a new environment is created, which uses the evaluation seed specified in the config
-        (config.training.eval_seed).
+        (`config.training.eval_seed`).
 
     Args:
         config (Config): The config object describing the environment, model, and training process
