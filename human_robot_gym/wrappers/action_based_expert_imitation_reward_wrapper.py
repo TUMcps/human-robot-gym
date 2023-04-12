@@ -37,8 +37,8 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         env (Env): gym environment to wrap
         expert (Expert): expert with same action space as the environment
         alpha (float): linear interpolation factor between
-            just environment reward (alpha = 0) and
-            just imitation reward (alpha = 1)
+            just environment reward (`alpha = 0`) and
+            just imitation reward (`alpha = 1`)
 
     Raises:
         AssertionError: [Environment and expert have different action space shapes]
@@ -166,7 +166,7 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
 class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewardWrapper):
     r"""Action-based expert imitation reward gym wrapper for the cartesian action space.
     Implements the get_imitation_reward method with a similarity metric taylored to cartesian control.
-    The action space is expected to be of the form (motion_x, motion_y, motion_z, gripper_actuation)
+    The action space is expected to be of the form `(motion_x, motion_y, motion_z, gripper_actuation)`
 
     The reward is given by this formula:
         r = r_i * \alpha + r_{env} * (1 - \alpha)
@@ -185,13 +185,13 @@ class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewa
     Args:
         env (Env): gym environment to wrap
         expert (Expert): expert with a cartesian action space of the form
-            (motion_x, motion_y, motion_z, gripper_actuation)
+            `(motion_x, motion_y, motion_z, gripper_actuation)`
         alpha (float): linear interpolation factor between
-            just environment reward (alpha = 0) and
-            just imitation reward (alpha = 1)
+            just environment reward (`alpha = 0`) and
+            just imitation reward (`alpha = 1`)
         beta (float): linear interpolation factor to weight movement and gripper similarity in the imitation reward
-            just gripper similarity: beta = 0
-            just motion similarity: beta = 1
+            just gripper similarity: `beta = 0`
+            just motion similarity: `beta = 1`
         iota_m: scaling for differences between expert and agent movement actions;
             if the distance between their movements is iota_m, the motion imitation reward is 0.5
         iota_g: scaling for differences between expert and agent gripper actions;
