@@ -23,7 +23,7 @@ training:
     - eef_to_human_rh
 wrappers:
   ik_position_delta:
-    motion_limit: 0.1
+    action_limit: 0.1
   action_based_expert_imitation_reward:
     alpha: 0.1
     beta: 0.5

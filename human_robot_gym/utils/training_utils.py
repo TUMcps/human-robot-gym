@@ -181,11 +181,11 @@ def _compose_ik_position_delta_wrapper_kwargs(config: Config) -> Dict[str, Any]:
         throw_on_missing=True
     )
     kwargs["urdf_file"] = file_path_completion(kwargs["urdf_file"])
-    motion_limit = kwargs["motion_limit"]
-    del kwargs["motion_limit"]
+    action_limit = kwargs["action_limit"]
+    del kwargs["action_limit"]
     kwargs["action_limits"] = np.array([
-        [-motion_limit, -motion_limit, -motion_limit],
-        [motion_limit, motion_limit, motion_limit]
+        [-action_limit, -action_limit, -action_limit],
+        [action_limit, action_limit, action_limit]
     ])
     if kwargs["x_position_limits"] is not None:
         kwargs["x_position_limits"] = np.array(kwargs["x_position_limits"])
