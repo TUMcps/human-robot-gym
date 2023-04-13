@@ -18,7 +18,8 @@ from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
 
 
 class ActionBasedExpertImitationRewardWrapper(Wrapper):
-    """Expert imitation reward gym wrapper.
+    r"""Abstract super class for gym wrappers generating imitation reward
+    based on the similarity of expert and agent actions.
 
     This is an abstract super class for gym wrappers that reward the agent
     for the similarity between their actions and the ones of a given expert policy.
@@ -26,7 +27,7 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
     to use custom similarity metrics between actions.
 
     The reward is given by this formula:
-        r = r_i * alpha + r_{env} * (1 - alpha)
+        r = r_i * \alpha + r_{env} * (1 - \alpha)
 
     Where:
         r_{env}: reward from wrapped environment.
@@ -36,8 +37,8 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         env (Env): gym environment to wrap
         expert (Expert): expert with same action space as the environment
         alpha (float): linear interpolation factor between
-            just environment reward (alpha = 0) and
-            just imitation reward (alpha = 1)
+            just environment reward (`alpha = 0`) and
+            just imitation reward (`alpha = 1`)
 
     Raises:
         AssertionError: [Environment and expert have different action space shapes]
@@ -80,10 +81,10 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
                 -(dict): misc information
 
         Raises:
-            NotImplementedError [get_imitation_reward method not implemented in ExpertImitationRewardWrapper]
+            NotImplementedError [get_imitation_reward method not implemented in ActionBasedExpertImitationRewardWrapper]
             AssertionError [Expert observation not stored in info dict]
         """
-        obs, env_rew, done, info = super().step(action)
+        obs, env_reward, done, info = super().step(action)
 
         assert "previous_expert_observation" in info, "Expert observation not stored in info dict"
         expert_action = self._expert(ExpertObsWrapper.get_previous_expert_observation_from_info(info))
@@ -92,7 +93,10 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
             expert_action,
         )
 
-        reward = self._combine_reward(env_rew, imitation_reward)
+        self._imitation_rewards.append(imitation_reward)
+        self._environment_rewards.append(env_reward)
+
+        reward = self._combine_reward(env_reward, imitation_reward)
 
         # Log the imitation and env rewards
         if done:
@@ -107,15 +111,11 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
             - im_rew_mean: mean of imitation rewards in episode
             - env_rew_mean: mean of environment rewards in episode
         """
-        ep_im_rew = sum(self._imitation_rewards)
-        ep_env_rew = sum(self._environment_rewards)
-        ep_len = len(self._imitation_rewards)
-        info["ep_im_rew_mean"] = ep_im_rew
-        info["ep_env_rew_mean"] = ep_env_rew
+        info["ep_im_rew_mean"] = np.sum(self._imitation_rewards)
+        info["ep_env_rew_mean"] = np.sum(self._environment_rewards)
 
-        if ep_len > 0:
-            info["im_rew_mean"] = ep_im_rew / ep_len
-            info["env_rew_mean"] = ep_env_rew / ep_len
+        info["im_rew_mean"] = np.nan if len(self._imitation_rewards == 0) else np.mean(self._imitation_rewards)
+        info["env_rew_mean"] = np.nan if len(self._environment_rewards == 0) else np.mean(self._environment_rewards)
 
     def _combine_reward(
         self,
@@ -164,18 +164,18 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
 
 
 class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewardWrapper):
-    """Expert imitation reward gym wrapper for the cartesian action space.
+    r"""Action-based expert imitation reward gym wrapper for the cartesian action space.
     Implements the get_imitation_reward method with a similarity metric taylored to cartesian control.
-    The action space is expected to be of the form (motion_x, motion_y, motion_z, gripper_actuation)
+    The action space is expected to be of the form `(motion_x, motion_y, motion_z, gripper_actuation)`
 
     The reward is given by this formula:
-        r = r_i * alpha + r_{env} * (1 - alpha)
+        r = r_i * \alpha + r_{env} * (1 - \alpha)
 
     Where:
         r_{env}: reward from wrapped environment
-        r_i = r_{motion} * beta + r_{gripper} * (1 - beta)
-        r_{motion} = 2^{-(||a_m^a - a_m^e|| / iota_m)^2}
-        r_{gripper} = 2^{-(|a_g^a - a_g^e| / iota_g)^2}
+        r_i = r_{motion} * \beta + r_{gripper} * (1 - \beta)
+        r_{motion} = 2^{-(||a_m^a - a_m^e|| / \iota_m)^2}
+        r_{gripper} = 2^{-(|a_g^a - a_g^e| / \iota_g)^2}
 
         a_m^a: motion action parameters of agent
         a_m^e: motion action parameters of expert
@@ -185,13 +185,13 @@ class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewa
     Args:
         env (Env): gym environment to wrap
         expert (Expert): expert with a cartesian action space of the form
-            (motion_x, motion_y, motion_z, gripper_actuation)
+            `(motion_x, motion_y, motion_z, gripper_actuation)`
         alpha (float): linear interpolation factor between
-            just environment reward (alpha = 0) and
-            just imitation reward (alpha = 1)
+            just environment reward (`alpha = 0`) and
+            just imitation reward (`alpha = 1`)
         beta (float): linear interpolation factor to weight movement and gripper similarity in the imitation reward
-            just gripper similarity: beta = 0
-            just motion similarity: beta = 1
+            just gripper similarity: `beta = 0`
+            just motion similarity: `beta = 1`
         iota_m: scaling for differences between expert and agent movement actions;
             if the distance between their movements is iota_m, the motion imitation reward is 0.5
         iota_g: scaling for differences between expert and agent gripper actions;
@@ -217,20 +217,20 @@ class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewa
         self._beta = beta
 
     def _similarity_fn(self, dist: float, iota: float) -> float:
-        """Form a reward from the distance between agent and expert actions.
+        r"""Form a reward from the distance between agent and expert actions.
         Use a Gaussian density function with mean 0 and variance 1.
-        Rescale distances so that dist=0 => reward=1 and dist=iota => reward=0.5.
+        Rescale distances so that dist=0 => reward=1 and dist=\iota => reward=0.5.
         DeepMimic (Peng et al., 2018) uses a similar model for the end-effector similarity reward.
         Link to paper: https://arxiv.org/abs/1804.02717
 
         Exponential form:
-        exp(-1/2 * (dist * nu / iota)^2)
+        exp(-1/2 * (dist * \nu / \iota)^2)
 
         where:
-        nu = sqrt{2 * ln(2)}
+        \nu = sqrt{2 * ln(2)}
 
         Simplifies to:
-        2^{-(dist / iota)^2}
+        2^{-(dist / \iota)^2}
 
         Args:
             dist (float): euclidean distance between agent and expert
