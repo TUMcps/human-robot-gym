@@ -2,4 +2,5 @@ defaults:
   - optional collision_prevention: null
   - optional ik_position_delta: null
   - optional visualization: null
+  - optional action_based_expert_imitation_reward: null
   - _self_

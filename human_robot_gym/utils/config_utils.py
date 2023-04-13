@@ -100,11 +100,17 @@ class VisualizationWrapperConfig:
 class IKPositionDeltaWrapperConfig:
     """IK position delta wrapper configuration."""
     urdf_file: str
-    action_limits: List[List[float]]
+    action_limit: float
     x_output_max: float
     x_position_limits: Optional[List[List[float]]]
     residual_threshold: float
     max_iter: int
+
+
+@dataclass
+class ActionBasedExpertImitationRewardWrapperConfig:
+    """Action based expert imitation reward wrapper configuration."""
+    alpha: float
 
 
 @dataclass
@@ -113,6 +119,14 @@ class WrappersConfig:
     collision_prevention: Optional[CollisionPreventionWrapperConfig]
     visualization: Optional[VisualizationWrapperConfig]
     ik_position_delta: Optional[IKPositionDeltaWrapperConfig]
+    action_based_expert_imitation_reward: Optional[ActionBasedExpertImitationRewardWrapperConfig]
+
+
+@dataclass
+class ExpertConfig:
+    """Expert sub-configuration."""
+    id: str
+    obs_keys: List[str]
 
 
 @dataclass
@@ -133,7 +147,8 @@ class Config:
     wrappers: WrappersConfig
     training: TrainingConfig
     algorithm: AlgorithmConfig
-    wandb: Optional[WandbConfig] = None
+    expert: Optional[ExpertConfig] = None
+    wandb_run: Optional[WandbConfig] = None
 
 
 # Register config class

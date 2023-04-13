@@ -1,0 +1,4 @@
+defaults:
+  - safe_ik
+  - override action_based_expert_imitation_reward: default_cart_action_based_expert_imitation_reward
+  - _self_

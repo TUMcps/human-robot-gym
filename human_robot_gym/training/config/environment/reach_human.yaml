@@ -6,7 +6,7 @@ robot_base_offset:
   - 0.0
   - 0.0
   - 0.0
-table_friction: 
+table_friction:
   - 1.0
   - 5e-3
   - 1e-4

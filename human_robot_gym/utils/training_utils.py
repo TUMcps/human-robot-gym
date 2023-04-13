@@ -27,6 +27,8 @@ from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3 import SAC, PPO, HerReplayBuffer
 
+from human_robot_gym.demonstrations.experts import Expert, REGISTERED_EXPERTS
+
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 from human_robot_gym.utils.env_util import make_vec_env
 from human_robot_gym.utils.config_utils import Config
@@ -34,6 +36,9 @@ from human_robot_gym.utils.config_utils import Config
 from human_robot_gym.wrappers.collision_prevention_wrapper import CollisionPreventionWrapper
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.ik_position_delta_wrapper import IKPositionDeltaWrapper
+from human_robot_gym.wrappers.action_based_expert_imitation_reward_wrapper import (
+    CartActionBasedExpertImitationRewardWrapper
+)
 from human_robot_gym.wrappers.HER_buffer_add_monkey_patch import custom_add, _custom_sample_transitions
 from human_robot_gym.wrappers.tensorboard_callback import TensorboardCallback
 
@@ -72,7 +77,7 @@ def _compose_environment_kwargs(config: Config, evaluation_mode: bool) -> Dict[s
 
     Args:
         config (Config): The config object containing information about the environment
-        evaluation_mode (bool): If True, use training.eval_seed instead of environment.seed. Defaults to False.
+        evaluation_mode (bool): If `True`, use `training.eval_seed` instead of `environment.seed`. Defaults to `False`.
 
     Returns:
         Dict[str, Any]: A dictionary of all configured keyword arguments for the environment.
@@ -90,12 +95,12 @@ def _compose_environment_kwargs(config: Config, evaluation_mode: bool) -> Dict[s
 def create_environment(config: Config, evaluation_mode: bool = False) -> VecEnv:
     """Create an environment from a config and optionally wrap it in specified wrappers.
 
-    If the config specifies more than one environment, they are run on different threads using a SubprocVecEnv.
-    Otherwise, a DummyVecEnv is created.
+    If the config specifies more than one environment (`training.n_envs > 1`),
+    they are run on different threads using a `SubprocVecEnv`. Otherwise, a `DummyVecEnv` is created.
 
     Args:
         config (Config): The config object containing information about the environment and optional wrappers
-        evaluation_mode (bool): If True, use training.eval_seed instead of environment.seed. Defaults to False.
+        evaluation_mode (bool): If `True`, use `training.eval_seed` instead of `environment.seed`. Defaults to `False`.
     """
     wrapper_class = get_environment_wrap_fn(config)
 
@@ -122,14 +127,53 @@ def create_environment(config: Config, evaluation_mode: bool = False) -> VecEnv:
     return env
 
 
+def _compose_expert_kwargs(config: Config) -> Dict[str, Any]:
+    """Compose a dictionary of all configured keyword arguments for the expert.
+
+    Args:
+        config (Config): The config object containing information about the expert
+
+    Returns:
+        Dict[str, Any]: A dictionary of all configured keyword arguments for the expert.
+    """
+    kwargs = OmegaConf.to_container(cfg=deepcopy(config.expert), resolve=True, throw_on_missing=True)
+    del kwargs["id"]
+    del kwargs["obs_keys"]
+    return kwargs
+
+
+def create_expert(config: Config, env: gym.Env) -> Expert:
+    """Create an expert from a config.
+
+    Args:
+        config (Config): The config object containing information about the expert
+        env (gym.Env): The environment the expert is defined for
+
+    Returns:
+        Expert: The expert specified in the config
+
+    Raises:
+        AssertionError: [No expert specified in config!]
+        AssertionError: [Expert {`config.expert.id`} not registered!]
+    """
+    kwargs = _compose_expert_kwargs(config=config)
+    assert config.expert is not None, "No expert specified in config!"
+    assert config.expert.id in REGISTERED_EXPERTS, f"Expert {config.expert.id} not registered!"
+    return REGISTERED_EXPERTS[config.expert.id](
+        observation_space=env.observation_space,
+        action_space=env.action_space,
+        **kwargs
+    )
+
+
 def _compose_ik_position_delta_wrapper_kwargs(config: Config) -> Dict[str, Any]:
-    """Compose a dictionary of all configured keyword arguments for the IKPositionDeltaWrapper.
+    """Compose a dictionary of all configured keyword arguments for the `IKPositionDeltaWrapper`.
 
     Args:
         config (Config): The config object containing information about the wrapper
 
     Returns:
-        Dict[str, Any]: A dictionary of all configured keyword arguments for the IKPositionDeltaWrapper.
+        Dict[str, Any]: A dictionary of all configured keyword arguments for the `IKPositionDeltaWrapper`.
     """
     kwargs = OmegaConf.to_container(
         cfg=deepcopy(config.wrappers.ik_position_delta),
@@ -137,11 +181,21 @@ def _compose_ik_position_delta_wrapper_kwargs(config: Config) -> Dict[str, Any]:
         throw_on_missing=True
     )
     kwargs["urdf_file"] = file_path_completion(kwargs["urdf_file"])
-    kwargs["action_limits"] = np.array(kwargs["action_limits"])
+    action_limit = kwargs["action_limit"]
+    del kwargs["action_limit"]
+    kwargs["action_limits"] = np.array([
+        [-action_limit, -action_limit, -action_limit],
+        [action_limit, action_limit, action_limit]
+    ])
     if kwargs["x_position_limits"] is not None:
         kwargs["x_position_limits"] = np.array(kwargs["x_position_limits"])
 
     return kwargs
+
+
+def env_has_cartesian_action_space(config: Config) -> bool:
+    """Checks whether the wrapped environment has a Cartesian action space."""
+    return hasattr(config.wrappers, "ik_position_delta") and config.wrappers.ik_position_delta is not None
 
 
 def get_environment_wrap_fn(config: Config) -> Callable[[gym.Env], gym.Env]:
@@ -154,6 +208,7 @@ def get_environment_wrap_fn(config: Config) -> Callable[[gym.Env], gym.Env]:
         Callable[[gym.Env], gym.Env]: A function that wraps the environment as specified in the config.
     """
     def wrap_fn(env: gym.Env):
+        # Collision prevention wrapper
         if hasattr(config.wrappers, "collision_prevention") and config.wrappers.collision_prevention is not None:
             env = CollisionPreventionWrapper(
                 env=env,
@@ -161,15 +216,35 @@ def get_environment_wrap_fn(config: Config) -> Callable[[gym.Env], gym.Env]:
                 **config.wrappers.collision_prevention,
             )
 
+        # Visualization wrapper
         if hasattr(config.wrappers, "visualization") and config.wrappers.visualization is not None:
             env = VisualizationWrapper(env=env)
 
-        if hasattr(config.wrappers, "ik_position_delta") and config.wrappers.ik_position_delta is not None:
+        # Inverse kinematics wrapper
+        if env_has_cartesian_action_space(config=config):
             ikPositionDeltaKwargs = _compose_ik_position_delta_wrapper_kwargs(config=config)
             env = IKPositionDeltaWrapper(
                 env=env,
                 **ikPositionDeltaKwargs,
             )
+
+        # Action based expert imitation reward wrapper
+        if (
+            hasattr(config.wrappers, "action_based_expert_imitation_reward") and
+            config.wrappers.action_based_expert_imitation_reward is not None
+        ):
+            assert hasattr(config, "expert") and config.expert is not None, "No expert specified in config!"
+
+            if env_has_cartesian_action_space(config=config):
+                env = CartActionBasedExpertImitationRewardWrapper(
+                    env=env,
+                    expert=create_expert(config=config, env=env),
+                    **config.wrappers.action_based_expert_imitation_reward,
+                )
+            else:
+                raise NotImplementedError(
+                    "Action based expert imitation reward wrapper not implemented for joint action space!"
+                )
 
         return env
 
@@ -186,10 +261,10 @@ def _compose_algorithm_kwargs(
 
     Args:
         config (Config): The config object containing information about the algorithm
-        env (VecEnv | None): The environment to train the algorithm on. Can be set to None for later initialization
+        env (VecEnv | None): The environment to train the algorithm on. Can be set to `None` for later initialization
         run_id (str | None): Can be set to override the run id specified in the training sub-config,
-            as this value is usually set to None in training runs and generated at runtime.
-        save_logs (bool): If True, save logs to the tensorboard log directory. Defaults to False.
+            as this value is usually set to `None` in training runs and generated at runtime.
+        save_logs (bool): If `True`, save logs to the tensorboard log directory. Defaults to `False`.
 
     Returns:
         Dict[str, Any]: A dictionary of all configured keyword arguments for the algorithm.
@@ -231,13 +306,13 @@ def create_model(
     """Create a new model according to the config for the given environment.
 
     If the env_type is set to 'goal_env' in the training sub-config,
-    we use a HerReplayBuffer to support Hindsight Experience Replay.
+    we use a `HerReplayBuffer` to support Hindsight Experience Replay.
 
     Args:
         config (Config): The config object containing information about the model
-        env (VecEnv | None): The environment to train the model on. Can be set to None for later initialization.
+        env (VecEnv | None): The environment to train the model on. Can be set to `None` for later initialization.
         run_id (str | None): Can be set to override the run id specified in the training sub-config,
-            as this value is usually set to None in training runs and generated at runtime.
+            as this value is usually set to `None` in training runs and generated at runtime.
         save_logs (bool): Whether to save logs to tensorboard (or WandB)
 
     Returns:
@@ -272,13 +347,13 @@ def load_model(
 
     Args:
         config (Config): The config object containing information about the model
-        env (VecEnv | None): The environment to use. Can be set to None for later initialization.
+        env (VecEnv | None): The environment to use. Can be set to `None` for later initialization.
         run_id (str | None): The run id to load the model from.
             Can be set to override the value specified in the training sub-config
         load_episode (int | str | None): The episode to load the model from.
             Can be set to override the value specified in the training sub-config
-            There has to exist a model file at models/{run_id}/model_{load_episode}.zip
-            Generally, load_episode should be set to a positive integer or 'final'
+            There has to exist a model file at `models/{run_id}/model_{load_episode}.zip`.
+            Generally, load_episode should be set to a positive integer or `"final"`
 
     Returns:
         BaseAlgorithm: The loaded model
@@ -323,9 +398,9 @@ def get_model(
 
     Args:
         config (Config): The config object containing information about the model
-        env (VecEnv | None): The environment to use. Can be set to None for later initialization.
+        env (VecEnv | None): The environment to use. Can be set to `None` for later initialization.
         run_id (str | None): Can be set to override the run id specified in the training sub-config,
-            as this value is usually set to None in training runs.
+            as this value is usually set to `None` in training runs.
         save_logs (bool): Whether to save logs to tensorboard (or WandB)
 
     Returns:
@@ -340,7 +415,7 @@ def get_model(
 def init_wandb(config: Config) -> Run:
     """Initialize WandB.
 
-    If a run_id is already specified in the training sub-config, this run will be resumed.
+    If a `run_id` is already specified in the training sub-config, this run will be resumed.
     Otherwise, a new run is created.
 
     Args:
@@ -370,11 +445,11 @@ def init_wandb(config: Config) -> Run:
     )
 
     return wandb.init(
-        project=config.wandb.project,
-        entity=config.wandb.entity,
-        group=config.wandb.group,
-        name=config.wandb.name,
-        tags=config.wandb.tags,
+        project=config.wandb_run.project,
+        entity=config.wandb_run.entity,
+        group=config.wandb_run.group,
+        name=config.wandb_run.name,
+        tags=config.wandb_run.tags,
         config=config_dict,
         save_code=False,
         monitor_gym=True,
@@ -440,7 +515,7 @@ def run_training_wandb(config: Config) -> BaseAlgorithm:
 
     The WandB run is closed at the end of the training.
     Models are saved in regular intervals and at the end of the training.
-    The frequency is specified in @config.training.save_freq.
+    The frequency is specified in `config.training.save_freq`.
 
     Link: https://wandb.ai
 
@@ -514,7 +589,7 @@ def evaluate_model_simple(config: Config, model: BaseAlgorithm, eval_env: VecEnv
 
     Creates a new environment based on the information from the config.
     The environment is created in evaluation mode, which employs a different seed
-        (config.training.eval_seed instead of config.training.seed)
+        (`config.training.eval_seed` instead of `config.training.seed`)
 
     Args:
         config (Config): The config object containing information about the model
@@ -539,7 +614,7 @@ def evaluate_model_wandb(config: Config, model: BaseAlgorithm, eval_env: VecEnv)
 
     Creates a new environment based on the information from the config.
     The environment is created in evaluation mode, which employs a different seed
-        (config.training.eval_seed instead of config.training.seed)
+        (`config.training.eval_seed` instead of `config.training.seed`)
 
     Args:
         config (Config): The config object containing information about the model
@@ -567,11 +642,11 @@ def evaluate_model_wandb(config: Config, model: BaseAlgorithm, eval_env: VecEnv)
 def evaluate_model(config: Config, model: BaseAlgorithm, eval_env: VecEnv):
     """Evaluate a model and either print the results to the console or upload them to WandB.
 
-    Which method is used depends on the run_type specified in the training sub-config.
+    Which method is used depends on the `run_type` specified in the training sub-config.
 
     Creates a new environment based on the information from the config.
     The environment is created in evaluation mode, which employs a different seed
-        (config.training.eval_seed instead of config.training.seed)
+        (`config.training.eval_seed` instead of `config.training.seed`)
 
     Args:
         config (Config): The config object containing information about the model
@@ -588,9 +663,10 @@ def load_and_evaluate_model(config: Config):
     """Load a model from disk and evaluate it.
 
     Results are either printed to the console or uploaded to WandB.
-    Which method is used depends on the run_type specified in the training sub-config.
+    Which method is used depends on the `run_type` specified in the training sub-config.
 
-    The environment created for evaluation uses the evaluation seed specified in the config (config.training.eval_seed).
+    The environment created for evaluation uses the evaluation seed
+    specified in the config (`config.training.eval_seed`).
 
     Args:
         config (Config): The config object containing information about the model to load and the evaluation environment
@@ -611,9 +687,10 @@ def load_and_evaluate_model(config: Config):
 def train_and_evaluate(config: Config):
     """Train a model and evaluate it.
 
-    If the test_only flag is set in the training sub-config, the model is only loaded and not trained before evaluation.
+    If the `test_only` flag is set in the training sub-config,
+    the model is only loaded and not trained before evaluation.
     For evaluation a new environment is created, which uses the evaluation seed specified in the config
-        (config.training.eval_seed).
+        (`config.training.eval_seed`).
 
     Args:
         config (Config): The config object describing the environment, model, and training process
