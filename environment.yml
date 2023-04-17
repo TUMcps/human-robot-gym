@@ -1,4 +1,4 @@
-name: hrgym-test
+name: hrgym
 channels:
   - conda-forge
 dependencies:
