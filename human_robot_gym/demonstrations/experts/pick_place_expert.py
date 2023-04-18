@@ -8,6 +8,7 @@ Author:
 
 Changelog:
     08.02.23 FT File creation
+
 """
 from typing import Any, Dict, Optional
 from dataclasses import dataclass
@@ -17,7 +18,7 @@ import time
 from gym.spaces import Box
 
 from human_robot_gym.utils.ou_process import ReparameterizedOrnsteinUhlenbeckProcess
-from human_robot_gym.demonstrations.experts import Expert
+from human_robot_gym.demonstrations.experts.expert import Expert
 
 
 @dataclass
@@ -46,26 +47,27 @@ class PickPlaceExpert(Expert):
     Does not take the human into account.
     Relevant observation data encapsulated in the PickPlaceExpertObservation data class.
     Behavior:
-        -Move above object and open gripper
-        -Move to object
-        -Close gripper
-        -Move above target
-        -Move to target
-        -Open gripper and move above object
+
+        - Move above object and open gripper
+        - Move to object
+        - Close gripper
+        - Move above target
+        - Move to target
+        - Open gripper and move above object
 
     Noise can be added to the motion parameters. We draw from an Ornstein-Uhlenbeck (OU) process
     with asymptotic mean 0 and variance of half the motion action limit as described in the action space.
     The OU discretization time delta reflects the clock time between two calls of the expert policy.
     Note that the OU process maintains a custom random number generator that is not affected by np.random.seed calls.
     Formula to obtain motion action parameters:
-        motion = expert_policy * signal_to_noise_ratio + noise * (1 - signal_to_noise_ratio)
+    `motion = expert_policy * signal_to_noise_ratio + noise * (1 - signal_to_noise_ratio)`
 
     Args:
         observation_space (Space): the environment observation space
         action_space (Space): the environment action space
         signal_to_noise_ratio (float): interpolation between
-            noise signal (Ornstein-Uhlenbeck process): signal_to_noise_ratio = 0
-            and expert policy: signal_to_noise_ratio = 1
+            noise signal (Ornstein-Uhlenbeck process) -> signal_to_noise_ratio = 0
+            and expert policy -> signal_to_noise_ratio = 1
         hover_dist (float): vertical distance the expert should reach
             while moving above the next objective
         tan_theta (float): tangent of the opening angle of the cone describing
@@ -161,6 +163,7 @@ class PickPlaceExpert(Expert):
 
     def _select_motion(self, obs: PickPlaceExpertObservation) -> np.ndarray:
         """Select motion arguments of action (action[0:3]).
+
         To ensure the next objective can be reached (grip object or deliver object to target),
         the expert first moves towards a point a given distance above the next objective.
         If the gripper is sufficiently close to this point and some conditions for meeting the next objective are met
@@ -182,6 +185,7 @@ class PickPlaceExpert(Expert):
 
     def _select_gripper_action(self, obs: PickPlaceExpertObservation) -> np.ndarray:
         """Select gripper actuation argument of action (action[3]).
+
         Select the action to close the gripper if the object is gripped or can be gripped
         but was not yet delivered to the target.
         Otherwise (object not yet gripped, dropped or successfully delivered), select the action to open the gripper.
@@ -213,9 +217,11 @@ class PickPlaceExpert(Expert):
 
     def _is_within_truncated_cone(self, vec: np.ndarray) -> bool:
         """Determine if the vector points to a point within a truncated cone.
+
         This cone is characterized by its:
-            -Minimum radius (self._horizontal_epsilon)
-            -Opening angle (arctan(self._tan_theta))
+            - Minimum radius (self._horizontal_epsilon)
+            - Opening angle (arctan(self._tan_theta))
+
         and is opened towards the negative z-axis.
 
         This function is used to define a volume in which the gripper is considered to be

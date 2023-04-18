@@ -589,7 +589,7 @@ def evaluate_model_simple(config: Config, model: BaseAlgorithm, eval_env: VecEnv
 
     Creates a new environment based on the information from the config.
     The environment is created in evaluation mode, which employs a different seed
-        (`config.training.eval_seed` instead of `config.training.seed`)
+    (`config.training.eval_seed` instead of `config.training.seed`)
 
     Args:
         config (Config): The config object containing information about the model
@@ -614,7 +614,7 @@ def evaluate_model_wandb(config: Config, model: BaseAlgorithm, eval_env: VecEnv)
 
     Creates a new environment based on the information from the config.
     The environment is created in evaluation mode, which employs a different seed
-        (`config.training.eval_seed` instead of `config.training.seed`)
+    (`config.training.eval_seed` instead of `config.training.seed`)
 
     Args:
         config (Config): The config object containing information about the model
@@ -646,7 +646,7 @@ def evaluate_model(config: Config, model: BaseAlgorithm, eval_env: VecEnv):
 
     Creates a new environment based on the information from the config.
     The environment is created in evaluation mode, which employs a different seed
-        (`config.training.eval_seed` instead of `config.training.seed`)
+    (`config.training.eval_seed` instead of `config.training.seed`)
 
     Args:
         config (Config): The config object containing information about the model
@@ -690,7 +690,7 @@ def train_and_evaluate(config: Config):
     If the `test_only` flag is set in the training sub-config,
     the model is only loaded and not trained before evaluation.
     For evaluation a new environment is created, which uses the evaluation seed specified in the config
-        (`config.training.eval_seed`).
+    (`config.training.eval_seed`).
 
     Args:
         config (Config): The config object describing the environment, model, and training process

@@ -17,8 +17,9 @@ class IKPositionDeltaWrapper(Wrapper):
 
     Maps a delta position action to a delta joint angle action
     through inverse kinematics using pybullet.
-    note: Uses the gym wrapper instead of the robosuite wrapper,
-        given that I did not find out, how to redifine the action space with the latter.
+
+    *Note*: Uses the gym wrapper instead of the robosuite wrapper,
+    given that I did not find out, how to redifine the action space with the latter.
     """
 
     def __init__(

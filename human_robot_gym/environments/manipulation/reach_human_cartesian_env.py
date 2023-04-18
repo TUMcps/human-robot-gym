@@ -25,6 +25,7 @@ class ReachHumanCart(ReachHuman):
     The arguments differ from ReachHuman in the following two ways:
         Randomized initial joint positions are not allowed.
         Added init_joint_pos to arguments.
+
     Args:
         robots (str or list of str): Specification for specific robot arm(s) to be instantiated within this env
             (e.g: "Sawyer" would generate one arm; ["Panda", "Panda", "Sawyer"] would generate three robot arms)

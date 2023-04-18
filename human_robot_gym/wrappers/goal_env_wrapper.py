@@ -3,11 +3,10 @@
 This wrapper is specifically designed to work with Hindsight Experience Replay,
 so it sets up a goal environment.
 Each observation has the following form:
-obs = {
-  "observation": Box,
-  "achieved_goal": Box,
-  "desired_goal": Box
-}
+
+    - '`observation`': Box,
+    - '`achieved_goal`': Box,
+    - '`desired_goal`': Box
 
 Owner:
     Jakob Thumm (JT)
@@ -32,9 +31,11 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
     part of the observation.
     The observation must have the following form:
     gym.spaces.Dict({
-        "desired_goal": gym.spaces.Box
-        "achieved_goal": gym.spaces.Box
-        "observation": gym.spaces.Box
+
+        - '`observation`': gym.spaces.Box,
+        - '`achieved_goal`': gym.spaces.Box,
+        - '`desired_goal`': gym.spaces.Box
+
     })
 
     Args:
@@ -129,7 +130,7 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
         return self._flatten_obs(ob_dict)
 
     def step(self, action):
-        """Extend vanilla sstep function call to return flattened observation instead of normal OrderedDict.
+        """Extend vanilla step function call to return flattened observation instead of normal OrderedDict.
 
         Args:
             action (np.array): Action to take in environment
@@ -176,8 +177,10 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
         Returns:
             float: The reward that corresponds to the provided achieved goal w.r.t. to the desired
             goal. Note that the following should always hold true:
-                ob, reward, done, info = env.step()
-                assert reward == env.compute_reward(ob['achieved_goal'], ob['goal'], info)
+
+                - `ob, reward, done, info = env.step()`
+                - `assert reward == env.compute_reward(ob[achieved_goal], ob[goal], info)`
+
         """
         return self.env._compute_reward(achieved_goal, desired_goal, info)
 

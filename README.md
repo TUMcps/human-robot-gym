@@ -3,6 +3,24 @@
 This project is designed for reinforcement learning in human-robot environments.
 We provide environments, safety functionality, and training scripts.
 
+# Documentation
+[**Read the documentation**](https://cps-rl.pages.gitlab.lrz.de/human-robot-gym/docs/)
+
+To generate the documentation locally, install
+```
+apt install sphinx graphviz
+pip install sphinx_rtd_theme
+pip install sphinx-autoapi
+pip install graphviz
+```
+Then make the documentation with
+```
+cd docs
+make html
+```
+
+Inspect the documentation at `docs/build/html/index.html`.
+
 # Installation
 ### Clone the repo with submodules
 ```

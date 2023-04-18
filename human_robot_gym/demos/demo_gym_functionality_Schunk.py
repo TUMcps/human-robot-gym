@@ -46,7 +46,7 @@ if __name__ == "__main__":
             horizon=1000,
             controller_configs=controller_configs,
             use_failsafe_controller=True,
-            visualize_failsafe_controller=False,
+            visualize_failsafe_controller=True,
             visualize_pinocchio=False,
             base_human_pos_offset=[1.0, 0.0, 0.0],
             verbose=True,
