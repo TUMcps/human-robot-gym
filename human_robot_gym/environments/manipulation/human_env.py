@@ -7,10 +7,10 @@ Owner:
 
 Contributors:
     Julian Balletshofer (JB)
+
 Changelog:
     2.5.22 JT Formatted docstrings
-    13.7.22 JB adjusted observation space (sensors) to relative
-                distances eef and L_hand,R_hand,Head
+    13.7.22 JB adjusted observation space (sensors) to relative distances eef and L_hand, R_hand, and Head
 """
 
 from typing import Dict, Union, List, Optional, Tuple
@@ -45,7 +45,7 @@ from human_robot_gym.utils.pairing import cantor_pairing
 from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import (
     PinocchioManipulatorModel,
 )
-from human_robot_gym.controllers.failsafe_controller.failsafe_controller.failsafe_controller import (
+from human_robot_gym.controllers.failsafe_controller.failsafe_controller import (
     FailsafeController,
 )
 import human_robot_gym.models.objects.obstacle as obstacle
@@ -575,10 +575,12 @@ class HumanEnv(SingleArmEnv):
         """Compute the reward based on the achieved goal, the desired goal, and the info dict.
 
         This function can either be called for one sample or a list of samples.
+
         Args:
             achieved_goal: observation of robot state that is relevant for goal
             desired_goal: the desired goal
             info: dictionary containing additional information like collision
+
         Returns:
             reward (list of rewards)
         """
@@ -601,6 +603,7 @@ class HumanEnv(SingleArmEnv):
         """Compute the done flag based on the achieved goal, the desired goal, and the info dict.
 
         This function can either be called for one sample or a list of samples.
+
         Args:
             achieved_goal: observation of robot state that is relevant for goal
             desired_goal: the desired goal
@@ -624,6 +627,7 @@ class HumanEnv(SingleArmEnv):
 
         This function can only be called for one sample.
         If the robot is in collision, this function returns done=True.
+
         Args:
             achieved_goal: observation of robot state that is relevant for goal
             desired_goal: the desired goal

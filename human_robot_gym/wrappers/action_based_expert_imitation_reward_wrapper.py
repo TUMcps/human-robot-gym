@@ -67,8 +67,7 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         return super().reset()
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, dict]:
-        """Extend environment's step method to query the expert on the same observation
-        and add an imitation reward.
+        """Extend environment's step method to query the expert on the same observation and add an imitation reward.
 
         Args:
             action (np.ndarray): action chosen by agent to take in environment
@@ -105,7 +104,9 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         return obs, reward, done, info
 
     def _add_reward_to_info(self, info: dict):
-        """Add the following data to the info dict:
+        """Add data to the info dict.
+
+        Add the following data to the info dict:
             - ep_im_rew_mean: sum of imitation rewards in episode
             - ep_env_rew_mean: sum of environment rewards in episode
             - im_rew_mean: mean of imitation rewards in episode
@@ -123,6 +124,7 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         imitation_reward: Union[float, List[float]],
     ) -> float:
         """Combine the environment and imitation reward values by linear interpolation.
+
         Values either given as single values or as two lists of values.
 
         Args:
@@ -148,6 +150,7 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         expert_action: np.ndarray,
     ) -> float:
         """Extract the imitation reward from the similarity between agent and expert actions.
+
         Depends on the action space, therefore implemented in subclasses.
 
         Args:
@@ -174,8 +177,8 @@ class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewa
     Where:
         r_{env}: reward from wrapped environment
         r_i = r_{motion} * \beta + r_{gripper} * (1 - \beta)
-        r_{motion} = 2^{-(||a_m^a - a_m^e|| / \iota_m)^2}
-        r_{gripper} = 2^{-(|a_g^a - a_g^e| / \iota_g)^2}
+        r_{motion} = 2^{-(\|\|a_m^a - a_m^e\|\| / \iota_m)^2}
+        r_{gripper} = 2^{-(\|a_g^a - a_g^e\| / \iota_g)^2}
 
         a_m^a: motion action parameters of agent
         a_m^e: motion action parameters of expert
@@ -247,6 +250,7 @@ class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewa
         expert_action: np.ndarray,
     ) -> float:
         """Override super class method to compute the imitation reward for the cartesian action space.
+
         Obtain similarities for both movement and gripper actuation and interpolate between them.
 
         Args:

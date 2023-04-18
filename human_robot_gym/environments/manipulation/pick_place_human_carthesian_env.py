@@ -439,6 +439,7 @@ class PickPlaceHumanCart(HumanEnv):
         """Compute the done flag based on the achieved goal, the desired goal, and the info dict.
 
         This function can only be called for one sample.
+
         Args:
             achieved_goal: observation of robot state that is relevant for goal
             desired_goal: the desired goal
@@ -478,6 +479,7 @@ class PickPlaceHumanCart(HumanEnv):
         """Extract the desired goal from the observation.
 
         The desired goal is the target position for the object.
+
         Args:
             observation: The observation after the action is executed
 

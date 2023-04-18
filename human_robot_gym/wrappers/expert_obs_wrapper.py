@@ -116,7 +116,7 @@ class ExpertObsWrapper(Wrapper, Env):
         obs_dict: Dict[str, Any],
         verbose: bool = False
     ) -> np.ndarray:
-        """Filters keys of interest out and concatenate the information.
+        """Filter keys of interest out and concatenate the information.
 
         Args:
             keys (list of str): keys of interest
@@ -135,7 +135,8 @@ class ExpertObsWrapper(Wrapper, Env):
         return np.concatenate(ob_lst)
 
     def reset(self):
-        """Extend environment's reset method to return flattened observation instead of normal OrderedDict.
+        """Reset the environment and return flattened observation instead of normal OrderedDict.
+
         The expert observation is internally stored as a dictionary.
 
         Returns:
@@ -152,7 +153,8 @@ class ExpertObsWrapper(Wrapper, Env):
         )
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
-        """Extend environment's step function call to return flattened observation instead of normal OrderedDict.
+        """Step environment and return flattened observation instead of normal OrderedDict.
+
         Expert observations from before and after the environment step are added to the info dictionary.
 
         Args:
@@ -180,7 +182,7 @@ class ExpertObsWrapper(Wrapper, Env):
         return flat_agent_obs, reward, done, info
 
     def seed(self, seed: Optional[float] = None):
-        """Utility function to set numpy seed
+        """Set numpy seed.
 
         Args:
             seed (None or int): If specified, numpy seed to set
@@ -196,8 +198,7 @@ class ExpertObsWrapper(Wrapper, Env):
                 TypeError("Seed must be an integer type!")
 
     def compute_reward(self, achieved_goal, desired_goal, info):
-        """
-        Dummy function to be compatible with gym interface that simply returns environment reward
+        """Return environment reward.
 
         Args:
             achieved_goal: [NOT USED]

@@ -102,25 +102,27 @@ def make_vec_env(
     By default it uses a ``DummyVecEnv`` which is usually faster
     than a ``SubprocVecEnv``.
 
-    :param env_id: the environment ID or the environment class
-    :param type: The type of environment to create. Can be "env" or "goal_env".
-    :param obs_keys: The observation keys to use for the environment.
-    :param expert_obs_keys: If set, add observations for an expert policy to the info dictionary
-    :param n_envs: the number of environments you wish to have in parallel
-    :param seed: the initial seed for the random number generator
-    :param start_index: start rank index
-    :param monitor_dir: Path to a folder where the monitor files will be saved.
-        If None, no file will be written, however, the env will still be wrapped
-        in a Monitor wrapper to provide additional information about training.
-    :param wrapper_class: Additional wrapper to use on the environment.
-        This can also be a function with single argument that wraps the environment in many things.
-    :param env_kwargs: Optional keyword argument to pass to the env constructor
-    :param vec_env_cls: A custom ``VecEnv`` class constructor. Default: None.
-    :param vec_env_kwargs: Keyword arguments to pass to the ``VecEnv`` class constructor.
-    :param monitor_kwargs: Keyword arguments to pass to the ``Monitor`` class constructor.
-    :param wrapper_kwargs: Keyword arguments to pass to the ``Wrapper`` class constructor.
+    Args:
+        env_id: the environment ID or the environment class
+        type: The type of environment to create. Can be "env" or "goal_env".
+        obs_keys: The observation keys to use for the environment.
+        expert_obs_keys: If set, add observations for an expert policy to the info dictionary
+        n_envs: the number of environments you wish to have in parallel
+        seed: the initial seed for the random number generator
+        start_index: start rank index
+        monitor_dir: Path to a folder where the monitor files will be saved.
+            If None, no file will be written, however, the env will still be wrapped
+            in a Monitor wrapper to provide additional information about training.
+        wrapper_class: Additional wrapper to use on the environment.
+            This can also be a function with single argument that wraps the environment in many things.
+        env_kwargs: Optional keyword argument to pass to the env constructor
+        vec_env_cls: A custom ``VecEnv`` class constructor. Default: None.
+        vec_env_kwargs: Keyword arguments to pass to the ``VecEnv`` class constructor.
+        monitor_kwargs: Keyword arguments to pass to the ``Monitor`` class constructor.
+        wrapper_kwargs: Keyword arguments to pass to the ``Wrapper`` class constructor.
 
-    :return: The wrapped environment
+    Returns:
+        The wrapped environment
     """
     assert type in ["env", "goal_env"], "The type of environment must be either 'env' or 'goal_env'."
     if type == "env":

@@ -3,7 +3,7 @@
 import os
 from robosuite.environments.base import make
 
-from human_robot_gym.controllers.failsafe_controller.failsafe_controller.failsafe_controller import (
+from human_robot_gym.controllers.failsafe_controller.failsafe_controller import (
     FailsafeController,
 )
 
