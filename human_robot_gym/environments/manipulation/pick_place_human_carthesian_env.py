@@ -85,7 +85,11 @@ class PickPlaceHumanCart(HumanEnv):
 
         goal_reward (double): Reward to be given in the case of reaching the goal.
 
-        object_gripped_subgoal_reward (double): Reward to be given in the case that the object is gripped.
+        object_gripped_reward (double): Additional reward for gripping the object when `reward_shaping=False`.
+            If object is not gripped: `reward = -1`.
+            If object gripped but not at the target: `object_gripped_reward`.
+            If object is at the target: `reward = goal_reward`.
+            `object_gripped_reward` defaults to -1.
 
         object_placement_initializer (ObjectPositionSampler): if provided, will
             be used to place objects on every reset, else a UniformRandomSampler
@@ -213,7 +217,7 @@ class PickPlaceHumanCart(HumanEnv):
         goal_dist=0.1,
         collision_reward=-10,
         goal_reward=1,
-        object_gripped_subgoal_reward=0.5,
+        object_gripped_reward=-1,
         object_placement_initializer=None,
         target_placement_initializer=None,
         obstacle_placement_initializer=None,
@@ -273,7 +277,7 @@ class PickPlaceHumanCart(HumanEnv):
         self.reward_shaping = reward_shaping
         self.collision_reward = collision_reward
         self.goal_reward = goal_reward
-        self.object_gripped_subgoal_reward = object_gripped_subgoal_reward
+        self.object_gripped_reward = object_gripped_reward
         self.goal_dist = goal_dist
         self.desired_goal = np.array([0.0])
         # object placement initializer
@@ -390,9 +394,10 @@ class PickPlaceHumanCart(HumanEnv):
 
         If self.reward_shaping, we use a dense reward, otherwise a sparse reward.
         The sparse reward yields
-            @self.goal_reward if the target is reached
-            @self.object_gripped_subgoal_reward if the object is gripped but the target is not reached
-            (-1) otherwise
+            - `self.goal_reward` if the target is reached
+            - `self.object_gripped_subgoal_reward` if the object is gripped but the target is not reached
+            - `-1` otherwise
+
         This function can only be called for one sample.
 
         Args:
@@ -408,9 +413,10 @@ class PickPlaceHumanCart(HumanEnv):
         if self._check_success(achieved_goal, desired_goal):
             reward = self.goal_reward
         elif object_gripped:
-            reward = self.object_gripped_subgoal_reward
+            reward = self.object_gripped_reward
         else:
-            reward = -1.0
+            reward = -1
+
         # use a shaping reward
         if self.reward_shaping:
             eef_pos = achieved_goal[:3]
