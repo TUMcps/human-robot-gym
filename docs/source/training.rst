@@ -34,20 +34,18 @@ A basic structure of the config files can be examined in `human-robot-gym/utils/
 Running the training
 --------------------
 
-We provide training scripts for different training scenarios. The scripts can be found in the `human_robot_gym/training` folder.
-As all parameters that are relevant for training should be defined in the config, these files mainly differ in the config file that is used per default.
-
-To choose a different config file, you can use the ``--config-name`` flag:
+Training `stable-baselines3` RL agents can be done using the `human_robot_gym/training/train_SB3.py` script.
+To start a run, please select a config file from the `human_robot_gym/training/config` folder using the ``--config-name`` flag:
 
 .. code-block:: bash
 
-    python human_robot_gym/training/train_human_reach_PPO_parallel.py --config-name custom_config_name 
+    python human_robot_gym/training/train_SB3.py --config-name human_reach_ppo_parallel
 
 If you want to display the assembled config file instead of running the training, you can use the ``--cfg job`` argument:
 
 .. code-block:: bash
 
-    python human_robot_gym/training/train_human_reach_PPO_parallel.py --cfg job
+    python human_robot_gym/training/train_SB3.py --config-name human_reach_ppo_parallel --cfg job
 
 For more information, please refer to the `hydra documentation <https://hydra.cc/docs/advanced/hydra-command-line-flags/>`_.
 
@@ -55,7 +53,7 @@ Config parameters can be overridden from the command line:
 
 .. code-block:: bash
 
-    python human_robot_gym/training/train_human_reach_PPO_parallel.py training.run_type=debug training.n_envs=8 environment.horizon=1000
+    python human_robot_gym/training/train_SB3.py --config-name human_reach_ppo_parallel training.run_type=debug training.n_envs=8 environment.horizon=1000
 
 The configuration files are also stored in the `outputs/` directory at the corresponding timestamp.
 
@@ -72,7 +70,15 @@ Then you can configure wandb for your training:
 
 .. code-block:: bash
 
-    python human_robot_gym/training/train_human_reach_PPO_parallel.py training.run_type=wandb wandb_run.project_name=my_project wandb_run.name=name_of_my_run wandb_run.group=group_of_my_run
+    python human_robot_gym/training/train_SB3.py --config-name human_reach_ppo_parallel training.run_type=wandb wandb_run.project_name=my_project wandb_run.name=name_of_my_run wandb_run.group=group_of_my_run
+
+You can store your trained models to disk by setting the ``training.run_type`` parameter to ``tensorboard`` or ``wandb``.
+This will create a subfolder in the `models/` directory corresponding to the id of your training run.
+In this folder, the final model will be stored as `model_final.zip`. If ``training.run_type`` is set to ``wandb``,
+intermediate models will be stored every ``training.save_freq`` episodes.
+A copy of your training config is also stored in this folder to ease loading the model from disk for evaluation.
+Finally, the replay buffer of the finished training is also stored when using an off-policy algorithm.
+
 
 To evaluate a training by deploying the trained policy on a rendered test environment, add ``eval`` to the end of the defaults list. For example:
 
