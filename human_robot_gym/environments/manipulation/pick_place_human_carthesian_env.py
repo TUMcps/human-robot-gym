@@ -395,7 +395,7 @@ class PickPlaceHumanCart(HumanEnv):
         If self.reward_shaping, we use a dense reward, otherwise a sparse reward.
         The sparse reward yields
             - `self.goal_reward` if the target is reached
-            - `self.object_gripped_subgoal_reward` if the object is gripped but the target is not reached
+            - `self.object_gripped_reward` if the object is gripped but the target is not reached
             - `-1` otherwise
 
         This function can only be called for one sample.
