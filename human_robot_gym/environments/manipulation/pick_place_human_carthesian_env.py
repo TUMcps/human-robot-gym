@@ -85,6 +85,12 @@ class PickPlaceHumanCart(HumanEnv):
 
         goal_reward (double): Reward to be given in the case of reaching the goal.
 
+        object_gripped_reward (double): Additional reward for gripping the object when `reward_shaping=False`.
+            If object is not gripped: `reward = -1`.
+            If object gripped but not at the target: `object_gripped_reward`.
+            If object is at the target: `reward = goal_reward`.
+            `object_gripped_reward` defaults to -1.
+
         object_placement_initializer (ObjectPositionSampler): if provided, will
             be used to place objects on every reset, else a UniformRandomSampler
             is used by default.
@@ -211,6 +217,7 @@ class PickPlaceHumanCart(HumanEnv):
         goal_dist=0.1,
         collision_reward=-10,
         goal_reward=1,
+        object_gripped_reward=-1,
         object_placement_initializer=None,
         target_placement_initializer=None,
         obstacle_placement_initializer=None,
@@ -270,6 +277,7 @@ class PickPlaceHumanCart(HumanEnv):
         self.reward_shaping = reward_shaping
         self.collision_reward = collision_reward
         self.goal_reward = goal_reward
+        self.object_gripped_reward = object_gripped_reward
         self.goal_dist = goal_dist
         self.desired_goal = np.array([0.0])
         # object placement initializer
@@ -385,6 +393,11 @@ class PickPlaceHumanCart(HumanEnv):
         """Compute the reward based on the achieved goal, the desired goal, and the info dict.
 
         If self.reward_shaping, we use a dense reward, otherwise a sparse reward.
+        The sparse reward yields
+            - `self.goal_reward` if the target is reached
+            - `self.object_gripped_reward` if the object is gripped but the target is not reached
+            - `-1` otherwise
+
         This function can only be called for one sample.
 
         Args:
@@ -394,15 +407,20 @@ class PickPlaceHumanCart(HumanEnv):
         Returns:
             reward
         """
+        object_gripped = bool(achieved_goal[6])
+
         # sparse completion reward
         if self._check_success(achieved_goal, desired_goal):
             reward = self.goal_reward
+        elif object_gripped:
+            reward = self.object_gripped_reward
         else:
-            reward = -1.0
+            reward = -1
+
         # use a shaping reward
         if self.reward_shaping:
             eef_pos = achieved_goal[:3]
-            obj_pos = achieved_goal[3:]
+            obj_pos = achieved_goal[3:6]
             reward += 1.0
             eef_2_obj = np.sum((obj_pos - eef_pos)**2)
             obj_2_target = np.sum((desired_goal - obj_pos)**2)
@@ -430,7 +448,7 @@ class PickPlaceHumanCart(HumanEnv):
         Returns:
             True if success
         """
-        dist = np.linalg.norm(achieved_goal[3:] - desired_goal)
+        dist = np.linalg.norm(achieved_goal[3:6] - desired_goal)
         return dist <= self.goal_dist
 
     def _check_done(
@@ -461,7 +479,7 @@ class PickPlaceHumanCart(HumanEnv):
         """
         Extract the achieved goal from the observation.
 
-        The achieved goal includes the end effector and object positions
+        The achieved goal includes the end effector position, object position, and whether the object is gripped.
 
         Args:
             observation: The observation after the action is executed
@@ -471,7 +489,13 @@ class PickPlaceHumanCart(HumanEnv):
         """
 
         pf = self.robots[0].robot_model.naming_prefix
-        return np.concatenate([observation[f"{pf}eef_pos"], observation["object_pos"]])
+        return np.concatenate(
+            [
+                observation[f"{pf}eef_pos"],
+                observation["object_pos"],
+                np.array(observation["object_gripped"]).reshape(1),
+            ]
+        )
 
     def _get_desired_goal_from_obs(
         self, observation: Dict
