@@ -1,5 +1,5 @@
 bvh==0.3
-gym>=0.21
+gym==0.21
 meshcat==0.3.2
 mujoco_py==2.1.2.14
 numpy<=1.23
@@ -21,3 +21,6 @@ pydocstyle>=6.1
 mypy>=0.950
 envpool==0.6.1
 pybullet>=3.2.1
+sphinx_rtd_theme
+sphinx-autoapi
+graphviz

@@ -47,7 +47,8 @@ RUN apt-get update --fix-missing \
     patchelf \
     ssh \
     curl \
-    liboctomap-dev
+    liboctomap-dev \
+    python3-sphinx
 
 # Create the environment:
 COPY environment.yml .

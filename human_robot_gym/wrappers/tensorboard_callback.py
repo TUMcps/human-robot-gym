@@ -72,11 +72,10 @@ class TensorboardCallback(WandbCallback):
         for key in additional_log_info_keys:
             self._info_buffer[key] = []
         self.log_interval = log_interval
-        """
-        if log_path is not None:
-            log_path = os.path.join(log_path, "evaluations")
-        self.log_path = log_path
-        """
+        # if log_path is not None:
+        #     log_path = os.path.join(log_path, "evaluations")
+        # self.log_path = log_path
+
         # eval results
         self.evaluations_results = []
         self.evaluations_timesteps = []
@@ -85,11 +84,10 @@ class TensorboardCallback(WandbCallback):
         self._eval_info_buffer = dict()
         for key in additional_log_info_keys:
             self._eval_info_buffer[key] = []
-        """
-        self._eval_results = dict()
-        for key in additional_log_info_keys:
-            self._eval_results[key] = []
-        """
+        # self._eval_results = dict()
+        # for key in additional_log_info_keys:
+        #     self._eval_results[key] = []
+
         # We don't have seperate eval environments. You can add this if you need it.
         self.eval_env = eval_env
         if self.n_eval_episodes == 0:
@@ -114,11 +112,9 @@ class TensorboardCallback(WandbCallback):
 
     def _on_rollout_end(self) -> None:
         """After each n-th rollout (episode), log data."""
-        """
-        for key in self.additional_log_info_keys:
-            if key in self.locals["infos"][0]:
-                self.logger.record(key, self.locals["infos"][0][key])
-        """
+        # for key in self.additional_log_info_keys:
+        #     if key in self.locals["infos"][0]:
+        #         self.logger.record(key, self.locals["infos"][0][key])
         # self.logger.dump(self.episode_counter)
         if self.episode_counter % self.save_freq == 0:
             self.model.save(
@@ -133,6 +129,7 @@ class TensorboardCallback(WandbCallback):
         """Pass this callback to the  ``evaluate_policy`` function in order to log the success rate.
 
         This is used when applicable, for instance when using HER.
+
         Args:
             locals_:
             globals_:
@@ -172,25 +169,25 @@ class TensorboardCallback(WandbCallback):
             return_episode_rewards=True,
             callback=self._log_success_callback,
         )
-        """
-        if self.log_path is not None:
-            self.evaluations_timesteps.append(self.num_timesteps)
-            self.evaluations_results.append(episode_rewards)
-            self.evaluations_length.append(episode_lengths)
 
-            # Save success log if present
-            for key in self._eval_info_buffer.keys():
-                if len(self._eval_info_buffer[key]) > 0:
-                    self._eval_results[key].append(self._eval_info_buffer[key])
+        # if self.log_path is not None:
+        #     self.evaluations_timesteps.append(self.num_timesteps)
+        #     self.evaluations_results.append(episode_rewards)
+        #     self.evaluations_length.append(episode_lengths)
 
-            np.savez(
-                self.log_path,
-                timesteps=self.evaluations_timesteps,
-                results=self.evaluations_results,
-                ep_lengths=self.evaluations_length,
-                **self._eval_results,
-            )
-        """
+        #     # Save success log if present
+        #     for key in self._eval_info_buffer.keys():
+        #         if len(self._eval_info_buffer[key]) > 0:
+        #             self._eval_results[key].append(self._eval_info_buffer[key])
+
+        #     np.savez(
+        #         self.log_path,
+        #         timesteps=self.evaluations_timesteps,
+        #         results=self.evaluations_results,
+        #         ep_lengths=self.evaluations_length,
+        #         **self._eval_results,
+        #     )
+
         mean_reward, std_reward = np.mean(episode_rewards), np.std(episode_rewards)
         mean_ep_length, std_ep_length = np.mean(episode_lengths), np.std(
             episode_lengths

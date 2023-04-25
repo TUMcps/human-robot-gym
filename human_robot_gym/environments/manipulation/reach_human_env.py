@@ -384,11 +384,11 @@ class ReachHuman(HumanEnv):
         This function can only be called for one sample.
 
         Args:
-            achieved_goal: observation of robot state that is relevant for goal
-            desired_goal: the desired goal
-            info: dictionary containing additional information like collision
+            achieved_goal (List[float]): observation of robot state that is relevant for goal
+            desired_goal (List[float]): the desired goal
+            info (Dict): dictionary containing additional information like collision
         Returns:
-            reward
+            reward (float)
         """
         # sparse completion reward
         if self._check_success(achieved_goal, desired_goal):
@@ -433,12 +433,13 @@ class ReachHuman(HumanEnv):
         """Compute the done flag based on the achieved goal, the desired goal, and the info dict.
 
         This function can only be called for one sample.
+
         Args:
-            achieved_goal: observation of robot state that is relevant for goal
-            desired_goal: the desired goal
-            info: dictionary containing additional information like collision
+            achieved_goal (List[float]): observation of robot state that is relevant for goal
+            desired_goal (List[float]): the desired goal
+            info (Dict): dictionary containing additional information like collision
         Returns:
-            done
+            done (bool)
         """
         collision = info["collision"]
         if self.done_at_collision and collision:
@@ -471,6 +472,7 @@ class ReachHuman(HumanEnv):
         """Extract the desired goal from the observation.
 
         The desired goal is a desired goal joint position.
+
         Args:
             observation: The observation after the action is executed
 

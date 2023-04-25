@@ -20,6 +20,12 @@ variables:
   GIT_SUBMODULE_UPDATE_FLAGS: --remote
   # IMAGE_BASE_TAG: ${CI_REGISTRY_IMAGE}/base:${CI_COMMIT_REF_SLUG}
   # GIT_CLONE_PATH: "$CI_BUILDS_DIR/$CI_JOB_STAGE/$CI_PROJECT_NAME"
+  DOC_SUBPAGE: docs/
+  DOC_OUT_DIR: public/${DOC_SUBPAGE}
+  ARTIFACT_DOWNLOAD_ATTEMPTS: 3
+  EXECUTOR_JOB_SECTION_ATTEMPTS: 3
+  GET_SOURCES_ATTEMPTS: 3
+  RESTORE_CACHE_ATTEMPTS: 3
   
 cache:
   paths:
@@ -47,6 +53,41 @@ lint-test-job:   # This job also runs in the test stage.
     - flake8
     - pydocstyle
     - echo "success"
+
+
+doc:   # This job also runs in the test stage.
+  tags: [linting]
+  stage: linting    # It can run at the same time as unit-test-job (in parallel).
+  script:
+    - apt-get update
+    - apt install python3-sphinx graphviz -y
+    - pip3 install sphinx_rtd_theme sphinx-autoapi graphviz
+    - mkdir -p $DOC_SUBPAGE  # One of these should always be set
+    - cd $DOC_SUBPAGE
+    - make html
+    - echo "The documentation is now available within the job's artifacts ($DOC_SUBPAGE/build/html)"
+  artifacts:
+    name: "doc_$CI_COMMIT_BRANCH"
+    paths:
+      - $DOC_SUBPAGE
+
+pages:
+  tags: [linting]
+  stage: linting
+  needs:
+    - job: doc  # Wait for doc job
+      artifacts: true  # and get artifacts
+  only:
+    - main
+  script:
+    - ls $DOC_SUBPAGE/build/html/
+    - mkdir -p $DOC_OUT_DIR
+    - cp -r $DOC_SUBPAGE/build/html/* $DOC_OUT_DIR  # Move to expected public folder; should be there from doc stage
+    - echo "The documentation is now available at $CI_PAGES_URL/$DOC_SUBPAGE"
+  artifacts: # Return the altered public folder
+    name: "doc_$CI_COMMIT_BRANCH"
+    paths:
+      - public
 
 build dockerimage:
   image: docker:19.03.12
