@@ -8,6 +8,7 @@ Changelog:
 """
 from typing import Any, Callable, Dict, List, Optional, Union
 from copy import deepcopy
+import os
 
 from omegaconf import OmegaConf
 import wandb
@@ -487,6 +488,7 @@ def run_training_tensorboard(config: Config) -> BaseAlgorithm:
     """Run a training and store the logs to tensorboard.
 
     This avoids using WandB and stores logs only locally. Only stores the final model.
+    Stores the model and the config in `models/{run_id}`.
 
     Args:
         config (Config): The config object containing information about the model
@@ -495,6 +497,11 @@ def run_training_tensorboard(config: Config) -> BaseAlgorithm:
         BaseAlgorithm: The trained model
     """
     run_id = "%05i" % np.random.randint(100_000) if config.training.run_id is None else config.training.run_id
+
+    os.makedirs(f"models/{run_id}", exist_ok=True)
+    with open(f"models/{run_id}/config.yaml", "w") as f:
+        f.write(OmegaConf.to_yaml(config, resolve=True))
+
     env = create_environment(config=config, evaluation_mode=False)
     model = create_model(config=config, env=env, run_id=run_id, save_logs=True)
     model.learn(
@@ -516,6 +523,7 @@ def run_training_wandb(config: Config) -> BaseAlgorithm:
     The WandB run is closed at the end of the training.
     Models are saved in regular intervals and at the end of the training.
     The frequency is specified in `config.training.save_freq`.
+    Stores the model and the config in `models/{run_id}`.
 
     Link: https://wandb.ai
 
@@ -526,6 +534,10 @@ def run_training_wandb(config: Config) -> BaseAlgorithm:
         BaseAlgorithm: The trained model
     """
     with init_wandb(config=config) as run:
+        os.makedirs(f"models/{run.id}", exist_ok=True)
+        with open(f"models/{run.id}/config.yaml", "w") as f:
+            f.write(OmegaConf.to_yaml(config, resolve=True))
+
         env = create_environment(config=config, evaluation_mode=False)
         model = get_model(config=config, env=env, run_id=run.id, save_logs=True)
         callback = TensorboardCallback(
