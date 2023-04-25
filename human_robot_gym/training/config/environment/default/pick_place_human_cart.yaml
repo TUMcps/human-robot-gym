@@ -1,0 +1,37 @@
+defaults:
+  - human_env
+  - _self_
+
+env_id: PickPlaceHumanCart
+table_full_size:
+  - 1.5
+  - 2.0
+  - 0.05
+table_friction:
+  - 1.0
+  - 5e-3
+  - 1e-4
+reward_scale: 1.0
+reward_shaping: false
+goal_dist: 0.1
+collision_reward: -10
+goal_reward: 1
+object_placement_initializer: null
+target_placement_initializer: null
+obstacle_placement_initializer: null
+human_animation_names: 
+  - "62_01"
+  - "62_03"
+  - "62_04"
+  - "62_07"
+  - "62_09"
+  - "62_10"
+  - "62_12"
+  - "62_13"
+  - "62_14"
+  - "62_15"
+  - "62_16"
+  - "62_18"
+  - "62_19"
+done_at_collision: false
+done_at_success: false

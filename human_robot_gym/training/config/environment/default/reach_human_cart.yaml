@@ -1,0 +1,10 @@
+defaults:
+  - reach_human
+  - _self_
+
+env_id: ReachHumanCart
+table_friction:
+  - 1.0  # reach_human: 1.5
+  - 5e-3  # reach_human: 2.0
+  - 1e-4  # reach_human: 0.05
+goal_dist: 0.05  # reach_human: 0.1

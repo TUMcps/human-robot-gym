@@ -10,6 +10,7 @@ Contributors:
 Changelog:
     2.5.22 JT Formatted docstrings
 """
+
 import numpy as np
 import os
 from scipy.spatial.transform import Rotation
@@ -31,7 +32,7 @@ class FailsafeController(JointPositionController):
     controller is assumed to be of the form: (dpos_j0, dpos_j1, ... , dpos_jn-1) for an n-joint robot
 
     Args:
-       sim (MjSim): Simulator instance this controller will pull robot state updates from
+        sim (MjSim): Simulator instance this controller will pull robot state updates from
 
         eef_name (str): Name of controlled robot arm's end effector (from robot XML)
 

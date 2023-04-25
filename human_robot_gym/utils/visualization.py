@@ -88,6 +88,7 @@ def drawable_coordinate_system(
     Returns an `Object` which can be passed to `set_object()`
     Other than meshcat.geometry.triad, this allows drawing the triad in any coordinate system, which is
     defined by <original coordinate system @ transformation>.
+
     Args:
         transformation: 4x4 homogeneous transformation
         scale: Length of the drawn vectors for the coordinate system main axes

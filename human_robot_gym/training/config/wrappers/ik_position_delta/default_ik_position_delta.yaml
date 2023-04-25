@@ -1,0 +1,6 @@
+urdf_file: models/assets/robots/schunk/robot_pybullet.urdf
+action_limit: 0.15
+x_output_max: 1
+x_position_limits: null
+residual_threshold: 1e-3
+max_iter: 50

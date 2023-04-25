@@ -1,0 +1,25 @@
+defaults:
+  - default/reach_human@_here_
+  - _self_
+
+robot_base_offset:
+  - 0.0
+  - 0.0
+  - 0.0
+table_friction:
+  - 1.0
+  - 5e-3
+  - 1e-4
+use_camera_obs: false
+use_object_obs: true
+collision_reward: 0
+has_offscreen_renderer: false
+render_camera: null
+control_freq: 5
+horizon: 100
+ignore_done: true
+hard_reset: false
+camera_names: frontview
+safe_vel: 0.01
+self_collision_safety: 0.012
+done_at_success: true

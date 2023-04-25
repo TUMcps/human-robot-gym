@@ -6,9 +6,11 @@ Owner:
     Jakob Thumm (JT)
 
 Contributors:
+    Felix Trost (FT)
 
 Changelog:
     2.5.22 JT Formatted docstrings
+    27.3.23 FT Changed default gripper to RethinkValidGripper
 """
 
 import numpy as np
@@ -17,6 +19,7 @@ from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model impo
     PinocchioManipulatorModel,
 )
 from human_robot_gym.utils.mjcf_utils import xml_path_completion
+import human_robot_gym.models.grippers  # noqa: F401
 
 
 class Schunk(PinocchioManipulatorModel):
@@ -49,7 +52,7 @@ class Schunk(PinocchioManipulatorModel):
     @property
     def default_gripper(self):
         """Get default gripper."""
-        return "RethinkGripper"
+        return "RethinkValidGripper"
 
     @property
     def default_controller_config(self):

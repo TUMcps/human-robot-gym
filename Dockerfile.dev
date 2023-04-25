@@ -115,7 +115,8 @@ RUN apt-get update --fix-missing \
     clang-10 \
     libgtest-dev \
     patchelf \
-    liboctomap-dev
+    liboctomap-dev \
+    python3-sphinx
 
 RUN apt-get upgrade libstdc++6 -y
 RUN apt-get dist-upgrade

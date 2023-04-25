@@ -10,6 +10,7 @@ Author:
 
 Changelog:
     15.02.23 FT File creation
+    29.03.23 FT Current and previous expert observation as member variables
 """
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
@@ -72,7 +73,18 @@ class ExpertObsWrapper(Wrapper, Env):
         low, high = self.env.action_spec
         self.action_space = spaces.Box(low=low, high=high)
 
-        self._prev_expert_obs: Dict[str, Any] = {}
+        self._current_expert_observation: Optional[Dict[str, Any]] = None
+        self._previous_expert_observation: Optional[Dict[str, Any]] = None
+
+    @property
+    def previous_expert_observation(self) -> Optional[Dict[str, Any]]:
+        """Return the previous expert observation."""
+        return self._previous_expert_observation
+
+    @property
+    def current_expert_observation(self) -> Optional[Dict[str, Any]]:
+        """Return the current expert observation."""
+        return self._current_expert_observation
 
     def _get_keys(self, keys: Optional[List[str]]) -> List[str]:
         """Implement default values for keys.
@@ -104,7 +116,7 @@ class ExpertObsWrapper(Wrapper, Env):
         obs_dict: Dict[str, Any],
         verbose: bool = False
     ) -> np.ndarray:
-        """Filters keys of interest out and concatenate the information.
+        """Filter keys of interest out and concatenate the information.
 
         Args:
             keys (list of str): keys of interest
@@ -123,14 +135,17 @@ class ExpertObsWrapper(Wrapper, Env):
         return np.concatenate(ob_lst)
 
     def reset(self):
-        """Extend environment's reset method to return flattened observation instead of normal OrderedDict.
+        """Reset the environment and return flattened observation instead of normal OrderedDict.
+
         The expert observation is internally stored as a dictionary.
 
         Returns:
             np.array: Flattened environment observation space after reset occurs
         """
         obs_dict = self.env.reset()
-        self._prev_expert_obs = {key: obs_dict[key] for key in self.expert_keys if key in obs_dict}
+
+        self._previous_expert_observation = None
+        self._current_expert_observation = {key: obs_dict[key] for key in self.expert_keys if key in obs_dict}
 
         return self._flatten_obs(
             keys=self.agent_keys,
@@ -138,7 +153,8 @@ class ExpertObsWrapper(Wrapper, Env):
         )
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
-        """Extend environment's step function call to return flattened observation instead of normal OrderedDict.
+        """Step environment and return flattened observation instead of normal OrderedDict.
+
         Expert observations from before and after the environment step are added to the info dictionary.
 
         Args:
@@ -151,9 +167,12 @@ class ExpertObsWrapper(Wrapper, Env):
                 - (dict) misc information
         """
         obs_dict, reward, done, info = self.env.step(action)
-        info["previous_expert_observation"] = self._prev_expert_obs
-        self._prev_expert_obs = {key: obs_dict[key] for key in self.expert_keys if key in obs_dict}
-        info["current_expert_observation"] = self._prev_expert_obs
+
+        self._previous_expert_observation = self._current_expert_observation
+        self._current_expert_observation = {key: obs_dict[key] for key in self.expert_keys if key in obs_dict}
+
+        info["previous_expert_observation"] = self._previous_expert_observation
+        info["current_expert_observation"] = self._current_expert_observation
 
         flat_agent_obs = self._flatten_obs(
             keys=self.agent_keys,
@@ -163,7 +182,7 @@ class ExpertObsWrapper(Wrapper, Env):
         return flat_agent_obs, reward, done, info
 
     def seed(self, seed: Optional[float] = None):
-        """Utility function to set numpy seed
+        """Set numpy seed.
 
         Args:
             seed (None or int): If specified, numpy seed to set
@@ -179,8 +198,7 @@ class ExpertObsWrapper(Wrapper, Env):
                 TypeError("Seed must be an integer type!")
 
     def compute_reward(self, achieved_goal, desired_goal, info):
-        """
-        Dummy function to be compatible with gym interface that simply returns environment reward
+        """Return environment reward.
 
         Args:
             achieved_goal: [NOT USED]
@@ -192,3 +210,57 @@ class ExpertObsWrapper(Wrapper, Env):
         """
         # Dummy args used to mimic Wrapper interface
         return self.env.reward()
+
+    @staticmethod
+    def get_current_expert_observation_from_info(info: dict) -> dict:
+        """Extract the current expert observation from the info dict.
+
+        Args:
+            info (dict): info dictionary from environment step
+
+        Returns:
+            dict: current expert observation
+
+        Raises:
+            AssertionError: [Current expert observation not stored in info dict!]
+        """
+        assert ExpertObsWrapper.CURRENT_EXPERT_OBSERVATION_KEY in info, \
+            "Current expert observation not stored in info dict!"
+        return info[ExpertObsWrapper.CURRENT_EXPERT_OBSERVATION_KEY]
+
+    @staticmethod
+    def get_previous_expert_observation_from_info(info: dict) -> dict:
+        """Extract the previous expert observation from the info dict.
+
+        Args:
+            info (dict): info dictionary from environment step
+
+        Returns:
+            dict: previous expert observation
+
+        Raises:
+            AssertionError: [Previous expert observation not stored in info dict!]
+        """
+        assert ExpertObsWrapper.PREVIOUS_EXPERT_OBSERVATION_KEY in info, \
+            "Previous expert observation not stored in info dict!"
+        return info[ExpertObsWrapper.PREVIOUS_EXPERT_OBSERVATION_KEY]
+
+    @staticmethod
+    def get_from_wrapped_env(env: Env) -> Optional['ExpertObsWrapper']:
+        """Get the ExpertObsWrapper from the wrapped environment.
+
+        Returns None if the environment is not wrapped with an ExpertObsWrapper.
+
+        Args:
+            env (Env): wrapped environment
+
+        Returns:
+            Optional[ExpertObsWrapper]: ExpertObsWrapper if it exists, None otherwise
+        """
+        while not isinstance(env, ExpertObsWrapper):
+            if hasattr(env, 'env'):
+                env = env.env
+            else:
+                return None
+
+        return env
