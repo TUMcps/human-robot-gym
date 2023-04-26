@@ -20,7 +20,7 @@ from scipy.spatial.transform import Rotation
 from robosuite.controllers.joint_pos import JointPositionController
 from robosuite.utils.control_utils import set_goal_position
 
-from safety_shield_py import SafetyShield
+from safety_shield_py import SafetyShield, AABB
 
 from .plot_capsule import PlotCapsule
 
@@ -162,6 +162,8 @@ class FailsafeController(JointPositionController):
                 base_orientation[3],
             ]
         )
+        self.table = AABB([base_pos[0]-1.0, base_pos[1]-1.0, base_pos[2]-0.1],
+                          [base_pos[0]+1.0, base_pos[1]+1.0, base_pos[2]+0.0])
         rpy = rot.as_euler("XYZ")
         self.safety_shield = SafetyShield(
             activate_shield=True,
@@ -178,6 +180,7 @@ class FailsafeController(JointPositionController):
             init_pitch=rpy[1],
             init_yaw=rpy[2],
             init_qpos=init_qpos,
+            environment_elements=[self.table],
         )
         self.desired_motion = self.safety_shield.step(0.0)
         self.robot_capsules = []
@@ -234,7 +237,8 @@ class FailsafeController(JointPositionController):
             init_pitch=rpy[1],
             init_yaw=rpy[2],
             init_qpos=init_qpos,
-            current_time=self.sim.data.time
+            current_time=self.sim.data.time,
+            environment_elements=[self.table],
         )
 
     def set_goal(self, action, set_qpos=None):
