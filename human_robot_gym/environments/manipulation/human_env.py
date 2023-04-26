@@ -295,7 +295,7 @@ class HumanEnv(SingleArmEnv):
         # Rotation of the human in animation info is given in scipy quaternion format:
         # (x, y, z, w)
         with open(
-            xml_path_completion("human/animations/animation_info.json")
+            xml_path_completion("human/animations/human-robot-animations/animation_info.json")
         ) as json_file:
             self.animation_info = json.load(json_file)
         self.human_animations = []
@@ -303,7 +303,7 @@ class HumanEnv(SingleArmEnv):
             try:
                 pkl_file = open(
                     xml_path_completion(
-                        "human/animations/{}.pkl".format(animation_name)
+                        "human/animations/human-robot-animations/{}.pkl".format(animation_name)
                     ),
                     "rb",
                 )
