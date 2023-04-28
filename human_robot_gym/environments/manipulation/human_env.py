@@ -13,7 +13,7 @@ Changelog:
     13.7.22 JB adjusted observation space (sensors) to relative distances eef and L_hand, R_hand, and Head
 """
 
-from typing import Dict, Union, List, Optional, Tuple
+from typing import Any, Dict, Union, List, Optional, Tuple
 
 import numpy as np
 import pickle
@@ -239,20 +239,20 @@ class HumanEnv(SingleArmEnv):
         visualize_pinocchio=False,
         control_sample_time=0.004,
         human_animation_names=[
-            "62_01",
-            "62_03",
-            "62_04",
-            "62_07",
-            "62_09",
-            "62_10",
-            "62_12",
-            "62_13",
-            "62_14",
-            "62_15",
-            "62_16",
-            "62_18",
-            "62_19",
-            "62_20",
+            "CMU/62_01",
+            "CMU/62_03",
+            "CMU/62_04",
+            "CMU/62_07",
+            "CMU/62_09",
+            "CMU/62_10",
+            "CMU/62_12",
+            "CMU/62_13",
+            "CMU/62_14",
+            "CMU/62_15",
+            "CMU/62_16",
+            "CMU/62_18",
+            "CMU/62_19",
+            "CMU/62_20",
         ],
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_freq=120,
@@ -291,31 +291,11 @@ class HumanEnv(SingleArmEnv):
 
         # Human animation definition
         self.human_animation_names = human_animation_names
-        self.animation_info = {}
-        # Rotation of the human in animation info is given in scipy quaternion format:
-        # (x, y, z, w)
-        with open(
-            xml_path_completion("human/animations/human-robot-animations/animation_info.json")
-        ) as json_file:
-            self.animation_info = json.load(json_file)
-        self.human_animations = []
-        for animation_name in self.human_animation_names:
-            try:
-                pkl_file = open(
-                    xml_path_completion(
-                        "human/animations/human-robot-animations/{}.pkl".format(animation_name)
-                    ),
-                    "rb",
-                )
-                self.human_animations.append(pickle.load(pkl_file))
-                pkl_file.close()
-                if animation_name not in self.animation_info:
-                    self.animation_info[animation_name] = {
-                        "position_offset": [0.0, 0.0, 0.0],
-                        "orientation_quat": [0.0, 0.0, 0.0, 1.0],
-                    }
-            except Exception as e:
-                print("Error while loading human animation {}: {}".format(pkl_file, e))
+
+        self.human_animation_data = self._load_human_animation_data(
+            human_animation_names=human_animation_names,
+            verbose=verbose,
+        )
 
         self.base_human_pos_offset = base_human_pos_offset
         # Input to scipy: quat = [x, y, z, w]
@@ -1263,7 +1243,7 @@ class HumanEnv(SingleArmEnv):
         self.n_collisions_critical = 0
         self.n_goal_reached = 0
 
-        self.human_animation_id = np.random.randint(0, len(self.human_animations))
+        self.human_animation_id = np.random.randint(0, len(self.human_animation_data))
         self.animation_start_time = 0
         self.low_level_time = 0
         self.animation_time = -1
@@ -1307,6 +1287,55 @@ class HumanEnv(SingleArmEnv):
                 trans[0:3, 3] = robot.base_pos
                 robot.robot_model.set_base_placement(trans)
 
+    @staticmethod
+    def _load_human_animation_data(
+        human_animation_names: List[str],
+        verbose: bool = False,
+    ) -> List[Tuple[Dict[str, Any], Dict[str, Any]]]:
+        """Load the human animation data from pickled files and the accompanying info json files.
+
+        Gives a list of tuples of the form (animation_data, animation_info).
+        If an animation info file is missing, the animation will be played back without transformation
+        (i.e. no scaling, no position offset, no orientation offset).
+
+        Args:
+            human_animation_names (List[str]): List of human animation names to load.
+            verbose (bool): Whether to print out debug information. Defaults to False.
+
+        Returns:
+            List[Tuple[Dict[str, Any], Dict[str, Any]]]: List of tuples of the form (animation_data, animation_info).
+        """
+        animation_data = []
+
+        for animation_name in human_animation_names:
+            try:
+                with open(
+                    xml_path_completion(f"human/animations/human-robot-animations/{animation_name}.pkl"),
+                    "rb",
+                ) as pkl_file:
+                    animation = pickle.load(pkl_file)
+            except Exception as e:
+                print(f"Error while loading human animation {pkl_file}: {e}")
+
+            try:
+                with open(
+                    xml_path_completion(f"human/animations/human-robot-animations/{animation_name}_info.json"),
+                    "r",
+                ) as info_file:
+                    info = json.load(info_file)
+            except FileNotFoundError:
+                if verbose:
+                    print(f"Animation info file not found: {animation_name}_info")
+                info = {
+                    "position_offset": [0.0, 0.0, 0.0],
+                    "orientation_quat": [0.0, 0.0, 0.0, 1.0],
+                    "scale": 1.0,
+                }
+
+            animation_data.append((animation, info))
+
+        return animation_data
+
     def _control_human(self):
         """Set the human joint positions according to the human animation files."""
         # <<< Time management and animation selection >>>
@@ -1319,27 +1348,21 @@ class HumanEnv(SingleArmEnv):
             return
         self.animation_time = control_time - self.animation_start_time
         # Check if current animation is finished
-        if (self.animation_time > self.human_animations[self.human_animation_id]["Pelvis_pos_x"].shape[0]-1):
+        if (self.animation_time > self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]-1):
             # Rotate to next human animation
-            self.human_animation_id = np.random.randint(0, len(self.human_animations))
+            self.human_animation_id = np.random.randint(0, len(self.human_animation_data))
             self.animation_time = 0
             self.animation_start_time = control_time
 
+        human_animation, human_animation_info = self.human_animation_data[self.human_animation_id]
+
         # Root bone transformation
         animation_pos = [
-            self.human_animations[self.human_animation_id]["Pelvis_pos_x"][
-                self.animation_time
-            ],
-            self.human_animations[self.human_animation_id]["Pelvis_pos_y"][
-                self.animation_time
-            ],
-            self.human_animations[self.human_animation_id]["Pelvis_pos_z"][
-                self.animation_time
-            ],
+            human_animation["Pelvis_pos_x"][self.animation_time],
+            human_animation["Pelvis_pos_y"][self.animation_time],
+            human_animation["Pelvis_pos_z"][self.animation_time],
         ]
-        animation_offset = self.animation_info[
-            self.human_animation_names[self.human_animation_id]
-        ]["position_offset"]
+        animation_offset = human_animation_info["position_offset"]
         # These settings are adjusted to fit the CMU motion capture BVH files!
         human_pos = [
             (animation_pos[0] + animation_offset[0]),
@@ -1347,11 +1370,7 @@ class HumanEnv(SingleArmEnv):
             (animation_pos[2] + animation_offset[2]),
         ]
         # Base rotation (without animation)
-        animation_offset_rot = Rotation.from_quat(
-            self.animation_info[self.human_animation_names[self.human_animation_id]][
-                "orientation_quat"
-            ]
-        )
+        animation_offset_rot = Rotation.from_quat(human_animation_info["orientation_quat"])
         human_rot = self.human_base_quat.__mul__(animation_offset_rot)
         # Apply rotation to position
         human_pos = human_rot.apply(human_pos)
@@ -1360,11 +1379,7 @@ class HumanEnv(SingleArmEnv):
         human_base_rotation = quat_to_rot(self.human_rot_offset)
         human_rot = human_base_rotation.__mul__(human_rot)
         # Animation rotation
-        rot = Rotation.from_quat(
-            self.human_animations[self.human_animation_id]["Pelvis_quat"][
-                self.animation_time
-            ]
-        )
+        rot = Rotation.from_quat(human_animation["Pelvis_quat"][self.animation_time])
         human_rot = human_rot.__mul__(rot)
         human_quat = rot_to_quat(human_rot)
         # Set base position and rotation
@@ -1372,8 +1387,7 @@ class HumanEnv(SingleArmEnv):
         self.sim.model.body_pos[human_body_id] = human_pos
         self.sim.model.body_quat[human_body_id] = human_quat
         # Set rotation of all other joints
-        all_joint_pos = [self.human_animations[self.human_animation_id][key][self.animation_time]
-                         for key in self.human_joint_names]
+        all_joint_pos = [human_animation[key][self.animation_time] for key in self.human_joint_names]
         self.sim.data.qpos[self.human_joint_addr] = all_joint_pos
 
     def _human_measurement(self):
