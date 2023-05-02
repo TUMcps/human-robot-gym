@@ -9,19 +9,18 @@ Author:
 Changelog:
     06.02.23 FT File creation
 """
-
-from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE, HumanEnv
-
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
 from robosuite.models.arenas import TableArena
 from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
-from human_robot_gym.utils.mjcf_utils import xml_path_completion
+from robosuite.utils.placement_samplers import ObjectPositionSampler
 
+from human_robot_gym.utils.mjcf_utils import xml_path_completion
 from human_robot_gym.utils.pairing import cantor_pairing
+from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE, HumanEnv
 
 
 class PickPlaceHumanCart(HumanEnv):
@@ -39,7 +38,7 @@ class PickPlaceHumanCart(HumanEnv):
         env_configuration (str): Specifies how to position the robots within the environment (default is "default").
             For most single arm environments, this argument has no impact on the robot setup.
 
-        controller_configs (str or list of dict): If set, contains relevant controller parameters for creating a
+        controller_configs (None or str or list of dict): If set, contains relevant controller parameters for creating a
             custom controller. Else, uses the default controller for this specific task. Should either be single
             dict if same controller is to be used for all robots or else it should be a list of the same length as
             "robots" param
@@ -166,6 +165,10 @@ class PickPlaceHumanCart(HumanEnv):
             [multiple / a single] segmentation(s) to use for all cameras. A list of list of str specifies per-camera
             segmentation setting(s) to use.
 
+        renderer (str): string for the renderer to use
+
+        renderer_config (dict): dictionary for the renderer configurations
+
         use_failsafe_controller (bool): Whether or not the safety shield / failsafe controller should be active
 
         visualize_failsafe_controller (bool): Whether or not the reachable sets of the failsafe controller should be
@@ -199,50 +202,49 @@ class PickPlaceHumanCart(HumanEnv):
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
-
     def __init__(
         self,
-        robots,
-        robot_base_offset=None,
-        env_configuration="default",
-        controller_configs=None,
-        gripper_types="default",
-        initialization_noise="default",
-        table_full_size=(1.5, 2.0, 0.05),
-        table_friction=(1.0, 5e-3, 1e-4),
-        use_camera_obs=True,
-        use_object_obs=True,
-        reward_scale=1.0,
-        reward_shaping=False,
-        goal_dist=0.1,
-        collision_reward=-10,
-        goal_reward=1,
-        object_gripped_reward=-1,
-        object_placement_initializer=None,
-        target_placement_initializer=None,
-        obstacle_placement_initializer=None,
-        has_renderer=False,
-        has_offscreen_renderer=True,
-        render_camera="frontview",
-        render_collision_mesh=False,
-        render_visual_mesh=True,
-        render_gpu_device_id=-1,
-        control_freq=10,
-        horizon=1000,
-        ignore_done=False,
-        hard_reset=True,
-        camera_names="frontview",
-        camera_heights=256,
-        camera_widths=256,
-        camera_depths=False,
-        camera_segmentations=None,  # {None, instance, class, element}
-        renderer="mujoco",
-        renderer_config=None,
-        use_failsafe_controller=True,
-        visualize_failsafe_controller=False,
-        visualize_pinocchio=False,
-        control_sample_time=0.004,
-        human_animation_names=[
+        robots: Union[str, List[str]],
+        robot_base_offset: Optional[Union[List[float], List[List[float]]]] = None,
+        env_configuration: str = "default",
+        controller_configs: Optional[Union[str, List[Dict[str, Any]]]] = None,
+        gripper_types: Union[str, List[str]] = "default",
+        initialization_noise: Union[str, List[str], List[Dict[str, Any]]] = "default",
+        table_full_size: Tuple[float, float, float] = (1.5, 2.0, 0.05),
+        table_friction: Tuple[float, float, float] = (1.0, 5e-3, 1e-4),
+        use_camera_obs: bool = True,
+        use_object_obs: bool = True,
+        reward_scale: Optional[float] = 1.0,
+        reward_shaping: bool = False,
+        goal_dist: float = 0.1,
+        collision_reward: float = -10,
+        goal_reward: float = 1,
+        object_gripped_reward: float = -1,
+        object_placement_initializer: Optional[ObjectPositionSampler] = None,
+        target_placement_initializer: Optional[ObjectPositionSampler] = None,
+        obstacle_placement_initializer: Optional[ObjectPositionSampler] = None,
+        has_renderer: bool = False,
+        has_offscreen_renderer: bool = True,
+        render_camera: str = "frontview",
+        render_collision_mesh: bool = False,
+        render_visual_mesh: bool = True,
+        render_gpu_device_id: int = -1,
+        control_freq: float = 10,
+        horizon: int = 1000,
+        ignore_done: bool = False,
+        hard_reset: bool = True,
+        camera_names: Union[str, List[str]] = "frontview",
+        camera_heights: Union[int, List[int]] = 256,
+        camera_widths: Union[int, List[int]] = 256,
+        camera_depths: Union[bool, List[bool]] = False,
+        camera_segmentations: Optional[Union[str, List[str], List[List[str]]]] = None,
+        renderer: str = "mujoco",
+        renderer_config: Dict[str, Any] = None,
+        use_failsafe_controller: bool = True,
+        visualize_failsafe_controller: bool = False,
+        visualize_pinocchio: bool = False,
+        control_sample_time: float = 0.004,
+        human_animation_names: List[str] = [
             "CMU/62_01",
             "CMU/62_03",
             "CMU/62_04",
@@ -257,15 +259,15 @@ class PickPlaceHumanCart(HumanEnv):
             "CMU/62_18",
             "CMU/62_19",
         ],
-        base_human_pos_offset=[0.0, 0.0, 0.0],
-        human_animation_freq=120,
-        human_rand=[0.0, 0.0, 0.0],
-        safe_vel=0.001,
-        self_collision_safety=0.01,
-        seed=0,
-        verbose=False,
-        done_at_collision=False,
-        done_at_success=False
+        base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
+        human_animation_freq: float = 120,
+        human_rand: List[float] = [0.0, 0.0, 0.0],
+        safe_vel: float = 0.001,
+        self_collision_safety: float = 0.01,
+        seed: int = 0,
+        verbose: bool = False,
+        done_at_collision: bool = False,
+        done_at_success: bool = False,
     ):  # noqa: D107
         # settings for table top
         self.table_full_size = table_full_size

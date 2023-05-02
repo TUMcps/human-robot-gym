@@ -177,6 +177,10 @@ class HumanEnv(SingleArmEnv):
             [multiple / a single] segmentation(s) to use for all cameras. A list of list of str specifies per-camera
             segmentation setting(s) to use.
 
+        renderer (str): string for the renderer to use
+
+        renderer_config (dict): dictionary for the renderer configurations
+
         use_failsafe_controller (bool): Whether or not the safety shield / failsafe controller should be active
 
         visualize_failsafe_controller (bool): Whether or not the reachable sets of the failsafe controller should be
