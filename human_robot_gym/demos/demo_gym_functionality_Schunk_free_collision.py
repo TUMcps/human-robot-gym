@@ -48,12 +48,12 @@ if __name__ == "__main__":
             use_failsafe_controller=True,
             visualize_failsafe_controller=True,
             visualize_pinocchio=False,
-            base_human_pos_offset=[1.3, -2.0, -0.50],
+            base_human_pos_offset=[1.3, -1.90, 0.0],
             verbose=True,
             goal_dist=0.0001,
             human_rand=[0.0, 0.0, 0.0],
             human_animation_names=["test"],
-            human_animation_freq=10
+            human_animation_freq=120
         ),
         keys=[
             "object-state",
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     t_max = 100
     for i_episode in range(20):
         observation = env.reset()
-        env.desired_goal = np.array([0, 1.5, -np.pi / 2 + 1.5, 0, -np.pi / 2, 0])
+        env.desired_goal = np.array([0.0, 1.5, -np.pi / 2 + 1.0, 0, -np.pi / 2, 0])
         t1 = time.time()
         for t in range(t_max):
             action = env.action_space.sample()

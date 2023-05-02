@@ -43,7 +43,7 @@ if __name__ == "__main__":
             reward_shaping=True,  # use dense rewards
             control_freq=5,  # control should happen fast enough so that simulation looks smooth
             hard_reset=False,
-            horizon=1000,
+            horizon=100,
             controller_configs=controller_configs,
             use_failsafe_controller=True,
             visualize_failsafe_controller=True,
@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
     env = VisualizationWrapper(env)
 
-    t_max = 100
+    t_max = 1000
     for i_episode in range(20):
         observation = env.reset()
         t1 = time.time()
