@@ -395,16 +395,19 @@ class ReachHuman(HumanEnv):
             reward = self.goal_reward
         else:
             reward = -1.0
+
         # use a shaping reward
         if self.reward_shaping:
             reward += 1.0
             dist = np.sqrt(np.sum((achieved_goal - desired_goal)**2))
             reward -= dist * 0.1
+        if info["collision"]:
+            reward += self.collision_reward
+        
         # Scale reward if requested
         if self.reward_scale is not None:
             reward *= self.reward_scale / 1.0
-        if info["collision"]:
-            reward += self.collision_reward
+
         return reward
 
     def _check_success(
