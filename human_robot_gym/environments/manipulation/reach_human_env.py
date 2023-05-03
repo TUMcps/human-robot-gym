@@ -403,7 +403,7 @@ class ReachHuman(HumanEnv):
             reward -= dist * 0.1
         if info["collision"]:
             reward += self.collision_reward
-        
+
         # Scale reward if requested
         if self.reward_scale is not None:
             reward *= self.reward_scale / 1.0
