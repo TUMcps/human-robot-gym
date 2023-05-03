@@ -251,7 +251,7 @@ class PickPlaceCloseHumanCart(PickPlaceHumanCart):
             "PickPlaceCloseHuman/9",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
-        human_animation_freq: float = 120,
+        human_animation_freq: float = 60,
         human_rand: List[float] = [0.0, 0.0, 0.0],
         safe_vel: float = 0.001,
         self_collision_safety: float = 0.01,
