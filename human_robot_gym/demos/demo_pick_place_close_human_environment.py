@@ -116,7 +116,6 @@ if __name__ == "__main__":
         visualize_failsafe_controller=False,
         visualize_pinocchio=False,
         base_human_pos_offset=[0.0, 0.0, 0.0],
-        human_animation_freq=60,
         verbose=True,
     )
 
