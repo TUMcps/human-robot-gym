@@ -11,5 +11,8 @@ from human_robot_gym.environments.manipulation.pick_place_close_human_cartesian_
 from human_robot_gym.environments.manipulation.robot_human_handover_cartesian_env import (  # noqa: F401
     RobotHumanHandoverCart
 )
+from human_robot_gym.environments.manipulation.pick_place_pointing_human_cartesian_env import (  # noqa: F401
+    PickPlacePointingHumanCart
+)
 
 ALL_ENVIRONMENTS = REGISTERED_ENVS.keys()
