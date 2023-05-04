@@ -94,11 +94,6 @@ class RobotHumanHandoverCart(HumanEnv):
             is used by default.
             Objects are elements that can and should be manipulated.
 
-        target_placement_initializer (ObjectPositionSampler): if provided, will
-            be used to generate target locations every time the previous target was reached
-            and on resets. If not set, a UniformRandomSampler is used by default.
-            Targets specify the coordinates to which the object should be moved.
-
         obstacle_placement_initializer (ObjectPositionSampler): if provided, will
             be used to place obstacles on every reset, else a UniformRandomSampler
             is used by default.
@@ -220,7 +215,6 @@ class RobotHumanHandoverCart(HumanEnv):
         goal_reward: float = 1,
         object_gripped_reward: float = -1,
         object_placement_initializer: Optional[ObjectPositionSampler] = None,
-        target_placement_initializer: Optional[ObjectPositionSampler] = None,
         obstacle_placement_initializer: Optional[ObjectPositionSampler] = None,
         has_renderer: bool = False,
         has_offscreen_renderer: bool = True,
