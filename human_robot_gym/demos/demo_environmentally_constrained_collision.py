@@ -1,6 +1,4 @@
-"""This script shows an example of the Schunk robot being safely controlled in an human environment.
-
-For instance, this can be used with our provided training function to train a safe RL agent.
+"""This script shows an example of a possible clamping prevention between robot, human, and the static environment.
 """
 
 import robosuite as suite
@@ -52,7 +50,7 @@ if __name__ == "__main__":
             verbose=True,
             goal_dist=0.0001,
             human_rand=[0.0, 0.0, 0.0],
-            human_animation_names=["test"],
+            human_animation_names=["Test/test"],
             human_animation_freq=10
         ),
         keys=[
@@ -71,7 +69,7 @@ if __name__ == "__main__":
     t_max = 100
     for i_episode in range(20):
         observation = env.reset()
-        env.desired_goal = np.array([0, 1.5, -np.pi / 2 + 1.5, 0, -np.pi / 2, 0])
+        env.desired_goal = np.array([0, 1.8, -np.pi / 2 + 1.5, 0, -np.pi / 2, 0])
         t1 = time.time()
         for t in range(t_max):
             action = env.action_space.sample()
