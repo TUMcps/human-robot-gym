@@ -1079,7 +1079,6 @@ class HumanEnv(SingleArmEnv):
             if self.failsafe_controller is not None:
                 for i in range(len(self.failsafe_controller)):
                     self.failsafe_controller[i].reset(
-                        init_qpos=self.robots[i].init_qpos,
                         base_pos=self.robots[i].base_pos,
                         base_orientation=self.robots[i].base_ori
                     )
