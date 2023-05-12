@@ -1,4 +1,5 @@
 """This script shows an example of a possible clamping prevention between robot, human, and the static environment.
+The velocity criterion allows the robot to move away from the clamp, but not towards it.
 """
 
 import robosuite as suite
@@ -46,7 +47,7 @@ if __name__ == "__main__":
             use_failsafe_controller=True,
             visualize_failsafe_controller=True,
             visualize_pinocchio=False,
-            base_human_pos_offset=[1.3, -2.0, -0.55],
+            base_human_pos_offset=[1.3, -2.0, -0.50],
             verbose=True,
             goal_dist=0.0001,
             human_rand=[0.0, 0.0, 0.0],
@@ -66,12 +67,14 @@ if __name__ == "__main__":
 
     env = VisualizationWrapper(env)
 
-    t_max = 100
+    t_max = 200
     for i_episode in range(20):
         observation = env.reset()
-        env.desired_goal = np.array([0, 2.0, -np.pi / 2 + 1.5, 0, -np.pi / 2, 0])
+        env.desired_goal = np.array([0, 1.8, -np.pi / 2 + 1.5, 0, -np.pi / 2, 0])
         t1 = time.time()
         for t in range(t_max):
+            if t == np.floor(t_max/2):
+                env.desired_goal = np.array([0, 0, 0, 0, 0, 0])
             action = env.action_space.sample()
             pos = np.array([env.sim.data.qpos[x] for x in env.robots[0]._ref_joint_pos_indexes])
             goal = env.desired_goal
