@@ -114,6 +114,7 @@ RUN apt-get update --fix-missing \
     gcc-9 \
     clang-10 \
     libgtest-dev \
+    libgmock-dev \
     patchelf \
     liboctomap-dev \
     python3-sphinx
