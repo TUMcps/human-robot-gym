@@ -16,12 +16,11 @@ from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.placement_samplers import ObjectPositionSampler
 from robosuite.utils.observables import Observable, sensor
 
-from human_robot_gym.environments.manipulation.human_env import HumanEnv
+from human_robot_gym.environments.manipulation.pick_place_human_cartesian_env import PickPlaceHumanCart
 from human_robot_gym.utils.mjcf_utils import xml_path_completion
-from human_robot_gym.utils.pairing import cantor_pairing
 
 
-class PickPlacePointingHumanCart(HumanEnv):
+class PickPlacePointingHumanCart(PickPlaceHumanCart):
     """This class corresponds to the pick place task for a single robot arm in a human environment
     where the robot should place the object to a spot on the table the human is pointing at.
 
@@ -251,22 +250,6 @@ class PickPlacePointingHumanCart(HumanEnv):
         done_at_collision: bool = False,
         done_at_success: bool = False,
     ):
-        self.table_full_size = table_full_size
-        self.table_friction = table_friction
-        self.table_offset = np.array([0.0, 0.0, 0.82])
-        self.reward_scale = reward_scale
-        self.reward_shaping = reward_shaping
-        self.collision_reward = collision_reward
-        self.goal_reward = goal_reward
-        self.object_gripped_reward = object_gripped_reward
-        self.goal_dist = goal_dist
-        self.object_placement_initializer = object_placement_initializer
-        self.obstacle_placement_initializer = obstacle_placement_initializer
-        self.box_body_id = None
-        self.done_at_collision = done_at_collision
-        self.done_at_success = done_at_success
-        self.target_pos = None
-
         super().__init__(
             robots=robots,
             robot_base_offset=robot_base_offset,
@@ -274,8 +257,19 @@ class PickPlacePointingHumanCart(HumanEnv):
             controller_configs=controller_configs,
             gripper_types=gripper_types,
             initialization_noise=initialization_noise,
+            table_full_size=table_full_size,
+            table_friction=table_friction,
             use_camera_obs=use_camera_obs,
             use_object_obs=use_object_obs,
+            reward_scale=reward_scale,
+            reward_shaping=reward_shaping,
+            goal_dist=goal_dist,
+            collision_reward=collision_reward,
+            goal_reward=goal_reward,
+            object_gripped_reward=object_gripped_reward,
+            object_placement_initializer=object_placement_initializer,
+            target_placement_initializer=None,
+            obstacle_placement_initializer=obstacle_placement_initializer,
             has_renderer=has_renderer,
             has_offscreen_renderer=has_offscreen_renderer,
             render_camera=render_camera,
@@ -305,94 +299,21 @@ class PickPlacePointingHumanCart(HumanEnv):
             self_collision_safety=self_collision_safety,
             seed=seed,
             verbose=verbose,
+            done_at_collision=done_at_collision,
+            done_at_success=done_at_success,
         )
 
-    def step(self, action):
-        obs, reward, done, info = super().step(action)
-        if self.goal_reached:
-            object_placements = self.object_placement_initializer.sample()
-            for obj_pos, obj_quat, obj in object_placements.values():
-                self.sim.data.set_joint_qpos(
-                    obj.joints[0],
-                    np.concatenate([obj_pos, obj_quat])
-                )
-            self.goal_reached = False
-        if self.has_renderer:
-            self._visualize_goal()
-            self._visualize_object_sample_space()
+    def _on_goal_reached(self):
+        object_placements = self.object_placement_initializer.sample()
+        for obj_pos, obj_quat, obj in object_placements.values():
+            self.sim.data.set_joint_qpos(
+                obj.joints[0],
+                np.concatenate([obj_pos, obj_quat])
+            )
 
-        return obs, reward, done, info
-
-    def reward(
-        self,
-        achieved_goal: np.ndarray,
-        desired_goal: np.ndarray,
-        info: Dict[str, Any],
-    ) -> float:
-        object_gripped = bool(achieved_goal[6])
-
-        reward = -1
-
-        if self._check_success(achieved_goal, desired_goal):
-            reward = self.goal_reward
-        elif object_gripped:
-            reward = self.object_gripped_reward
-
-        if self.reward_shaping:
-            eef_pos = achieved_goal[:3]
-            obj_pos = achieved_goal[3:6]
-            reward += 1.0
-            eef_to_obj = np.linalg.norm(obj_pos - eef_pos)
-            obj_to_target = np.linalg.norm(desired_goal - obj_pos)
-            reward -= (eef_to_obj * 0.2 + obj_to_target) * 0.1
-
-        if info["collision"]:
-            reward += self.collision_reward
-
-        return reward * self.reward_scale
-
-    def _check_success(
-        self,
-        achieved_goal: List[float],
-        desired_goal: List[float],
-    ) -> bool:
-        dist_to_target = np.linalg.norm(achieved_goal[3:6] - desired_goal)
-        return dist_to_target <= self.goal_dist
-
-    def _check_done(
-        self,
-        achieved_goal: np.ndarray,
-        desired_goal: np.ndarray,
-        info: Dict[str, Any],
-    ) -> bool:
-        if self.done_at_collision and info["collision"]:
-            return True
-        if self.done_at_success and self._check_success(achieved_goal, desired_goal):
-            return True
-        return False
-
-    def _get_achieved_goal_from_obs(
-        self,
-        observation: Dict[str, Any],
-    ) -> np.ndarray:
-        return np.concatenate(
-            [
-                observation[f"{self.robots[0].robot_model.naming_prefix}eef_pos"],
-                observation["object_pos"],
-                [observation["object_gripped"]],
-            ]
-        )
-
-    def _get_desired_goal_from_obs(
-        self,
-        observation: Dict[str, Any],
-    ) -> np.ndarray:
-        return observation["target_pos"]
-
-    def _reset_internal(self):
-        self.robots[0].init_qpos = np.array([0.0, 0.0, -np.pi / 2, 0, -np.pi / 2, np.pi / 4])
-
-        super()._reset_internal()
+    def _visualize(self):
+        self._visualize_goal()
+        self._visualize_object_sample_space()
 
     def _setup_arena(self):
         self.mujoco_arena = TableArena(
@@ -435,123 +356,35 @@ class PickPlacePointingHumanCart(HumanEnv):
             objects=self.obstacles,
         )
 
-    def _setup_references(self):
-        super()._setup_references()
+    def _obtain_goal_pos(self) -> np.ndarray:
+        if self.human_animation_data[self.human_animation_id][1]["pointing_hand"] == "right":
+            desired_goal = self.sim.data.get_site_xpos(self.human.right_hand)
+        elif self.human_animation_data[self.human_animation_id][1]["pointing_hand"] == "left":
+            desired_goal = self.sim.data.get_site_xpos(self.human.left_hand)
 
-        assert len(self.objects) == 1
-        self.box_body_id = self.sim.model.body_name2id(self.objects[0].root_body)
+        head_pos = self.sim.data.get_site_xpos(self.human.head)
+        xz_offset = desired_goal - head_pos
+        xz_offset = 0.15 * xz_offset / np.linalg.norm(xz_offset)
+
+        thumb_correction = np.cross(-np.abs(xz_offset), np.array([0, 0, 1]))
+        thumb_correction = 0.1 * thumb_correction / np.linalg.norm(thumb_correction)
+        xz_offset += thumb_correction
+        desired_goal += xz_offset
+        desired_goal[2] = self.table_offset[2]
+        return desired_goal
 
     def _setup_observables(self):
         observables = super()._setup_observables()
-        # robot joint pos
-        prefix = self.robots[0].robot_model.naming_prefix
-        if prefix + "joint_pos" in observables:
-            observables[prefix + "joint_pos"].set_active(False)
-        if prefix + "joint_vel" in observables:
-            observables[prefix + "joint_vel"].set_active(False)
-        if prefix + "eef_pos" in observables:
-            observables[prefix + "eef_pos"].set_active(True)
-        if "human_joint_pos" in observables:
-            observables["human_joint_pos"].set_active(True)
-        if prefix + "joint_pos_cos" in observables:
-            observables[prefix + "joint_pos_cos"].set_active(False)
-        if prefix + "joint_pos_sin" in observables:
-            observables[prefix + "joint_pos_sin"].set_active(False)
-        if prefix + "gripper_qpos" in observables:
-            observables[prefix + "gripper_qpos"].set_active(True)
-        if prefix + "gripper_qvel" in observables:
-            observables[prefix + "gripper_qvel"].set_active(True)
-        if prefix + "eef_quat" in observables:
-            observables[prefix + "eef_quat"].set_active(False)
-        if "gripper_pos" in observables:
-            observables["gripper_pos"].set_active(False)
-
-        # low-level object information
-        goal_mod = "goal"
-        obj_mod = "object"
-        pf = self.robots[0].robot_model.naming_prefix
 
         # Absolute coordinates of goal position
-        @sensor(modality=goal_mod)
+        @sensor(modality="goal")
         def target_pos(obs_cache) -> np.ndarray:
-            if self.human_animation_data[self.human_animation_id][1]["pointing_hand"] == "right":
-                self.target_pos = self.sim.data.get_site_xpos(self.human.right_hand)
-            elif self.human_animation_data[self.human_animation_id][1]["pointing_hand"] == "left":
-                self.target_pos = self.sim.data.get_site_xpos(self.human.left_hand)
+            self.desired_goal = self._obtain_goal_pos()
 
-            head_pos = self.sim.data.get_site_xpos(self.human.head)
-            xz_offset = self.target_pos - head_pos
-            xz_offset = 0.15 * xz_offset / np.linalg.norm(xz_offset)
-
-            thumb_correction = np.cross(-np.abs(xz_offset), np.array([0, 0, 1]))
-            thumb_correction = 0.1 * thumb_correction / np.linalg.norm(thumb_correction)
-            xz_offset += thumb_correction
-
-            self.target_pos += xz_offset
-            self.target_pos[2] = self.table_offset[2]
-
-            return self.target_pos
-
-        # Absolute coordinates of object position
-        @sensor(modality=obj_mod)
-        def object_pos(obs_cache) -> np.ndarray:
-            return np.array(self.sim.data.body_xpos[self.box_body_id])
-
-        # Vector from robot end-effector to object
-        @sensor(modality=obj_mod)
-        def eef_to_object(obs_cache) -> np.ndarray:
-            return (
-                obs_cache["object_pos"] - obs_cache[f"{pf}eef_pos"]
-                if "object_pos" in obs_cache and f"{pf}eef_pos" in obs_cache
-                else np.zeros(3)
-            )
-
-        # Vector from object to target
-        @sensor(modality=goal_mod)
-        def object_to_target(obs_cache) -> np.ndarray:
-            return (
-                obs_cache["target_pos"] - obs_cache["object_pos"]
-                if "target_pos" in obs_cache and "object_pos" in obs_cache
-                else np.zeros(3)
-            )
-
-        @sensor(modality=goal_mod)
-        def eef_to_target(obs_cache) -> np.ndarray:
-            return (
-                obs_cache["target_pos"] - obs_cache[f"{pf}eef_pos"]
-                if "target_pos" in obs_cache and f"{pf}eef_pos" in obs_cache
-                else np.zeros(3)
-            )
-
-        # Boolean value if the object is gripped
-        # Checks if both finger pads are in contact with the object
-        @sensor(modality="object")
-        def object_gripped(obs_cache) -> bool:
-            coll = cantor_pairing(
-                self.sim.model.geom_name2id("gripper0_l_fingerpad_g0"),
-                self.sim.model.geom_name2id("smallBox_g0"),
-            ) in self.previous_robot_collisions and cantor_pairing(
-                self.sim.model.geom_name2id("gripper0_r_fingerpad_g0"),
-                self.sim.model.geom_name2id("smallBox_g0"),
-            ) in self.previous_robot_collisions
-
-            return coll
-
-        @sensor(modality=goal_mod)
-        def vec_to_next_objective(obs_cache) -> np.ndarray:
-            if all([key in obs_cache for key in ["eef_to_object", "object_to_target", "object_gripped"]]):
-                return obs_cache["object_to_target"] if obs_cache["object_gripped"] else obs_cache["eef_to_object"]
-            else:
-                return np.zeros(3)
+            return self.desired_goal
 
         sensors = [
             target_pos,
-            object_pos,
-            eef_to_object,
-            object_to_target,
-            eef_to_target,
-            object_gripped,
-            vec_to_next_objective,
         ]
 
         names = [s.__name__ for s in sensors]
@@ -565,71 +398,3 @@ class PickPlacePointingHumanCart(HumanEnv):
             )
 
         return observables
-
-    def _get_object_bin_boundaries(self) -> Tuple[float, float, float, float]:
-        """Get the x and y boundaries of the object sampling space.
-
-        Returns:
-            (float, float, float, float):
-                Boundaries of sampling space in the form (xmin, xmax, ymin, ymax)
-
-        """
-        bin_x_half = self.table_full_size[0] / 2 - 0.05
-        bin_y_half = self.table_full_size[1] / 2 - 0.05
-
-        return (
-            bin_x_half * 0.35,
-            bin_x_half * 0.6,
-            bin_y_half * 0.25,
-            bin_y_half * 0.45,
-        )
-
-    def _visualize_goal(self):
-        return self.viewer.viewer.add_marker(
-            pos=self.target_pos,
-            size=[self.goal_dist, self.goal_dist, self.goal_dist],
-            type=2,
-            rgba=[0.0, 1.0, 0.0, 0.3],
-            label="",
-            shininess=0.0,
-        )
-
-    def _visualize_object_sample_space(self):
-        self.draw_box(
-            self._get_object_bin_boundaries() + (  # Add z boundaries
-                0.8,
-                0.9,
-            ),
-            (1.0, 0.0, 0.0, 0.3),
-        )
-
-    def draw_box(
-        self,
-        boundaries: Tuple[float, float, float, float, float, float],
-        color: Tuple[float, float, float, float],
-    ):
-        """Render a box in the scene.
-
-        Args:
-            boundaries (float, float, float, float, float, float):
-                Box boundaries in the form (xmin, xmax, ymin, ymax, zmin, zmax)
-            color (float, float, float, float):
-                Color in the form (r, g, b, a)
-        """
-        # Box (type 2)
-        self.viewer.viewer.add_marker(
-            pos=np.array([
-                (boundaries[0] + boundaries[1]) / 2,
-                (boundaries[2] + boundaries[3]) / 2,
-                (boundaries[5] + boundaries[4]) / 2,
-            ]),
-            type=6,
-            size=[
-                (boundaries[1] - boundaries[0]) * 0.5,
-                (boundaries[3] - boundaries[2]) * 0.5,
-                (boundaries[5] - boundaries[4]) * 0.5,
-            ],
-            rgba=color,
-            label="",
-            shininess=0.0,
-        )

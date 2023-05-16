@@ -349,20 +349,26 @@ class PickPlaceHumanCart(HumanEnv):
         """
         obs, reward, done, info = super().step(action)
         if self.goal_reached:
-            # if goal is reached, calculate a new goal.
-            self.desired_goal = self._sample_goal_pos()
-            object_placements = self.object_placement_initializer.sample()
-            for obj_pos, obj_quat, obj in object_placements.values():
-                self.sim.data.set_joint_qpos(
-                    obj.joints[0],
-                    np.concatenate([np.array(obj_pos), np.array(obj_quat)]),
-                )
+            self._on_goal_reached()
             self.goal_reached = False
         if self.has_renderer:
-            self._visualize_goal()
-            self._visualize_object_sample_space()
-            self._visualize_target_sample_space()
+            self._visualize()
         return obs, reward, done, info
+
+    def _on_goal_reached(self):
+        # if goal is reached, calculate a new goal.
+        self.desired_goal = self._obtain_goal_pos()
+        object_placements = self.object_placement_initializer.sample()
+        for obj_pos, obj_quat, obj in object_placements.values():
+            self.sim.data.set_joint_qpos(
+                obj.joints[0],
+                np.concatenate([np.array(obj_pos), np.array(obj_quat)]),
+            )
+
+    def _visualize(self):
+        self._visualize_goal()
+        self._visualize_object_sample_space()
+        self._visualize_target_sample_space()
 
     def _get_info(self) -> Dict[str, Any]:
         """Return the info dictionary of this step.
@@ -522,9 +528,9 @@ class PickPlaceHumanCart(HumanEnv):
         self.robots[0].init_qpos = np.array([0, 0.0, -np.pi / 2, 0, -np.pi / 2, np.pi / 4])
 
         super()._reset_internal()
-        self.desired_goal = self._sample_goal_pos()
+        self.desired_goal = self._obtain_goal_pos()
 
-    def _sample_goal_pos(self) -> np.ndarray:
+    def _obtain_goal_pos(self) -> np.ndarray:
         """Sample a new target location from the defined space.
 
         Returns:
@@ -773,7 +779,7 @@ class PickPlaceHumanCart(HumanEnv):
         self.viewer.viewer.add_marker(
             pos=self.desired_goal,
             type=2,
-            size=[0.02, 0.02, 0.02],
+            size=[self.goal_dist, self.goal_dist, self.goal_dist],
             rgba=[0.0, 1.0, 0.0, 0.7],
             label="",
             shininess=0.0,
