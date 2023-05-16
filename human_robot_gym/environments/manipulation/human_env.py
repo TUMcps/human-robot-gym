@@ -12,15 +12,14 @@ Changelog:
     2.5.22 JT Formatted docstrings
     13.7.22 JB adjusted observation space (sensors) to relative distances eef and L_hand, R_hand, and Head
 """
-
 from typing import Any, Dict, Union, List, Optional, Tuple
+from enum import Enum
+import math
+import json
 
 import numpy as np
 import pickle
-import math
-import json
 from scipy.spatial.transform import Rotation
-from enum import Enum
 
 import pinocchio as pin
 
@@ -72,100 +71,100 @@ class HumanEnv(SingleArmEnv):
     """This is the super class for any environment with a human.
 
     Args:
-        robots (str or list of str): Specification for specific robot arm(s) to be instantiated within this env
-            (e.g: "Sawyer" would generate one arm; ["Panda", "Panda", "Sawyer"] would generate three robot arms)
+        robots (str | List[str]): Specification for specific robot arm(s) to be instantiated within this env
+            (e.g: `"Sawyer"` would generate one arm; `["Panda", "Panda", "Sawyer"]` would generate three robot arms)
             Note: Must be a single single-arm robot!
 
-        robot_base_offset (None or list[double] or list[list[double]]): Offset (x, y, z) of the robot bases.
+        robot_base_offset (None | List[float] | List[List[float]]): Offset (x, y, z) of the robot bases.
             If more than one robot is loaded provide a list of doubles, one for each robot.
-            Specify None for an offset of (0, 0, 0) for each robot.
+            Specify `None` for an offset of (0, 0, 0) for each robot.
 
-        env_configuration (str): Specifies how to position the robots within the environment (default is "default").
+        env_configuration (str): Specifies how to position the robots within the environment (default is `"default"`).
             For most single arm environments, this argument has no impact on the robot setup.
 
-        controller_configs (str or list of dict): If set, contains relevant controller parameters for creating a
-            custom controller. Else, uses the default controller for this specific task. Should either be single
-            dict if same controller is to be used for all robots or else it should be a list of the same length as
-            "robots" param
+        controller_configs (None | str | List[Dict[str, Any]]): If set, contains relevant controller parameters
+            for creating a custom controller. Else, uses the default controller for this specific task.
+            Should either be single dict if same controller is to be used for all robots or else it should be
+            a list of the same length as `robots` param
 
-        gripper_types (str or list of str): type of gripper, used to instantiate
-            gripper models from gripper factory. Default is "default", which is the default grippers(s) associated
-            with the robot(s) the 'robots' specification. None removes the gripper, and any other (valid) model
-            overrides the default gripper. Should either be single str if same gripper type is to be used for all
-            robots or else it should be a list of the same length as "robots" param
+        gripper_types (str | List[str]): type of gripper, used to instantiate
+            gripper models from gripper factory. Default is `"default"`, which is the default grippers(s) associated
+            with the robot(s) the `robots` specification. `None` removes the gripper, and any other (valid) model
+            overrides the default gripper. Should either be single `str` if same gripper type is to be used for all
+            robots or else it should be a list of the same length as the `robots` param
 
-        initialization_noise (dict or list of dict): Dict containing the initialization noise parameters.
-            The expected keys and corresponding value types are specified below:
+        initialization_noise (Dict[str, Any] | List[Dict[str, Any]]): Dict containing the initialization noise
+            parameters. The expected keys and corresponding value types are specified below:
 
             :`'magnitude'`: The scale factor of uni-variate random noise applied to each of a robot's given initial
-                joint positions. Setting this value to `None` or 0.0 results in no noise being applied.
-                If "gaussian" type of noise is applied then this magnitude scales the standard deviation applied,
-                If "uniform" type of noise is applied then this magnitude sets the bounds of the sampling range
-            :`'type'`: Type of noise to apply. Can either specify "gaussian" or "uniform"
+                joint positions. Setting this value to `None` or `0.0` results in no noise being applied.
+                If `"gaussian"` type of noise is applied then this magnitude scales the standard deviation applied,
+                If `"uniform"` type of noise is applied then this magnitude sets the bounds of the sampling range
+            :`'type'`: Type of noise to apply. Can either specify `"gaussian"` or `"uniform"`
 
             Should either be single dict if same noise value is to be used for all robots or else it should be a
-            list of the same length as "robots" param
+            list of the same length as `robots` param
 
-            :Note: Specifying "default" will automatically use the default noise settings.
-                Specifying None will automatically create the required dict with "magnitude" set to 0.0.
+            :Note: Specifying `"default"` will automatically use the default noise settings.
+                Specifying `None` will automatically create the required dict with `"magnitude"` set to `0.0`.
 
-        use_camera_obs (bool): if True, every observation includes rendered image(s)
+        use_camera_obs (bool): if `True`, every observation includes rendered image(s)
 
-        use_object_obs (bool): if True, include object information in the observation.
+        use_object_obs (bool): if `True`, include object information in the observation.
 
         human_placement_initializer (ObjectPositionSampler): if provided, will
-            be used to place the human on every reset, else a UniformRandomSampler
+            be used to place the human on every reset, else a `UniformRandomSampler`
             is used by default.
 
-        has_renderer (bool): If true, render the simulation state in
+        has_renderer (bool): If `True`, render the simulation state in
             a viewer instead of headless mode.
 
-        has_offscreen_renderer (bool): True if using off-screen rendering
+        has_offscreen_renderer (bool): `True` if using off-screen rendering
 
-        render_camera (str): Name of camera to render if `has_renderer` is True. Setting this value to 'None'
-            will result in the default angle being applied, which is useful as it can be dragged / panned by
+        render_camera (str): Name of camera to render if `has_renderer` is `True`. Setting this value to `None`
+            will resul` in the default angle being applied, which is useful as it can be dragged / panned by
             the user using the mouse
 
-        render_collision_mesh (bool): True if rendering collision meshes in camera. False otherwise.
+        render_collision_mesh (bool): `True` if rendering collision meshes in camera. `False` otherwise.
 
-        render_visual_mesh (bool): True if rendering visual meshes in camera. False otherwise.
+        render_visual_mesh (bool): `True` if rendering visual meshes in camera. `False` otherwise.
 
         render_gpu_device_id (int): corresponds to the GPU device id to use for offscreen rendering.
-            Defaults to -1, in which case the device will be inferred from environment variables
-            (GPUS or CUDA_VISIBLE_DEVICES).
+            Defaults to `-1`, in which case the device will be inferred from environment variables
+            (`GPUS` or `CUDA_VISIBLE_DEVICES`).
 
         control_freq (float): how many control signals to receive in every second. This sets the amount of
             simulation time that passes between every action input.
 
-        horizon (int): Every episode lasts for exactly @horizon action steps.
+        horizon (int): Every episode lasts for exactly `horizon` action steps.
 
-        ignore_done (bool): True if never terminating the environment (ignore @horizon).
+        ignore_done (bool): `True` if never terminating the environment (ignore `horizon`).
 
-        hard_reset (bool): If True, re-loads model, sim, and render object upon a reset call, else,
-            only calls self.sim.reset and resets all robosuite-internal variables
+        hard_reset (bool): If `True`, re-loads model, sim, and render object upon a `reset` call, else,
+            only calls `self.sim.reset` and resets all robosuite-internal variables
 
-        camera_names (str or list of str): name of camera to be rendered. Should either be single str if
+        camera_names (str | List[str]): name of camera to be rendered. Should either be single `str` if
             same name is to be used for all cameras' rendering or else it should be a list of cameras to render.
 
-            :Note: At least one camera must be specified if @use_camera_obs is True.
+            :Note: At least one camera must be specified if `use_camera_obs` is `True`.
 
-            :Note: To render all robots' cameras of a certain type (e.g.: "robotview" or "eye_in_hand"), use the
-                convention "all-{name}" (e.g.: "all-robotview") to automatically render all camera images from each
+            :Note: To render all robots' cameras of a certain type (e.g.: `"robotview"` or `"eye_in_hand"`), use the
+                convention `"all-{name}"` (e.g.: `"all-robotview"`) to automatically render all camera images from each
                 robot's camera list).
 
-        camera_heights (int or list of int): height of camera frame. Should either be single int if
+        camera_heights (int | List[int]): height of camera frame. Should either be single `int` if
             same height is to be used for all cameras' frames or else it should be a list of the same length as
-            "camera names" param.
+            `camera_names` param.
 
-        camera_widths (int or list of int): width of camera frame. Should either be single int if
+        camera_widths (int | List[int]): width of camera frame. Should either be single `int` if
             same width is to be used for all cameras' frames or else it should be a list of the same length as
-            "camera names" param.
+            `camera_names` param.
 
-        camera_depths (bool or list of bool): True if rendering RGB-D, and RGB otherwise. Should either be single
+        camera_depths (bool | List[bool]): `True` if rendering RGB-D, and RGB otherwise. Should either be single
             bool if same depth setting is to be used for all cameras or else it should be a list of the same length as
-            "camera names" param.
+            `camera_names` param.
 
-        camera_segmentations (None or str or list of str or list of list of str): Camera segmentation(s) to use
+        camera_segmentations (None | str | List[str] | List[List[str]]): Camera segmentation(s) to use
             for each camera. Valid options are:
 
                 `None`: no segmentation sensor used
@@ -173,8 +172,8 @@ class HumanEnv(SingleArmEnv):
                 `'class'`: segmentation at the class level
                 `'element'`: segmentation at the per-geom level
 
-            If not None, multiple types of segmentations can be specified. A [list of str / str or None] specifies
-            [multiple / a single] segmentation(s) to use for all cameras. A list of list of str specifies per-camera
+            If not `None`, multiple types of segmentations can be specified. A [List[str] / str | None] specifies
+            [multiple / a single] segmentation(s) to use for all cameras. A List[List[str]] specifies per-camera
             segmentation setting(s) to use.
 
         renderer (str): string for the renderer to use
@@ -186,31 +185,30 @@ class HumanEnv(SingleArmEnv):
         visualize_failsafe_controller (bool): Whether or not the reachable sets of the failsafe controller should be
             visualized
 
-        visualize_pinocchio (bool): Whether or pinocchios (collision prevention static env) should be visualized
+        visualize_pinocchio (bool): Whether or not pinocchio (collision prevention static env) should be visualized
 
-        control_sample_time (double): Control frequency of the failsafe controller
+        control_sample_time (float): Control frequency of the failsafe controller
 
-        human_animation_names (list[str]): Human animations to play
+        human_animation_names (List[str]): Human animations to play
 
-        base_human_pos_offset (list[double]): Base human animation offset
+        base_human_pos_offset (List[float]): Base human animation offset
 
-        human_animation_freq (double): Speed of the human animation in fps.
+        human_animation_freq (float): Speed of the human animation in fps.
 
-        human_rand (list[double]): Max. randomization of the human [x-pos, y-pos, z-angle]
+        human_rand (List[float]): Max. randomization of the human [x-pos, y-pos, z-angle]
 
-        safe_vel (double): Safe cartesian velocity. The robot is allowed to move with this velocity in the vacinity of
+        safe_vel (float): Safe cartesian velocity. The robot is allowed to move with this velocity in the vicinity of
             humans.
 
-        self_collision_safety (double): Safe distance for self collision detection
+        self_collision_safety (float): Safe distance for self collision detection
 
-        seed (int): Random seed for np.random
+        seed (int): Random seed for `np.random`
 
-        verbose (bool): Whether or not to print out debug statements
+        verbose (bool): If `True`, print out debug information
 
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
-
     def __init__(
         self,
         robots: Union[str, List[str]],
@@ -364,7 +362,7 @@ class HumanEnv(SingleArmEnv):
     def step(self, action):
         """Override base step function.
 
-        Takes a step in simulation with control command @action.
+        Takes a step in simulation with control command `action`.
         Controls the human animation.
 
         Args:
@@ -521,16 +519,15 @@ class HumanEnv(SingleArmEnv):
         return False
 
     def _get_info(self) -> Dict:
-        """
-        Return the info dictionary of this step.
+        """Return the info dictionary of this step.
 
         Returns
-            info dict containing of
-                * collision: if there was a collision or not
+            info dict containing:
+                * collision: whether there was a collision
                 * collision_type: type of collision
-                * timeout: if timeout was reached
-                * failsafe_intervention: if the failsafe controller intervened
-                    in this step or not
+                * timeout: whether timeout was reached
+                * failsafe_intervention: whether the failsafe controller intervened
+                    in this step
         """
         n_collisions = (
             self.n_collisions_static + self.n_collisions_robot + self.n_collisions_human + self.n_collisions_critical

@@ -1,4 +1,4 @@
-"""This file describes a variant for the pick place task with cartesian action space.
+"""This file describes a variant for the cartesian action space pick place task.
 
 In this variant, the human moves more closely to the robot and inhibits the robot's movement more strongly.
 This is achieved by using a different set of human animations.
@@ -7,7 +7,7 @@ Author
     Felix Trost (FT)
 
 Changelog:
-    06.02.23 FT File creation
+    16.05.23 FT File creation
 """
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -18,59 +18,61 @@ from human_robot_gym.environments.manipulation.pick_place_human_cartesian_env im
 
 class PickPlaceCloseHumanCart(PickPlaceHumanCart):
     """This class corresponds to the pick place task for a single robot arm in a human environment
-    with strongly interleaved workspaces.
+    with strongly inhibiting human animations.
 
     Args:
         robots (str | List[str]): Specification for specific robot arm(s) to be instantiated within this env
-            (e.g: "Sawyer" would generate one arm; ["Panda", "Panda", "Sawyer"] would generate three robot arms)
+            (e.g: `"Sawyer"` would generate one arm; `["Panda", "Panda", "Sawyer"]` would generate three robot arms)
             Note: Must be a single single-arm robot!
 
-        robot_base_offset (None | List[float] or List[List[float]]): Offset (x, y, z) of the robot bases.
+        robot_base_offset (None | List[float] | List[List[float]]): Offset (x, y, z) of the robot bases.
             If more than one robot is loaded provide a list of doubles, one for each robot.
-            Specify None for an offset of (0, 0, 0) for each robot.
+            Specify `None` for an offset of (0, 0, 0) for each robot.
 
-        env_configuration (str): Specifies how to position the robots within the environment (default is "default").
+        env_configuration (str): Specifies how to position the robots within the environment (default is `"default"`).
             For most single arm environments, this argument has no impact on the robot setup.
 
         controller_configs (None | str | List[Dict[str, Any]]): If set, contains relevant controller parameters
             for creating a custom controller. Else, uses the default controller for this specific task.
             Should either be single dict if same controller is to be used for all robots or else it should be
-            a list of the same length as "robots" param
+            a list of the same length as `robots` param
 
         gripper_types (str | List[str]): type of gripper, used to instantiate
-            gripper models from gripper factory. Default is "default", which is the default grippers(s) associated
-            with the robot(s) the 'robots' specification. None removes the gripper, and any other (valid) model
-            overrides the default gripper. Should either be single str if same gripper type is to be used for all
-            robots or else it should be a list of the same length as "robots" param
+            gripper models from gripper factory. Default is `"default"`, which is the default grippers(s) associated
+            with the robot(s) the `robots` specification. `None` removes the gripper, and any other (valid) model
+            overrides the default gripper. Should either be single `str` if same gripper type is to be used for all
+            robots or else it should be a list of the same length as the `robots` param
 
         initialization_noise (Dict[str, Any] | List[Dict[str, Any]]): Dict containing the initialization noise
             parameters. The expected keys and corresponding value types are specified below:
 
             :`'magnitude'`: The scale factor of uni-variate random noise applied to each of a robot's given initial
-                joint positions. Setting this value to `None` or 0.0 results in no noise being applied.
-                If "gaussian" type of noise is applied then this magnitude scales the standard deviation applied,
-                If "uniform" type of noise is applied then this magnitude sets the bounds of the sampling range
-            :`'type'`: Type of noise to apply. Can either specify "gaussian" or "uniform"
+                joint positions. Setting this value to `None` or `0.0` results in no noise being applied.
+                If `"gaussian"` type of noise is applied then this magnitude scales the standard deviation applied,
+                If `"uniform"` type of noise is applied then this magnitude sets the bounds of the sampling range
+            :`'type'`: Type of noise to apply. Can either specify `"gaussian"` or `"uniform"`
 
             Should either be single dict if same noise value is to be used for all robots or else it should be a
-            list of the same length as "robots" param
+            list of the same length as `robots` param
 
-            :Note: Specifying "default" will automatically use the default noise settings.
-                Specifying None will automatically create the required dict with "magnitude" set to 0.0.
+            :Note: Specifying `"default"` will automatically use the default noise settings.
+                Specifying `None` will automatically create the required dict with `"magnitude"` set to `0.0`.
 
         table_full_size (Tuple[float, float, float]): x, y, and z dimensions of the table.
 
         table_friction (Tuple[float, float, float]): the three mujoco friction parameters for
             the table.
 
-        use_camera_obs (bool): if True, every observation includes rendered image(s)
+        object_full_size (Tuple[float, float, float]): x, y, and z dimensions of the cube object that should be moved.
 
-        use_object_obs (bool): if True, include object information in the observation.
+        use_camera_obs (bool): if `True`, every observation includes rendered image(s)
+
+        use_object_obs (bool): if `True`, include object information in the observation.
 
         reward_scale (None | float): Scales the normalized reward function by the amount specified.
-            If None, environment reward remains unnormalized
+            If `None`, environment reward remains unnormalized
 
-        reward_shaping (bool): if True, use dense rewards, else use sparse rewards.
+        reward_shaping (bool): if `True`, use dense rewards, else use sparse rewards.
 
         goal_dist (float): Distance threshold for reaching the goal.
 
@@ -82,70 +84,70 @@ class PickPlaceCloseHumanCart(PickPlaceHumanCart):
             If object is not gripped: `reward = -1`.
             If object gripped but not at the target: `object_gripped_reward`.
             If object is at the target: `reward = goal_reward`.
-            `object_gripped_reward` defaults to -1.
+            `object_gripped_reward` defaults to `-1`.
 
         object_placement_initializer (ObjectPositionSampler): if provided, will
-            be used to place objects on every reset, else a UniformRandomSampler
+            be used to place objects on every reset, else a `UniformRandomSampler`
             is used by default.
             Objects are elements that can and should be manipulated.
 
         target_placement_initializer (ObjectPositionSampler): if provided, will
             be used to generate target locations every time the previous target was reached
-            and on resets. If not set, a UniformRandomSampler is used by default.
+            and on resets. If not set, a `UniformRandomSampler` is used by default.
             Targets specify the coordinates to which the object should be moved.
 
         obstacle_placement_initializer (ObjectPositionSampler): if provided, will
-            be used to place obstacles on every reset, else a UniformRandomSampler
+            be used to place obstacles on every reset, else a `UniformRandomSampler`
             is used by default.
             Obstacles are elements that should be avoided.
 
-        has_renderer (bool): If true, render the simulation state in
+        has_renderer (bool): If `True`, render the simulation state in
             a viewer instead of headless mode.
 
-        has_offscreen_renderer (bool): True if using off-screen rendering
+        has_offscreen_renderer (bool): `True` if using off-screen rendering
 
-        render_camera (str): Name of camera to render if `has_renderer` is True. Setting this value to 'None'
-            will result in the default angle being applied, which is useful as it can be dragged / panned by
+        render_camera (str): Name of camera to render if `has_renderer` is `True`. Setting this value to `None`
+            will resul` in the default angle being applied, which is useful as it can be dragged / panned by
             the user using the mouse
 
-        render_collision_mesh (bool): True if rendering collision meshes in camera. False otherwise.
+        render_collision_mesh (bool): `True` if rendering collision meshes in camera. `False` otherwise.
 
-        render_visual_mesh (bool): True if rendering visual meshes in camera. False otherwise.
+        render_visual_mesh (bool): `True` if rendering visual meshes in camera. `False` otherwise.
 
         render_gpu_device_id (int): corresponds to the GPU device id to use for offscreen rendering.
-            Defaults to -1, in which case the device will be inferred from environment variables
-            (GPUS or CUDA_VISIBLE_DEVICES).
+            Defaults to `-1`, in which case the device will be inferred from environment variables
+            (`GPUS` or `CUDA_VISIBLE_DEVICES`).
 
         control_freq (float): how many control signals to receive in every second. This sets the amount of
             simulation time that passes between every action input.
 
-        horizon (int): Every episode lasts for exactly @horizon action steps.
+        horizon (int): Every episode lasts for exactly `horizon` action steps.
 
-        ignore_done (bool): True if never terminating the environment (ignore @horizon).
+        ignore_done (bool): `True` if never terminating the environment (ignore `horizon`).
 
-        hard_reset (bool): If True, re-loads model, sim, and render object upon a reset call, else,
-            only calls self.sim.reset and resets all robosuite-internal variables
+        hard_reset (bool): If `True`, re-loads model, sim, and render object upon a `reset` call, else,
+            only calls `self.sim.reset` and resets all robosuite-internal variables
 
-        camera_names (str | List[str]): name of camera to be rendered. Should either be single str if
+        camera_names (str | List[str]): name of camera to be rendered. Should either be single `str` if
             same name is to be used for all cameras' rendering or else it should be a list of cameras to render.
 
-            :Note: At least one camera must be specified if @use_camera_obs is True.
+            :Note: At least one camera must be specified if `use_camera_obs` is `True`.
 
-            :Note: To render all robots' cameras of a certain type (e.g.: "robotview" or "eye_in_hand"), use the
-                convention "all-{name}" (e.g.: "all-robotview") to automatically render all camera images from each
+            :Note: To render all robots' cameras of a certain type (e.g.: `"robotview"` or `"eye_in_hand"`), use the
+                convention `"all-{name}"` (e.g.: `"all-robotview"`) to automatically render all camera images from each
                 robot's camera list).
 
-        camera_heights (int | List[int]): height of camera frame. Should either be single int if
+        camera_heights (int | List[int]): height of camera frame. Should either be single `int` if
             same height is to be used for all cameras' frames or else it should be a list of the same length as
-            "camera names" param.
+            `camera_names` param.
 
-        camera_widths (int | List[int]): width of camera frame. Should either be single int if
+        camera_widths (int | List[int]): width of camera frame. Should either be single `int` if
             same width is to be used for all cameras' frames or else it should be a list of the same length as
-            "camera names" param.
+            `camera_names` param.
 
-        camera_depths (bool | List[bool]): True if rendering RGB-D, and RGB otherwise. Should either be single
+        camera_depths (bool | List[bool]): `True` if rendering RGB-D, and RGB otherwise. Should either be single
             bool if same depth setting is to be used for all cameras or else it should be a list of the same length as
-            "camera names" param.
+            `camera_names` param.
 
         camera_segmentations (None | str | List[str] | List[List[str]]): Camera segmentation(s) to use
             for each camera. Valid options are:
@@ -155,20 +157,20 @@ class PickPlaceCloseHumanCart(PickPlaceHumanCart):
                 `'class'`: segmentation at the class level
                 `'element'`: segmentation at the per-geom level
 
-            If not None, multiple types of segmentations can be specified. A [list of str / str or None] specifies
-            [multiple / a single] segmentation(s) to use for all cameras. A list of list of str specifies per-camera
+            If not `None`, multiple types of segmentations can be specified. A [List[str] / str | None] specifies
+            [multiple / a single] segmentation(s) to use for all cameras. A List[List[str]] specifies per-camera
             segmentation setting(s) to use.
 
         renderer (str): string for the renderer to use
 
-        renderer_config (Dict[str, Any]): dictionary for the renderer configurations
+        renderer_config (dict): dictionary for the renderer configurations
 
         use_failsafe_controller (bool): Whether or not the safety shield / failsafe controller should be active
 
         visualize_failsafe_controller (bool): Whether or not the reachable sets of the failsafe controller should be
             visualized
 
-        visualize_pinocchio (bool): Whether or pinocchios (collision prevention static env) should be visualized
+        visualize_pinocchio (bool): Whether or not pinocchio (collision prevention static env) should be visualized
 
         control_sample_time (float): Control frequency of the failsafe controller
 
@@ -180,18 +182,18 @@ class PickPlaceCloseHumanCart(PickPlaceHumanCart):
 
         human_rand (List[float]): Max. randomization of the human [x-pos, y-pos, z-angle]
 
-        safe_vel (float): Safe cartesian velocity. The robot is allowed to move with this velocity in the vacinity of
+        safe_vel (float): Safe cartesian velocity. The robot is allowed to move with this velocity in the vicinity of
             humans.
 
         self_collision_safety (float): Safe distance for self collision detection
 
-        seed (int): Random seed for np.random
+        seed (int): Random seed for `np.random`
 
-        verbose (bool): If True, print out debug information
+        verbose (bool): If `True`, print out debug information
 
-        done_at_collision (bool): If True, the episode is terminated when a collision occurs
+        done_at_collision (bool): If `True`, the episode is terminated when a collision occurs
 
-        done_at_success (bool): If True, the episode is terminated when the goal is reached
+        done_at_success (bool): If `True`, the episode is terminated when the goal is reached
 
     Raises:
         AssertionError: [Invalid number of robots specified]
@@ -206,6 +208,7 @@ class PickPlaceCloseHumanCart(PickPlaceHumanCart):
         initialization_noise: Union[str, List[str], List[Dict[str, Any]]] = "default",
         table_full_size: Tuple[float, float, float] = (1.5, 2.0, 0.05),
         table_friction: Tuple[float, float, float] = (1.0, 5e-3, 1e-4),
+        object_full_size: Tuple[float, float, float] = (0.04, 0.04, 0.04),
         use_camera_obs: bool = True,
         use_object_obs: bool = True,
         reward_scale: Optional[float] = 1.0,
@@ -269,6 +272,7 @@ class PickPlaceCloseHumanCart(PickPlaceHumanCart):
             initialization_noise=initialization_noise,
             table_full_size=table_full_size,
             table_friction=table_friction,
+            object_full_size=object_full_size,
             use_camera_obs=use_camera_obs,
             use_object_obs=use_object_obs,
             reward_scale=reward_scale,
