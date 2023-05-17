@@ -329,7 +329,7 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
             rgba=[0.1, 0.7, 0.3, 1],
         )
         self.objects = [box]
-        object_bin_boundaries = self._get_object_bin_boundaries()
+        object_bin_boundaries = self._get_default_object_bin_boundaries()
         self.object_placement_initializer = self._setup_placement_initializer(
             name="ObjectSampler",
             initializer=self.object_placement_initializer,
@@ -378,6 +378,23 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
             np.ndarray: The current target position.
         """
         return self._get_current_target_pos()
+
+    def _get_default_object_bin_boundaries(self) -> Tuple[float, float, float, float]:
+        """Get the x and y boundaries of the object sampling space.
+
+        Returns:
+            Tuple[float, float, float, float]:
+                Boundaries of sampling space in the form (xmin, xmax, ymin, ymax)
+        """
+        bin_x_half = self.table_full_size[0] / 2 - 0.05
+        bin_y_half = self.table_full_size[1] / 2 - 0.05
+
+        return (
+            bin_x_half * 0.35,
+            bin_x_half * 0.75,
+            -bin_y_half * 0.15,
+            bin_y_half * 0.15,
+        )
 
     def _visualize(self):
         """Visualize the goal space and the sampling space of initial object positions."""

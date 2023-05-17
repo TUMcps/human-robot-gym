@@ -580,7 +580,7 @@ class PickPlaceHumanCart(HumanEnv):
         )
         self.objects = [box]
         # Placement sampler for objects
-        object_bin_boundaries = self._get_object_bin_boundaries()
+        object_bin_boundaries = self._get_default_object_bin_boundaries()
 
         self.object_placement_initializer = self._setup_placement_initializer(
             name="ObjectSampler",
@@ -598,7 +598,7 @@ class PickPlaceHumanCart(HumanEnv):
             rgba=[0.9, 0.1, 0.1, 1],
         )
 
-        target_bin_boundaries = self._get_target_bin_boundaries()
+        target_bin_boundaries = self._get_default_target_bin_boundaries()
         self.target_placement_initializer = self._setup_placement_initializer(
             name="TargetSampler",
             initializer=self.target_placement_initializer,
@@ -750,13 +750,12 @@ class PickPlaceHumanCart(HumanEnv):
 
         return observables
 
-    def _get_object_bin_boundaries(self) -> Tuple[float, float, float, float]:
+    def _get_default_object_bin_boundaries(self) -> Tuple[float, float, float, float]:
         """Get the x and y boundaries of the object sampling space.
 
         Returns:
             Tuple[float, float, float, float]:
                 Boundaries of sampling space in the form (xmin, xmax, ymin, ymax)
-
         """
         bin_x_half = self.table_full_size[0] / 2 - 0.05
         bin_y_half = self.table_full_size[1] / 2 - 0.05
@@ -768,7 +767,7 @@ class PickPlaceHumanCart(HumanEnv):
             bin_y_half * 0.45,
         )
 
-    def _get_target_bin_boundaries(self) -> Tuple[float, float, float, float]:
+    def _get_default_target_bin_boundaries(self) -> Tuple[float, float, float, float]:
         """Get the x and y boundaries of the target sampling space.
 
         Returns:
@@ -806,7 +805,7 @@ class PickPlaceHumanCart(HumanEnv):
     def _visualize_object_sample_space(self):
         """Draw a box to display the object sampling space"""
         self.draw_box(
-            self._get_object_bin_boundaries() + (  # Add z boundaries
+            self._get_default_object_bin_boundaries() + (  # Add z boundaries
                 self.table_offset[2] - 0.05,
                 self.table_offset[2] + 0.05,
             ),
@@ -816,7 +815,7 @@ class PickPlaceHumanCart(HumanEnv):
     def _visualize_target_sample_space(self):
         """Draw a box to display the target sampling space"""
         self.draw_box(
-            self._get_target_bin_boundaries() + (  # Add z boundaries
+            self._get_default_target_bin_boundaries() + (  # Add z boundaries
                 self.target_pos[2] - 0.05,
                 self.target_pos[2] + 0.05
             ),
