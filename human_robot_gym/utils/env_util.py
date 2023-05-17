@@ -10,7 +10,7 @@ import struct
 from typing import Optional, Dict, Any, Type, Callable, Union, List
 from functools import partial
 import gym
-from gym.wrappers import TimeLimit
+from human_robot_gym.wrappers.time_limit import TimeLimit
 import robosuite
 from robosuite.wrappers.gym_wrapper import GymWrapper
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
