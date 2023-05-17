@@ -8,153 +8,155 @@ Author:
 
 Changelog:
     06.02.23 FT File creation
+    16.05.23 FT Formatted docstrings
 """
-
-from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE, HumanEnv
-
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Optional, OrderedDict, Tuple, Union
 
 import numpy as np
 
 from robosuite.models.arenas import TableArena
 from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
-from human_robot_gym.utils.mjcf_utils import xml_path_completion
+from robosuite.utils.placement_samplers import ObjectPositionSampler
 
+from human_robot_gym.utils.mjcf_utils import xml_path_completion
 from human_robot_gym.utils.pairing import cantor_pairing
+from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE, HumanEnv
 
 
 class PickPlaceHumanCart(HumanEnv):
     """This class corresponds to the pick place task for a single robot arm in a human environment.
 
     Args:
-        robots (str or list of str): Specification for specific robot arm(s) to be instantiated within this env
-            (e.g: "Sawyer" would generate one arm; ["Panda", "Panda", "Sawyer"] would generate three robot arms)
+        robots (str | List[str]): Specification for specific robot arm(s) to be instantiated within this env
+            (e.g: `"Sawyer"` would generate one arm; `["Panda", "Panda", "Sawyer"]` would generate three robot arms)
             Note: Must be a single single-arm robot!
 
-        robot_base_offset (None or list[double] or list[list[double]]): Offset (x, y, z) of the robot bases.
+        robot_base_offset (None | List[float] | List[List[float]]): Offset (x, y, z) of the robot bases.
             If more than one robot is loaded provide a list of doubles, one for each robot.
-            Specify None for an offset of (0, 0, 0) for each robot.
+            Specify `None` for an offset of (0, 0, 0) for each robot.
 
-        env_configuration (str): Specifies how to position the robots within the environment (default is "default").
+        env_configuration (str): Specifies how to position the robots within the environment (default is `"default"`).
             For most single arm environments, this argument has no impact on the robot setup.
 
-        controller_configs (str or list of dict): If set, contains relevant controller parameters for creating a
-            custom controller. Else, uses the default controller for this specific task. Should either be single
-            dict if same controller is to be used for all robots or else it should be a list of the same length as
-            "robots" param
+        controller_configs (None | str | List[Dict[str, Any]]): If set, contains relevant controller parameters
+            for creating a custom controller. Else, uses the default controller for this specific task.
+            Should either be single dict if same controller is to be used for all robots or else it should be
+            a list of the same length as `robots` param
 
-        gripper_types (str or list of str): type of gripper, used to instantiate
-            gripper models from gripper factory. Default is "default", which is the default grippers(s) associated
-            with the robot(s) the 'robots' specification. None removes the gripper, and any other (valid) model
-            overrides the default gripper. Should either be single str if same gripper type is to be used for all
-            robots or else it should be a list of the same length as "robots" param
+        gripper_types (str | List[str]): type of gripper, used to instantiate
+            gripper models from gripper factory. Default is `"default"`, which is the default grippers(s) associated
+            with the robot(s) the `robots` specification. `None` removes the gripper, and any other (valid) model
+            overrides the default gripper. Should either be single `str` if same gripper type is to be used for all
+            robots or else it should be a list of the same length as the `robots` param
 
-        initialization_noise (dict or list of dict): Dict containing the initialization noise parameters.
-            The expected keys and corresponding value types are specified below:
+        initialization_noise (Dict[str, Any] | List[Dict[str, Any]]): Dict containing the initialization noise
+            parameters. The expected keys and corresponding value types are specified below:
 
             :`'magnitude'`: The scale factor of uni-variate random noise applied to each of a robot's given initial
-                joint positions. Setting this value to `None` or 0.0 results in no noise being applied.
-                If "gaussian" type of noise is applied then this magnitude scales the standard deviation applied,
-                If "uniform" type of noise is applied then this magnitude sets the bounds of the sampling range
-            :`'type'`: Type of noise to apply. Can either specify "gaussian" or "uniform"
+                joint positions. Setting this value to `None` or `0.0` results in no noise being applied.
+                If `"gaussian"` type of noise is applied then this magnitude scales the standard deviation applied,
+                If `"uniform"` type of noise is applied then this magnitude sets the bounds of the sampling range
+            :`'type'`: Type of noise to apply. Can either specify `"gaussian"` or `"uniform"`
 
             Should either be single dict if same noise value is to be used for all robots or else it should be a
-            list of the same length as "robots" param
+            list of the same length as `robots` param
 
-            :Note: Specifying "default" will automatically use the default noise settings.
-                Specifying None will automatically create the required dict with "magnitude" set to 0.0.
+            :Note: Specifying `"default"` will automatically use the default noise settings.
+                Specifying `None` will automatically create the required dict with `"magnitude"` set to `0.0`.
 
-        table_full_size (3-tuple): x, y, and z dimensions of the table.
+        table_full_size (Tuple[float, float, float]): x, y, and z dimensions of the table.
 
-        table_friction (3-tuple): the three mujoco friction parameters for
+        table_friction (Tuple[float, float, float]): the three mujoco friction parameters for
             the table.
 
-        use_camera_obs (bool): if True, every observation includes rendered image(s)
+        object_full_size (Tuple[float, float, float]): x, y, and z dimensions of the cube object that should be moved.
 
-        use_object_obs (bool): if True, include object information in the observation.
+        use_camera_obs (bool): if `True`, every observation includes rendered image(s)
 
-        reward_scale (None or float): Scales the normalized reward function by the amount specified.
-            If None, environment reward remains unnormalized
+        use_object_obs (bool): if `True`, include object information in the observation.
 
-        reward_shaping (bool): if True, use dense rewards, else use sparse rewards.
+        reward_scale (None | float): Scales the normalized reward function by the amount specified.
+            If `None`, environment reward remains unnormalized
 
-        goal_dist (double): Distance threshold for reaching the goal.
+        reward_shaping (bool): if `True`, use dense rewards, else use sparse rewards.
 
-        collision_reward (double): Reward to be given in the case of a collision.
+        goal_dist (float): Distance threshold for reaching the goal.
 
-        goal_reward (double): Reward to be given in the case of reaching the goal.
+        collision_reward (float): Reward to be given in the case of a collision.
 
-        object_gripped_reward (double): Additional reward for gripping the object when `reward_shaping=False`.
+        goal_reward (float): Reward to be given in the case of reaching the goal.
+
+        object_gripped_reward (float): Additional reward for gripping the object when `reward_shaping=False`.
             If object is not gripped: `reward = -1`.
             If object gripped but not at the target: `object_gripped_reward`.
             If object is at the target: `reward = goal_reward`.
-            `object_gripped_reward` defaults to -1.
+            `object_gripped_reward` defaults to `-1`.
 
         object_placement_initializer (ObjectPositionSampler): if provided, will
-            be used to place objects on every reset, else a UniformRandomSampler
+            be used to place objects on every reset, else a `UniformRandomSampler`
             is used by default.
             Objects are elements that can and should be manipulated.
 
         target_placement_initializer (ObjectPositionSampler): if provided, will
             be used to generate target locations every time the previous target was reached
-            and on resets. If not set, a UniformRandomSampler is used by default.
+            and on resets. If not set, a `UniformRandomSampler` is used by default.
             Targets specify the coordinates to which the object should be moved.
 
         obstacle_placement_initializer (ObjectPositionSampler): if provided, will
-            be used to place obstacles on every reset, else a UniformRandomSampler
+            be used to place obstacles on every reset, else a `UniformRandomSampler`
             is used by default.
             Obstacles are elements that should be avoided.
 
-        has_renderer (bool): If true, render the simulation state in
+        has_renderer (bool): If `True`, render the simulation state in
             a viewer instead of headless mode.
 
-        has_offscreen_renderer (bool): True if using off-screen rendering
+        has_offscreen_renderer (bool): `True` if using off-screen rendering
 
-        render_camera (str): Name of camera to render if `has_renderer` is True. Setting this value to 'None'
-            will result in the default angle being applied, which is useful as it can be dragged / panned by
+        render_camera (str): Name of camera to render if `has_renderer` is `True`. Setting this value to `None`
+            will resul` in the default angle being applied, which is useful as it can be dragged / panned by
             the user using the mouse
 
-        render_collision_mesh (bool): True if rendering collision meshes in camera. False otherwise.
+        render_collision_mesh (bool): `True` if rendering collision meshes in camera. `False` otherwise.
 
-        render_visual_mesh (bool): True if rendering visual meshes in camera. False otherwise.
+        render_visual_mesh (bool): `True` if rendering visual meshes in camera. `False` otherwise.
 
         render_gpu_device_id (int): corresponds to the GPU device id to use for offscreen rendering.
-            Defaults to -1, in which case the device will be inferred from environment variables
-            (GPUS or CUDA_VISIBLE_DEVICES).
+            Defaults to `-1`, in which case the device will be inferred from environment variables
+            (`GPUS` or `CUDA_VISIBLE_DEVICES`).
 
         control_freq (float): how many control signals to receive in every second. This sets the amount of
             simulation time that passes between every action input.
 
-        horizon (int): Every episode lasts for exactly @horizon action steps.
+        horizon (int): Every episode lasts for exactly `horizon` action steps.
 
-        ignore_done (bool): True if never terminating the environment (ignore @horizon).
+        ignore_done (bool): `True` if never terminating the environment (ignore `horizon`).
 
-        hard_reset (bool): If True, re-loads model, sim, and render object upon a reset call, else,
-            only calls self.sim.reset and resets all robosuite-internal variables
+        hard_reset (bool): If `True`, re-loads model, sim, and render object upon a `reset` call, else,
+            only calls `self.sim.reset` and resets all robosuite-internal variables
 
-        camera_names (str or list of str): name of camera to be rendered. Should either be single str if
+        camera_names (str | List[str]): name of camera to be rendered. Should either be single `str` if
             same name is to be used for all cameras' rendering or else it should be a list of cameras to render.
 
-            :Note: At least one camera must be specified if @use_camera_obs is True.
+            :Note: At least one camera must be specified if `use_camera_obs` is `True`.
 
-            :Note: To render all robots' cameras of a certain type (e.g.: "robotview" or "eye_in_hand"), use the
-                convention "all-{name}" (e.g.: "all-robotview") to automatically render all camera images from each
+            :Note: To render all robots' cameras of a certain type (e.g.: `"robotview"` or `"eye_in_hand"`), use the
+                convention `"all-{name}"` (e.g.: `"all-robotview"`) to automatically render all camera images from each
                 robot's camera list).
 
-        camera_heights (int or list of int): height of camera frame. Should either be single int if
+        camera_heights (int | List[int]): height of camera frame. Should either be single `int` if
             same height is to be used for all cameras' frames or else it should be a list of the same length as
-            "camera names" param.
+            `camera_names` param.
 
-        camera_widths (int or list of int): width of camera frame. Should either be single int if
+        camera_widths (int | List[int]): width of camera frame. Should either be single `int` if
             same width is to be used for all cameras' frames or else it should be a list of the same length as
-            "camera names" param.
+            `camera_names` param.
 
-        camera_depths (bool or list of bool): True if rendering RGB-D, and RGB otherwise. Should either be single
+        camera_depths (bool | List[bool]): `True` if rendering RGB-D, and RGB otherwise. Should either be single
             bool if same depth setting is to be used for all cameras or else it should be a list of the same length as
-            "camera names" param.
+            `camera_names` param.
 
-        camera_segmentations (None or str or list of str or list of list of str): Camera segmentation(s) to use
+        camera_segmentations (None | str | List[str] | List[List[str]]): Camera segmentation(s) to use
             for each camera. Valid options are:
 
                 `None`: no segmentation sensor used
@@ -162,87 +164,91 @@ class PickPlaceHumanCart(HumanEnv):
                 `'class'`: segmentation at the class level
                 `'element'`: segmentation at the per-geom level
 
-            If not None, multiple types of segmentations can be specified. A [list of str / str or None] specifies
-            [multiple / a single] segmentation(s) to use for all cameras. A list of list of str specifies per-camera
+            If not `None`, multiple types of segmentations can be specified. A [List[str] / str | None] specifies
+            [multiple / a single] segmentation(s) to use for all cameras. A List[List[str]] specifies per-camera
             segmentation setting(s) to use.
+
+        renderer (str): string for the renderer to use
+
+        renderer_config (dict): dictionary for the renderer configurations
 
         use_failsafe_controller (bool): Whether or not the safety shield / failsafe controller should be active
 
         visualize_failsafe_controller (bool): Whether or not the reachable sets of the failsafe controller should be
             visualized
 
-        visualize_pinocchio (bool): Whether or pinocchios (collision prevention static env) should be visualized
+        visualize_pinocchio (bool): Whether or not pinocchio (collision prevention static env) should be visualized
 
-        control_sample_time (double): Control frequency of the failsafe controller
+        control_sample_time (float): Control frequency of the failsafe controller
 
-        human_animation_names (list[str]): Human animations to play
+        human_animation_names (List[str]): Human animations to play
 
-        base_human_pos_offset (list[double]): Base human animation offset
+        base_human_pos_offset (List[float]): Base human animation offset
 
-        human_animation_freq (double): Speed of the human animation in fps.
+        human_animation_freq (float): Speed of the human animation in fps.
 
-        human_rand (list[double]): Max. randomization of the human [x-pos, y-pos, z-angle]
+        human_rand (List[float]): Max. randomization of the human [x-pos, y-pos, z-angle]
 
-        safe_vel (double): Safe cartesian velocity. The robot is allowed to move with this velocity in the vacinity of
+        safe_vel (float): Safe cartesian velocity. The robot is allowed to move with this velocity in the vicinity of
             humans.
 
-        self_collision_safety (double): Safe distance for self collision detection
+        self_collision_safety (float): Safe distance for self collision detection
 
-        seed (int): Random seed for np.random
+        seed (int): Random seed for `np.random`
 
-        verbose (bool): If True, print out debug information
+        verbose (bool): If `True`, print out debug information
 
-        done_at_collision (bool): If True, the episode is terminated when a collision occurs
+        done_at_collision (bool): If `True`, the episode is terminated when a collision occurs
 
-        done_at_success (bool): If True, the episode is terminated when the goal is reached
+        done_at_success (bool): If `True`, the episode is terminated when the goal is reached
 
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
-
     def __init__(
         self,
-        robots,
-        robot_base_offset=None,
-        env_configuration="default",
-        controller_configs=None,
-        gripper_types="default",
-        initialization_noise="default",
-        table_full_size=(1.5, 2.0, 0.05),
-        table_friction=(1.0, 5e-3, 1e-4),
-        use_camera_obs=True,
-        use_object_obs=True,
-        reward_scale=1.0,
-        reward_shaping=False,
-        goal_dist=0.1,
-        collision_reward=-10,
-        goal_reward=1,
-        object_gripped_reward=-1,
-        object_placement_initializer=None,
-        target_placement_initializer=None,
-        obstacle_placement_initializer=None,
-        has_renderer=False,
-        has_offscreen_renderer=True,
-        render_camera="frontview",
-        render_collision_mesh=False,
-        render_visual_mesh=True,
-        render_gpu_device_id=-1,
-        control_freq=10,
-        horizon=1000,
-        ignore_done=False,
-        hard_reset=True,
-        camera_names="frontview",
-        camera_heights=256,
-        camera_widths=256,
-        camera_depths=False,
-        camera_segmentations=None,  # {None, instance, class, element}
-        renderer="mujoco",
-        renderer_config=None,
-        use_failsafe_controller=True,
-        visualize_failsafe_controller=False,
-        visualize_pinocchio=False,
-        control_sample_time=0.004,
-        human_animation_names=[
+        robots: Union[str, List[str]],
+        robot_base_offset: Optional[Union[List[float], List[List[float]]]] = None,
+        env_configuration: str = "default",
+        controller_configs: Optional[Union[str, List[Dict[str, Any]]]] = None,
+        gripper_types: Union[str, List[str]] = "default",
+        initialization_noise: Union[str, List[str], List[Dict[str, Any]]] = "default",
+        table_full_size: Tuple[float, float, float] = (1.5, 2.0, 0.05),
+        table_friction: Tuple[float, float, float] = (1.0, 5e-3, 1e-4),
+        object_full_size: Tuple[float, float, float] = (0.04, 0.04, 0.04),
+        use_camera_obs: bool = True,
+        use_object_obs: bool = True,
+        reward_scale: Optional[float] = 1.0,
+        reward_shaping: bool = False,
+        goal_dist: float = 0.1,
+        collision_reward: float = -10,
+        goal_reward: float = 1,
+        object_gripped_reward: float = -1,
+        object_placement_initializer: Optional[ObjectPositionSampler] = None,
+        target_placement_initializer: Optional[ObjectPositionSampler] = None,
+        obstacle_placement_initializer: Optional[ObjectPositionSampler] = None,
+        has_renderer: bool = False,
+        has_offscreen_renderer: bool = True,
+        render_camera: str = "frontview",
+        render_collision_mesh: bool = False,
+        render_visual_mesh: bool = True,
+        render_gpu_device_id: int = -1,
+        control_freq: float = 10,
+        horizon: int = 1000,
+        ignore_done: bool = False,
+        hard_reset: bool = True,
+        camera_names: Union[str, List[str]] = "frontview",
+        camera_heights: Union[int, List[int]] = 256,
+        camera_widths: Union[int, List[int]] = 256,
+        camera_depths: Union[bool, List[bool]] = False,
+        camera_segmentations: Optional[Union[str, List[str], List[List[str]]]] = None,
+        renderer: str = "mujoco",
+        renderer_config: Dict[str, Any] = None,
+        use_failsafe_controller: bool = True,
+        visualize_failsafe_controller: bool = False,
+        visualize_pinocchio: bool = False,
+        control_sample_time: float = 0.004,
+        human_animation_names: List[str] = [
             "CMU/62_01",
             "CMU/62_03",
             "CMU/62_04",
@@ -257,19 +263,20 @@ class PickPlaceHumanCart(HumanEnv):
             "CMU/62_18",
             "CMU/62_19",
         ],
-        base_human_pos_offset=[0.0, 0.0, 0.0],
-        human_animation_freq=120,
-        human_rand=[0.0, 0.0, 0.0],
-        safe_vel=0.001,
-        self_collision_safety=0.01,
-        seed=0,
-        verbose=False,
-        done_at_collision=False,
-        done_at_success=False
+        base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
+        human_animation_freq: float = 120,
+        human_rand: List[float] = [0.0, 0.0, 0.0],
+        safe_vel: float = 0.001,
+        self_collision_safety: float = 0.01,
+        seed: int = 0,
+        verbose: bool = False,
+        done_at_collision: bool = False,
+        done_at_success: bool = False,
     ):  # noqa: D107
         # settings for table top
         self.table_full_size = table_full_size
         self.table_friction = table_friction
+        self.object_full_size = object_full_size
         # settings for table top (hardcoded since it's not an essential part of the environment)
         self.table_offset = np.array((0.0, 0.0, 0.82))
         # reward configuration
@@ -279,7 +286,7 @@ class PickPlaceHumanCart(HumanEnv):
         self.goal_reward = goal_reward
         self.object_gripped_reward = object_gripped_reward
         self.goal_dist = goal_dist
-        self.desired_goal = np.array([0.0])
+        self.target_pos = None
         # object placement initializer
         self.object_placement_initializer = object_placement_initializer
         self.target_placement_initializer = target_placement_initializer
@@ -328,17 +335,17 @@ class PickPlaceHumanCart(HumanEnv):
             verbose=verbose,
         )
 
-    def step(self, action):
+    def step(self, action: np.ndarray) -> Tuple[OrderedDict[str, Any], float, bool, Dict[str, Any]]:
         """Override base step function.
 
         Adds the target position as a sphere to the visualizer.
         The object and target sampling spaces are shown as red and blue boxes.
 
         Args:
-            action (np.array): Action to execute within the environment
+            action (np.ndarray): Action to execute within the environment
         Returns:
             4-tuple:
-                - (OrderedDict) observations from the environment
+                - (OrderedDict[str, Any]) observations from the environment
                 - (float) reward from the environment
                 - (bool) whether the current episode is completed or not
                 - (dict) misc information
@@ -347,40 +354,36 @@ class PickPlaceHumanCart(HumanEnv):
         """
         obs, reward, done, info = super().step(action)
         if self.goal_reached:
-            # if goal is reached, calculate a new goal.
-            self.desired_goal = self._sample_goal_pos()
-            object_placements = self.object_placement_initializer.sample()
-            for obj_pos, obj_quat, obj in object_placements.values():
-                self.sim.data.set_joint_qpos(
-                    obj.joints[0],
-                    np.concatenate([np.array(obj_pos), np.array(obj_quat)]),
-                )
+            self._on_goal_reached()
             self.goal_reached = False
         if self.has_renderer:
-            self._visualize_goal()
-            self._visualize_object_sample_space()
-            self._visualize_target_sample_space()
+            self._visualize()
         return obs, reward, done, info
 
-    def reset(self):
-        """
-        Resets the environment.
+    def _on_goal_reached(self):
+        """Callback function that is called when the goal is reached.
 
-        Returns:
-            Observation
+        Samples a new position for the object and a new target position.
         """
-        return super().reset()
+        # if goal is reached, calculate a new goal.
+        self.target_pos = self._sample_target_pos()
+        object_placements = self.object_placement_initializer.sample()
+        for obj_pos, obj_quat, obj in object_placements.values():
+            self.sim.data.set_joint_qpos(
+                obj.joints[0],
+                np.concatenate([np.array(obj_pos), np.array(obj_quat)]),
+            )
 
-    def _get_info(self) -> Dict:
+    def _get_info(self) -> Dict[str, Any]:
         """Return the info dictionary of this step.
 
         Returns
-            info dict containing of
-                * collision: if there was a collision or not
+            info dict containing:
+                * collision: whether there was a collision
                 * collision_type: type of collision
-                * timeout: if timeout was reached
+                * timeout: whether timeout was reached
                 * failsafe_intervention: if the failsafe controller intervened
-                    in this step or not
+                    in this step
         """
         info = super()._get_info()
         # Add more info if wanted (do not forget to pass this to the tensorboard callback)
@@ -388,11 +391,14 @@ class PickPlaceHumanCart(HumanEnv):
         return info
 
     def reward(
-        self, achieved_goal: List[float], desired_goal: List[float], info: Dict
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict[str, Any],
     ) -> float:
         """Compute the reward based on the achieved goal, the desired goal, and the info dict.
 
-        If self.reward_shaping, we use a dense reward, otherwise a sparse reward.
+        If `self.reward_shaping`, we use a dense reward, otherwise a sparse reward.
         The sparse reward yields
             - `self.goal_reward` if the target is reached
             - `self.object_gripped_reward` if the object is gripped but the target is not reached
@@ -401,11 +407,11 @@ class PickPlaceHumanCart(HumanEnv):
         This function can only be called for one sample.
 
         Args:
-            achieved_goal: observation of robot state that is relevant for the goal
-            desired_goal: the desired goal
-            info: dictionary containing additional information like collisions
+            achieved_goal (List[float]): observation of robot state that is relevant for the goal
+            desired_goal (List[float]): the desired goal
+            info (Dict[str, Any]): dictionary containing additional information like collisions
         Returns:
-            reward
+            float: reward
         """
         object_gripped = bool(achieved_goal[6])
 
@@ -419,51 +425,59 @@ class PickPlaceHumanCart(HumanEnv):
 
         # use a shaping reward
         if self.reward_shaping:
-            eef_pos = achieved_goal[:3]
-            obj_pos = achieved_goal[3:6]
+            eef_pos = np.array(achieved_goal[:3])
+            obj_pos = np.array(achieved_goal[3:6])
             reward += 1.0
-            eef_2_obj = np.sum((obj_pos - eef_pos)**2)
-            obj_2_target = np.sum((desired_goal - obj_pos)**2)
+            eef_2_obj = np.linalg.norm(obj_pos - eef_pos)
+            obj_2_target = np.linalg.norm(np.array(desired_goal) - obj_pos)
             reward -= (eef_2_obj * 0.2 + obj_2_target) * 0.1
-        # Scale reward if requested
-        if self.reward_scale is not None:
-            reward *= self.reward_scale / 1.0
-        # Do not add a penalty for collisions with static objects
+
+        # Add a penalty for self-collisions and collisions with the human
         if info["collision"] and COLLISION_TYPE(info["collision_type"]) != COLLISION_TYPE.STATIC:
             reward += self.collision_reward
+
+        # Scale reward if requested
+        if self.reward_scale is not None:
+            reward *= self.reward_scale
+
         return reward
 
     def _check_success(
-        self, achieved_goal: List[float], desired_goal: List[float]
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
     ) -> bool:
         """Check if the desired goal was reached.
 
         Checks if the object is at the target position.
-        The distance metric is a RMSE and the threshold is self.goal_dist.
+        The distance metric is a RMSE and the threshold is `self.goal_dist`.
         This function can only be called for one sample.
 
         Args:
-            achieved_goal: observation of robot state that is relevant for goal
-            desired_goal: the desired goal
+            achieved_goal (List[float]): observation of robot state that is relevant for goal
+            desired_goal (List[float]): the desired goal
         Returns:
-            True if success
+            bool: whether the goal was reached
         """
-        dist = np.linalg.norm(achieved_goal[3:6] - desired_goal)
+        dist = np.linalg.norm(np.array(achieved_goal[3:6]) - np.array(desired_goal))
         return dist <= self.goal_dist
 
     def _check_done(
-        self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info: Dict
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict[str, Any],
     ) -> bool:
         """Compute the done flag based on the achieved goal, the desired goal, and the info dict.
 
         This function can only be called for one sample.
 
         Args:
-            achieved_goal: observation of robot state that is relevant for goal
-            desired_goal: the desired goal
-            info: dictionary containing additional information like collision
+            achieved_goal (List[float]): observation of robot state that is relevant for goal
+            desired_goal (List[float]): the desired goal
+            info (Dict[str, Any]): dictionary containing additional information like collision
         Returns:
-            done
+            bool: done flag
         """
         collision = info["collision"]
         if self.done_at_collision and collision:
@@ -474,43 +488,43 @@ class PickPlaceHumanCart(HumanEnv):
         return False
 
     def _get_achieved_goal_from_obs(
-        self, observation: Dict
-    ) -> np.ndarray:
-        """
-        Extract the achieved goal from the observation.
+        self,
+        observation: OrderedDict[str, Any],
+    ) -> List[float]:
+        """Extract the achieved goal from the observation.
 
         The achieved goal includes the end effector position, object position, and whether the object is gripped.
 
         Args:
-            observation: The observation after the action is executed
+            observation (OrderedDict[str, Any]): The observation after the action is executed
 
         Returns:
-            The achieved goal
+            List[float]: The achieved goal
         """
-
         pf = self.robots[0].robot_model.naming_prefix
         return np.concatenate(
             [
                 observation[f"{pf}eef_pos"],
                 observation["object_pos"],
-                np.array(observation["object_gripped"]).reshape(1),
+                [observation["object_gripped"]],
             ]
-        )
+        ).tolist()
 
     def _get_desired_goal_from_obs(
-        self, observation: Dict
-    ) -> np.ndarray:
+        self,
+        observation: OrderedDict[str, Any],
+    ) -> List[float]:
         """Extract the desired goal from the observation.
 
         The desired goal is the target position for the object.
 
         Args:
-            observation: The observation after the action is executed
+            observation (OrderedDict[str, Any]): The observation after the action is executed
 
         Returns:
-            The desired goal
+            List[float]: The desired goal
         """
-        return observation["target_pos"]
+        return list(observation["target_pos"])
 
     def _reset_internal(self):
         """Reset the simulation internal configurations."""
@@ -518,9 +532,16 @@ class PickPlaceHumanCart(HumanEnv):
         self.robots[0].init_qpos = np.array([0, 0.0, -np.pi / 2, 0, -np.pi / 2, np.pi / 4])
 
         super()._reset_internal()
-        self.desired_goal = self._sample_goal_pos()
+        self.target_pos = self._sample_target_pos()
 
-    def _sample_goal_pos(self) -> np.ndarray:
+    def _get_current_target_pos(self) -> np.ndarray:
+        """Return the target position.
+
+        Can be overridden to allow for dynamic target positions, e.g. when taking the human into account.
+        """
+        return self.target_pos
+
+    def _sample_target_pos(self) -> np.ndarray:
         """Sample a new target location from the defined space.
 
         Returns:
@@ -532,7 +553,7 @@ class PickPlaceHumanCart(HumanEnv):
         """Set up the mujoco arena.
 
         Must define self.mujoco_arena.
-        Define self.objects and self.obstacles here.
+        Defines object, target, and obstacles.
         """
         # load model for table top workspace
         self.mujoco_arena = TableArena(
@@ -551,7 +572,7 @@ class PickPlaceHumanCart(HumanEnv):
         # Objects are elements that can be moved around and manipulated.
         # Create objects
         # Box example
-        box_size = np.array([0.04, 0.04, 0.04])
+        box_size = np.array(self.object_full_size)
         box = BoxObject(
             name="smallBox",
             size=box_size * 0.5,
@@ -559,7 +580,7 @@ class PickPlaceHumanCart(HumanEnv):
         )
         self.objects = [box]
         # Placement sampler for objects
-        object_bin_boundaries = self._get_object_bin_boundaries()
+        object_bin_boundaries = self._get_default_object_bin_boundaries()
 
         self.object_placement_initializer = self._setup_placement_initializer(
             name="ObjectSampler",
@@ -577,7 +598,7 @@ class PickPlaceHumanCart(HumanEnv):
             rgba=[0.9, 0.1, 0.1, 1],
         )
 
-        target_bin_boundaries = self._get_target_bin_boundaries()
+        target_bin_boundaries = self._get_default_target_bin_boundaries()
         self.target_placement_initializer = self._setup_placement_initializer(
             name="TargetSampler",
             initializer=self.target_placement_initializer,
@@ -608,13 +629,13 @@ class PickPlaceHumanCart(HumanEnv):
         assert len(self.objects) == 1
         self.box_body_id = self.sim.model.body_name2id(self.objects[0].root_body)
 
-    def _setup_observables(self):
+    def _setup_observables(self) -> OrderedDict[str, Observable]:
         """Set up observables to be used for this environment.
 
         Creates object-based observables if enabled.
 
         Returns:
-            OrderedDict: Dictionary mapping observable names to its corresponding Observable object
+            OrderedDict[str, Observable]: Dictionary mapping observable names to its corresponding Observable object
         """
         observables = super()._setup_observables()
         # robot joint pos
@@ -647,36 +668,37 @@ class PickPlaceHumanCart(HumanEnv):
 
         # Absolute coordinates of goal position
         @sensor(modality=goal_mod)
-        def target_pos(obs_cache) -> np.ndarray:
-            return self.desired_goal
+        def target_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
+            self.target_pos = self._get_current_target_pos()
+            return self.target_pos
 
         # Absolute coordinates of object position
         @sensor(modality=obj_mod)
-        def object_pos(obs_cache) -> np.ndarray:
+        def object_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
             return np.array(self.sim.data.body_xpos[self.box_body_id])
 
         # Vector from robot end-effector to object
         @sensor(modality=obj_mod)
-        def eef_to_object(obs_cache) -> np.ndarray:
+        def eef_to_object(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
-                obs_cache["object_pos"] - obs_cache[f"{pf}eef_pos"]
+                np.array(obs_cache["object_pos"]) - np.array(obs_cache[f"{pf}eef_pos"])
                 if "object_pos" in obs_cache and f"{pf}eef_pos" in obs_cache
                 else np.zeros(3)
             )
 
         # Vector from object to target
         @sensor(modality=goal_mod)
-        def object_to_target(obs_cache) -> np.ndarray:
+        def object_to_target(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
-                obs_cache["target_pos"] - obs_cache["object_pos"]
+                np.array(obs_cache["target_pos"]) - np.array(obs_cache["object_pos"])
                 if "target_pos" in obs_cache and "object_pos" in obs_cache
                 else np.zeros(3)
             )
 
         @sensor(modality=goal_mod)
-        def eef_to_target(obs_cache) -> np.ndarray:
+        def eef_to_target(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
-                obs_cache["target_pos"] - obs_cache[f"{pf}eef_pos"]
+                np.array(obs_cache["target_pos"]) - np.array(obs_cache[f"{pf}eef_pos"])
                 if "target_pos" in obs_cache and f"{pf}eef_pos" in obs_cache
                 else np.zeros(3)
             )
@@ -684,7 +706,7 @@ class PickPlaceHumanCart(HumanEnv):
         # Boolean value if the object is gripped
         # Checks if both finger pads are in contact with the object
         @sensor(modality="object")
-        def object_gripped(obs_cache) -> bool:
+        def object_gripped(obs_cache: Dict[str, Any]) -> bool:
             coll = cantor_pairing(
                 self.sim.model.geom_name2id("gripper0_l_fingerpad_g0"),
                 self.sim.model.geom_name2id("smallBox_g0"),
@@ -696,9 +718,13 @@ class PickPlaceHumanCart(HumanEnv):
             return coll
 
         @sensor(modality=goal_mod)
-        def vec_to_next_objective(obs_cache) -> np.ndarray:
+        def vec_to_next_objective(obs_cache: Dict[str, Any]) -> np.ndarray:
             if all([key in obs_cache for key in ["eef_to_object", "object_to_target", "object_gripped"]]):
-                return obs_cache["object_to_target"] if obs_cache["object_gripped"] else obs_cache["eef_to_object"]
+                return np.array(
+                    obs_cache["object_to_target"]
+                ) if obs_cache["object_gripped"] else np.array(
+                    obs_cache["eef_to_object"]
+                )
             else:
                 return np.zeros(3)
 
@@ -724,13 +750,12 @@ class PickPlaceHumanCart(HumanEnv):
 
         return observables
 
-    def _get_object_bin_boundaries(self) -> Tuple[float, float, float, float]:
+    def _get_default_object_bin_boundaries(self) -> Tuple[float, float, float, float]:
         """Get the x and y boundaries of the object sampling space.
 
         Returns:
-            (float, float, float, float):
+            Tuple[float, float, float, float]:
                 Boundaries of sampling space in the form (xmin, xmax, ymin, ymax)
-
         """
         bin_x_half = self.table_full_size[0] / 2 - 0.05
         bin_y_half = self.table_full_size[1] / 2 - 0.05
@@ -742,11 +767,11 @@ class PickPlaceHumanCart(HumanEnv):
             bin_y_half * 0.45,
         )
 
-    def _get_target_bin_boundaries(self) -> Tuple[float, float, float, float]:
+    def _get_default_target_bin_boundaries(self) -> Tuple[float, float, float, float]:
         """Get the x and y boundaries of the target sampling space.
 
         Returns:
-            (float, float, float, float):
+            Tuple[float, float, float, float]:
                 Boundaries of the sampling space in the form (xmin, xmax, ymin, ymax)
         """
         bin_x_half = self.table_full_size[0] / 2 - 0.05
@@ -759,36 +784,40 @@ class PickPlaceHumanCart(HumanEnv):
             bin_y_half * -0.25,
         )
 
+    def _visualize(self):
+        """Visualize goal, object sampling space, and target sampling space."""
+        self._visualize_goal()
+        self._visualize_object_sample_space()
+        self._visualize_target_sample_space()
+
     def _visualize_goal(self):
         """Draw a sphere at the target location."""
         # sphere (type 2)
         self.viewer.viewer.add_marker(
-            pos=self.desired_goal,
+            pos=self.target_pos,
             type=2,
-            size=[0.02, 0.02, 0.02],
+            size=[self.goal_dist, self.goal_dist, self.goal_dist],
             rgba=[0.0, 1.0, 0.0, 0.7],
             label="",
             shininess=0.0,
         )
 
     def _visualize_object_sample_space(self):
-        """Draw a box to display the object sampling space
-        """
+        """Draw a box to display the object sampling space"""
         self.draw_box(
-            self._get_object_bin_boundaries() + (  # Add z boundaries
-                self.desired_goal[2] - 0.05,
-                self.desired_goal[2] + 0.05,
+            self._get_default_object_bin_boundaries() + (  # Add z boundaries
+                self.table_offset[2] - 0.05,
+                self.table_offset[2] + 0.05,
             ),
             (1.0, 0.0, 0.0, 0.3),
         )
 
     def _visualize_target_sample_space(self):
-        """Draw a box to display the target sampling space
-        """
+        """Draw a box to display the target sampling space"""
         self.draw_box(
-            self._get_target_bin_boundaries() + (  # Add z boundaries
-                self.desired_goal[2] - 0.05,
-                self.desired_goal[2] + 0.05
+            self._get_default_target_bin_boundaries() + (  # Add z boundaries
+                self.target_pos[2] - 0.05,
+                self.target_pos[2] + 0.05
             ),
             (0.0, 0.0, 1.0, 0.3),
         )
@@ -801,9 +830,9 @@ class PickPlaceHumanCart(HumanEnv):
         """Render a box in the scene.
 
         Args:
-            boundaries (float, float, float, float, float, float):
+            boundaries (Tuple[float, float, float, float, float, float]):
                 Box boundaries in the form (xmin, xmax, ymin, ymax, zmin, zmax)
-            color (float, float, float, float):
+            color (Tuple[float, float, float, float]):
                 Color in the form (r, g, b, a)
         """
         # Box (type 2)

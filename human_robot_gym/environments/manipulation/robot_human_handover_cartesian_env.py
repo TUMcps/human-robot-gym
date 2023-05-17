@@ -1,37 +1,27 @@
-"""This file describes a reach task for a single robot with a human doing tasks nearby.
+"""This file describes a variant for the pick place task
+where the robot should place the object onto the hand of the human.
 
-This class is based on the human environment.
+Author
+    Felix Trost (FT)
 
-Owner:
-    Jakob Thumm (JT)
-
-Contributors:
-    Julian Balletshofer JB
-    Felix Trost FT
 Changelog:
-    2.5.22 JT Formatted docstrings
-    15.7.22 JB added optional stop at collision
-    16.05.23 FT Formatted docstrings
+    16.05.23 FT File creation
 """
-from typing import Any, Dict, Union, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
 from robosuite.models.arenas import TableArena
 from robosuite.models.objects.primitive.box import BoxObject
-from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import ObjectPositionSampler
 
+from human_robot_gym.environments.manipulation.pick_place_human_cartesian_env import PickPlaceHumanCart
 from human_robot_gym.utils.mjcf_utils import xml_path_completion
-from human_robot_gym.environments.manipulation.human_env import HumanEnv
-from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import (
-    PinocchioManipulatorModel,
-)
 
 
-class ReachHuman(HumanEnv):
-    """
-    This class corresponds to the reaching task for a single robot arm in a human environment.
+class RobotHumanHandoverCart(PickPlaceHumanCart):
+    """This class corresponds to the pick place task for a single robot arm in a human environment
+    where the robot should place the object to a spot on the table the human is pointing at.
 
     Args:
         robots (str | List[str]): Specification for specific robot arm(s) to be instantiated within this env
@@ -71,16 +61,18 @@ class ReachHuman(HumanEnv):
             :Note: Specifying `"default"` will automatically use the default noise settings.
                 Specifying `None` will automatically create the required dict with `"magnitude"` set to `0.0`.
 
-        table_full_size (3-tuple): x, y, and z dimensions of the table.
+        table_full_size (Tuple[float, float, float]): x, y, and z dimensions of the table.
 
-        table_friction (3-tuple): the three mujoco friction parameters for
+        table_friction (Tuple[float, float, float]): the three mujoco friction parameters for
             the table.
+
+        object_full_size (Tuple[float, float, float]): x, y, and z dimensions of the cube object that should be moved.
 
         use_camera_obs (bool): if `True`, every observation includes rendered image(s)
 
         use_object_obs (bool): if `True`, include object information in the observation.
 
-        reward_scale (None or float): Scales the normalized reward function by the amount specified.
+        reward_scale (None | float): Scales the normalized reward function by the amount specified.
             If `None`, environment reward remains unnormalized
 
         reward_shaping (bool): if `True`, use dense rewards, else use sparse rewards.
@@ -90,6 +82,12 @@ class ReachHuman(HumanEnv):
         collision_reward (float): Reward to be given in the case of a collision.
 
         goal_reward (float): Reward to be given in the case of reaching the goal.
+
+        object_gripped_reward (float): Additional reward for gripping the object when `reward_shaping=False`.
+            If object is not gripped: `reward = -1`.
+            If object gripped but not at the target: `object_gripped_reward`.
+            If object is at the target: `reward = goal_reward`.
+            `object_gripped_reward` defaults to `-1`.
 
         object_placement_initializer (ObjectPositionSampler): if provided, will
             be used to place objects on every reset, else a `UniformRandomSampler`
@@ -185,9 +183,6 @@ class ReachHuman(HumanEnv):
         safe_vel (float): Safe cartesian velocity. The robot is allowed to move with this velocity in the vicinity of
             humans.
 
-        randomize_initial_pos (bool): If `True`: Use random initial joint position for robot.
-            Otherwise, do not override initial position.
-
         self_collision_safety (float): Safe distance for self collision detection
 
         seed (int): Random seed for `np.random`
@@ -211,6 +206,7 @@ class ReachHuman(HumanEnv):
         initialization_noise: Union[str, List[str], List[Dict[str, Any]]] = "default",
         table_full_size: Tuple[float, float, float] = (1.5, 2.0, 0.05),
         table_friction: Tuple[float, float, float] = (1.0, 5e-3, 1e-4),
+        object_full_size: Tuple[float, float, float] = (0.04, 0.04, 0.04),
         use_camera_obs: bool = True,
         use_object_obs: bool = True,
         reward_scale: Optional[float] = 1.0,
@@ -218,6 +214,7 @@ class ReachHuman(HumanEnv):
         goal_dist: float = 0.1,
         collision_reward: float = -10,
         goal_reward: float = 1,
+        object_gripped_reward: float = -1,
         object_placement_initializer: Optional[ObjectPositionSampler] = None,
         obstacle_placement_initializer: Optional[ObjectPositionSampler] = None,
         has_renderer: bool = False,
@@ -242,50 +239,19 @@ class ReachHuman(HumanEnv):
         visualize_pinocchio: bool = False,
         control_sample_time: float = 0.004,
         human_animation_names: List[str] = [
-            "CMU/62_01",
-            "CMU/62_03",
-            "CMU/62_04",
-            "CMU/62_07",
-            "CMU/62_09",
-            "CMU/62_10",
-            "CMU/62_12",
-            "CMU/62_13",
-            "CMU/62_14",
-            "CMU/62_15",
-            "CMU/62_16",
-            "CMU/62_18",
-            "CMU/62_19",
+            "RobotHumanHandover/0",
+            "RobotHumanHandover/1",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
-        human_animation_freq: float = 120,
+        human_animation_freq: float = 30,
         human_rand: List[float] = [0.0, 0.0, 0.0],
         safe_vel: float = 0.001,
-        randomize_initial_pos=False,
         self_collision_safety: float = 0.01,
         seed: int = 0,
         verbose: bool = False,
         done_at_collision: bool = False,
         done_at_success: bool = False,
-    ):  # noqa: D107
-        # settings for table top
-        self.table_full_size = table_full_size
-        self.table_friction = table_friction
-        # settings for table top (hardcoded since it's not an essential part of the environment)
-        self.table_offset = np.array((0.0, 0.0, 0.82))
-        # reward configuration
-        self.reward_scale = reward_scale
-        self.reward_shaping = reward_shaping
-        self.collision_reward = collision_reward
-        self.goal_reward = goal_reward
-        self.goal_dist = goal_dist
-        self.desired_goal = np.array([0.0])
-        # object placement initializer
-        self.object_placement_initializer = object_placement_initializer
-        self.obstacle_placement_initializer = obstacle_placement_initializer
-        self.randomize_initial_pos = randomize_initial_pos
-        # if run should stop at collision
-        self.done_at_collision = done_at_collision
-        self.done_at_success = done_at_success
+    ):
         super().__init__(
             robots=robots,
             robot_base_offset=robot_base_offset,
@@ -293,8 +259,20 @@ class ReachHuman(HumanEnv):
             controller_configs=controller_configs,
             gripper_types=gripper_types,
             initialization_noise=initialization_noise,
+            table_full_size=table_full_size,
+            table_friction=table_friction,
+            object_full_size=object_full_size,
             use_camera_obs=use_camera_obs,
             use_object_obs=use_object_obs,
+            reward_scale=reward_scale,
+            reward_shaping=reward_shaping,
+            goal_dist=goal_dist,
+            collision_reward=collision_reward,
+            goal_reward=goal_reward,
+            object_gripped_reward=object_gripped_reward,
+            object_placement_initializer=object_placement_initializer,
+            target_placement_initializer=None,
+            obstacle_placement_initializer=obstacle_placement_initializer,
             has_renderer=has_renderer,
             has_offscreen_renderer=has_offscreen_renderer,
             render_camera=render_camera,
@@ -324,254 +302,47 @@ class ReachHuman(HumanEnv):
             self_collision_safety=self_collision_safety,
             seed=seed,
             verbose=verbose,
+            done_at_collision=done_at_collision,
+            done_at_success=done_at_success,
         )
-
-    def step(self, action):
-        """Override base step function.
-
-        Adds the goal position as an arrow to the visualizer.
-
-        Args:
-            action (np.array): Action to execute within the environment
-        Returns:
-            4-tuple:
-                - (OrderedDict) observations from the environment
-                - (float) reward from the environment
-                - (bool) whether the current episode is completed or not
-                - (dict) misc information
-        Raises:
-            ValueError: [Steps past episode termination]
-        """
-        obs, reward, done, info = super().step(action)
-        if self.goal_reached:
-            # if goal is reached, calculate a new goal.
-            self.desired_goal = self._sample_valid_pos()
-            if isinstance(self.robots[0].robot_model, PinocchioManipulatorModel):
-                (self.goal_marker_trans, self.goal_marker_rot) = self.robots[
-                    0
-                ].robot_model.get_eef_transformation(self.desired_goal)
-            self.goal_reached = False
-        if self.has_renderer:
-            self._visualize_goal()
-        return obs, reward, done, info
-
-    def reset(self):
-        """
-        Resets the environment.
-
-        Returns:
-            Observation
-        """
-        return super().reset()
-
-    def _get_info(self) -> Dict:
-        """Return the info dictionary of this step.
-
-        Returns
-            info dict containing of
-                * collision: if there was a collision or not
-                * collision_type: type of collision
-                * timeout: if timeout was reached
-                * failsafe_intervention: if the failsafe controller intervened
-                    in this step or not
-        """
-        info = super()._get_info()
-        # Add more info if wanted (do not forget to pass this to the tensorboard callback)
-        # info["my_cool_info"] = 0
-        return info
-
-    def reward(
-        self, achieved_goal: List[float], desired_goal: List[float], info: Dict
-    ) -> float:
-        """Compute the reward based on the achieved goal, the desired goal, and the info dict.
-
-        If self.reward_shaping, we use a dense reward, otherwise a sparse reward.
-        This function can only be called for one sample.
-
-        Args:
-            achieved_goal (List[float]): observation of robot state that is relevant for goal
-            desired_goal (List[float]): the desired goal
-            info (Dict): dictionary containing additional information like collision
-        Returns:
-            reward (float)
-        """
-        # sparse completion reward
-        if self._check_success(achieved_goal, desired_goal):
-            reward = self.goal_reward
-        else:
-            reward = -1.0
-
-        # use a shaping reward
-        if self.reward_shaping:
-            reward += 1.0
-            dist = np.sqrt(np.sum((achieved_goal - desired_goal)**2))
-            reward -= dist * 0.1
-        if info["collision"]:
-            reward += self.collision_reward
-
-        # Scale reward if requested
-        if self.reward_scale is not None:
-            reward *= self.reward_scale / 1.0
-
-        return reward
-
-    def _check_success(
-        self, achieved_goal: List[float], desired_goal: List[float]
-    ) -> bool:
-        """Check if the desired goal was reached.
-
-        Checks if all robot joints are at the desired position.
-        The distance metric is a RMSE and the threshold is self.goal_dist.
-        This function can only be called for one sample.
-
-        Args:
-            achieved_goal: observation of robot state that is relevant for goal
-            desired_goal: the desired goal
-        Returns:
-            True if success
-        """
-        dist = np.sqrt(
-            np.sum([(a - g) ** 2 for (a, g) in zip(achieved_goal, desired_goal)])
-        )
-        return dist <= self.goal_dist
-
-    def _check_done(
-        self, achieved_goal: List[float], desired_goal: List[float], info: Dict
-    ) -> bool:
-        """Compute the done flag based on the achieved goal, the desired goal, and the info dict.
-
-        This function can only be called for one sample.
-
-        Args:
-            achieved_goal (List[float]): observation of robot state that is relevant for goal
-            desired_goal (List[float]): the desired goal
-            info (Dict): dictionary containing additional information like collision
-        Returns:
-            done (bool)
-        """
-        collision = info["collision"]
-        if self.done_at_collision and collision:
-            return True
-        success = self._check_success(achieved_goal, desired_goal)
-        if self.done_at_success and success:
-            return True
-        return False
-
-    def _get_achieved_goal_from_obs(
-        self, observation: Union[List[float], Dict]
-    ) -> List[float]:
-        """
-        Extract the achieved goal from the observation.
-
-        The achieved goal is the new joint angle position of all joints.
-
-        Args:
-            observation: The observation after the action is executed
-
-        Returns:
-            The achieved goal
-        """
-        prefix = self.robots[0].robot_model.naming_prefix
-        return observation[prefix + "joint_pos"]
-
-    def _get_desired_goal_from_obs(
-        self, observation: Union[List[float], Dict]
-    ) -> List[float]:
-        """Extract the desired goal from the observation.
-
-        The desired goal is a desired goal joint position.
-
-        Args:
-            observation: The observation after the action is executed
-
-        Returns:
-            The desired goal
-        """
-        return observation["desired_goal"]
-
-    def _reset_internal(self):
-        """Reset the simulation internal configurations."""
-        # Set the desired new initial joint angles before resetting the robot.
-        if self.randomize_initial_pos:
-            if self.robots[0].controller is not None:
-                self.robots[0].init_qpos = self._sample_valid_pos()
-        super()._reset_internal()
-        self.desired_goal = self._sample_valid_pos()
-        if isinstance(self.robots[0].robot_model, PinocchioManipulatorModel):
-            (self.goal_marker_trans, self.goal_marker_rot) = self.robots[
-                0
-            ].robot_model.get_eef_transformation(self.desired_goal)
-
-    def _sample_valid_pos(self):
-        """Randomly sample a new valid joint configuration
-            without self-collisions or collisions with the static environment.
-
-        Returns:
-            joint configuration (np.array)
-        """
-        robot = self.robots[0]
-        pos_limits = np.array(robot.controller.position_limits)
-        goal = np.zeros(pos_limits.shape[1])
-        for i in range(20):
-            rand = np.random.rand(pos_limits.shape[1])
-            goal = pos_limits[0] + (pos_limits[1] - pos_limits[0]) * rand
-            if isinstance(robot.robot_model, PinocchioManipulatorModel):
-                if not self._check_action_safety(robot.robot_model, goal):
-                    goal = np.zeros(pos_limits.shape[1])
-                    if self.visualize_pinocchio:
-                        self.visualize_pin(self.pin_viz)
-                else:
-                    break
-            else:
-                break
-
-        return goal
 
     def _setup_arena(self):
-        """Set up the mujoco arena.
+        """Setup the mujoco arena.
 
-        Must define self.mujoco_arena.
-        Define self.objects and self.obstacles here.
+        Must define `self.mujoco_arena`.
+        Defines `self.objects` and `self.obstacles`.
         """
-        # load model for table top workspace
         self.mujoco_arena = TableArena(
             table_full_size=self.table_full_size,
             table_offset=self.table_offset,
-            xml=xml_path_completion("arenas/table_arena.xml")
+            xml=xml_path_completion("arenas/table_arena.xml"),
         )
 
-        # Arena always gets set to zero origin
         self._set_origin()
 
-        # Modify default agentview camera
         self._set_mujoco_camera()
 
-        # << OBJECTS >>
-        # Objects are elements that can be moved around and manipulated.
-        # Create objects
-        # Box example
-        box_size = np.array([0.05, 0.05, 0.05])
+        box_size = np.array(self.object_full_size)
         box = BoxObject(
             name="smallBox",
             size=box_size * 0.5,
             rgba=[0.1, 0.7, 0.3, 1],
         )
         self.objects = [box]
-        # Placement sampler for objects
-        bin_x_half = self.table_full_size[0] / 2 - 0.05
-        bin_y_half = self.table_full_size[1] / 2 - 0.05
+        object_bin_boundaries = self._get_default_object_bin_boundaries()
         self.object_placement_initializer = self._setup_placement_initializer(
             name="ObjectSampler",
             initializer=self.object_placement_initializer,
             objects=self.objects,
-            x_range=[-bin_x_half, bin_x_half],
-            y_range=[-bin_y_half, bin_y_half],
+            x_range=[object_bin_boundaries[0], object_bin_boundaries[1]],
+            y_range=[object_bin_boundaries[2], object_bin_boundaries[3]],
         )
+
         # << OBSTACLES >>
         self._setup_collision_objects(
             add_table=True,
             add_base=True,
-            safety_margin=0.01
+            safety_margin=0.00
         )
         # Obstacles are elements that the robot should avoid.
         self.obstacles = []
@@ -581,77 +352,51 @@ class ReachHuman(HumanEnv):
             objects=self.obstacles,
         )
 
-    def _setup_references(self):
-        """Set up references to important components."""
-        super()._setup_references()
+    def _get_current_target_pos(self) -> np.ndarray:
+        """Evaluate the current target position.
 
-    def _setup_observables(self):
-        """Set up observables to be used for this environment.
-
-        Creates object-based observables if enabled.
+        Returns a point above the hand the human holds out over the table.
 
         Returns:
-            OrderedDict: Dictionary mapping observable names to its corresponding Observable object
+            np.ndarray: The current target position.s
         """
-        observables = super()._setup_observables()
-        # robot joint pos
-        prefix = self.robots[0].robot_model.naming_prefix
-        if prefix + "joint_pos" in observables:
-            observables[prefix + "joint_pos"].set_active(True)
-        if prefix + "joint_vel" in observables:
-            observables[prefix + "joint_vel"].set_active(True)
-        if prefix + "eef_pos" in observables:
-            observables[prefix + "eef_pos"].set_active(True)
-        if "human_joint_pos" in observables:
-            observables["human_joint_pos"].set_active(True)
-        if prefix + "joint_pos_cos" in observables:
-            observables[prefix + "joint_pos_cos"].set_active(False)
-        if prefix + "joint_pos_sin" in observables:
-            observables[prefix + "joint_pos_sin"].set_active(False)
-        if prefix + "gripper_qpos" in observables:
-            observables[prefix + "gripper_qpos"].set_active(False)
-        if prefix + "gripper_qvel" in observables:
-            observables[prefix + "gripper_qvel"].set_active(False)
-        if prefix + "eef_quat" in observables:
-            observables[prefix + "eef_quat"].set_active(False)
-        if "gripper_pos" in observables:
-            observables["gripper_pos"].set_active(False)
+        if self.human_animation_data[self.human_animation_id][1]["hand_to_place_on"] == "right":
+            desired_goal = self.sim.data.get_site_xpos(self.human.right_hand)
+        elif self.human_animation_data[self.human_animation_id][1]["hand_to_place_on"] == "left":
+            desired_goal = self.sim.data.get_site_xpos(self.human.left_hand)
 
-        # low-level object information
-        modality = "goal"
+        desired_goal += np.array([0, 0, 0.05])
+        return desired_goal
 
-        @sensor(modality=modality)
-        def desired_goal(obs_cache):
-            return self.desired_goal
+    def _sample_target_pos(self) -> np.ndarray:
+        """Override the parent function to return the current target position.
 
-        @sensor(modality=modality)
-        def goal_difference(obs_cache):
-            return self.desired_goal - np.array([self.sim.data.qpos[x] for x in self.robots[0]._ref_joint_pos_indexes])
+        In contrast to the basic pick place environment, the target position is not sampled but
+        evaluated from the human's hand position.
 
-        sensors = [desired_goal]
-        if len(self.robots[0]._ref_joint_pos_indexes) == self.desired_goal.shape[0]:
-            sensors.append(goal_difference)
+        Returns:
+            np.ndarray: The current target position.
+        """
+        return self._get_current_target_pos()
 
-        names = [s.__name__ for s in sensors]
+    def _get_default_object_bin_boundaries(self) -> Tuple[float, float, float, float]:
+        """Get the x and y boundaries of the object sampling space.
 
-        # Create observables
-        for name, s in zip(names, sensors):
-            observables[name] = Observable(
-                name=name,
-                sensor=s,
-                sampling_rate=self.control_freq,
-            )
-        return observables
+        Returns:
+            Tuple[float, float, float, float]:
+                Boundaries of sampling space in the form (xmin, xmax, ymin, ymax)
+        """
+        bin_x_half = self.table_full_size[0] / 2 - 0.05
+        bin_y_half = self.table_full_size[1] / 2 - 0.05
 
-    def _visualize_goal(self):
-        """Visualize the goal state."""
-        # arrow (type 100)
-        self.viewer.viewer.add_marker(
-            pos=self.goal_marker_trans,
-            type=100,
-            size=[0.01, 0.01, 0.2],
-            mat=self.goal_marker_rot,
-            rgba=[0.0, 1.0, 0.0, 0.7],
-            label="",
-            shininess=0.0,
+        return (
+            bin_x_half * 0.35,
+            bin_x_half * 0.75,
+            -bin_y_half * 0.15,
+            bin_y_half * 0.15,
         )
+
+    def _visualize(self):
+        """Visualize the goal space and the sampling space of initial object positions."""
+        self._visualize_goal()
+        self._visualize_object_sample_space()
