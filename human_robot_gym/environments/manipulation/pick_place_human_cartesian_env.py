@@ -660,6 +660,8 @@ class PickPlaceHumanCart(HumanEnv):
             observables[prefix + "eef_quat"].set_active(False)
         if "gripper_pos" in observables:
             observables["gripper_pos"].set_active(False)
+        if "gripper_aperture" in observables:
+            observables["gripper_aperture"].set_active(True)
 
         # low-level object information
         goal_mod = "goal"
@@ -679,7 +681,7 @@ class PickPlaceHumanCart(HumanEnv):
 
         # Vector from robot end-effector to object
         @sensor(modality=obj_mod)
-        def eef_to_object(obs_cache: Dict[str, Any]) -> np.ndarray:
+        def vec_eef_to_object(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
                 np.array(obs_cache["object_pos"]) - np.array(obs_cache[f"{pf}eef_pos"])
                 if "object_pos" in obs_cache and f"{pf}eef_pos" in obs_cache
@@ -688,7 +690,7 @@ class PickPlaceHumanCart(HumanEnv):
 
         # Vector from object to target
         @sensor(modality=goal_mod)
-        def object_to_target(obs_cache: Dict[str, Any]) -> np.ndarray:
+        def vec_object_to_target(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
                 np.array(obs_cache["target_pos"]) - np.array(obs_cache["object_pos"])
                 if "target_pos" in obs_cache and "object_pos" in obs_cache
@@ -696,7 +698,7 @@ class PickPlaceHumanCart(HumanEnv):
             )
 
         @sensor(modality=goal_mod)
-        def eef_to_target(obs_cache: Dict[str, Any]) -> np.ndarray:
+        def vec_eef_to_target(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
                 np.array(obs_cache["target_pos"]) - np.array(obs_cache[f"{pf}eef_pos"])
                 if "target_pos" in obs_cache and f"{pf}eef_pos" in obs_cache
@@ -718,12 +720,12 @@ class PickPlaceHumanCart(HumanEnv):
             return coll
 
         @sensor(modality=goal_mod)
-        def vec_to_next_objective(obs_cache: Dict[str, Any]) -> np.ndarray:
-            if all([key in obs_cache for key in ["eef_to_object", "object_to_target", "object_gripped"]]):
+        def vec_eef_to_next_objective(obs_cache: Dict[str, Any]) -> np.ndarray:
+            if all([key in obs_cache for key in ["vec_eef_to_object", "vec_eef_to_target", "object_gripped"]]):
                 return np.array(
-                    obs_cache["object_to_target"]
+                    obs_cache["vec_eef_to_target"]
                 ) if obs_cache["object_gripped"] else np.array(
-                    obs_cache["eef_to_object"]
+                    obs_cache["vec_eef_to_object"]
                 )
             else:
                 return np.zeros(3)
@@ -731,11 +733,11 @@ class PickPlaceHumanCart(HumanEnv):
         sensors = [
             target_pos,
             object_pos,
-            eef_to_object,
-            object_to_target,
-            eef_to_target,
+            vec_eef_to_object,
+            vec_object_to_target,
+            vec_eef_to_target,
             object_gripped,
-            vec_to_next_objective,
+            vec_eef_to_next_objective,
         ]
 
         names = [s.__name__ for s in sensors]

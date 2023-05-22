@@ -9,6 +9,6 @@ gripper_fully_opened_threshold: 0.02
 seed: null
 obs_keys:
   - object_gripped
-  - eef_to_object
-  - eef_to_target
+  - vec_eef_to_object
+  - vec_eef_to_target
   - robot0_gripper_qpos

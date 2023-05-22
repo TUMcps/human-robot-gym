@@ -13,49 +13,61 @@ Available observations (possible GymWrapper keys):
         (l,r) gripper joint position
     robot0_gripper_qvel
         (l,r) gripper joint velocity
-    eef_to_human_head
+    gripper_aperture
+        normalized distance between the gripper fingers in [0, 1]
+    vec_eef_to_human_head
         (x,y,z) vector from end effector to human head
-    eef_to_human_lh
+    dist_eef_to_human_head
+        euclidean distance between human head and end effector
+    vec_eef_to_human_lh
         (x,y,z) vector from end effector to human left hand
-    eef_to_human_rh
+    dist_eef_to_human_lh
+        euclidean distance between human left hand and end effector
+    vec_eef_to_human_rh
         (x,y,z) vector from end effector to human right hand
+    dist_eef_to_human_rh
+        euclidean distance between human right hand and end effector
     target_pos
         (x,y,z) absolute position of the target
     object_pos
         (x,y,z) absolute position of the object
     object_gripped
         (True/False) whether the object has contact to both fingerpads
-    eef_to_object
+    vec_eef_to_object
         (x,y,z) vector from end effector to object (object_pos - robot0_eef_pos)
-    object_to_target
+    vec_object_to_target
         (x,y,z) vector from object to target (target_pos - object_pos)
-    eef_to_target
+    vec_eef_to_target
         (x,y,z) vector from end effector to target (target_pos - robot0_eef_pos)
-    vec_to_next_objective
+    vec_eef_to_next_objective
         (x,y,z)
             if the object is gripped (object_gripped):
-                vector from object to target (object_to_target)
+                vector from end effector to target (vec_eef_to_target)
             otherwise:
-                vector from end effector to object (eef_to_object)
+                vector from end effector to object (vec_eef_to_object)
     robot0_proprio-state
         (7-tuple) concatenation of
-            -robot0_eef_pos (robot0_proprio-state[0:3])
-            -robot0_gripper_qpos (robot0_proprio-state[3:5])
-            -robot0_gripper_qvel (robot0_proprio-state[5:7])
+            - robot0_eef_pos (robot0_proprio-state[0:3])
+            - robot0_gripper_qpos (robot0_proprio-state[3:5])
+            - robot0_gripper_qvel (robot0_proprio-state[5:7])
     object-state
-        (16-tuple) concatenation of
-            -human_head_to_eff (object-state[0:3])
-            -human_lh_to_eff (object-state[3:6])
-            -human_rh_to_eff (object-state[6:9])
-            -object_pos (object-state[9:12])
-            -eef_to_object (object-state[12-15])
-            -object_gripped (object-state[15])
+        (20-tuple) concatenation of
+            - gripper_aperture (object-state[0])
+            - vec_eef_to_human_lh (object-state[1:4])
+            - dist_eef_to_human_lh (object-state[4])
+            - vec_eef_to_human_rh (object-state[5:8])
+            - dist_eef_to_human_rh (object-state[8])
+            - vec_eef_to_human_head (object-state[9:12])
+            - dist_eef_to_human_head (object-state[12])
+            - object_pos (object-state[13:16])
+            - vec_eef_to_object (object-state[16-19])
+            - object_gripped (object-state[19])
     goal-state
         (12-tuple) concatenation of
-            -target_pos (object-state[0:3])
-            -object_to_target (object-state[3:6])
-            -eef_to_target (object-state[6:9])
-            -vec_to_next_objective (object-state[9:12])
+            - target_pos (object-state[0:3])
+            - vec_object_to_target (object-state[3:6])
+            - vec_eef_to_target (object-state[6:9])
+            - vec_eef_to_next_objective (object-state[9:12])
 
 Author:
     Felix Trost
@@ -63,8 +75,8 @@ Author:
 Changelog:
     08.02.23 FT File creation
     20.02.23 FT Added scripted policy
+    22.05.23 FT Changed docstrings
 """
-
 import robosuite as suite
 import time
 import numpy as np
@@ -125,14 +137,14 @@ if __name__ == "__main__":
         env=rsenv,
         agent_keys=[
             "object_gripped",
-            "vec_to_next_objective",
+            "vec_eef_to_next_objective",
             "robot0_gripper_qpos",
             "robot0_gripper_qvel",
         ],
         expert_keys=[
             "object_gripped",
-            "eef_to_object",
-            "eef_to_target",
+            "vec_eef_to_object",
+            "vec_eef_to_target",
             "robot0_gripper_qpos",
         ]
     )

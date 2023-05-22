@@ -1162,6 +1162,19 @@ class HumanEnv(SingleArmEnv):
                 )
 
             @sensor(modality=modality)
+            def gripper_aperture(obs_cache):
+                if f"{pf}gripper_qpos" in obs_cache:
+                    gripper_qpos = obs_cache[f"{pf}gripper_qpos"]
+                    gripper_qpos_range = self.robots[0].gripper.qpos_range
+                    normed_qpos = (
+                        (gripper_qpos - gripper_qpos_range[0]) / (gripper_qpos_range[1] - gripper_qpos_range[0])
+                    )
+                    gripper_aperture = np.mean(normed_qpos)  # [1] - normed_qpos[0]
+                    return gripper_aperture
+                else:
+                    return 0
+
+            @sensor(modality=modality)
             def human_joint_pos(obs_cache):
                 return np.concatenate(
                     [
@@ -1172,7 +1185,7 @@ class HumanEnv(SingleArmEnv):
                 )
 
             @sensor(modality=modality)
-            def eef_to_human_lh(obs_cache):
+            def vec_eef_to_human_lh(obs_cache):
                 """Return the distance from the human left hand to the end effector in each world coordinate."""
                 if f"{pf}eef_pos" in obs_cache:
                     return self.sim.data.get_site_xpos(self.human.left_hand)[:3] - obs_cache[f"{pf}eef_pos"][:3]
@@ -1180,7 +1193,14 @@ class HumanEnv(SingleArmEnv):
                     return np.zeros(3)
 
             @sensor(modality=modality)
-            def eef_to_human_rh(obs_cache):
+            def dist_eef_to_human_lh(obs_cache):
+                if "vec_eef_to_human_lh" in obs_cache:
+                    return np.linalg.norm(obs_cache["vec_eef_to_human_lh"])
+                else:
+                    return 0
+
+            @sensor(modality=modality)
+            def vec_eef_to_human_rh(obs_cache):
                 """Return the distance from the human right hand to the end effector in each world coordinate."""
                 if f"{pf}eef_pos" in obs_cache:
                     return self.sim.data.get_site_xpos(self.human.right_hand)[:3] - obs_cache[f"{pf}eef_pos"][:3]
@@ -1188,18 +1208,37 @@ class HumanEnv(SingleArmEnv):
                     return np.zeros(3)
 
             @sensor(modality=modality)
-            def eef_to_human_head(obs_cache):
+            def dist_eef_to_human_rh(obs_cache):
+                if "vec_eef_to_human_rh" in obs_cache:
+                    return np.linalg.norm(obs_cache["vec_eef_to_human_rh"])
+                else:
+                    return 0
+
+            @sensor(modality=modality)
+            def vec_eef_to_human_head(obs_cache):
                 """Return the distance from the human head to the end effector in each world coordinate."""
                 if f"{pf}eef_pos" in obs_cache:
                     return self.sim.data.get_site_xpos(self.human.head)[:3] - obs_cache[f"{pf}eef_pos"][:3]
                 else:
                     return np.zeros(3)
 
+            @sensor(modality=modality)
+            def dist_eef_to_human_head(obs_cache):
+                if "vec_eef_to_human_head" in obs_cache:
+                    return np.linalg.norm(obs_cache["vec_eef_to_human_head"])
+                else:
+                    return 0
+
             sensors = [
                 gripper_pos,
-                eef_to_human_lh,
-                eef_to_human_rh,
-                eef_to_human_head]
+                gripper_aperture,
+                vec_eef_to_human_lh,
+                dist_eef_to_human_lh,
+                vec_eef_to_human_rh,
+                dist_eef_to_human_rh,
+                vec_eef_to_human_head,
+                dist_eef_to_human_head,
+            ]
 
             names = [s.__name__ for s in sensors]
 

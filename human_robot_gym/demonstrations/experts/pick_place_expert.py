@@ -28,16 +28,16 @@ class PickPlaceExpertObservation:
     Args:
         object_gripped (bool): whether both finger pads of the robot
             have contact with the object
-        eef_to_object (np.ndarray):
+        vec_eef_to_object (np.ndarray):
             vector from robot end effector to object
-        eef_to_target (np.ndarray):
+        vec_eef_to_target (np.ndarray):
             vector from robot end effector to target
         robot0_gripper_qpos (np.ndarray):
             joint positions of the two fingers
     """
     object_gripped: bool
-    eef_to_object: np.ndarray
-    eef_to_target: np.ndarray
+    vec_eef_to_object: np.ndarray
+    vec_eef_to_target: np.ndarray
     robot0_gripper_qpos: np.ndarray
 
 
@@ -156,8 +156,8 @@ class PickPlaceExpert(Expert):
         """Convert observation dictionary to PickPlaceExpertObservation data object."""
         return PickPlaceExpertObservation(
             object_gripped=obs_dict["object_gripped"],
-            eef_to_object=obs_dict["eef_to_object"],
-            eef_to_target=obs_dict["eef_to_target"],
+            vec_eef_to_object=obs_dict["vec_eef_to_object"],
+            vec_eef_to_target=obs_dict["vec_eef_to_target"],
             robot0_gripper_qpos=obs_dict["robot0_gripper_qpos"],
         )
 
@@ -203,13 +203,13 @@ class PickPlaceExpert(Expert):
     def _at_object(self, obs: PickPlaceExpertObservation) -> bool:
         """Determine whether the distance from gripper to the object is below a given threshold"""
         return (
-            np.linalg.norm(obs.eef_to_object[:2]) < self._horizontal_epsilon and
-            -obs.eef_to_object[2] < self._vertical_epsilon
+            np.linalg.norm(obs.vec_eef_to_object[:2]) < self._horizontal_epsilon and
+            -obs.vec_eef_to_object[2] < self._vertical_epsilon
         )
 
     def _object_delivered(self, obs: PickPlaceExpertObservation) -> bool:
         """Determine whether the object is at the target location"""
-        object_to_target = obs.eef_to_target - obs.eef_to_object
+        object_to_target = obs.vec_eef_to_target - obs.vec_eef_to_object
         return (
             np.linalg.norm(object_to_target[:2]) < self._horizontal_epsilon and
             -object_to_target[2] < self._vertical_epsilon
@@ -243,7 +243,7 @@ class PickPlaceExpert(Expert):
         Minimum radius of the cone: self._horizontal_epsilon
         Cone angle: arctan(self._tan_theta)
         """
-        return self._is_within_truncated_cone(vec=obs.eef_to_object)
+        return self._is_within_truncated_cone(vec=obs.vec_eef_to_object)
 
     def _above_target(self, obs: PickPlaceExpertObservation) -> bool:
         """Determine whether the object is within a truncated cone above the target.
@@ -251,15 +251,15 @@ class PickPlaceExpert(Expert):
         Minimum radius of the cone: self._horizontal_epsilon
         Cone angle: arctan(self._tan_theta)
         """
-        return self._is_within_truncated_cone(vec=obs.eef_to_target)
+        return self._is_within_truncated_cone(vec=obs.vec_eef_to_target)
 
     def _move_to_object(self, obs: PickPlaceExpertObservation) -> np.ndarray:
         """Get the motion vector toward the object position"""
-        return obs.eef_to_object
+        return obs.vec_eef_to_object
 
     def _move_to_target(self, obs: PickPlaceExpertObservation) -> np.ndarray:
         """Get the motion vector toward the target position"""
-        return obs.eef_to_target
+        return obs.vec_eef_to_target
 
     def _move_to_above_object(self, obs: PickPlaceExpertObservation) -> np.ndarray:
         """Get the motion vector toward a point a given distance above the object"""
