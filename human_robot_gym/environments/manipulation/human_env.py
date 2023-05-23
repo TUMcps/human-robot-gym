@@ -1351,8 +1351,11 @@ class HumanEnv(SingleArmEnv):
         return control_time - self.animation_start_time
 
     def _progress_to_next_animation(self, control_time: float):
-        print("Rotate")
-        # Rotate to next human animation
+        """Changes the human animation id during an episode.
+
+        Args:
+            control_time (float): Current control time. Used to set the animation start time.
+        """
         self.human_animation_id = np.random.randint(0, len(self.human_animation_data))
         self.animation_time = 0
         self.animation_start_time = control_time
@@ -1367,7 +1370,7 @@ class HumanEnv(SingleArmEnv):
 
         updated_animation_time = self._compute_animation_time(control_time)
         # If the animation time would stay the same, there is no need to update the human.
-        if updated_animation_time == self.animation_time:
+        if updated_animation_time == self.animation_time and False:
             return
 
         self.animation_time = updated_animation_time

@@ -110,7 +110,7 @@ if __name__ == "__main__":
         control_freq=5,  # control should happen fast enough so that simulation looks smooth
         hard_reset=False,
         horizon=1000,
-        done_at_success=True,
+        done_at_success=False,
         controller_configs=controller_configs,
         use_failsafe_controller=True,
         visualize_failsafe_controller=False,
