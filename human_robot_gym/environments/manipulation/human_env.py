@@ -1169,7 +1169,7 @@ class HumanEnv(SingleArmEnv):
                     normed_qpos = (
                         (gripper_qpos - gripper_qpos_range[0]) / (gripper_qpos_range[1] - gripper_qpos_range[0])
                     )
-                    gripper_aperture = np.mean(normed_qpos)  # [1] - normed_qpos[0]
+                    gripper_aperture = np.mean(normed_qpos)
                     return gripper_aperture
                 else:
                     return 0
