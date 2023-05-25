@@ -41,7 +41,7 @@ from human_robot_gym.wrappers.action_based_expert_imitation_reward_wrapper impor
     CartActionBasedExpertImitationRewardWrapper
 )
 from human_robot_gym.wrappers.HER_buffer_add_monkey_patch import custom_add, _custom_sample_transitions
-from human_robot_gym.wrappers.tensorboard_callback import TensorboardCallback
+from human_robot_gym.callbacks.tensorboard_callback import TensorboardCallback
 
 
 SB3_ALGORITHMS = {
