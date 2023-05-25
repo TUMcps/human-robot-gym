@@ -26,6 +26,7 @@ from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from stable_baselines3 import SAC, PPO, HerReplayBuffer
 
 from human_robot_gym.demonstrations.experts import Expert, REGISTERED_EXPERTS
@@ -42,7 +43,7 @@ from human_robot_gym.wrappers.action_based_expert_imitation_reward_wrapper impor
 )
 from human_robot_gym.wrappers.HER_buffer_add_monkey_patch import custom_add, _custom_sample_transitions
 from human_robot_gym.callbacks.tensorboard_callback import TensorboardCallback
-
+from human_robot_gym.callbacks.model_reset_callback import ModelResetCallback
 
 SB3_ALGORITHMS = {
     "SAC": SAC,
@@ -460,6 +461,67 @@ def init_wandb(config: Config) -> Run:
     )
 
 
+def create_callbacks(
+    config: Config,
+    model: BaseAlgorithm,
+    env: gym.Env,
+    run_id: int
+) -> BaseCallback:
+    callbacks = []
+
+    if config.training.run_type == "wandb":
+        callbacks.append(
+            TensorboardCallback(
+                eval_env=env,
+                gradient_save_freq=100,
+                model_save_path=f"models/{run_id}",
+                verbose=2,
+                save_freq=config.training.save_freq,
+                model_file=f"models/{run_id}",
+                start_episode=model._episode_num,
+                additional_log_info_keys=config.training.log_info_keys,
+                n_eval_episodes=0,
+                deterministic=True,
+                log_interval=config.training.log_interval,
+            )
+        )
+
+    if config.training.resetting_interval is not None:
+        callbacks.append(
+            ModelResetCallback(
+                n_steps_between_resets=config.training.resetting_interval,
+                reset_fn=None,
+                verbose=config.training.verbose,
+            )
+        )
+
+
+def _run_training_with_id(config: Config, run_id: int) -> BaseAlgorithm:
+    """Run a training with the given config.
+
+    Args:
+        config (Config): The config object containing information about the model
+        run_id (int): The run id to use for this training run
+
+    Returns:
+        BaseAlgorithm: The trained model
+    """
+    env = create_environment(config=config, evaluation_mode=False)
+    model = create_model(config=config, env=env, run_id=run_id, save_logs=True)
+    callback = create_callbacks(config=config, model=model, env=env, run_id=run_id)
+
+    model.learn(
+        total_timesteps=config.training.n_steps,
+        log_interval=1,
+        reset_num_timesteps=config.training.load_episode is None,
+        callback=callback,
+    )
+
+    env.close()
+
+    return model
+
+
 def run_debug_training(config: Config) -> BaseAlgorithm:
     """Run a training without storing any data to disk.
 
@@ -471,17 +533,7 @@ def run_debug_training(config: Config) -> BaseAlgorithm:
     Returns:
         BaseAlgorithm: The trained model
     """
-    env = create_environment(config=config, evaluation_mode=False)
-    model = create_model(config=config, env=env, run_id="~~debug~~", save_logs=False)
-    model.learn(
-        total_timesteps=config.training.n_steps,
-        log_interval=1,
-        reset_num_timesteps=False,
-    )
-
-    env.close()
-
-    return model
+    return _run_training_with_id(config=config, run_id="~~debug~~")
 
 
 def run_training_tensorboard(config: Config) -> BaseAlgorithm:
@@ -502,17 +554,9 @@ def run_training_tensorboard(config: Config) -> BaseAlgorithm:
     with open(f"models/{run_id}/config.yaml", "w") as f:
         f.write(OmegaConf.to_yaml(config, resolve=True))
 
-    env = create_environment(config=config, evaluation_mode=False)
-    model = create_model(config=config, env=env, run_id=run_id, save_logs=True)
-    model.learn(
-        total_timesteps=config.training.n_steps,
-        log_interval=1,
-        reset_num_timesteps=config.training.load_episode is None,
-    )
+    model = _run_training_with_id(config=config, run_id=run_id, callbacks=[])
 
     model.save(path=f"models/{run_id}/model_final")
-
-    env.close()
 
     return model
 
@@ -538,32 +582,9 @@ def run_training_wandb(config: Config) -> BaseAlgorithm:
         with open(f"models/{run.id}/config.yaml", "w") as f:
             f.write(OmegaConf.to_yaml(config, resolve=True))
 
-        env = create_environment(config=config, evaluation_mode=False)
-        model = get_model(config=config, env=env, run_id=run.id, save_logs=True)
-        callback = TensorboardCallback(
-            eval_env=env,
-            gradient_save_freq=100,
-            model_save_path=f"models/{run.id}",
-            verbose=2,
-            save_freq=config.training.save_freq,
-            model_file=f"models/{run.id}",
-            start_episode=model._episode_num,
-            additional_log_info_keys=config.training.log_info_keys,
-            n_eval_episodes=0,
-            deterministic=True,
-            log_interval=config.training.log_interval,
-        )
-
-        model.learn(
-            total_timesteps=config.training.n_steps,
-            log_interval=1,
-            reset_num_timesteps=config.training.load_episode is None,
-            callback=callback,
-        )
+        model = _run_training_with_id(config=config, run_id=run.id)
 
         model.save(f"models/{run.id}/model_final")
-
-        env.close()
 
         return model
 
