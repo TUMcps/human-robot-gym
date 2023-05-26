@@ -22,7 +22,7 @@ class TrainingConfig:
     n_steps: int
     save_freq: int
     test_only: bool
-    load_episode: Any  # Optional[Union[int, str]]
+    load_step: Any  # Optional[Union[int, str]]
     run_id: Optional[str]
     run_type: str
     log_interval: int

@@ -115,6 +115,9 @@ class TensorboardCallback(WandbCallback):
         # Thus, We save the model at the first step that crosses the next threshold
         if (n_stored_models := self.num_timesteps // self.save_freq) > self._n_stored_models:
             self._n_stored_models = n_stored_models
+            if self.verbose > 0:
+                print(f"Saving model at {self.save_freq * self._n_stored_models} timesteps")
+
             self.model.save(
                 f"{self.model_file}/model_{self.save_freq * self._n_stored_models:_}"  # File format: model_100_000.zip
             )
