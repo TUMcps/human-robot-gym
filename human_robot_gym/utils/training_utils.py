@@ -374,8 +374,13 @@ def load_model(
     if config.training.verbose:
         print(f"Loading model from run {run_id} at episode {load_step}")
 
+    if isinstance(load_step, int):
+        model_path = f"models/{run_id}/model_{load_step:_}.zip"
+    else:
+        model_path = f"models/{run_id}/model_{load_step}.zip"
+
     model = SB3_ALGORITHMS[config.algorithm.name].load(
-        f"models/{run_id}/model_{load_step}.zip",
+        model_path,
         env=env,
     )
 
