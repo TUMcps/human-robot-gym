@@ -461,7 +461,7 @@ def init_wandb(config: Config) -> Run:
     )
 
 
-def create_callbacks(
+def create_callback(
     config: Config,
     model: BaseAlgorithm,
     env: gym.Env,
@@ -495,6 +495,8 @@ def create_callbacks(
             )
         )
 
+    return CallbackList(callbacks)
+
 
 def _run_training_with_id(config: Config, run_id: int) -> BaseAlgorithm:
     """Run a training with the given config.
@@ -508,7 +510,7 @@ def _run_training_with_id(config: Config, run_id: int) -> BaseAlgorithm:
     """
     env = create_environment(config=config, evaluation_mode=False)
     model = create_model(config=config, env=env, run_id=run_id, save_logs=True)
-    callback = create_callbacks(config=config, model=model, env=env, run_id=run_id)
+    callback = create_callback(config=config, model=model, env=env, run_id=run_id)
 
     model.learn(
         total_timesteps=config.training.n_steps,
