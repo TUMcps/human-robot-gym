@@ -34,7 +34,7 @@ class TensorboardCallback(WandbCallback):
         model_save_path: Path to save the model regularly.
         model_save_freq: Save the model every x episodes.
         gradient_save_freq: Save the gradients every x episodes.
-        save_freq: Save the model and replay buffer every x episodes.
+        save_freq: Save the model and replay buffer every x steps.
         model_file: predefined model file for loading / saving.
         start_episode: Define start episode (if model is loaded).
         additional_log_info_keys: Additionally log these keys from the info dict.
