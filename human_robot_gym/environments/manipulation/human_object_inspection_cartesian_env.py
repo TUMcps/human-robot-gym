@@ -36,6 +36,7 @@ class ObjectInspectionPhase(Enum):
     READY = 1
     INSPECTION = 2
     RETREAT = 3
+    COMPLETE = 4
 
 
 class HumanObjectInspectionCart(PickPlaceHumanCart):
@@ -282,10 +283,9 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         done_at_collision: bool = False,
         done_at_success: bool = False,
     ):
-        self.inspection_phase: ObjectInspectionPhase = None
-        self._animation_complete: bool = False
+        self.inspection_phase: ObjectInspectionPhase = ObjectInspectionPhase.COMPLETE
         # Number of timesteps the animation is delayed because of the loop phase
-        self._n_delayed_timesteps = 0
+        self._n_delayed_timesteps = None
         # Characteristics of the loop phase, set according to the animation info json files
         # with some randomization
         self._animation_loop_amplitude = 0
@@ -346,10 +346,17 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         )
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
-        print(self.inspection_phase)
+        """Override super `step` method to enter the `INSPECTION` phase when the object first is in the target zone.
+
+        Args:
+            action (np.ndarray): The action to take.
+
+        Returns:
+            Tuple[np.ndarray, float, bool, Dict[str, Any]]: The observation, reward, done flag, and info dict.
+        """
         obs, reward, done, info = super().step(action)
 
-        if self.inspection_phase == ObjectInspectionPhase.READY and super()._check_success(
+        if self.inspection_phase == ObjectInspectionPhase.READY and self._check_object_in_target_zone(
             achieved_goal=self._get_achieved_goal_from_obs(obs),
             desired_goal=self._get_desired_goal_from_obs(obs),
         ):
@@ -414,7 +421,7 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         Returns:
             bool: Whether or not the episode is successful.
         """
-        return self._animation_complete
+        return self.inspection_phase == ObjectInspectionPhase.COMPLETE
 
     def reward(
         self,
@@ -449,7 +456,7 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         reward = -1
 
         if (
-            super()._check_success(achieved_goal, desired_goal) and
+            self._check_object_in_target_zone(achieved_goal, desired_goal) and
             self.inspection_phase == ObjectInspectionPhase.INSPECTION
         ):
             reward = self.goal_reward
@@ -490,43 +497,53 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
             float: The current animation time.
         """
         animation_time = super()._compute_animation_time(control_time)
+        classic_animation_time = animation_time
+
+        animation_length = self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
         keyframes = self.human_animation_data[self.human_animation_id][1]["keyframes"]
 
+        # Enter the `READY` phase when past the first keyframe
         if animation_time > keyframes[0] and self.inspection_phase == ObjectInspectionPhase.APPROACH:
             self.inspection_phase = ObjectInspectionPhase.READY
 
+        # When in the `READY` phase, loop the animation until the object enters the target zone
         if self.inspection_phase == ObjectInspectionPhase.READY:
-            # Loop the part between the first two keyframes back and forth
-            classic_animation_time = animation_time
-
             def sin_animation_time(x, a, s):
                 return a * np.sin((x - keyframes[0]) / (a / s))
 
             animation_time = int(
-                np.floor(
-                    sin_animation_time(
-                        animation_time, self._animation_loop_amplitude, self._animation_loop_speed
-                    ) + sin_animation_time(
-                        animation_time, self._animation_loop_amplitude / 2.5, self._animation_loop_speed * 1.4,
-                    ) + sin_animation_time(
-                        animation_time, self._animation_loop_amplitude / 1.3, self._animation_loop_speed * 0.11,
-                    ) + keyframes[0]
-                )
+                sin_animation_time(
+                    animation_time, self._animation_loop_amplitude, self._animation_loop_speed
+                ) + sin_animation_time(
+                    animation_time, self._animation_loop_amplitude / 2.5, self._animation_loop_speed * 1.4,
+                ) + sin_animation_time(
+                    animation_time, self._animation_loop_amplitude / 1.3, self._animation_loop_speed * 0.11,
+                ) + keyframes[0]
             )
 
             self._n_delayed_timesteps = classic_animation_time - animation_time
         else:
             animation_time -= self._n_delayed_timesteps
 
+        # Enter the `RETREAT` phase when past the second keyframe
         if animation_time > keyframes[1]:
             self.inspection_phase = ObjectInspectionPhase.RETREAT
+
+        # Once the animation is complete, freeze the animation time at the last frame
+        if animation_time >= animation_length - 1:
+            self.inspection_phase = ObjectInspectionPhase.COMPLETE
+            animation_time = animation_length - 1
 
         return animation_time
 
     def _on_goal_reached(self):
-        """Extend super method to reset internal variables tracking the task progress."""
+        """Extend super method to select a new animation when the goal is reached."""
         super()._on_goal_reached()
-        self._animation_complete = False
+
+        if not self.done_at_success:
+            self._progress_to_next_animation(
+                animation_start_time=int(self.low_level_time / self.human_animation_step_length)
+            )
 
     def _set_animation_loop_properties(self):
         """Set the amplitude and frequency of the animation loop
@@ -556,25 +573,25 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
             )
         )
 
-    def _progress_to_next_animation(self, control_time: float):
+    def _reset_animation(self):
+        """Reset the inspection phase and the animation-specific internal variables."""
+        self.inspection_phase = ObjectInspectionPhase.APPROACH
+        self._n_delayed_timesteps = 0
+        self._set_animation_loop_properties()
+
+    def _progress_to_next_animation(self, animation_start_time: int):
         """Extend super method to reset animation-specific internal variables.
 
         Args:
-            control_time (float): The current control time.
+            animation_start_time (int): The current control time to set the animation start time to.
         """
-        super()._progress_to_next_animation(control_time)
-        self.inspection_phase = ObjectInspectionPhase.APPROACH
-        self._animation_complete = True
-        self._n_delayed_timesteps = 0
-        self._set_animation_loop_properties()
+        super()._progress_to_next_animation(animation_start_time)
+        self._reset_animation()
 
     def _reset_internal(self):
         """Extend super method to reset internal variables concerning task and animation."""
         super()._reset_internal()
-        self.inspection_phase = ObjectInspectionPhase.APPROACH
-        self._animation_complete = False
-        self._n_delayed_timesteps = 0
-        self._set_animation_loop_properties()
+        self._reset_animation()
 
     def _get_current_target_pos(self) -> np.ndarray:
         """Evaluate the current position of the target.

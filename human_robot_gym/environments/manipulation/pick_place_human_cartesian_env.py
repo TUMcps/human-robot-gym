@@ -459,6 +459,25 @@ class PickPlaceHumanCart(HumanEnv):
         Returns:
             bool: whether the goal was reached
         """
+        return self._check_object_in_target_zone(
+            achieved_goal=achieved_goal,
+            desired_goal=desired_goal,
+        )
+
+    def _check_object_in_target_zone(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+    ) -> bool:
+        """Check if the object is within the target zone.
+        The distance metric is a RMSE and the threshold is `self.goal_dist`.
+
+        Args:
+            achieved_goal (List[float]): observation of robot state that is relevant for goal
+            desired_goal (List[float]): the desired goal
+        Returns:
+            bool: whether the object is within the target zone
+        """
         dist = np.linalg.norm(np.array(achieved_goal[3:6]) - np.array(desired_goal))
         return dist <= self.goal_dist
 
