@@ -180,7 +180,7 @@ class HumanEnv(SingleArmEnv):
 
         renderer_config (dict): dictionary for the renderer configurations
 
-        use_failsafe_controller (bool): Whether or not the safety shield / failsafe controller should be active
+        shield_type (str): Shield type to use. Valid options are: "OFF", "SSM", and "PFL"
 
         visualize_failsafe_controller (bool): Whether or not the reachable sets of the failsafe controller should be
             visualized
@@ -236,7 +236,7 @@ class HumanEnv(SingleArmEnv):
         camera_segmentations: Optional[Union[str, List[str], List[List[str]]]] = None,
         renderer: str = "mujoco",
         renderer_config: Dict[str, Any] = None,
-        use_failsafe_controller: bool = True,
+        shield_type: str = "SSM",
         visualize_failsafe_controller: bool = False,
         visualize_pinocchio: bool = False,
         control_sample_time: float = 0.004,
@@ -279,7 +279,11 @@ class HumanEnv(SingleArmEnv):
         # Failsafe controller settings
         self.failsafe_controller = None
         self.control_sample_time = control_sample_time
-        self.use_failsafe_controller = use_failsafe_controller
+        # Currently, we always use the failsafe controller.
+        # If you want to use a different kind of controller, you can set this to False.
+        # If you want to deactivate the failsafe controller, set shield_type to "OFF"
+        self.use_failsafe_controller = True
+        self.shield_type = shield_type
         self.visualize_failsafe_controller = visualize_failsafe_controller
         self.safe_vel = safe_vel
         self.self_collision_safety = self_collision_safety
@@ -441,6 +445,7 @@ class HumanEnv(SingleArmEnv):
             self.use_failsafe_controller
             and self.visualize_failsafe_controller
             and self.has_renderer
+            and self.shield_type != "OFF"
         ):
             self._visualize_reachable_sets()
         # Note: this is done all at once to avoid floating point inaccuracies
@@ -1062,6 +1067,7 @@ class HumanEnv(SingleArmEnv):
                 self.robots[i].controller_config[
                     "control_sample_time"
                 ] = self.control_sample_time
+                self.robots[i].controller_config["shield_type"] = self.shield_type
                 self.failsafe_controller.append(
                     FailsafeController(**self.robots[i].controller_config)
                 )
@@ -1082,7 +1088,8 @@ class HumanEnv(SingleArmEnv):
                     self.failsafe_controller[i].reset(
                         init_qpos=self.robots[i].init_qpos,
                         base_pos=self.robots[i].base_pos,
-                        base_orientation=self.robots[i].base_ori
+                        base_orientation=self.robots[i].base_ori,
+                        shield_type=self.shield_type,
                     )
             else:
                 self._create_new_controller()

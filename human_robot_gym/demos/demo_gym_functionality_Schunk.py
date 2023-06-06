@@ -45,7 +45,7 @@ if __name__ == "__main__":
             hard_reset=False,
             horizon=1000,
             controller_configs=controller_configs,
-            use_failsafe_controller=True,
+            shield_type="SSM",
             visualize_failsafe_controller=True,
             visualize_pinocchio=False,
             base_human_pos_offset=[1.0, 0.0, 0.0],
