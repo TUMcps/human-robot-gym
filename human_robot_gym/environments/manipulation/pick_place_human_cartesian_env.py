@@ -20,7 +20,6 @@ from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import ObjectPositionSampler
 
 from human_robot_gym.utils.mjcf_utils import xml_path_completion
-from human_robot_gym.utils.pairing import cantor_pairing
 from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE, HumanEnv
 
 
@@ -291,7 +290,9 @@ class PickPlaceHumanCart(HumanEnv):
         self.object_placement_initializer = object_placement_initializer
         self.target_placement_initializer = target_placement_initializer
         self.obstacle_placement_initializer = obstacle_placement_initializer
-        self.box_body_id = None
+
+        self.manipulation_object = None
+        self.manipulation_object_body_id = None
         # if run should stop at collision
         self.done_at_collision = done_at_collision
         self.done_at_success = done_at_success
@@ -573,12 +574,12 @@ class PickPlaceHumanCart(HumanEnv):
         # Create objects
         # Box example
         box_size = np.array(self.object_full_size)
-        box = BoxObject(
-            name="smallBox",
+        self.manipulation_object = BoxObject(
+            name="manipulation_object",
             size=box_size * 0.5,
             rgba=[0.1, 0.7, 0.3, 1],
         )
-        self.objects = [box]
+        self.objects = [self.manipulation_object]
         # Placement sampler for objects
         object_bin_boundaries = self._get_default_object_bin_boundaries()
 
@@ -627,7 +628,7 @@ class PickPlaceHumanCart(HumanEnv):
         super()._setup_references()
 
         assert len(self.objects) == 1
-        self.box_body_id = self.sim.model.body_name2id(self.objects[0].root_body)
+        self.manipulation_object_body_id = self.sim.model.body_name2id(self.objects[0].root_body)
 
     def _setup_observables(self) -> OrderedDict[str, Observable]:
         """Set up observables to be used for this environment.
@@ -677,7 +678,7 @@ class PickPlaceHumanCart(HumanEnv):
         # Absolute coordinates of object position
         @sensor(modality=obj_mod)
         def object_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return np.array(self.sim.data.body_xpos[self.box_body_id])
+            return np.array(self.sim.data.body_xpos[self.manipulation_object_body_id])
 
         # Vector from robot end-effector to object
         @sensor(modality=obj_mod)
@@ -709,15 +710,10 @@ class PickPlaceHumanCart(HumanEnv):
         # Checks if both finger pads are in contact with the object
         @sensor(modality="object")
         def object_gripped(obs_cache: Dict[str, Any]) -> bool:
-            coll = cantor_pairing(
-                self.sim.model.geom_name2id("gripper0_l_fingerpad_g0"),
-                self.sim.model.geom_name2id("smallBox_g0"),
-            ) in self.previous_robot_collisions and cantor_pairing(
-                self.sim.model.geom_name2id("gripper0_r_fingerpad_g0"),
-                self.sim.model.geom_name2id("smallBox_g0"),
-            ) in self.previous_robot_collisions
-
-            return coll
+            return self._check_grasp(
+                gripper=self.robots[0].gripper,
+                object_geoms=self.manipulation_object,
+            )
 
         @sensor(modality=goal_mod)
         def vec_eef_to_next_objective(obs_cache: Dict[str, Any]) -> np.ndarray:
