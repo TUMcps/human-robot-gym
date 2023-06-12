@@ -754,6 +754,7 @@ class HumanEnv(SingleArmEnv):
 
                 # Change collision type to ROBOT if no more critical collision was detected before
                 if self.collision_type not in [
+                    COLLISION_TYPE.STATIC,
                     COLLISION_TYPE.HUMAN,
                     COLLISION_TYPE.HUMAN_CRIT,
                 ]:
@@ -831,7 +832,11 @@ class HumanEnv(SingleArmEnv):
                         self.sim.model.geom_id2name(robot_contact_geom),
                     )
                 self.has_collision = True
-                self.collision_type = COLLISION_TYPE.STATIC
+                if self.collision_type not in [
+                    COLLISION_TYPE.HUMAN_CRIT,
+                    COLLISION_TYPE.HUMAN,
+                ]:
+                    self.collision_type = COLLISION_TYPE.STATIC
                 self.n_collisions_static += 1
         self.previous_robot_collisions = this_collision_dict
         return self.collision_type
