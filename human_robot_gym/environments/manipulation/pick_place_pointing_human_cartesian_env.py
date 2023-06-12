@@ -323,12 +323,12 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
         self._set_mujoco_camera()
 
         box_size = np.array(self.object_full_size)
-        box = BoxObject(
+        self.manipulation_object = BoxObject(
             name="smallBox",
             size=box_size * 0.5,
             rgba=[0.1, 0.7, 0.3, 1],
         )
-        self.objects = [box]
+        self.objects = [self.manipulation_object]
         object_bin_boundaries = self._get_default_object_bin_boundaries()
         self.object_placement_initializer = self._setup_placement_initializer(
             name="ObjectSampler",

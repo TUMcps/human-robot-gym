@@ -113,6 +113,7 @@ if __name__ == "__main__":
         hard_reset=False,
         horizon=1000,
         done_at_success=False,
+        done_at_collision=True,
         controller_configs=controller_configs,
         use_failsafe_controller=True,
         visualize_failsafe_controller=False,

@@ -291,6 +291,7 @@ class PickPlaceHumanCart(HumanEnv):
         self.object_placement_initializer = object_placement_initializer
         self.target_placement_initializer = target_placement_initializer
         self.obstacle_placement_initializer = obstacle_placement_initializer
+        self.manipulation_object = None
         self.box_body_id = None
         # if run should stop at collision
         self.done_at_collision = done_at_collision
@@ -433,7 +434,7 @@ class PickPlaceHumanCart(HumanEnv):
             reward -= (eef_2_obj * 0.2 + obj_2_target) * 0.1
 
         # Add a penalty for self-collisions and collisions with the human
-        if info["collision"] and COLLISION_TYPE(info["collision_type"]) != COLLISION_TYPE.STATIC:
+        if info["collision"] and COLLISION_TYPE(info["collision_type"]) != COLLISION_TYPE.ALLOWED:
             reward += self.collision_reward
 
         # Scale reward if requested
@@ -480,7 +481,7 @@ class PickPlaceHumanCart(HumanEnv):
             bool: done flag
         """
         collision = info["collision"]
-        if self.done_at_collision and collision:
+        if self.done_at_collision and collision and COLLISION_TYPE(info["collision_type"]) != COLLISION_TYPE.ALLOWED:
             return True
         success = self._check_success(achieved_goal, desired_goal)
         if self.done_at_success and success:
@@ -573,12 +574,12 @@ class PickPlaceHumanCart(HumanEnv):
         # Create objects
         # Box example
         box_size = np.array(self.object_full_size)
-        box = BoxObject(
+        self.manipulation_object = BoxObject(
             name="smallBox",
             size=box_size * 0.5,
             rgba=[0.1, 0.7, 0.3, 1],
         )
-        self.objects = [box]
+        self.objects = [self.manipulation_object]
         # Placement sampler for objects
         object_bin_boundaries = self._get_default_object_bin_boundaries()
 
@@ -620,6 +621,15 @@ class PickPlaceHumanCart(HumanEnv):
             name="ObstacleSampler",
             initializer=self.obstacle_placement_initializer,
             objects=self.obstacles,
+        )
+
+    def _setup_collision_info(self):
+        """Extend the super method by white-listing the manipulation object for collision detection."""
+        super()._setup_collision_info()
+        self.whitelisted_collision_geoms = self.whitelisted_collision_geoms.union(
+            {
+                self.sim.model.geom_name2id(geom_name) for geom_name in self.manipulation_object.contact_geoms
+            }
         )
 
     def _setup_references(self):
