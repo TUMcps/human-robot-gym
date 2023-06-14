@@ -118,6 +118,8 @@ if __name__ == "__main__":
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_rand=[0, 0.5, 0.0],
         verbose=True,
+        object_gripped_reward=-0.5,
+        object_at_target_reward=0,
     )
 
     env = ExpertObsWrapper(

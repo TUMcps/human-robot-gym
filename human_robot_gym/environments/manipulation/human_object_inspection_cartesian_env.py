@@ -5,10 +5,17 @@ It is divided into four phases:
     1. Approach: The human walks to the table
     2. Ready: The human waits for the robot to raise the object
     3. Inspection: When the object has reached the target zone, the human inspects the object.
-        Reward is given for every step the object is in the target zone.
     4. Retreat: The human walks back to the starting position.
 
-When using a fixed horizon, these three phases are looped until the horizon is reached.
+If the object exits the target zone in the inspection phase, the human returns to the ready phase and
+the inspection has to be restarted.
+
+Reward is given once the task is done, i.e. the animation is finished.
+Optionally, this sparse reward can be reformulated as a step reward to yield additional gratification
+for grabbing the object and bringing it to the target zone or as a dense reward incorporating distances
+to the object and the target zone.
+
+When using a fixed horizon, these four phases are looped until the horizon is reached.
 Otherwise, the episode ends with the animation.
 
 Author: Felix Trost
@@ -43,7 +50,6 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
     """This class corresponds to a lift task for a single robot arm in a human environment
     where the robot should lift the object to be in front of the human's head for inspection.
 
-    The objective of this task is to lift the object to be in front of the human's head for inspection.
     It is divided into four phases:
         1. Approach: The human walks to the table
         2. Ready: The human waits for the robot to raise the object
@@ -51,7 +57,15 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
             Reward is given for every step the object is in the target zone.
         4. Retreat: The human walks back to the starting position.
 
-    When using a fixed horizon, these three phases are looped until the horizon is reached.
+    If the object exits the target zone in the inspection phase, the human returns to the ready phase and
+    the inspection has to be restarted.
+
+    Reward is given once the task is done, i.e. the animation is finished.
+    Optionally, this sparse reward can be reformulated as a step reward to yield additional gratification
+    for grabbing the object and bringing it to the target zone or as a dense reward incorporating distances
+    to the object and the target zone.
+
+    When using a fixed horizon, these four phases are looped until the horizon is reached.
     Otherwise, the episode ends with the animation.
 
     Args:
@@ -110,14 +124,21 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
 
         goal_dist (float): Distance threshold for reaching the goal.
 
+        goal_exit_tolerance (float): Absolute tolerance by which the goal distance is increased once the goal zone is
+            entered. This is used to avoid oscillating rapidly between WAIT and INSPECTION phases.
+
         collision_reward (float): Reward to be given in the case of a collision.
 
-        goal_reward (float): Reward to be given in the case of reaching the goal.
+        task_reward (float): Reward to be given in the case of completing the task (i.e. finishing the animation).
+
+        object_at_target_reward (float): Reward if the object is within `goal_dist` of the target position.
+            Applied when `reward_shaping=False`.
 
         object_gripped_reward (float): Additional reward for gripping the object when `reward_shaping=False`.
             If object is not gripped: `reward = -1`.
             If object gripped but not at the target: `object_gripped_reward`.
-            If object is at the target: `reward = goal_reward`.
+            If object is at the target: `reward = object_at_target_reward`.
+            If task completed (animation finished): `reward = task_reward`.
             `object_gripped_reward` defaults to `-1`.
 
         object_placement_initializer (ObjectPositionSampler): if provided, will
@@ -243,8 +264,10 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         reward_scale: Optional[float] = 1.0,
         reward_shaping: bool = False,
         goal_dist: float = 0.15,
+        goal_exit_tolerance: float = 0.02,
         collision_reward: float = -10,
-        goal_reward: float = 1,
+        task_reward: float = 1,
+        object_at_target_reward: float = -1,
         object_gripped_reward: float = -1,
         object_placement_initializer: Optional[ObjectPositionSampler] = None,
         obstacle_placement_initializer: Optional[ObjectPositionSampler] = None,
@@ -291,6 +314,9 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         self._animation_loop_amplitude = 0
         self._animation_loop_speed = 0
 
+        self.object_at_target_reward = object_at_target_reward
+        self.goal_exit_tolerance = goal_exit_tolerance
+
         super().__init__(
             robots=robots,
             robot_base_offset=robot_base_offset,
@@ -307,7 +333,7 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
             reward_shaping=reward_shaping,
             goal_dist=goal_dist,
             collision_reward=collision_reward,
-            goal_reward=goal_reward,
+            task_reward=task_reward,
             object_gripped_reward=object_gripped_reward,
             object_placement_initializer=object_placement_initializer,
             target_placement_initializer=None,
@@ -348,6 +374,9 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
         """Override super `step` method to enter the `INSPECTION` phase when the object first is in the target zone.
 
+        if the object exits the target zone in the inspection phase, the human returns to the ready phase
+        and the inspection has to be restarted.
+
         Args:
             action (np.ndarray): The action to take.
 
@@ -356,11 +385,20 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         """
         obs, reward, done, info = super().step(action)
 
+        achieved_goal = self._get_achieved_goal_from_obs(obs)
+        desired_goal = self._get_desired_goal_from_obs(obs)
+
         if self.inspection_phase == ObjectInspectionPhase.READY and self._check_object_in_target_zone(
-            achieved_goal=self._get_achieved_goal_from_obs(obs),
-            desired_goal=self._get_desired_goal_from_obs(obs),
+            achieved_goal=achieved_goal,
+            desired_goal=desired_goal,
         ):
             self.inspection_phase = ObjectInspectionPhase.INSPECTION
+        elif self.inspection_phase == ObjectInspectionPhase.INSPECTION and not self._check_object_in_target_zone(
+            achieved_goal=achieved_goal,
+            desired_goal=desired_goal,
+            tolerance=self.goal_exit_tolerance,  # Add a tolerance to avoid oscillating between WAIT and INSPECTION
+        ):
+            self.inspection_phase = ObjectInspectionPhase.READY
 
         return obs, reward, done, info
 
@@ -429,17 +467,17 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         desired_goal: List[float],
         info: Dict[str, Any],
     ) -> float:
-        r"""Override super method to give `self.goal_reward` for every step the object is in the target zone
-        during the inspection phase.
+        r"""Override super method to modify the sparse reward function.
 
         Compute the reward based on the achieved goal, the desired goal and the info dict.
 
         If `self.reward_shaping` is `True`, we use a dense reward function:
             r = (eef_to_object * 0.2 + object_to_target) * 0.1
         Otherwise, we use a sparse reward function:
-            - `self._goal_reward` if the object is within the target zone and the inspection phase is active
-            - Otherwise `self._object_gripped_reward` if the object is gripped or
-            - `-1` if not
+            - `self.task_reward` if the task is completed (i.e. the animation is finished)
+            - `self._object_at_target_reward` if the object is within the target zone
+            - `self._object_gripped_reward` if the object is gripped
+            - `-1` otherwise
 
         If a self-collision or a collision with the human occurs, `self.collision_reward` is added (a negative amount).
         If `self.reward_scale` is not `None`, the reward is scaled by this amount.
@@ -455,14 +493,6 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
 
         reward = -1
 
-        if (
-            self._check_object_in_target_zone(achieved_goal, desired_goal) and
-            self.inspection_phase == ObjectInspectionPhase.INSPECTION
-        ):
-            reward = self.goal_reward
-        elif object_gripped:
-            reward = self.object_gripped_reward
-
         if self.reward_shaping:
             eef_pos = np.array(achieved_goal[0:3])
             obj_pos = np.array(achieved_goal[3:6])
@@ -470,8 +500,15 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
             eef_2_obj = np.linalg.norm(eef_pos - obj_pos)
             obj_2_target = np.linalg.norm(np.array(desired_goal - obj_pos))
             reward -= (eef_2_obj * 0.2 + obj_2_target) * 0.1
+        else:
+            if self._check_success(achieved_goal, desired_goal):
+                reward = self.task_reward
+            elif self._check_object_in_target_zone(achieved_goal=achieved_goal, desired_goal=desired_goal):
+                reward = self.object_at_target_reward
+            elif object_gripped:
+                reward = self.object_gripped_reward
 
-        if info["collision"] and COLLISION_TYPE(info["collision_type"] != COLLISION_TYPE.STATIC):
+        if info["collision"] and COLLISION_TYPE(info["collision_type"]) != COLLISION_TYPE.STATIC:
             reward += self.collision_reward
 
         if self.reward_scale is not None:

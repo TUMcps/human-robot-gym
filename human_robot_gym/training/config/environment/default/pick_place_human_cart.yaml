@@ -15,7 +15,7 @@ reward_scale: 1.0
 reward_shaping: false
 goal_dist: 0.1
 collision_reward: -10
-goal_reward: 1
+task_reward: 1
 object_placement_initializer: null
 target_placement_initializer: null
 obstacle_placement_initializer: null
