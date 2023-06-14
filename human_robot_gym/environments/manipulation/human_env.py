@@ -1077,14 +1077,14 @@ class HumanEnv(SingleArmEnv):
     def _reset_controller(self):
         """Reset all failsafe controllers."""
         if self.use_failsafe_controller:
-            if self.failsafe_controller is not None:
+            if self.failsafe_controller is None or self.hard_reset or self.deterministic_reset:
+                self._create_new_controller()
+            else:
                 for i in range(len(self.failsafe_controller)):
                     self.failsafe_controller[i].reset(
                         base_pos=self.robots[i].base_pos,
                         base_orientation=self.robots[i].base_ori
                     )
-            else:
-                self._create_new_controller()
             self._override_controller()
         else:
             self.failsafe_controller = None
