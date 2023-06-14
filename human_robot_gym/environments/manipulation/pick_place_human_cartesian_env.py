@@ -359,6 +359,8 @@ class PickPlaceHumanCart(HumanEnv):
             self.goal_reached = False
         if self.has_renderer:
             self._visualize()
+
+        print(COLLISION_TYPE(info["collision_type"]))
         return obs, reward, done, info
 
     def _on_goal_reached(self):
@@ -434,7 +436,7 @@ class PickPlaceHumanCart(HumanEnv):
             reward -= (eef_2_obj * 0.2 + obj_2_target) * 0.1
 
         # Add a penalty for self-collisions and collisions with the human
-        if info["collision"] and COLLISION_TYPE(info["collision_type"]) != COLLISION_TYPE.ALLOWED:
+        if COLLISION_TYPE(info["collision_type"]) not in (COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED):
             reward += self.collision_reward
 
         # Scale reward if requested
@@ -480,8 +482,9 @@ class PickPlaceHumanCart(HumanEnv):
         Returns:
             bool: done flag
         """
-        collision = info["collision"]
-        if self.done_at_collision and collision and COLLISION_TYPE(info["collision_type"]) != COLLISION_TYPE.ALLOWED:
+        if self.done_at_collision and COLLISION_TYPE(info["collision_type"]) not in (
+            COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED
+        ):
             return True
         success = self._check_success(achieved_goal, desired_goal)
         if self.done_at_success and success:

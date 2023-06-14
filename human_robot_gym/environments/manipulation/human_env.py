@@ -13,7 +13,7 @@ Changelog:
     13.7.22 JB adjusted observation space (sensors) to relative distances eef and L_hand, R_hand, and Head
 """
 from typing import Any, Dict, Union, List, Optional, Tuple
-from enum import Enum
+from enum import IntFlag
 import math
 import json
 
@@ -50,7 +50,7 @@ from human_robot_gym.controllers.failsafe_controller.failsafe_controller import 
 import human_robot_gym.models.objects.obstacle as obstacle
 
 
-class COLLISION_TYPE(Enum):
+class COLLISION_TYPE(IntFlag):
     """Define the collision types.
 
     0 - No collision.
@@ -63,10 +63,10 @@ class COLLISION_TYPE(Enum):
 
     NULL = 0
     ALLOWED = 1
-    ROBOT = 2
-    STATIC = 3
-    HUMAN = 4
-    HUMAN_CRIT = 5
+    HUMAN = 2
+    ROBOT = 4
+    STATIC = 8
+    HUMAN_CRIT = 16
 
 
 class HumanEnv(SingleArmEnv):
@@ -622,7 +622,7 @@ class HumanEnv(SingleArmEnv):
         Returns:
             done
         """
-        return info["collision"] and info["collision_type"] != COLLISION_TYPE.ALLOWED
+        return info["collision_type"] not in (COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED)
 
     def _get_achieved_goal_from_obs(
         self, observation: Union[List[float], Dict]
@@ -753,12 +753,7 @@ class HumanEnv(SingleArmEnv):
                 self.has_collision = True
 
                 # Change collision type to ROBOT if no more critical collision was detected before
-                if self.collision_type not in [
-                    COLLISION_TYPE.STATIC,
-                    COLLISION_TYPE.HUMAN,
-                    COLLISION_TYPE.HUMAN_CRIT,
-                ]:
-                    self.collision_type = COLLISION_TYPE.ROBOT
+                self.collision_type |= COLLISION_TYPE.ROBOT
                 self.n_collisions_robot += 1
             # Collision with the human
             elif contact_type == COLLISION_TYPE.HUMAN:
@@ -798,14 +793,13 @@ class HumanEnv(SingleArmEnv):
                     self.has_collision = True
 
                     # Change collision type to HUMAN if no more critical collision was detected before
-                    if self.collision_type != COLLISION_TYPE.HUMAN_CRIT:
-                        self.collision_type = COLLISION_TYPE.HUMAN
+                    self.collision_type |= COLLISION_TYPE.HUMAN
                     self.n_collisions_human += 1
                     if self.verbose:
                         print("Robot at safe speed.")
                 else:
                     self.has_collision = True
-                    self.collision_type = COLLISION_TYPE.HUMAN_CRIT
+                    self.collision_type |= COLLISION_TYPE.HUMAN_CRIT
                     self.n_collisions_critical += 1
                     if self.verbose:
                         print("Robot too fast during collision!")
@@ -820,8 +814,7 @@ class HumanEnv(SingleArmEnv):
                 self.has_collision = True
 
                 # Change collision type to ALLOWED if no more critical collision was detected before
-                if self.collision_type == COLLISION_TYPE.NULL:
-                    self.collision_type = COLLISION_TYPE.ALLOWED
+                self.collision_type |= COLLISION_TYPE.ALLOWED
             # Collision with the static environment
             else:
                 if self.verbose:
@@ -832,11 +825,7 @@ class HumanEnv(SingleArmEnv):
                         self.sim.model.geom_id2name(robot_contact_geom),
                     )
                 self.has_collision = True
-                if self.collision_type not in [
-                    COLLISION_TYPE.HUMAN_CRIT,
-                    COLLISION_TYPE.HUMAN,
-                ]:
-                    self.collision_type = COLLISION_TYPE.STATIC
+                self.collision_type |= COLLISION_TYPE.STATIC
                 self.n_collisions_static += 1
         self.previous_robot_collisions = this_collision_dict
         return self.collision_type
