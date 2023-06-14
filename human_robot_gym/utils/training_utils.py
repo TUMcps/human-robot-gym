@@ -340,7 +340,7 @@ def load_model(
     config: Config,
     env: Optional[VecEnv] = None,
     run_id: Optional[str] = None,
-    load_episode: Optional[Union[int, str]] = None,
+    load_step: Optional[Union[int, str]] = None,
 ) -> BaseAlgorithm:
     """Load a model from disk.
 
@@ -351,31 +351,36 @@ def load_model(
         env (VecEnv | None): The environment to use. Can be set to `None` for later initialization.
         run_id (str | None): The run id to load the model from.
             Can be set to override the value specified in the training sub-config
-        load_episode (int | str | None): The episode to load the model from.
+        load_step (int | str | None): The step to load the model from.
             Can be set to override the value specified in the training sub-config
-            There has to exist a model file at `models/{run_id}/model_{load_episode}.zip`.
-            Generally, load_episode should be set to a positive integer or `"final"`
+            There has to exist a model file at `models/{run_id}/model_{load_step}.zip`.
+            Generally, load_step should be set to a positive integer or `"final"`
 
     Returns:
         BaseAlgorithm: The loaded model
 
     Raises:
-        ValueError: [load_episode must be a positive integer or 'final']
+        ValueError: [load_step must be a positive integer or 'final']
     """
     if run_id is None:
         run_id = config.training.run_id
 
-    if load_episode is None:
-        load_episode = config.training.load_episode
+    if load_step is None:
+        load_step = config.training.load_step
 
-    if isinstance(load_episode, int) and load_episode < 0:
-        raise ValueError("load_episode must be a positive integer or 'final'")
+    if isinstance(load_step, int) and load_step < 0:
+        raise ValueError("load_step must be a positive integer or 'final'")
 
     if config.training.verbose:
-        print(f"Loading model from run {run_id} at episode {load_episode}")
+        print(f"Loading model from run {run_id} at episode {load_step}")
+
+    if isinstance(load_step, int):
+        model_path = f"models/{run_id}/model_{load_step:_}.zip"
+    else:
+        model_path = f"models/{run_id}/model_{load_step}.zip"
 
     model = SB3_ALGORITHMS[config.algorithm.name].load(
-        f"models/{run_id}/model_{load_episode}.zip",
+        model_path,
         env=env,
     )
 
@@ -407,10 +412,10 @@ def get_model(
     Returns:
         BaseAlgorithm: The model created according to the config for the given environment.
     """
-    if config.training.load_episode is None:
+    if config.training.load_step is None:
         return create_model(config=config, env=env, run_id=run_id, save_logs=save_logs)
     else:
-        return load_model(config=config, env=env, run_id=run_id, load_episode=config.training.load_episode)
+        return load_model(config=config, env=env, run_id=run_id, load_step=config.training.load_step)
 
 
 def init_wandb(config: Config) -> Run:
@@ -428,13 +433,13 @@ def init_wandb(config: Config) -> Run:
     Raises:
         ValueError: [Cannot load a model without a run_id]
     """
-    if config.training.run_id is None and config.training.load_episode is not None:
+    if config.training.run_id is None and config.training.load_step is not None:
         raise ValueError("Cannot load a model without a run_id")
 
     run_id = config.training.run_id
 
-    if config.training.run_id is not None and config.training.load_episode is None:
-        print("load_episode not specified, will ignore run_id and create a new run")
+    if config.training.run_id is not None and config.training.load_step is None:
+        print("load_step not specified, will ignore run_id and create a new run")
         run_id = None
 
     resume = None if config.training.run_id is None else "must"
@@ -507,7 +512,7 @@ def run_training_tensorboard(config: Config) -> BaseAlgorithm:
     model.learn(
         total_timesteps=config.training.n_steps,
         log_interval=1,
-        reset_num_timesteps=config.training.load_episode is None,
+        reset_num_timesteps=config.training.load_step is None,
     )
 
     model.save(path=f"models/{run_id}/model_final")
@@ -557,7 +562,7 @@ def run_training_wandb(config: Config) -> BaseAlgorithm:
         model.learn(
             total_timesteps=config.training.n_steps,
             log_interval=1,
-            reset_num_timesteps=config.training.load_episode is None,
+            reset_num_timesteps=config.training.load_step is None,
             callback=callback,
         )
 
@@ -688,7 +693,7 @@ def load_and_evaluate_model(config: Config):
         config=config,
         env=eval_env,
         run_id=config.training.run_id,
-        load_episode=config.training.load_episode
+        load_step=config.training.load_step
     )
 
     evaluate_model(config=config, model=model, eval_env=eval_env)

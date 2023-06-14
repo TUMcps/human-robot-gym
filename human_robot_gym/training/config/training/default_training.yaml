@@ -1,8 +1,8 @@
 n_envs: 1
 n_steps: 1_000_000
-save_freq: 500
+save_freq: 200_000
 test_only: false
-load_episode: null
+load_step: null
 run_id: null
 run_type: debug
 log_interval: 10
