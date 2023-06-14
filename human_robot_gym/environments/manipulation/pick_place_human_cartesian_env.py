@@ -360,7 +360,6 @@ class PickPlaceHumanCart(HumanEnv):
         if self.has_renderer:
             self._visualize()
 
-        print(COLLISION_TYPE(info["collision_type"]))
         return obs, reward, done, info
 
     def _on_goal_reached(self):
