@@ -1383,9 +1383,9 @@ class HumanEnv(SingleArmEnv):
         human_rot = human_rot.__mul__(rot)
         human_quat = rot_to_quat(human_rot)
         # Set base position and rotation
-        human_body_id = self.sim.model.body_name2id(self.human.root_body)
-        self.sim.model.body_pos[human_body_id] = human_pos
-        self.sim.model.body_quat[human_body_id] = human_quat
+        self.sim.data.set_mocap_pos(self.human.root_body, human_pos)
+        self.sim.data.set_mocap_quat(self.human.root_body, human_quat)
+
         # Set rotation of all other joints
         all_joint_pos = [human_animation[key][self.animation_time] for key in self.human_joint_names]
         self.sim.data.qpos[self.human_joint_addr] = all_joint_pos
