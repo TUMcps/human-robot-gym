@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
     env = VisualizationWrapper(env)
 
-    t_max = 100
+    t_max = 1000
     for i_episode in range(20):
         observation = env.reset()
         env.desired_goal = np.array([0, 2.0, -np.pi / 2 + 1.5, 0, -np.pi / 2, 0])
@@ -74,7 +74,8 @@ if __name__ == "__main__":
         for t in range(t_max):
             action = env.action_space.sample()
             pos = np.array([env.sim.data.qpos[x] for x in env.robots[0]._ref_joint_pos_indexes])
-            goal = env.desired_goal
+            # goal = env.desired_goal
+            goal = np.abs(np.sin(t/t_max * 8 * 2 * np.pi)) * env.desired_goal
             action[:pos.shape[0]] = np.clip(goal-pos, -0.5, 0.5)
             observation, reward, done, info = env.step(action)
             # print("Reward: {}".format(reward))
