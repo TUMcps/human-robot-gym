@@ -181,6 +181,10 @@ class ReachHumanCart(ReachHuman):
 
         human_rand (List[float]): Max. randomization of the human [x-pos, y-pos, z-angle]
 
+        n_animations_to_sample_at_resets (int): Length of the list of animations to sample at resets.
+            After all animations of the list have been played, restart from the first animation in the list.
+            This is done to ensure the same list of animations can be played when loading the env state from a file.
+
         safe_vel (float): Safe cartesian velocity. The robot is allowed to move with this velocity in the vicinity of
             humans.
 
@@ -257,6 +261,7 @@ class ReachHumanCart(ReachHuman):
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 120,
         human_rand: List[float] = [0.0, 0.0, 0.0],
+        n_animations_to_sample_at_resets: int = 10,
         safe_vel: float = 0.001,
         self_collision_safety: float = 0.01,
         seed: int = 0,
@@ -310,6 +315,7 @@ class ReachHumanCart(ReachHuman):
             base_human_pos_offset=base_human_pos_offset,
             human_animation_freq=human_animation_freq,
             human_rand=human_rand,
+            n_animations_to_sample_at_resets=n_animations_to_sample_at_resets,
             safe_vel=safe_vel,
             self_collision_safety=self_collision_safety,
             seed=seed,
