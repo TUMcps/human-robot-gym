@@ -44,6 +44,7 @@ RUN apt-get update --fix-missing \
     gcc-9 \
     clang \
     libgtest-dev \
+    libgmock-dev \
     patchelf \
     ssh \
     curl \

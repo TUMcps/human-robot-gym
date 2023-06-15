@@ -2,7 +2,6 @@ ARG MODE=root
 
 # We use the if else method as described here: https://stackoverflow.com/a/60820156/13397059
 FROM continuumio/miniconda3 as base
-
 ARG DEBIAN_FRONTEND=noninteractive
 
 SHELL ["/bin/bash", "--login", "-c"]
@@ -49,6 +48,7 @@ RUN apt-get update --fix-missing && \
         gcc-9 \
         clang \
         libgtest-dev \
+        libgmock-dev \
         patchelf \
         liboctomap-dev \
         python3-sphinx
@@ -100,6 +100,7 @@ ENV HOME_PATH=/root
 FROM branch-${MODE} AS final
 
 # Pull mujoco
+RUN mkdir $HOME_PATH/.mujoco
 WORKDIR $HOME_PATH/.mujoco
 RUN curl -LJO https://mujoco.org/download/mujoco210-linux-x86_64.tar.gz && \
     tar -xvf mujoco210-linux-x86_64.tar.gz && \

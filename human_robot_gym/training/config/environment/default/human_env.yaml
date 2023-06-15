@@ -23,7 +23,7 @@ camera_depths: false
 camera_segmentations: null
 renderer: mujoco
 renderer_config: null
-use_failsafe_controller: true
+shield_type: SSM
 visualize_failsafe_controller: false
 visualize_pinocchio: false
 control_sample_time: 0.004

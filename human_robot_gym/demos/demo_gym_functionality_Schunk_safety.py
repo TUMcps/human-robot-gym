@@ -1,4 +1,6 @@
-"""This script shows an example of a possible clamping prevention between robot, human, and the static environment.
+"""This script shows an example of the Schunk robot being safely controlled in an human environment.
+
+For instance, this can be used with our provided training function to train a safe RL agent.
 """
 
 import robosuite as suite
@@ -46,12 +48,11 @@ if __name__ == "__main__":
             shield_type="PFL",
             visualize_failsafe_controller=True,
             visualize_pinocchio=False,
-            base_human_pos_offset=[1.3, -2.0, -0.55],
+            base_human_pos_offset=[-0.6, 0.0, 0.0],
             verbose=True,
             goal_dist=0.0001,
             human_rand=[0.0, 0.0, 0.0],
-            human_animation_names=["Test/test"],
-            human_animation_freq=10
+            human_animation_names=["CMU/62_01"]
         ),
         keys=[
             "object-state",
@@ -66,16 +67,15 @@ if __name__ == "__main__":
 
     env = VisualizationWrapper(env)
 
-    t_max = 1000
-    for i_episode in range(20):
+    t_max = 100
+    for i_episode in range(5):
         observation = env.reset()
-        env.desired_goal = np.array([0, 2.0, -np.pi / 2 + 1.5, 0, -np.pi / 2, 0])
         t1 = time.time()
+        env.desired_goal = np.array([0.0, 1.7, 0.0, 0.0, 0.0, 0.0])
         for t in range(t_max):
             action = env.action_space.sample()
             pos = np.array([env.sim.data.qpos[x] for x in env.robots[0]._ref_joint_pos_indexes])
-            # goal = env.desired_goal
-            goal = np.abs(np.sin(t/t_max * 8 * 2 * np.pi)) * env.desired_goal
+            goal = env.desired_goal
             action[:pos.shape[0]] = np.clip(goal-pos, -0.5, 0.5)
             observation, reward, done, info = env.step(action)
             # print("Reward: {}".format(reward))
