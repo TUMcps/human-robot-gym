@@ -1387,7 +1387,7 @@ class HumanEnv(SingleArmEnv):
             self.low_level_time / self.human_animation_step_length
         )
         # If the animation time would stay the same, there is no need to update the human.
-        if control_time - self.animation_start_time == self.animation_time:
+        if control_time - self.animation_start_time == self.animation_time and False:
             return
         self.animation_time = control_time - self.animation_start_time
         # Check if current animation is finished
