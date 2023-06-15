@@ -53,6 +53,13 @@ import human_robot_gym.models.objects.obstacle as obstacle
 class COLLISION_TYPE(IntFlag):
     """Define the collision types.
 
+    Their order corresponds to the severeness of the collision.
+    `HUMAN` collisions may occur without explicit fault of the robot,
+    e.g. if the robot remains still and the human moves into the robot.
+
+    The value and fragility of other objects in the scene is not known.
+    Accordingly, we mark `STATIC` collisions as more severe than `ROBOT` self-collisions.
+
     0 - No collision.
     1 - Collision with white-listed objects
     2 - Self-collision or robot-robot collision.
@@ -60,7 +67,6 @@ class COLLISION_TYPE(IntFlag):
     4 - Collision with a human but robot has low speed.
     5 - Collision with a human and robot has high speed.
     """
-
     NULL = 0
     ALLOWED = 1
     HUMAN = 2
@@ -692,142 +698,175 @@ class HumanEnv(SingleArmEnv):
         # Self-collision
         return not robot_model.has_self_collision(q)
 
+    def _determine_geom_contact_type(self, geom_id: int) -> COLLISION_TYPE:
+        """Determine to which category the given geom belongs, i.e. which COLLISION_TYPE it is associated with.
+
+        Args:
+            geom_id (int): The id of the geom
+
+        Returns:
+            COLLISION_TYPE: The associated contact type
+        """
+        if geom_id in self.robot_collision_geoms:
+            return COLLISION_TYPE.ROBOT
+        elif geom_id in self.human_collision_geoms:
+            return COLLISION_TYPE.HUMAN
+        elif geom_id in self.whitelisted_collision_geoms:
+            return COLLISION_TYPE.ALLOWED
+        else:
+            return COLLISION_TYPE.STATIC
+
+    def _on_self_collision_detected(self, contact_geom_1: int, contact_geom_2: int):
+        """Perform bookkeeping when a self-collision is detected."""
+        if self.verbose:
+            print(
+                "Self-collision detected between ",
+                self.sim.model.geom_id2name(contact_geom_1),
+                " and ",
+                self.sim.model.geom_id2name(contact_geom_2),
+            )
+
+        self.collision_type |= COLLISION_TYPE.ROBOT
+        self.n_collisions_robot += 1
+
+    def _on_human_collision_detected(self, robot_contact_geom: int, human_contact_geom: int):
+        """Perform bookkeeping when a human-robot collision is detected."""
+        if self.verbose:
+            print(
+                "Human-robot collision detected between ",
+                self.sim.model.geom_id2name(human_contact_geom),
+                " and ",
+                self.sim.model.geom_id2name(robot_contact_geom),
+            )
+        # <<< This value may not be correct since it rapidely changes BEFORE the collision >>>
+        # Ways to handle this:
+        # 1) forward dynamic of the robot
+        #   --> We need to do this anyway at some point to allow low speed driving
+        """
+        if contact_type1 == COLLISION_TYPE.ROBOT:
+            robot_id = self.robot_collision_geoms[contact.geom1]
+        else:
+            robot_id = self.robot_collision_geoms[contact.geom2]
+        vel_safe = self._check_robot_vel_safe(
+            robot_id=robot_id,
+            threshold=self.safe_vel,
+            q=self.sim.data.qpos[self.robots[robot_id].joint_indexes],
+            dq=self.sim.data.qvel[self.robots[robot_id].joint_indexes])
+        """
+        # 2) Use the velocity of the simulation
+        robot_geom_velocity = self.sim.data.geom_xvelp[robot_contact_geom]
+
+        if self.verbose:
+            print(f"Robot speed: {robot_geom_velocity}")
+
+        vel_safe = self._check_vel_safe(
+            v_arr=robot_geom_velocity, threshold=self.safe_vel,
+        )
+
+        if vel_safe:
+            self.collision_type |= COLLISION_TYPE.HUMAN
+            self.n_collisions_human += 1
+            if self.verbose:
+                print("Robot at safe speed.")
+        else:
+            self.collision_type |= COLLISION_TYPE.HUMAN_CRIT
+            self.n_collisions_critical += 1
+            if self.verbose:
+                print("Robot too fast during collision!")
+
+    def _on_allowed_collision_detected(self, robot_contact_geom: int, other_contact_geom: int):
+        """Perform bookkeeping when a collision between the robot and a white-listed object is detected."""
+        if self.verbose:
+            print(
+                "Collision with white-listed object detected between ",
+                self.sim.model.geom_id2name(other_contact_geom),
+                " and ",
+                self.sim.model.geom_id2name(robot_contact_geom),
+            )
+
+        self.collision_type |= COLLISION_TYPE.ALLOWED
+
+    def _on_static_collision_detected(self, robot_contact_geom: int, other_contact_geom: int):
+        """Perform bookkeeping when a collision between the robot and the static environment is detected."""
+        if self.verbose:
+            print(
+                "Collision with static environment detected between ",
+                self.sim.model.geom_id2name(other_contact_geom),
+                " and ",
+                self.sim.model.geom_id2name(robot_contact_geom),
+            )
+        self.has_collision = True
+        self.collision_type |= COLLISION_TYPE.STATIC
+        self.n_collisions_static += 1
+
+    def _on_collision_detected(self, contact_type: COLLISION_TYPE, robot_contact_geom: int, other_contact_geom: int):
+        """Perform bookkeeping when a collision is detected."""
+        self.has_collision = True
+
+        # Self-collision
+        if contact_type == COLLISION_TYPE.ROBOT:
+            self._on_self_collision_detected(
+                contact_geom_1=robot_contact_geom,
+                contact_geom_2=other_contact_geom,
+            )
+        # Collision with the human
+        elif contact_type == COLLISION_TYPE.HUMAN:
+            self._on_human_collision_detected(
+                robot_contact_geom=robot_contact_geom,
+                human_contact_geom=other_contact_geom,
+            )
+        # Collision with a white-listed object
+        elif contact_type == COLLISION_TYPE.ALLOWED:
+            self._on_allowed_collision_detected(
+                robot_contact_geom=robot_contact_geom,
+                other_contact_geom=other_contact_geom,
+            )
+        # Collision with the static environment
+        else:
+            self._on_static_collision_detected(
+                robot_contact_geom=robot_contact_geom,
+                other_contact_geom=other_contact_geom,
+            )
+
     def _collision_detection(self):
         """Detect true collisions in the simulation between the robot and the environment.
 
         Returns:
             CollisionType
         """
-        this_collision_dict = dict()
-        for i in range(self.sim.data.ncon):
-            # Note that the contact array has more than `ncon` entries,
-            # so be careful to only read the valid entries.
-            contact = self.sim.data.contact[i]
-            if contact.geom1 in self.robot_collision_geoms:
-                contact_type1 = COLLISION_TYPE.ROBOT
-            elif contact.geom1 in self.human_collision_geoms:
-                contact_type1 = COLLISION_TYPE.HUMAN
-            elif contact.geom1 in self.whitelisted_collision_geoms:
-                contact_type1 = COLLISION_TYPE.ALLOWED
-            else:
-                contact_type1 = COLLISION_TYPE.STATIC
+        current_robot_collisions = dict()
 
-            if contact.geom2 in self.robot_collision_geoms:
-                contact_type2 = COLLISION_TYPE.ROBOT
-            elif contact.geom2 in self.human_collision_geoms:
-                contact_type2 = COLLISION_TYPE.HUMAN
-            elif contact.geom2 in self.whitelisted_collision_geoms:
-                contact_type2 = COLLISION_TYPE.ALLOWED
-            else:
-                contact_type2 = COLLISION_TYPE.STATIC
+        # Note that the contact array has more than `ncon` entries,
+        # so be careful to only read the valid entries.
+        for contact in self.sim.data.contact[:self.sim.data.ncon]:
+            contact_type1 = self._determine_geom_contact_type(contact.geom1)
+            contact_type2 = self._determine_geom_contact_type(contact.geom2)
 
             # Only collisions with the robot are considered
             if contact_type1 != COLLISION_TYPE.ROBOT and contact_type2 != COLLISION_TYPE.ROBOT:
                 continue
 
             # Add this collision to the current collision dictionary
-            this_collision_dict[cantor_pairing(contact.geom1, contact.geom2)] = 0
+            current_robot_collisions[cantor_pairing(contact.geom1, contact.geom2)] = 0
+            current_robot_collisions[cantor_pairing(contact.geom2, contact.geom1)] = 0
             # If the current collision already existed previously, skip it to avoid double counting
-            if cantor_pairing(contact.geom1, contact.geom2) in self.previous_robot_collisions or\
-               cantor_pairing(contact.geom2, contact.geom1) in self.previous_robot_collisions:
+            if cantor_pairing(contact.geom1, contact.geom2) in self.previous_robot_collisions:
                 continue
 
             if contact_type1 == COLLISION_TYPE.ROBOT:
-                contact_type = contact_type2
-                robot_contact_geom = contact.geom1
-                other_contact_geom = contact.geom2
+                self._on_collision_detected(
+                    contact_type=contact_type2,
+                    robot_contact_geom=contact.geom1,
+                    other_contact_geom=contact.geom2,
+                )
             else:
-                contact_type = contact_type1
-                robot_contact_geom = contact.geom2
-                other_contact_geom = contact.geom1
-
-            # Self-collision
-            if contact_type == COLLISION_TYPE.ROBOT:
-                if self.verbose:
-                    print(
-                        "Self-collision detected between ",
-                        self.sim.model.geom_id2name(other_contact_geom),
-                        " and ",
-                        self.sim.model.geom_id2name(robot_contact_geom),
-                    )
-                self.has_collision = True
-
-                # Change collision type to ROBOT if no more critical collision was detected before
-                self.collision_type |= COLLISION_TYPE.ROBOT
-                self.n_collisions_robot += 1
-            # Collision with the human
-            elif contact_type == COLLISION_TYPE.HUMAN:
-                if self.verbose:
-                    print(
-                        "Human-robot collision detected between ",
-                        self.sim.model.geom_id2name(other_contact_geom),
-                        " and ",
-                        self.sim.model.geom_id2name(robot_contact_geom),
-                    )
-                # <<< This value may not be correct since it rapidely changes BEFORE the collision >>>
-                # Ways to handle this:
-                # 1) forward dynamic of the robot
-                #   --> We need to do this anyway at some point to allow low speed driving
-                """
-                if contact_type1 == COLLISION_TYPE.ROBOT:
-                    robot_id = self.robot_collision_geoms[contact.geom1]
-                else:
-                    robot_id = self.robot_collision_geoms[contact.geom2]
-                vel_safe = self._check_robot_vel_safe(
-                    robot_id=robot_id,
-                    threshold=self.safe_vel,
-                    q=self.sim.data.qpos[self.robots[robot_id].joint_indexes],
-                    dq=self.sim.data.qvel[self.robots[robot_id].joint_indexes])
-                """
-                # 2) Use the velocity of the simulation
-                robot_geom_velocity = self.sim.data.geom_xvelp[robot_contact_geom]
-
-                if self.verbose:
-                    print(f"Robot speed: {robot_geom_velocity}")
-
-                vel_safe = self._check_vel_safe(
-                    v_arr=robot_geom_velocity, threshold=self.safe_vel,
+                self._on_collision_detected(
+                    contact_type=contact_type1,
+                    robot_contact_geom=contact.geom2,
+                    other_contact_geom=contact.geom1,
                 )
 
-                if vel_safe:
-                    self.has_collision = True
-
-                    # Change collision type to HUMAN if no more critical collision was detected before
-                    self.collision_type |= COLLISION_TYPE.HUMAN
-                    self.n_collisions_human += 1
-                    if self.verbose:
-                        print("Robot at safe speed.")
-                else:
-                    self.has_collision = True
-                    self.collision_type |= COLLISION_TYPE.HUMAN_CRIT
-                    self.n_collisions_critical += 1
-                    if self.verbose:
-                        print("Robot too fast during collision!")
-            elif contact_type == COLLISION_TYPE.ALLOWED:
-                if self.verbose:
-                    print(
-                        "Collision with white-listed object detected between ",
-                        self.sim.model.geom_id2name(other_contact_geom),
-                        " and ",
-                        self.sim.model.geom_id2name(robot_contact_geom),
-                    )
-                self.has_collision = True
-
-                # Change collision type to ALLOWED if no more critical collision was detected before
-                self.collision_type |= COLLISION_TYPE.ALLOWED
-            # Collision with the static environment
-            else:
-                if self.verbose:
-                    print(
-                        "Collision with static environment detected between ",
-                        self.sim.model.geom_id2name(other_contact_geom),
-                        " and ",
-                        self.sim.model.geom_id2name(robot_contact_geom),
-                    )
-                self.has_collision = True
-                self.collision_type |= COLLISION_TYPE.STATIC
-                self.n_collisions_static += 1
-        self.previous_robot_collisions = this_collision_dict
+        self.previous_robot_collisions = current_robot_collisions
         return self.collision_type
 
     def _check_robot_vel_safe(self, robot_id, threshold, q, dq):
