@@ -70,6 +70,20 @@ class COLLISION_TYPE(Enum):
 
 @dataclass
 class HumanEnvState:
+    """Dataclass for encapsulating the state of the HumanEnv environment.
+    HumanEnv environment states should be fully recoverable from the information stored in this class.
+
+    Attributes:
+        sim_state (np.ndarray): State of the mujoco simulation
+        human_animation_ids (np.ndarray): List of sampled human animation ids. During the episode this list is
+            iterated over and the corresponding human animation is played.
+        human_animation_ids_index (int): Index of the current human animation id in the list of human animation ids.
+        animation_start_time (int): Start time of the current human animation.
+        animation_time (int): Current time of the current human animation.
+        low_level_time (int): Current time of the low level controller.
+        human_pos_offset (List[float]): Offset of the human position.
+        human_rot_offset (List[float]): Offset of the human rotation.
+    """
     sim_state: np.ndarray
     human_animation_ids: np.ndarray
     human_animation_ids_index: int
@@ -323,8 +337,8 @@ class HumanEnv(SingleArmEnv):
         self.human_animation_freq = human_animation_freq
         self.low_level_time = int(0)
         self._n_animations_to_sample_at_resets = n_animations_to_sample_at_resets
-        self.human_animation_ids = None
-        self.human_animation_ids_index = 0
+        self._human_animation_ids = None
+        self._human_animation_ids_index = 0
         self.animation_start_time = 0
         self.human_placement_initializer = None
         self.human_rand = human_rand
@@ -381,7 +395,8 @@ class HumanEnv(SingleArmEnv):
 
     @property
     def human_animation_id(self) -> int:
-        return self.human_animation_ids[self.human_animation_ids_index]
+        """Get the current human animation id in the random list of human animation ids."""
+        return self._human_animation_ids[self._human_animation_ids_index]
 
     def step(self, action):
         """Override base step function.
@@ -1267,10 +1282,10 @@ class HumanEnv(SingleArmEnv):
         self.n_collisions_critical = 0
         self.n_goal_reached = 0
 
-        self.human_animation_ids = np.random.randint(
+        self._human_animation_ids = np.random.randint(
             0, len(self.human_animation_data), size=self._n_animations_to_sample_at_resets
         )
-        self.human_animation_ids_index = 0
+        self._human_animation_ids_index = 0
 
         self.animation_start_time = 0
         self.low_level_time = 0
@@ -1378,8 +1393,8 @@ class HumanEnv(SingleArmEnv):
         # Check if current animation is finished
         if (self.animation_time > self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]-1):
             # Rotate to next human animation
-            self.human_animation_ids_index = (
-                (self.human_animation_ids_index + 1) % self._n_animations_to_sample_at_resets
+            self._human_animation_ids_index = (
+                (self._human_animation_ids_index + 1) % self._n_animations_to_sample_at_resets
             )
             self.animation_time = 0
             self.animation_start_time = control_time
@@ -1507,12 +1522,12 @@ class HumanEnv(SingleArmEnv):
         """Get the current state of the environment. Can be used for storing/loading.
 
         Returns:
-            np.ndarray: The current state of the environment.
+            HumanEnvState: The current state of the environment.
         """
         return HumanEnvState(
             sim_state=self.sim.get_state().flatten(),
-            human_animation_ids=self.human_animation_ids,
-            human_animation_ids_index=self.human_animation_ids_index,
+            human_animation_ids=self._human_animation_ids,
+            human_animation_ids_index=self._human_animation_ids_index,
             animation_start_time=self.animation_start_time,
             animation_time=self.animation_time,
             low_level_time=self.low_level_time,
@@ -1520,16 +1535,16 @@ class HumanEnv(SingleArmEnv):
             human_rot_offset=self.human_rot_offset,
         )
 
-    def set_state(self, state: HumanEnvState):
+    def set_environment_state_representation(self, state: HumanEnvState):
         """Set the current state of the environment. Can be used for storing/loading.
 
         Args:
-            state (np.ndarray): The state to be set.
+            state (HumanEnvState): The state to be set.
         """
         self.sim.reset()
         self.sim.set_state_from_flattened(state.sim_state)
-        self.human_animation_ids = state.human_animation_ids
-        self.human_animation_ids_index = state.human_animation_ids_index
+        self._human_animation_ids = state.human_animation_ids
+        self._human_animation_ids_index = state.human_animation_ids_index
         self.animation_start_time = state.animation_start_time
         self.animation_time = state.animation_time
         self.low_level_time = state.low_level_time
