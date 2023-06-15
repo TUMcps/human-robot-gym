@@ -60,16 +60,16 @@ if __name__ == "__main__":
         ]
     )
 
-    env = CollisionPreventionWrapper(
-        env=env, collision_check_fn=env.check_collision_action, replace_type=0
-    )
+    # env = CollisionPreventionWrapper(
+    #     env=env, collision_check_fn=env.check_collision_action, replace_type=0
+    # )
 
     env = VisualizationWrapper(env)
 
     t_max = 1000
     for i_episode in range(20):
         observation = env.reset()
-        env.desired_goal = np.array([0, 2.0, -np.pi / 2 + 1.5, 0, -np.pi / 2, 0])
+        env.desired_goal = np.array([0, 2.0, -np.pi / 2 + 1.7, 0, -np.pi / 2, 0])
         t1 = time.time()
         for t in range(t_max):
             action = env.action_space.sample()
