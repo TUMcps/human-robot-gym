@@ -14,8 +14,8 @@ table_friction:
 reward_scale: 1.0
 reward_shaping: false
 goal_dist: 0.1
-n_object_placements_to_sample_at_resets: 19  # Prime number
-n_targets_to_sample_at_resets: 23  # Prime number
+n_object_placements_sampled_per_100_steps: 3
+n_targets_sampled_per_100_steps: 3
 collision_reward: -10
 goal_reward: 1
 object_placement_initializer: null

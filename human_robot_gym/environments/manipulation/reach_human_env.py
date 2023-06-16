@@ -112,7 +112,7 @@ class ReachHuman(HumanEnv):
 
         goal_dist (float): Distance threshold for reaching the goal.
 
-        n_goals_to_sample_at_resets (int): Length of the list of desired goals to sample at resets.
+        n_goals_sampled_per_100_steps (int): Length of the list of desired goals to sample at resets.
             After all goals of the list have been reached, restart from the first in the list.
             This is done to ensure the same list of goals can be played when loading the env state from a file.
 
@@ -211,7 +211,7 @@ class ReachHuman(HumanEnv):
 
         human_rand (List[float]): Max. randomization of the human [x-pos, y-pos, z-angle]
 
-        n_animations_to_sample_at_resets (int): Length of the list of animations to sample at resets.
+        n_animations_sampled_per_100_steps (int): How many animations to sample at resets per 100 steps in the horizon.
             After all animations of the list have been played, restart from the first animation in the list.
             This is done to ensure the same list of animations can be played when loading the env state from a file.
 
@@ -249,7 +249,7 @@ class ReachHuman(HumanEnv):
         reward_scale: Optional[float] = 1.0,
         reward_shaping: bool = False,
         goal_dist: float = 0.1,
-        n_goals_to_sample_at_reset: int = 20,
+        n_goals_sampled_per_100_steps: int = 8,
         collision_reward: float = -10,
         goal_reward: float = 1,
         object_placement_initializer: Optional[ObjectPositionSampler] = None,
@@ -293,7 +293,7 @@ class ReachHuman(HumanEnv):
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 120,
         human_rand: List[float] = [0.0, 0.0, 0.0],
-        n_animations_to_sample_at_resets: int = 10,
+        n_animations_sampled_per_100_steps: int = 5,
         safe_vel: float = 0.001,
         randomize_initial_pos=False,
         self_collision_safety: float = 0.01,
@@ -315,7 +315,9 @@ class ReachHuman(HumanEnv):
         self.goal_dist = goal_dist
         self._desired_goals = None
         self._desired_goals_index = 0
-        self._n_goals_to_sample_at_reset = n_goals_to_sample_at_reset
+        self._n_goals_to_sample_at_resets = int(
+            horizon * n_goals_sampled_per_100_steps / 100
+        )
 
         self.goal_marker_trans = None
         self.goal_marker_rot = None
@@ -360,7 +362,7 @@ class ReachHuman(HumanEnv):
             base_human_pos_offset=base_human_pos_offset,
             human_animation_freq=human_animation_freq,
             human_rand=human_rand,
-            n_animations_to_sample_at_resets=n_animations_to_sample_at_resets,
+            n_animations_sampled_per_100_steps=n_animations_sampled_per_100_steps,
             safe_vel=safe_vel,
             self_collision_safety=self_collision_safety,
             seed=seed,
@@ -391,7 +393,7 @@ class ReachHuman(HumanEnv):
         obs, reward, done, info = super().step(action)
         if self.goal_reached:
             # if goal is reached, calculate a new goal.
-            self._desired_goals_index = (self._desired_goals_index + 1) % self._n_goals_to_sample_at_reset
+            self._desired_goals_index = (self._desired_goals_index + 1) % self._n_goals_to_sample_at_resets
             if isinstance(self.robots[0].robot_model, PinocchioManipulatorModel):
                 (self.goal_marker_trans, self.goal_marker_rot) = self.robots[
                     0
@@ -543,7 +545,7 @@ class ReachHuman(HumanEnv):
                 self.robots[0].init_qpos = self._sample_valid_pos()
         super()._reset_internal()
 
-        self._desired_goals = [self._sample_valid_pos() for _ in range(self._n_goals_to_sample_at_reset)]
+        self._desired_goals = [self._sample_valid_pos() for _ in range(self._n_goals_to_sample_at_resets)]
         self._desired_goals_index = 0
 
         if isinstance(self.robots[0].robot_model, PinocchioManipulatorModel):

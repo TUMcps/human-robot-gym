@@ -79,14 +79,15 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
 
         goal_dist (float): Distance threshold for reaching the goal.
 
-        n_object_placements_to_sample_at_resets (int): Length of the list of objects to sample at resets.
+        n_object_placements_sampled_per_100_steps (int): How many object placements to sample at resets
+            per 100 steps in the horizon.
             After all objects of the list have been placed, restart from the first in the list.
             This is done to ensure the same list of objects can be placed when loading the env state from a file.
 
-        n_targets_to_sample_at_resets (int): Length of the list of target locations to sample at resets.
+        n_targets_sampled_per_100_steps (int): How many targets to sample at resets per 100 steps in the horizon.
             After all goals of the list have been reached, restart from the first in the list.
             This is done to ensure the same list of goals can be played when loading the env state from a file.
-            Setting `n_targets_to_sample_at_resets != n_object_placements_to_sample_at_resets`
+            Setting `n_targets_sampled_per_100_steps != n_object_placements_sampled_per_100_steps`
             yields more possible object-goal combinations.
 
         collision_reward (float): Reward to be given in the case of a collision.
@@ -190,7 +191,7 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
 
         human_rand (List[float]): Max. randomization of the human [x-pos, y-pos, z-angle]
 
-        n_animations_to_sample_at_resets (int): Length of the list of animations to sample at resets.
+        n_animations_sampled_per_100_steps (int): How many animations to sample at resets per 100 steps in the horizon.
             After all animations of the list have been played, restart from the first animation in the list.
             This is done to ensure the same list of animations can be played when loading the env state from a file.
 
@@ -226,8 +227,8 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         reward_scale: Optional[float] = 1.0,
         reward_shaping: bool = False,
         goal_dist: float = 0.1,
-        n_object_placements_to_sample_at_resets: int = 19,  # Prime number
-        n_targets_to_sample_at_resets: int = 23,  # Prime number
+        n_object_placements_sampled_per_100_steps: int = 3,
+        n_targets_sampled_per_100_steps: int = 3,
         collision_reward: float = -10,
         goal_reward: float = 1,
         object_gripped_reward: float = -1,
@@ -261,7 +262,7 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 30,
         human_rand: List[float] = [0.0, 0.0, 0.0],
-        n_animations_to_sample_at_resets: int = 10,
+        n_animations_sampled_per_100_steps: int = 5,
         safe_vel: float = 0.001,
         self_collision_safety: float = 0.01,
         seed: int = 0,
@@ -284,8 +285,8 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
             reward_scale=reward_scale,
             reward_shaping=reward_shaping,
             goal_dist=goal_dist,
-            n_object_placements_to_sample_at_resets=n_object_placements_to_sample_at_resets,
-            n_targets_to_sample_at_resets=n_targets_to_sample_at_resets,
+            n_object_placements_sampled_per_100_steps=n_object_placements_sampled_per_100_steps,
+            n_targets_sampled_per_100_steps=n_targets_sampled_per_100_steps,
             collision_reward=collision_reward,
             goal_reward=goal_reward,
             object_gripped_reward=object_gripped_reward,
@@ -317,7 +318,7 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
             base_human_pos_offset=base_human_pos_offset,
             human_animation_freq=human_animation_freq,
             human_rand=human_rand,
-            n_animations_to_sample_at_resets=n_animations_to_sample_at_resets,
+            n_animations_sampled_per_100_steps=n_animations_sampled_per_100_steps,
             safe_vel=safe_vel,
             self_collision_safety=self_collision_safety,
             seed=seed,

@@ -232,7 +232,7 @@ class HumanEnv(SingleArmEnv):
 
         human_rand (List[float]): Max. randomization of the human [x-pos, y-pos, z-angle]
 
-        n_animations_to_sample_at_resets (int): Length of the list of animations to sample at resets.
+        n_animations_sampled_per_100_steps (int): How many animations to sample at resets per 100 steps in the horizon.
             After all animations of the list have been played, restart from the first animation in the list.
             This is done to ensure the same list of animations can be played when loading the env state from a file.
 
@@ -298,7 +298,7 @@ class HumanEnv(SingleArmEnv):
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 120,
         human_rand: List[float] = [0.0, 0.0, 0.0],
-        n_animations_to_sample_at_resets: int = 10,
+        n_animations_sampled_per_100_steps: int = 5,
         safe_vel: float = 0.001,
         self_collision_safety: float = 0.01,
         seed: int = 0,
@@ -344,7 +344,9 @@ class HumanEnv(SingleArmEnv):
         self.human_base_quat = Rotation.from_quat([0.5, 0.5, 0.5, 0.5])
         self.human_animation_freq = human_animation_freq
         self.low_level_time = int(0)
-        self._n_animations_to_sample_at_resets = n_animations_to_sample_at_resets
+        self._n_animations_to_sample_at_resets = int(
+            horizon * n_animations_sampled_per_100_steps / 100
+        )
         self._human_animation_ids = None
         self._human_animation_ids_index = 0
         self.animation_start_time = 0
@@ -1456,15 +1458,20 @@ class HumanEnv(SingleArmEnv):
 
         return animation_data
 
-    def _control_human(self):
-        """Set the human joint positions according to the human animation files."""
+    def _control_human(self, force_update: bool = False):
+        """Set the human joint positions according to the human animation files.
+
+        Args:
+            force (bool): Force the human to be controlled
+                even if the animation time has not changed since the last call.
+        """
         # <<< Time management and animation selection >>>
         # Convert low level time to human animation time
         control_time = math.floor(
             self.low_level_time / self.human_animation_step_length
         )
         # If the animation time would stay the same, there is no need to update the human.
-        if control_time - self.animation_start_time == self.animation_time and False:
+        if control_time - self.animation_start_time == self.animation_time and not force_update:
             return
         self.animation_time = control_time - self.animation_start_time
         # Check if current animation is finished
@@ -1627,6 +1634,6 @@ class HumanEnv(SingleArmEnv):
         self.low_level_time = state.low_level_time
         self.human_pos_offset = state.human_pos_offset
         self.human_rot_offset = state.human_rot_offset
-        self._control_human()
+        self._control_human(force_update=True)
         self.sim.forward()
         self._reset_controller()
