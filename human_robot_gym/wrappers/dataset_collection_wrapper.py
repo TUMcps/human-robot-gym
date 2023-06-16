@@ -104,12 +104,12 @@ class DatasetCollectionWrapper(gym.Wrapper):
 
         # save the task instance (will be saved on the first env interaction)
         self._current_task_instance_xml = self.unwrapped.sim.model.get_xml()
-        self._current_task_instance_state = self.unwrapped.get_environment_state_representation()
+        self._current_task_instance_state = self.unwrapped.get_environment_state()
 
         # trick for ensuring that we can play MuJoCo demonstrations back
         # deterministically by using the recorded actions open loop
         self.unwrapped.reset_from_xml_string(self._current_task_instance_xml)
-        self.unwrapped.set_environment_state_representation(self._current_task_instance_state)
+        self.unwrapped.set_environment_state(self._current_task_instance_state)
 
     def _on_first_interaction(self):
         """Bookkeeping for first timestep of episode.
@@ -200,7 +200,7 @@ class DatasetCollectionWrapper(gym.Wrapper):
         self.t += 1
 
         # collect the current simulation state
-        state = self.unwrapped.get_environment_state_representation()
+        state = self.unwrapped.get_environment_state()
         self.states.append(state)
 
         self.observations.append(obs)

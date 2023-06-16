@@ -1518,7 +1518,7 @@ class HumanEnv(SingleArmEnv):
         """
         self.viewer.render()
 
-    def get_environment_state_representation(self) -> HumanEnvState:
+    def get_environment_state(self) -> HumanEnvState:
         """Get the current state of the environment. Can be used for storing/loading.
 
         Returns:
@@ -1535,7 +1535,7 @@ class HumanEnv(SingleArmEnv):
             human_rot_offset=self.human_rot_offset,
         )
 
-    def set_environment_state_representation(self, state: HumanEnvState):
+    def set_environment_state(self, state: HumanEnvState):
         """Set the current state of the environment. Can be used for storing/loading.
 
         Args:

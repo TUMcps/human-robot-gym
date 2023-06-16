@@ -705,26 +705,26 @@ class ReachHuman(HumanEnv):
             shininess=0.0,
         )
 
-    def get_environment_state_representation(self) -> ReachHumanEnvState:
+    def get_environment_state(self) -> ReachHumanEnvState:
         """Get the current state of the environment. Can be used for storing/loading.
 
         Returns:
             state (ReachHumanEnvState): The current state of the environment.
         """
-        human_env_state = super().get_environment_state_representation()
+        human_env_state = super().get_environment_state()
         return ReachHumanEnvState(
             desired_goals=self._desired_goals,
             desired_goals_index=self._desired_goals_index,
             **asdict(human_env_state),
         )
 
-    def set_environment_state_representation(self, state: ReachHumanEnvState):
+    def set_environment_state(self, state: ReachHumanEnvState):
         """Set the current state of the environment. Can be used for storing/loading.
 
         Args:
             ReachHumanEnvState: The state to be set.
         """
-        super().set_environment_state_representation(state)
+        super().set_environment_state(state)
         self._desired_goals = state.desired_goals
         self._desired_goals_index = state.desired_goals_index
 

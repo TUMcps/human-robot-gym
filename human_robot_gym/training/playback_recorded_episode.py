@@ -61,6 +61,8 @@ def load_ep_data(config: DataCollectionConfig):
 
 def playback_trajectory(config: DataCollectionConfig):
     """Playback a trajectory from a dataset.
+    
+    Loops the episode by playing it forwards and backwards.
 
     Args:
         config (DataCollectionConfig): Data collection config
@@ -73,7 +75,7 @@ def playback_trajectory(config: DataCollectionConfig):
 
     while True:
         for state in list(dic["states"]) + list(dic["states"][::-1]):
-            env.unwrapped.set_environment_state_representation(state)
+            env.unwrapped.set_environment_state(state)
             env.unwrapped.render()
 
 

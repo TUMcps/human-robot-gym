@@ -926,13 +926,13 @@ class PickPlaceHumanCart(HumanEnv):
             shininess=0.0,
         )
 
-    def get_environment_state_representation(self) -> PickPlaceHumanCartEnvState:
+    def get_environment_state(self) -> PickPlaceHumanCartEnvState:
         """Get the current state of the environment. Can be used for storing/loading.
 
         Returns:
             state (PickPlaceHumanCartEnvState): The current state of the environment.
         """
-        human_env_state = super().get_environment_state_representation()
+        human_env_state = super().get_environment_state()
         return PickPlaceHumanCartEnvState(
             object_placements_list=self._object_placements_list,
             object_placements_list_index=self._object_placements_list_index,
@@ -941,13 +941,13 @@ class PickPlaceHumanCart(HumanEnv):
             **asdict(human_env_state),
         )
 
-    def set_environment_state_representation(self, state: PickPlaceHumanCartEnvState):
+    def set_environment_state(self, state: PickPlaceHumanCartEnvState):
         """Set the current state of the environment. Can be used for storing/loading.
 
         Args:
             PickPlaceHumanCartEnvState: The state to be set.
         """
-        super().set_environment_state_representation(state)
+        super().set_environment_state(state)
         self._object_placements_list = state.object_placements_list
         self._object_placements_list_index = state.object_placements_list_index
         self._target_positions = state.target_positions
