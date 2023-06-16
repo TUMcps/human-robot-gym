@@ -86,6 +86,10 @@ class ReachHumanCart(ReachHuman):
 
         goal_dist (float): Distance threshold for reaching the goal.
 
+        n_goals_to_sample_at_resets (int): Length of the list of desired goals to sample at resets.
+            After all goals of the list have been reached, restart from the first in the list.
+            This is done to ensure the same list of goals can be played when loading the env state from a file.
+
         collision_reward (float): Reward to be given in the case of a collision.
 
         goal_reward (float): Reward to be given in the case of reaching the goal.
@@ -218,6 +222,7 @@ class ReachHumanCart(ReachHuman):
         reward_scale: Optional[float] = 1.0,
         reward_shaping: bool = False,
         goal_dist: float = 0.1,
+        n_goals_to_sample_at_reset: int = 20,
         collision_reward: float = -10,
         goal_reward: float = 1,
         object_placement_initializer: Optional[ObjectPositionSampler] = None,
@@ -286,6 +291,7 @@ class ReachHumanCart(ReachHuman):
             reward_scale=reward_scale,
             reward_shaping=reward_shaping,
             goal_dist=goal_dist,
+            n_goals_to_sample_at_reset=n_goals_to_sample_at_reset,
             collision_reward=collision_reward,
             goal_reward=goal_reward,
             object_placement_initializer=object_placement_initializer,
