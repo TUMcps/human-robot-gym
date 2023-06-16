@@ -61,7 +61,7 @@ def load_ep_data(config: DataCollectionConfig):
 
 def playback_trajectory(config: DataCollectionConfig):
     """Playback a trajectory from a dataset.
-    
+
     Loops the episode by playing it forwards and backwards.
 
     Args:
