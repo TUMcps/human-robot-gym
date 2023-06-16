@@ -3,7 +3,7 @@ defaults:
   - environment: pick_place_human_cart
   - wrappers: safe_ik_action_imitation
   - algorithm: sac
-  - expert: pick_place
+  - expert: pick_place_human_cart
   - training: expert_imitation_training
   - wandb_run: default_wandb
   - _self_

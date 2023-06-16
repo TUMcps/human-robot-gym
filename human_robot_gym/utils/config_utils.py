@@ -158,7 +158,7 @@ class DataCollectionConfig(TrainingConfig):
     n_episodes: int = 100
     start_episode_index: int = 0
     n_threads: Optional[int] = None
-    load_ep_index: Optional[int] = None
+    load_episode_index: Optional[int] = None
 
 
 # Register config class

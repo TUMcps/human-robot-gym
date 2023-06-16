@@ -38,7 +38,7 @@ def load_ep_data(config: DataCollectionConfig):
     Args:
         config (DataCollectionConfig): Data collection config
     """
-    load_episode = config.load_ep_index
+    load_episode = config.load_episode_index
 
     if load_episode is None:
         print("Select which episode to load:")

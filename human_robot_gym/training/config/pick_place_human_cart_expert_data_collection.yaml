@@ -2,7 +2,7 @@ defaults:
   - robot: schunk
   - environment: pick_place_human_cart
   - wrappers: safe_ik
-  - expert: pick_place
+  - expert: pick_place_human_cart
   - training: expert_imitation_training
   - consistent_seeding
   - _self_
@@ -26,8 +26,8 @@ expert:
   signal_to_noise_ratio: 0.98
 
 
-dataset_name: däscht
+dataset_name: pick-place-dataset
 start_episode_index: 0
 n_episodes: 200
 n_threads: 1
-load_ep_index: null
+load_episode_index: null

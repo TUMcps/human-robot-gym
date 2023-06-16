@@ -324,6 +324,11 @@ class ReachHumanCart(ReachHuman):
             done_at_success=done_at_success
         )
 
+    @property
+    def desired_goal(self):
+        """Return the desired goal."""
+        return self.goal_marker_trans
+
     def step(self, action):
         """Override base step function.
 
@@ -342,7 +347,6 @@ class ReachHumanCart(ReachHuman):
         """
         obs, reward, done, info = super().step(action)
         # We have to set this in every step since the goal can change.
-        self.desired_goal = self.goal_marker_trans
         return obs, reward, done, info
 
     def _get_achieved_goal_from_obs(
@@ -366,7 +370,6 @@ class ReachHumanCart(ReachHuman):
         """Reset the simulation internal configurations."""
         self.robots[0].init_qpos = self.init_joint_pos
         super()._reset_internal()
-        self.desired_goal = self.goal_marker_trans
 
     def _setup_observables(self):
         """Set up observables to be used for this environment.

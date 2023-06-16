@@ -28,8 +28,8 @@ from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE, 
 @dataclass
 class PickPlaceHumanCartEnvState(HumanEnvState):
     """Dataclass for encapsulating the state of the PickPlaceHumanCart environment.
-    Extends the HumanEnvState dataclass to include all variables necessary
-    to restore a PickPlaceHumanCart environment state.
+    Extends the `HumanEnvState` dataclass to include all variables necessary
+    to restore a `PickPlaceHumanCart` environment state.
 
     Attributes:
         sim_state (np.ndarray): State of the mujoco simulation
@@ -46,9 +46,9 @@ class PickPlaceHumanCartEnvState(HumanEnvState):
             During the episode this list is iterated over and the corresponding object joint position is used.
         object_placements_list_index (int): Index of the current object joint position in the list of object joint
             positions.
-        target_positions (List[np.ndarray]): List of target_positions. During the episode this list is
+        target_positions (List[np.ndarray]): List of target positions. During the episode this list is
             iterated over and the corresponding target_position is used.
-        target_positions_index (int): Index of the current target_position in the list of target_position.
+        target_positions_index (int): Index of the current target position in the list of target_position.
     """
     object_placements_list: List[List[Tuple[str, np.ndarray]]]
     object_placements_list_index: int
@@ -930,7 +930,7 @@ class PickPlaceHumanCart(HumanEnv):
         """Get the current state of the environment. Can be used for storing/loading.
 
         Returns:
-            state (PickPlaceHumanCartState): The current state of the environment.
+            state (PickPlaceHumanCartEnvState): The current state of the environment.
         """
         human_env_state = super().get_environment_state_representation()
         return PickPlaceHumanCartEnvState(
@@ -945,7 +945,7 @@ class PickPlaceHumanCart(HumanEnv):
         """Set the current state of the environment. Can be used for storing/loading.
 
         Args:
-            PickPlaceHumanCartState: The state to be set.
+            PickPlaceHumanCartEnvState: The state to be set.
         """
         super().set_environment_state_representation(state)
         self._object_placements_list = state.object_placements_list
