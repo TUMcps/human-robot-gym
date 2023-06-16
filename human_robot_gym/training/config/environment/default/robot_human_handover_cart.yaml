@@ -1,0 +1,8 @@
+defaults:
+  - pick_place_human_cart
+  - _self_
+
+env_id: RobotHumanHandoverCart
+human_animation_names:
+  - RobotHumanHandover/0
+  - RobotHumanHandover/1

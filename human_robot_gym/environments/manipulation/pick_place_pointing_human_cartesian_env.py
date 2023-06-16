@@ -79,6 +79,16 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
 
         goal_dist (float): Distance threshold for reaching the goal.
 
+        n_object_placements_to_sample_at_resets (int): Length of the list of objects to sample at resets.
+            After all objects of the list have been placed, restart from the first in the list.
+            This is done to ensure the same list of objects can be placed when loading the env state from a file.
+
+        n_targets_to_sample_at_resets (int): Length of the list of target locations to sample at resets.
+            After all goals of the list have been reached, restart from the first in the list.
+            This is done to ensure the same list of goals can be played when loading the env state from a file.
+            Setting `n_targets_to_sample_at_resets != n_object_placements_to_sample_at_resets`
+            yields more possible object-goal combinations.
+
         collision_reward (float): Reward to be given in the case of a collision.
 
         goal_reward (float): Reward to be given in the case of reaching the goal.
@@ -216,6 +226,8 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
         reward_scale: Optional[float] = 1.0,
         reward_shaping: bool = False,
         goal_dist: float = 0.1,
+        n_object_placements_to_sample_at_resets: int = 19,  # Prime number
+        n_targets_to_sample_at_resets: int = 23,  # Prime number
         collision_reward: float = -10,
         goal_reward: float = 1,
         object_gripped_reward: float = -1,
@@ -272,6 +284,8 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
             reward_scale=reward_scale,
             reward_shaping=reward_shaping,
             goal_dist=goal_dist,
+            n_object_placements_to_sample_at_resets=n_object_placements_to_sample_at_resets,
+            n_targets_to_sample_at_resets=n_targets_to_sample_at_resets,
             collision_reward=collision_reward,
             goal_reward=goal_reward,
             object_gripped_reward=object_gripped_reward,
@@ -311,6 +325,10 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
             done_at_collision=done_at_collision,
             done_at_success=done_at_success,
         )
+
+    @property
+    def target_pos(self) -> np.ndarray:
+        return self._get_current_target_pos()
 
     def _setup_arena(self):
         """Setup the mujoco arena.

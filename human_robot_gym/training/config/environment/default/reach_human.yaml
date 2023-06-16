@@ -14,6 +14,7 @@ table_friction:
 reward_scale: 1.0
 reward_shaping: false
 goal_dist: 0.1
+n_goals_to_sample_at_reset: 20
 collision_reward: -10
 goal_reward: 1
 object_placement_initializer: null

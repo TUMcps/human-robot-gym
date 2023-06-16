@@ -152,7 +152,7 @@ class PickPlaceHumanCartExpert(Expert):
         return action
 
     @staticmethod
-    def expert_observation_from_dict(self, obs_dict: Dict[str, Any]) -> PickPlaceHumanCartExpertObservation:
+    def expert_observation_from_dict(obs_dict: Dict[str, Any]) -> PickPlaceHumanCartExpertObservation:
         """Convert observation dictionary to PickPlaceExpertObservation data object."""
         return PickPlaceHumanCartExpertObservation(
             object_gripped=obs_dict["object_gripped"],
