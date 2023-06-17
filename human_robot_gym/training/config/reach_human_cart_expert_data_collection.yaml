@@ -6,7 +6,7 @@ defaults:
   - run: expert_imitation_training
   - consistent_seeding
   - _self_
-  - eval
+#  - eval
 
 environment:
   verbose: true
