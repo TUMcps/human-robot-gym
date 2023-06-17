@@ -12,12 +12,11 @@ defaults:
 
 run:
   type: wandb
-  n_envs: 10
+  n_envs: 8
   obs_keys:
     - object_gripped
     - vec_to_next_objective
     - robot0_gripper_qpos
-    - robot0_gripper_qvel
     - eef_to_human_head
     - eef_to_human_lh
     - eef_to_human_rh
@@ -29,3 +28,5 @@ wrappers:
     beta: 0.5
     iota_m: 0.05
     iota_g: 0.1
+    dataset_name: pick-place-dataset
+    rsi_prob: 1

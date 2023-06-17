@@ -125,7 +125,7 @@ class DatasetRSIWrapper(DatasetWrapper):
         self._dataset_ep_step_idx = self._get_initial_dataset_ep_step_idx()
 
         self.unwrapped.reset_from_xml_string(self.dataset[self._ep_idx][0])
-        self.unwrapped.set_state(self._dic["states"][self._dataset_ep_step_idx])
+        self.unwrapped.set_environment_state(self._dic["states"][self._dataset_ep_step_idx])
 
         expert_obs_wrapper = ExpertObsWrapper.get_from_wrapped_env(self.env)
         if expert_obs_wrapper is not None:
