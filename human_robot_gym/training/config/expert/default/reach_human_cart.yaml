@@ -1,0 +1,6 @@
+id: ReachHumanCart
+signal_to_noise_ratio: 1
+delta_time: 0.01
+seed: null
+obs_keys:
+  - goal_difference

@@ -75,7 +75,7 @@ from robosuite.controllers import load_controller_config
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 from human_robot_gym.utils.cart_keyboard_controller import KeyboardControllerAgentCart
 from human_robot_gym.utils.env_util import ExpertObsWrapper
-from human_robot_gym.demonstrations.experts import PickPlaceExpert
+from human_robot_gym.demonstrations.experts import PickPlaceHumanCartExpert
 import human_robot_gym.robots  # noqa: F401
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.collision_prevention_wrapper import (
@@ -144,7 +144,7 @@ if __name__ == "__main__":
     action_limits = np.array([[-0.1, -0.1, -0.1], [0.1, 0.1, 0.1]])
     env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file, action_limits=action_limits)
     kb_agent = KeyboardControllerAgentCart(env=env)
-    expert = PickPlaceExpert(
+    expert = PickPlaceHumanCartExpert(
         observation_space=env.observation_space,
         action_space=env.action_space,
         signal_to_noise_ratio=0.99,
@@ -159,7 +159,7 @@ if __name__ == "__main__":
         iota_g=0.01,
     )
 
-    sc_agent = PickPlaceExpert(
+    sc_agent = PickPlaceHumanCartExpert(
         observation_space=env.observation_space,
         action_space=env.action_space,
         signal_to_noise_ratio=0.98,

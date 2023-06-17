@@ -31,8 +31,8 @@ from stable_baselines3 import SAC, PPO, HerReplayBuffer
 from human_robot_gym.demonstrations.experts import Expert, REGISTERED_EXPERTS
 
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
-from human_robot_gym.utils.env_util import make_vec_env
-from human_robot_gym.utils.config_utils import Config
+from human_robot_gym.utils.env_util import make_gym_env, make_vec_env, make_expert_obs_env
+from human_robot_gym.utils.config_utils import TrainingConfig, DataCollectionConfig
 
 from human_robot_gym.wrappers.collision_prevention_wrapper import CollisionPreventionWrapper
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
@@ -42,6 +42,7 @@ from human_robot_gym.wrappers.action_based_expert_imitation_reward_wrapper impor
 )
 from human_robot_gym.wrappers.HER_buffer_add_monkey_patch import custom_add, _custom_sample_transitions
 from human_robot_gym.wrappers.tensorboard_callback import TensorboardCallback
+from human_robot_gym.wrappers.dataset_collection_wrapper import DatasetCollectionWrapper
 
 
 SB3_ALGORITHMS = {
@@ -50,7 +51,7 @@ SB3_ALGORITHMS = {
 }
 
 
-def get_controller_configs(config: Config) -> List[Dict[str, Any]]:
+def get_controller_configs(config: TrainingConfig) -> List[Dict[str, Any]]:
     """Obtain the controller config for the robot from the paths specified in the config.
 
     We merge a robot specific config into the config for the controller (e.g. a failsafe controller).
@@ -73,7 +74,7 @@ def get_controller_configs(config: Config) -> List[Dict[str, Any]]:
     return [controller_config]
 
 
-def _compose_environment_kwargs(config: Config, evaluation_mode: bool) -> Dict[str, Any]:
+def _compose_environment_kwargs(config: TrainingConfig, evaluation_mode: bool) -> Dict[str, Any]:
     """Compose a dictionary of all configured keyword arguments for the environment.
 
     Args:
@@ -93,7 +94,7 @@ def _compose_environment_kwargs(config: Config, evaluation_mode: bool) -> Dict[s
     return kwargs
 
 
-def create_environment(config: Config, evaluation_mode: bool = False) -> VecEnv:
+def create_training_vec_env(config: TrainingConfig, evaluation_mode: bool = False) -> VecEnv:
     """Create an environment from a config and optionally wrap it in specified wrappers.
 
     If the config specifies more than one environment (`training.n_envs > 1`),
@@ -128,7 +129,54 @@ def create_environment(config: Config, evaluation_mode: bool = False) -> VecEnv:
     return env
 
 
-def _compose_expert_kwargs(config: Config) -> Dict[str, Any]:
+def create_wrapped_env_from_config(config: TrainingConfig) -> gym.Env:
+    """Create a non-vectorized wrapped gym environment from a config.
+
+    Args:
+        config (Config): The config object containing information about the environment and optional wrappers
+    """
+    kwargs = _compose_environment_kwargs(config=config, evaluation_mode=False)
+
+    if config.training.expert_obs_keys is None:
+        env = make_gym_env(
+            env_id=config.environment.env_id,
+            env_kwargs=kwargs,
+            obs_keys=config.training.obs_keys,
+        )
+    else:
+        env = make_expert_obs_env(
+            env_id=config.environment.env_id,
+            env_kwargs=kwargs,
+            obs_keys=config.training.obs_keys,
+            expert_obs_keys=config.training.expert_obs_keys,
+        )
+
+    env = get_environment_wrap_fn(config=config)(env=env)
+
+    return env
+
+
+def create_data_collection_environment(config: DataCollectionConfig, start_episode: int = 0) -> gym.Env:
+    """Create a wrapped gym environment for data collection from a config.
+
+    Args:
+        config (Config): The config object containing information about the environment and optional wrappers
+        start_episode (int): The index of the first episode. Defaults to 0.
+    """
+    env = create_wrapped_env_from_config(config=config)
+
+    env = DatasetCollectionWrapper(
+        env=env,
+        directory=file_path_completion(f"../datasets/{config.dataset_name}"),
+        start_episode=start_episode,
+        store_expert_observations=config.training.expert_obs_keys is not None,
+        verbose=config.training.verbose,
+    )
+
+    return env
+
+
+def _compose_expert_kwargs(config: TrainingConfig) -> Dict[str, Any]:
     """Compose a dictionary of all configured keyword arguments for the expert.
 
     Args:
@@ -143,7 +191,7 @@ def _compose_expert_kwargs(config: Config) -> Dict[str, Any]:
     return kwargs
 
 
-def create_expert(config: Config, env: gym.Env) -> Expert:
+def create_expert(config: TrainingConfig, env: gym.Env) -> Expert:
     """Create an expert from a config.
 
     Args:
@@ -167,7 +215,7 @@ def create_expert(config: Config, env: gym.Env) -> Expert:
     )
 
 
-def _compose_ik_position_delta_wrapper_kwargs(config: Config) -> Dict[str, Any]:
+def _compose_ik_position_delta_wrapper_kwargs(config: TrainingConfig) -> Dict[str, Any]:
     """Compose a dictionary of all configured keyword arguments for the `IKPositionDeltaWrapper`.
 
     Args:
@@ -194,12 +242,12 @@ def _compose_ik_position_delta_wrapper_kwargs(config: Config) -> Dict[str, Any]:
     return kwargs
 
 
-def env_has_cartesian_action_space(config: Config) -> bool:
+def env_has_cartesian_action_space(config: TrainingConfig) -> bool:
     """Checks whether the wrapped environment has a Cartesian action space."""
     return hasattr(config.wrappers, "ik_position_delta") and config.wrappers.ik_position_delta is not None
 
 
-def get_environment_wrap_fn(config: Config) -> Callable[[gym.Env], gym.Env]:
+def get_environment_wrap_fn(config: TrainingConfig) -> Callable[[gym.Env], gym.Env]:
     """Create a function that wraps the environment as specified in the config.
 
     Args:
@@ -253,7 +301,7 @@ def get_environment_wrap_fn(config: Config) -> Callable[[gym.Env], gym.Env]:
 
 
 def _compose_algorithm_kwargs(
-    config: Config,
+    config: TrainingConfig,
     env: Optional[VecEnv] = None,
     run_id: Optional[str] = None,
     save_logs: bool = False,
@@ -299,7 +347,7 @@ def _compose_algorithm_kwargs(
 
 
 def create_model(
-    config: Config,
+    config: TrainingConfig,
     env: Optional[VecEnv] = None,
     run_id: Optional[str] = None,
     save_logs: bool = False,
@@ -337,7 +385,7 @@ def create_model(
 
 
 def load_model(
-    config: Config,
+    config: TrainingConfig,
     env: Optional[VecEnv] = None,
     run_id: Optional[str] = None,
     load_step: Optional[Union[int, str]] = None,
@@ -394,7 +442,7 @@ def load_model(
 
 
 def get_model(
-    config: Config,
+    config: TrainingConfig,
     env: Optional[VecEnv] = None,
     run_id: Optional[str] = None,
     save_logs: bool = False,
@@ -418,7 +466,7 @@ def get_model(
         return load_model(config=config, env=env, run_id=run_id, load_step=config.training.load_step)
 
 
-def init_wandb(config: Config) -> Run:
+def init_wandb(config: TrainingConfig) -> Run:
     """Initialize WandB.
 
     If a `run_id` is already specified in the training sub-config, this run will be resumed.
@@ -465,7 +513,7 @@ def init_wandb(config: Config) -> Run:
     )
 
 
-def run_debug_training(config: Config) -> BaseAlgorithm:
+def run_debug_training(config: TrainingConfig) -> BaseAlgorithm:
     """Run a training without storing any data to disk.
 
     This is useful for debugging purposes to avoid creating a lot of unnecessary files.
@@ -476,7 +524,7 @@ def run_debug_training(config: Config) -> BaseAlgorithm:
     Returns:
         BaseAlgorithm: The trained model
     """
-    env = create_environment(config=config, evaluation_mode=False)
+    env = create_training_vec_env(config=config, evaluation_mode=False)
     model = create_model(config=config, env=env, run_id="~~debug~~", save_logs=False)
     model.learn(
         total_timesteps=config.training.n_steps,
@@ -489,7 +537,7 @@ def run_debug_training(config: Config) -> BaseAlgorithm:
     return model
 
 
-def run_training_tensorboard(config: Config) -> BaseAlgorithm:
+def run_training_tensorboard(config: TrainingConfig) -> BaseAlgorithm:
     """Run a training and store the logs to tensorboard.
 
     This avoids using WandB and stores logs only locally. Only stores the final model.
@@ -507,7 +555,7 @@ def run_training_tensorboard(config: Config) -> BaseAlgorithm:
     with open(f"models/{run_id}/config.yaml", "w") as f:
         f.write(OmegaConf.to_yaml(config, resolve=True))
 
-    env = create_environment(config=config, evaluation_mode=False)
+    env = create_training_vec_env(config=config, evaluation_mode=False)
     model = create_model(config=config, env=env, run_id=run_id, save_logs=True)
     model.learn(
         total_timesteps=config.training.n_steps,
@@ -522,7 +570,7 @@ def run_training_tensorboard(config: Config) -> BaseAlgorithm:
     return model
 
 
-def run_training_wandb(config: Config) -> BaseAlgorithm:
+def run_training_wandb(config: TrainingConfig) -> BaseAlgorithm:
     """Run a training and store the logs to WandB.
 
     The WandB run is closed at the end of the training.
@@ -543,7 +591,7 @@ def run_training_wandb(config: Config) -> BaseAlgorithm:
         with open(f"models/{run.id}/config.yaml", "w") as f:
             f.write(OmegaConf.to_yaml(config, resolve=True))
 
-        env = create_environment(config=config, evaluation_mode=False)
+        env = create_training_vec_env(config=config, evaluation_mode=False)
         model = get_model(config=config, env=env, run_id=run.id, save_logs=True)
         callback = TensorboardCallback(
             eval_env=env,
@@ -573,7 +621,7 @@ def run_training_wandb(config: Config) -> BaseAlgorithm:
         return model
 
 
-def run_training(config: Config) -> BaseAlgorithm:
+def run_training(config: TrainingConfig) -> BaseAlgorithm:
     """Run a training according to the config.
 
     Depending on the run_type specified in the training sub-config, logs are either
@@ -601,7 +649,7 @@ def run_training(config: Config) -> BaseAlgorithm:
         return run_debug_training(config=config)
 
 
-def evaluate_model_simple(config: Config, model: BaseAlgorithm, eval_env: VecEnv):
+def evaluate_model_simple(config: TrainingConfig, model: BaseAlgorithm, eval_env: VecEnv):
     """Evaluate a model and print the reward mean and std.
 
     Creates a new environment based on the information from the config.
@@ -626,7 +674,7 @@ def evaluate_model_simple(config: Config, model: BaseAlgorithm, eval_env: VecEnv
     print(f"Mean evaluation reward: {mean_reward} +/- {std_reward}")
 
 
-def evaluate_model_wandb(config: Config, model: BaseAlgorithm, eval_env: VecEnv):
+def evaluate_model_wandb(config: TrainingConfig, model: BaseAlgorithm, eval_env: VecEnv):
     """Evaluate a model and upload the results to WandB.
 
     Creates a new environment based on the information from the config.
@@ -656,7 +704,7 @@ def evaluate_model_wandb(config: Config, model: BaseAlgorithm, eval_env: VecEnv)
         )
 
 
-def evaluate_model(config: Config, model: BaseAlgorithm, eval_env: VecEnv):
+def evaluate_model(config: TrainingConfig, model: BaseAlgorithm, eval_env: VecEnv):
     """Evaluate a model and either print the results to the console or upload them to WandB.
 
     Which method is used depends on the `run_type` specified in the training sub-config.
@@ -676,7 +724,7 @@ def evaluate_model(config: Config, model: BaseAlgorithm, eval_env: VecEnv):
         evaluate_model_simple(config=config, model=model, eval_env=eval_env)
 
 
-def load_and_evaluate_model(config: Config):
+def load_and_evaluate_model(config: TrainingConfig):
     """Load a model from disk and evaluate it.
 
     Results are either printed to the console or uploaded to WandB.
@@ -688,7 +736,7 @@ def load_and_evaluate_model(config: Config):
     Args:
         config (Config): The config object containing information about the model to load and the evaluation environment
     """
-    eval_env = create_environment(config=config, evaluation_mode=True)
+    eval_env = create_training_vec_env(config=config, evaluation_mode=True)
     model = load_model(
         config=config,
         env=eval_env,
@@ -701,7 +749,7 @@ def load_and_evaluate_model(config: Config):
     eval_env.close()
 
 
-def train_and_evaluate(config: Config):
+def train_and_evaluate(config: TrainingConfig):
     """Train a model and evaluate it.
 
     If the `test_only` flag is set in the training sub-config,
@@ -718,5 +766,5 @@ def train_and_evaluate(config: Config):
         model = run_training(config=config)
         if config.training.verbose:
             print("Finished training, evaluating model...")
-        eval_env = create_environment(config=config, evaluation_mode=True)
+        eval_env = create_training_vec_env(config=config, evaluation_mode=True)
         evaluate_model(config=config, model=model, eval_env=eval_env)

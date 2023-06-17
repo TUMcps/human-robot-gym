@@ -140,7 +140,7 @@ class WandbConfig:
 
 
 @dataclass
-class Config:
+class TrainingConfig:
     """Main configuration class. Holds all sub-configurations."""
     robot: RobotConfig
     environment: EnvironmentConfig
@@ -151,6 +151,16 @@ class Config:
     wandb_run: Optional[WandbConfig] = None
 
 
+@dataclass
+class DataCollectionConfig(TrainingConfig):
+    """Data collection configuration class. Holds all sub-configurations."""
+    dataset_name: str = "dataset"
+    n_episodes: int = 100
+    start_episode_index: int = 0
+    n_threads: Optional[int] = None
+    load_episode_index: Optional[int] = None
+
+
 # Register config class
 cs = ConfigStore.instance()
-cs.store(name="base", node=Config)
+cs.store(name="base", node=TrainingConfig)
