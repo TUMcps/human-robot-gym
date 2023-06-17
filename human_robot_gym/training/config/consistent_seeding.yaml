@@ -1,4 +1,4 @@
 environment:
-  seed: ${training.seed}
+  seed: ${run.seed}
 algorithm:
-  seed: ${training.seed}
+  seed: ${run.seed}

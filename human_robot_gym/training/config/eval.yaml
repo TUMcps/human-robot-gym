@@ -3,8 +3,8 @@ defaults:
 
 environment:
   has_renderer: true
-training:
+run:
   n_envs: 1
   test_only: true
   load_step: final
-  run_id: null  # needs to be overwritten
+  id: null  # needs to be overwritten

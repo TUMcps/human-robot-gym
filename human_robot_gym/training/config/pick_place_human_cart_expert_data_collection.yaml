@@ -3,7 +3,7 @@ defaults:
   - environment: pick_place_human_cart
   - wrappers: safe_ik
   - expert: pick_place_human_cart
-  - training: expert_imitation_training
+  - run: expert_imitation_training
   - consistent_seeding
   - _self_
   - eval
@@ -11,7 +11,7 @@ defaults:
 environment:
   verbose: true
   done_at_success: true
-training:
+run:
   obs_keys:
     - object_gripped
     - vec_to_next_objective

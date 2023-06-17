@@ -4,14 +4,14 @@ defaults:
   - wrappers: safe_ik_action_imitation
   - algorithm: sac
   - expert: pick_place_human_cart
-  - training: expert_imitation_training
+  - run: expert_imitation_training
   - wandb_run: default_wandb
   - _self_
   - consistent_seeding
 #  - eval
 
-training:
-  run_type: wandb
+run:
+  type: wandb
   n_envs: 10
   obs_keys:
     - object_gripped
