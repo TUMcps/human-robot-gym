@@ -3,15 +3,15 @@ defaults:
   - environment: reach_human_cart
   - wrappers: safe_ik
   - expert: reach_human_cart
-  - training: expert_imitation_training
+  - run: expert_imitation_training
   - consistent_seeding
   - _self_
-  - eval
+#  - eval
 
 environment:
   verbose: true
   done_at_success: false
-training:
+run:
   obs_keys:
     - goal_difference
 expert:

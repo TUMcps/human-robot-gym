@@ -143,7 +143,7 @@ def collect_data_threaded(config: DataCollectionConfig, verbose: bool = False):
 
 @hydra.main(version_base=None, config_path="config", config_name=None)
 def main(config: DataCollectionConfig):
-    if config.training.verbose:
+    if config.run.verbose:
         print(OmegaConf.to_yaml(cfg=config, resolve=True))
 
     directory = file_path_completion(f"../datasets/{config.dataset_name}")
@@ -159,9 +159,9 @@ def main(config: DataCollectionConfig):
         f.write(OmegaConf.to_yaml(cfg=config, resolve=True))
 
     if config.n_threads == 1:
-        collect_data(config=config, verbose=config.training.verbose)
+        collect_data(config=config, verbose=config.run.verbose)
     else:
-        collect_data_threaded(config=config, verbose=config.training.verbose)
+        collect_data_threaded(config=config, verbose=config.run.verbose)
 
     print("Done.")
 

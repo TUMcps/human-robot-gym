@@ -16,15 +16,15 @@ from hydra.core.config_store import ConfigStore
 
 
 @dataclass
-class TrainingConfig:
+class RunConfig:
     """Outline of training run properties."""
     n_envs: int
     n_steps: int
     save_freq: int
     test_only: bool
     load_step: Any  # Optional[Union[int, str]]
-    run_id: Optional[str]
-    run_type: str
+    id: Optional[str]
+    type: str
     log_interval: int
     seed: Optional[int]
     eval_seed: Optional[int]
@@ -111,6 +111,15 @@ class IKPositionDeltaWrapperConfig:
 class ActionBasedExpertImitationRewardWrapperConfig:
     """Action based expert imitation reward wrapper configuration."""
     alpha: float
+    rsi_prob: Optional[float]
+    dataset_name: str
+
+
+@dataclass
+class DatasetObsNormWrapperConfig:
+    """Dataset observation normalization wrapper configuration."""
+    dataset_name: str
+    squash_factor: Optional[float]
 
 
 @dataclass
@@ -120,6 +129,7 @@ class WrappersConfig:
     visualization: Optional[VisualizationWrapperConfig]
     ik_position_delta: Optional[IKPositionDeltaWrapperConfig]
     action_based_expert_imitation_reward: Optional[ActionBasedExpertImitationRewardWrapperConfig]
+    dataset_obs_norm: Optional[DatasetObsNormWrapperConfig]
 
 
 @dataclass
@@ -145,7 +155,7 @@ class TrainingConfig:
     robot: RobotConfig
     environment: EnvironmentConfig
     wrappers: WrappersConfig
-    training: TrainingConfig
+    run: RunConfig
     algorithm: AlgorithmConfig
     expert: Optional[ExpertConfig] = None
     wandb_run: Optional[WandbConfig] = None

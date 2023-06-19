@@ -3,7 +3,7 @@ defaults:
   - environment: reach_human
   - wrappers: safe
   - expert: reach_human
-  - training: expert_imitation_training
+  - run: expert_imitation_training
   - consistent_seeding
   - _self_
   - eval
@@ -11,7 +11,7 @@ defaults:
 environment:
   verbose: true
   done_at_success: false
-training:
+run:
   obs_keys:
     - goal_difference
 expert:

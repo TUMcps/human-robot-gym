@@ -29,7 +29,7 @@ import human_robot_gym.robots  # noqa: F401
 
 @hydra.main(version_base=None, config_path="config", config_name=None)
 def main(config: TrainingConfig):
-    if config.training.verbose:
+    if config.run.verbose:
         print(OmegaConf.to_yaml(cfg=config, resolve=True))
 
     train_and_evaluate(config)

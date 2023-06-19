@@ -81,7 +81,7 @@ def playback_trajectory(config: DataCollectionConfig):
 
 @hydra.main(version_base=None, config_path="config", config_name=None)
 def main(config: DataCollectionConfig):
-    if config.training.verbose:
+    if config.run.verbose:
         print(OmegaConf.to_yaml(cfg=config, resolve=True))
 
     playback_trajectory(config=config)

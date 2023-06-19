@@ -3,8 +3,8 @@ n_steps: 1_000_000
 save_freq: 200_000
 test_only: false
 load_step: null
-run_id: null
-run_type: debug
+id: null
+type: debug
 log_interval: 10
 seed: 0
 eval_seed: null
