@@ -115,8 +115,8 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         info["ep_im_rew_mean"] = np.sum(self._imitation_rewards)
         info["ep_env_rew_mean"] = np.sum(self._environment_rewards)
 
-        info["im_rew_mean"] = np.nan if len(self._imitation_rewards == 0) else np.mean(self._imitation_rewards)
-        info["env_rew_mean"] = np.nan if len(self._environment_rewards == 0) else np.mean(self._environment_rewards)
+        info["im_rew_mean"] = np.nan if len(self._imitation_rewards) == 0 else np.mean(self._imitation_rewards)
+        info["env_rew_mean"] = np.nan if len(self._environment_rewards) == 0 else np.mean(self._environment_rewards)
 
     def _combine_reward(
         self,

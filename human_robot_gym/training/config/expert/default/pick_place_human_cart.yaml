@@ -1,4 +1,4 @@
-id: PickPlace
+id: PickPlaceHumanCart
 signal_to_noise_ratio: 1
 hover_dist: 0.2
 tan_theta: 0.5

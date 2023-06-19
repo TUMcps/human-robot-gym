@@ -1,7 +1,7 @@
-"""This file implements an expert policy for the pick-place task.
+"""This file implements an expert policy for the `PickPlaceHumanCart` environment.
 
 The policy does not take the human into consideration,
-but only the values defined in the PickPlaceExpertObservation data class.
+but only the values defined in the `PickPlaceExpertObservation` data class.
 
 Author:
     Felix Trost (FT)
@@ -22,10 +22,10 @@ from human_robot_gym.demonstrations.experts.expert import Expert
 
 
 @dataclass
-class PickPlaceExpertObservation:
+class PickPlaceHumanCartExpertObservation:
     """Data class to encapsulate all observation values relevant for the expert.
 
-    Args:
+    Attributes:
         object_gripped (bool): whether both finger pads of the robot
             have contact with the object
         vec_eef_to_object (np.ndarray):
@@ -41,11 +41,11 @@ class PickPlaceExpertObservation:
     robot0_gripper_qpos: np.ndarray
 
 
-class PickPlaceExpert(Expert):
-    """Expert policy for the pick-place task.
+class PickPlaceHumanCartExpert(Expert):
+    """Expert policy for the `PickPlaceHumanCart` environment.
 
     Does not take the human into account.
-    Relevant observation data encapsulated in the PickPlaceExpertObservation data class.
+    Relevant observation data encapsulated in the `PickPlaceExpertObservation` data class.
     Behavior:
 
         - Move above object and open gripper
@@ -57,7 +57,6 @@ class PickPlaceExpert(Expert):
 
     Noise can be added to the motion parameters. We draw from an Ornstein-Uhlenbeck (OU) process
     with asymptotic mean 0 and variance of half the motion action limit as described in the action space.
-    The OU discretization time delta reflects the clock time between two calls of the expert policy.
     Note that the OU process maintains a custom random number generator that is not affected by np.random.seed calls.
     Formula to obtain motion action parameters:
     `motion = expert_policy * signal_to_noise_ratio + noise * (1 - signal_to_noise_ratio)`
@@ -132,7 +131,7 @@ class PickPlaceExpert(Expert):
         Returns:
             np.ndarray: action
         """
-        obs = self._expert_observation_from_dict(obs_dict=obs_dict)
+        obs = self.expert_observation_from_dict(obs_dict=obs_dict)
         action = np.zeros(4)
         motion = self._select_motion(obs).clip(
             -self._motion_action_limit,
@@ -152,16 +151,17 @@ class PickPlaceExpert(Expert):
 
         return action
 
-    def _expert_observation_from_dict(self, obs_dict: Dict[str, Any]) -> PickPlaceExpertObservation:
+    @staticmethod
+    def expert_observation_from_dict(obs_dict: Dict[str, Any]) -> PickPlaceHumanCartExpertObservation:
         """Convert observation dictionary to PickPlaceExpertObservation data object."""
-        return PickPlaceExpertObservation(
+        return PickPlaceHumanCartExpertObservation(
             object_gripped=obs_dict["object_gripped"],
             vec_eef_to_object=obs_dict["vec_eef_to_object"],
             vec_eef_to_target=obs_dict["vec_eef_to_target"],
             robot0_gripper_qpos=obs_dict["robot0_gripper_qpos"],
         )
 
-    def _select_motion(self, obs: PickPlaceExpertObservation) -> np.ndarray:
+    def _select_motion(self, obs: PickPlaceHumanCartExpertObservation) -> np.ndarray:
         """Select motion arguments of action (action[0:3]).
 
         To ensure the next objective can be reached (grip object or deliver object to target),
@@ -183,7 +183,7 @@ class PickPlaceExpert(Expert):
         else:
             return self._move_to_above_object(obs)
 
-    def _select_gripper_action(self, obs: PickPlaceExpertObservation) -> np.ndarray:
+    def _select_gripper_action(self, obs: PickPlaceHumanCartExpertObservation) -> np.ndarray:
         """Select gripper actuation argument of action (action[3]).
 
         Select the action to close the gripper if the object is gripped or can be gripped
@@ -195,19 +195,19 @@ class PickPlaceExpert(Expert):
         else:
             return self._open_gripper()
 
-    def _gripper_fully_opened(self, obs: PickPlaceExpertObservation) -> bool:
+    def _gripper_fully_opened(self, obs: PickPlaceHumanCartExpertObservation) -> bool:
         """Determine whether the gripper is opened further than a given threshold"""
         gripper_aperture = obs.robot0_gripper_qpos[0] - obs.robot0_gripper_qpos[1]
         return gripper_aperture > self._gripper_fully_opened_threshold
 
-    def _at_object(self, obs: PickPlaceExpertObservation) -> bool:
+    def _at_object(self, obs: PickPlaceHumanCartExpertObservation) -> bool:
         """Determine whether the distance from gripper to the object is below a given threshold"""
         return (
             np.linalg.norm(obs.vec_eef_to_object[:2]) < self._horizontal_epsilon and
             -obs.vec_eef_to_object[2] < self._vertical_epsilon
         )
 
-    def _object_delivered(self, obs: PickPlaceExpertObservation) -> bool:
+    def _object_delivered(self, obs: PickPlaceHumanCartExpertObservation) -> bool:
         """Determine whether the object is at the target location"""
         object_to_target = obs.vec_eef_to_target - obs.vec_eef_to_object
         return (
@@ -237,7 +237,7 @@ class PickPlaceExpert(Expert):
         max_radius = self._horizontal_epsilon - vec[2] * self._tan_theta
         return np.linalg.norm(vec[:2]) < max_radius and vec[2] < 0
 
-    def _above_object(self, obs: PickPlaceExpertObservation) -> bool:
+    def _above_object(self, obs: PickPlaceHumanCartExpertObservation) -> bool:
         """Determine whether the gripper is within a truncated cone above the object.
 
         Minimum radius of the cone: self._horizontal_epsilon
@@ -245,7 +245,7 @@ class PickPlaceExpert(Expert):
         """
         return self._is_within_truncated_cone(vec=obs.vec_eef_to_object)
 
-    def _above_target(self, obs: PickPlaceExpertObservation) -> bool:
+    def _above_target(self, obs: PickPlaceHumanCartExpertObservation) -> bool:
         """Determine whether the object is within a truncated cone above the target.
 
         Minimum radius of the cone: self._horizontal_epsilon
@@ -253,19 +253,19 @@ class PickPlaceExpert(Expert):
         """
         return self._is_within_truncated_cone(vec=obs.vec_eef_to_target)
 
-    def _move_to_object(self, obs: PickPlaceExpertObservation) -> np.ndarray:
+    def _move_to_object(self, obs: PickPlaceHumanCartExpertObservation) -> np.ndarray:
         """Get the motion vector toward the object position"""
         return obs.vec_eef_to_object
 
-    def _move_to_target(self, obs: PickPlaceExpertObservation) -> np.ndarray:
+    def _move_to_target(self, obs: PickPlaceHumanCartExpertObservation) -> np.ndarray:
         """Get the motion vector toward the target position"""
         return obs.vec_eef_to_target
 
-    def _move_to_above_object(self, obs: PickPlaceExpertObservation) -> np.ndarray:
+    def _move_to_above_object(self, obs: PickPlaceHumanCartExpertObservation) -> np.ndarray:
         """Get the motion vector toward a point a given distance above the object"""
         return self._move_to_object(obs) + np.array([0, 0, self._hover_dist])
 
-    def _move_to_above_target(self, obs: PickPlaceExpertObservation) -> np.ndarray:
+    def _move_to_above_target(self, obs: PickPlaceHumanCartExpertObservation) -> np.ndarray:
         """Get the motion vector toward a point a given distance above the target"""
         return self._move_to_target(obs) + np.array([0, 0, self._hover_dist])
 
