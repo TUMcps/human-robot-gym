@@ -12,10 +12,11 @@ defaults:
 
 run:
   type: wandb
-  n_envs: 8
+  n_envs: 1
   obs_keys:
     - object_gripped
-    - vec_eef_to_next_objective
+    - vec_eef_to_object
+    - vec_eef_to_target
     - gripper_aperture
     - dist_eef_to_human_head
     - dist_eef_to_human_lh
