@@ -12,7 +12,7 @@ defaults:
 
 run:
   type: wandb
-  n_envs: 1
+  n_envs: 8
   obs_keys:
     - object_gripped
     - vec_eef_to_object
