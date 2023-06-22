@@ -21,7 +21,6 @@ from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import ObjectPositionSampler
 
 from human_robot_gym.utils.mjcf_utils import xml_path_completion
-from human_robot_gym.utils.pairing import cantor_pairing
 from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE, HumanEnv, HumanEnvState
 
 
@@ -350,8 +349,9 @@ class PickPlaceHumanCart(HumanEnv):
         self.object_placement_initializer = object_placement_initializer
         self.target_placement_initializer = target_placement_initializer
         self.obstacle_placement_initializer = obstacle_placement_initializer
+
         self.manipulation_object = None
-        self.box_body_id = None
+        self.manipulation_object_body_id = None
         # if run should stop at collision
         self.done_at_collision = done_at_collision
         self.done_at_success = done_at_success
@@ -681,7 +681,7 @@ class PickPlaceHumanCart(HumanEnv):
         # Box example
         box_size = np.array(self.object_full_size)
         self.manipulation_object = BoxObject(
-            name="smallBox",
+            name="manipulation_object",
             size=box_size * 0.5,
             rgba=[0.1, 0.7, 0.3, 1],
         )
@@ -743,7 +743,7 @@ class PickPlaceHumanCart(HumanEnv):
         super()._setup_references()
 
         assert len(self.objects) == 1
-        self.box_body_id = self.sim.model.body_name2id(self.objects[0].root_body)
+        self.manipulation_object_body_id = self.sim.model.body_name2id(self.objects[0].root_body)
 
     def _setup_observables(self) -> OrderedDict[str, Observable]:
         """Set up observables to be used for this environment.
@@ -776,6 +776,8 @@ class PickPlaceHumanCart(HumanEnv):
             observables[prefix + "eef_quat"].set_active(False)
         if "gripper_pos" in observables:
             observables["gripper_pos"].set_active(False)
+        if "gripper_aperture" in observables:
+            observables["gripper_aperture"].set_active(True)
 
         # low-level object information
         goal_mod = "goal"
@@ -791,11 +793,11 @@ class PickPlaceHumanCart(HumanEnv):
         # Absolute coordinates of object position
         @sensor(modality=obj_mod)
         def object_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return np.array(self.sim.data.body_xpos[self.box_body_id])
+            return np.array(self.sim.data.body_xpos[self.manipulation_object_body_id])
 
         # Vector from robot end-effector to object
         @sensor(modality=obj_mod)
-        def eef_to_object(obs_cache: Dict[str, Any]) -> np.ndarray:
+        def vec_eef_to_object(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
                 np.array(obs_cache["object_pos"]) - np.array(obs_cache[f"{pf}eef_pos"])
                 if "object_pos" in obs_cache and f"{pf}eef_pos" in obs_cache
@@ -804,7 +806,7 @@ class PickPlaceHumanCart(HumanEnv):
 
         # Vector from object to target
         @sensor(modality=goal_mod)
-        def object_to_target(obs_cache: Dict[str, Any]) -> np.ndarray:
+        def vec_object_to_target(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
                 np.array(obs_cache["target_pos"]) - np.array(obs_cache["object_pos"])
                 if "target_pos" in obs_cache and "object_pos" in obs_cache
@@ -812,7 +814,7 @@ class PickPlaceHumanCart(HumanEnv):
             )
 
         @sensor(modality=goal_mod)
-        def eef_to_target(obs_cache: Dict[str, Any]) -> np.ndarray:
+        def vec_eef_to_target(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
                 np.array(obs_cache["target_pos"]) - np.array(obs_cache[f"{pf}eef_pos"])
                 if "target_pos" in obs_cache and f"{pf}eef_pos" in obs_cache
@@ -823,23 +825,18 @@ class PickPlaceHumanCart(HumanEnv):
         # Checks if both finger pads are in contact with the object
         @sensor(modality="object")
         def object_gripped(obs_cache: Dict[str, Any]) -> bool:
-            coll = cantor_pairing(
-                self.sim.model.geom_name2id("gripper0_l_fingerpad_g0"),
-                self.sim.model.geom_name2id("smallBox_g0"),
-            ) in self.previous_robot_collisions and cantor_pairing(
-                self.sim.model.geom_name2id("gripper0_r_fingerpad_g0"),
-                self.sim.model.geom_name2id("smallBox_g0"),
-            ) in self.previous_robot_collisions
-
-            return coll
+            return self._check_grasp(
+                gripper=self.robots[0].gripper,
+                object_geoms=self.manipulation_object,
+            )
 
         @sensor(modality=goal_mod)
-        def vec_to_next_objective(obs_cache: Dict[str, Any]) -> np.ndarray:
-            if all([key in obs_cache for key in ["eef_to_object", "object_to_target", "object_gripped"]]):
+        def vec_eef_to_next_objective(obs_cache: Dict[str, Any]) -> np.ndarray:
+            if all([key in obs_cache for key in ["vec_eef_to_object", "vec_eef_to_target", "object_gripped"]]):
                 return np.array(
-                    obs_cache["object_to_target"]
+                    obs_cache["vec_eef_to_target"]
                 ) if obs_cache["object_gripped"] else np.array(
-                    obs_cache["eef_to_object"]
+                    obs_cache["vec_eef_to_object"]
                 )
             else:
                 return np.zeros(3)
@@ -847,11 +844,11 @@ class PickPlaceHumanCart(HumanEnv):
         sensors = [
             target_pos,
             object_pos,
-            eef_to_object,
-            object_to_target,
-            eef_to_target,
+            vec_eef_to_object,
+            vec_object_to_target,
+            vec_eef_to_target,
             object_gripped,
-            vec_to_next_objective,
+            vec_eef_to_next_objective,
         ]
 
         names = [s.__name__ for s in sensors]

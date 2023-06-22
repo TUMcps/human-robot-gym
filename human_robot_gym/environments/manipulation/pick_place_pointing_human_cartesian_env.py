@@ -349,7 +349,7 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
 
         box_size = np.array(self.object_full_size)
         self.manipulation_object = BoxObject(
-            name="smallBox",
+            name="manipulation_object",
             size=box_size * 0.5,
             rgba=[0.1, 0.7, 0.3, 1],
         )

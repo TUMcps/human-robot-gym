@@ -15,11 +15,12 @@ run:
   n_envs: 8
   obs_keys:
     - object_gripped
-    - vec_to_next_objective
-    - robot0_gripper_qpos
-    - eef_to_human_head
-    - eef_to_human_lh
-    - eef_to_human_rh
+    - vec_eef_to_object
+    - vec_eef_to_target
+    - gripper_aperture
+    - dist_eef_to_human_head
+    - dist_eef_to_human_lh
+    - dist_eef_to_human_rh
 wrappers:
   ik_position_delta:
     action_limit: 0.1
