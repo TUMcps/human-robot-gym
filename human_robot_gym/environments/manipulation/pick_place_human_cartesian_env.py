@@ -127,12 +127,12 @@ class PickPlaceHumanCart(HumanEnv):
 
         collision_reward (float): Reward to be given in the case of a collision.
 
-        goal_reward (float): Reward to be given in the case of reaching the goal.
+        task_reward (float): Reward to be given in the case of completing the task.
 
         object_gripped_reward (float): Additional reward for gripping the object when `reward_shaping=False`.
             If object is not gripped: `reward = -1`.
             If object gripped but not at the target: `object_gripped_reward`.
-            If object is at the target: `reward = goal_reward`.
+            If object is at the target: `reward = task_reward`.
             `object_gripped_reward` defaults to `-1`.
 
         object_placement_initializer (ObjectPositionSampler): if provided, will
@@ -270,7 +270,7 @@ class PickPlaceHumanCart(HumanEnv):
         n_object_placements_sampled_per_100_steps: int = 3,
         n_targets_sampled_per_100_steps: int = 3,
         collision_reward: float = -10,
-        goal_reward: float = 1,
+        task_reward: float = 1,
         object_gripped_reward: float = -1,
         object_placement_initializer: Optional[ObjectPositionSampler] = None,
         target_placement_initializer: Optional[ObjectPositionSampler] = None,
@@ -332,7 +332,7 @@ class PickPlaceHumanCart(HumanEnv):
         self.reward_scale = reward_scale
         self.reward_shaping = reward_shaping
         self.collision_reward = collision_reward
-        self.goal_reward = goal_reward
+        self.task_reward = task_reward
         self.object_gripped_reward = object_gripped_reward
         self.goal_dist = goal_dist
         self._object_placements_list = None
@@ -473,7 +473,7 @@ class PickPlaceHumanCart(HumanEnv):
 
         If `self.reward_shaping`, we use a dense reward, otherwise a sparse reward.
         The sparse reward yields
-            - `self.goal_reward` if the target is reached
+            - `self.task_reward` if the target is reached
             - `self.object_gripped_reward` if the object is gripped but the target is not reached
             - `-1` otherwise
 
@@ -490,7 +490,7 @@ class PickPlaceHumanCart(HumanEnv):
 
         # sparse completion reward
         if self._check_success(achieved_goal, desired_goal):
-            reward = self.goal_reward
+            reward = self.task_reward
         elif object_gripped:
             reward = self.object_gripped_reward
         else:
@@ -532,7 +532,33 @@ class PickPlaceHumanCart(HumanEnv):
         Returns:
             bool: whether the goal was reached
         """
+        return self._check_object_in_target_zone(
+            achieved_goal=achieved_goal,
+            desired_goal=desired_goal,
+        )
+
+    def _check_object_in_target_zone(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        tolerance: Optional[float] = None,
+    ) -> bool:
+        """Check if the object is within the target zone.
+        The distance metric is a RMSE and the threshold is `self.goal_dist`.
+
+        Args:
+            achieved_goal (List[float]): observation of robot state that is relevant for goal
+            desired_goal (List[float]): the desired goal
+            tolerance (Optional[float]): optional tolerance to `self.goal_dist`. Allows to specify a larger
+                target zone. Defaults to `None`.
+        Returns:
+            bool: whether the object is within the target zone
+        """
         dist = np.linalg.norm(np.array(achieved_goal[3:6]) - np.array(desired_goal))
+
+        if tolerance is not None:
+            dist -= tolerance
+
         return dist <= self.goal_dist
 
     def _check_done(

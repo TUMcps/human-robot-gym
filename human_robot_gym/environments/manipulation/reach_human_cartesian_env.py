@@ -458,3 +458,15 @@ class ReachHumanCart(ReachHuman):
             else:
                 break
         return goal
+
+    def _visualize_goal(self):
+        """Draw a sphere at the target location."""
+        # sphere (type 2)
+        self.viewer.viewer.add_marker(
+            pos=self.goal_marker_trans,
+            type=2,
+            size=[self.goal_dist, self.goal_dist, self.goal_dist],
+            rgba=[0.0, 1.0, 0.0, 0.7],
+            label="",
+            shininess=0.0,
+        )

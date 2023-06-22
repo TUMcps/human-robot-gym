@@ -212,7 +212,7 @@ class PickPlaceHumanCartExpert(Expert):
         object_to_target = obs.vec_eef_to_target - obs.vec_eef_to_object
         return (
             np.linalg.norm(object_to_target[:2]) < self._horizontal_epsilon and
-            -object_to_target[2] < self._vertical_epsilon
+            np.abs(object_to_target[2]) < self._vertical_epsilon
         )
 
     def _is_within_truncated_cone(self, vec: np.ndarray) -> bool:

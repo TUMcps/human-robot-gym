@@ -1,13 +1,31 @@
-"""This file describes a variant for the pick place task
-where the human points to a spot on the table where the object should be placed.
+"""This file describes a lift task for a single robot arm in a human environment.
 
-Author
-    Felix Trost (FT)
+The objective of this task is to lift the object to be in front of the human's head for inspection.
+It is divided into four phases:
+    1. Approach: The human walks to the table
+    2. Ready: The human waits for the robot to raise the object
+    3. Inspection: When the object has reached the target zone, the human inspects the object.
+    4. Retreat: The human walks back to the starting position.
+
+If the object exits the target zone in the inspection phase, the human returns to the ready phase and
+the inspection has to be restarted.
+
+Reward is given once the task is done, i.e. the animation is finished.
+Optionally, this sparse reward can be reformulated as a step reward to yield additional gratification
+for grabbing the object and bringing it to the target zone or as a dense reward incorporating distances
+to the object and the target zone.
+
+When using a fixed horizon, these four phases are looped until the horizon is reached.
+Otherwise, the episode ends with the animation.
+
+Author: Felix Trost
 
 Changelog:
-    16.05.23 FT File creation
+    23.05.23 FT File created
 """
 from typing import Any, Dict, List, Optional, Tuple, Union
+from enum import Enum
+from dataclasses import asdict, dataclass
 
 import numpy as np
 
@@ -15,13 +33,81 @@ from robosuite.models.arenas import TableArena
 from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.placement_samplers import ObjectPositionSampler
 
-from human_robot_gym.environments.manipulation.pick_place_human_cartesian_env import PickPlaceHumanCart
+from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE
+from human_robot_gym.environments.manipulation.pick_place_human_cartesian_env import (
+    PickPlaceHumanCart, PickPlaceHumanCartEnvState
+)
 from human_robot_gym.utils.mjcf_utils import xml_path_completion
 
 
-class PickPlacePointingHumanCart(PickPlaceHumanCart):
-    """This class corresponds to the pick place task for a single robot arm in a human environment
-    where the robot should place the object to a spot on the table the human is pointing at.
+class ObjectInspectionPhase(Enum):
+    """Enum for the different phases of the object inspection task."""
+    APPROACH = 0
+    READY = 1
+    INSPECTION = 2
+    RETREAT = 3
+    COMPLETE = 4
+
+
+@dataclass
+class HumanObjectInspectionCartEnvState(PickPlaceHumanCartEnvState):
+    """Dataclass for encapsulating the state of the HumanObjectInspectionCart environment.
+
+    Extends the `PickPlaceHumanCartEnvState` dataclass to include all variables necessary
+    to restore a `HumanObjectInspectionCart` environment state.
+
+    Attributes:
+        sim_state (np.ndarray): State of the mujoco simulation
+        human_animation_ids (np.ndarray): List of sampled human animation ids. During the episode this list is
+            iterated over and the corresponding human animation is played.
+        human_animation_ids_index (int): Index of the current human animation id in the list of human animation ids.
+        animation_start_time (int): Start time of the current human animation.
+        animation_time (int): Current time of the current human animation.
+        low_level_time (int): Current time of the low level controller.
+        human_pos_offset (List[float]): Offset of the human position.
+        human_rot_offset (List[float]): Offset of the human rotation.
+        object_placements_list (List[List[Tuple[str, np.ndarray]]]): List of object placements.
+            Stores joint name and joint position for each object for each placement.
+            During the episode this list is iterated over and the corresponding object joint position is used.
+        object_placements_list_index (int): Index of the current object joint position in the list of object joint
+            positions.
+        target_positions (List[np.ndarray]): List of target positions. During the episode this list is
+            iterated over and the corresponding target_position is used.
+        target_positions_index (int): Index of the current target position in the list of target_position.
+        task_phase (int): Value corresponding to the current task phase.
+        n_delayed_timesteps (int): Number of timesteps the current animation is delayed because of the loop phase.
+        animation_loop_amplitudes (List[float]): Amplitudes of the sine functions used to loop the animation.
+            Length of the list is equal to the length of `self.human_animation_ids`.
+        animation_loop_speeds (List[float]): Frequency factors of the sine functions used to loop the animation.
+            Length of the list is equal to the length of `self.human_animation_ids`.
+    """
+    task_phase_value: int
+    n_delayed_timesteps: int
+    animation_loop_amplitudes: List[float]
+    animation_loop_speeds: List[float]
+
+
+class HumanObjectInspectionCart(PickPlaceHumanCart):
+    """This class corresponds to a lift task for a single robot arm in a human environment
+    where the robot should lift the object to be in front of the human's head for inspection.
+
+    It is divided into four phases:
+        1. Approach: The human walks to the table
+        2. Ready: The human waits for the robot to raise the object
+        3. Inspection: When the object has reached the target zone, the human inspects the object.
+            Reward is given for every step the object is in the target zone.
+        4. Retreat: The human walks back to the starting position.
+
+    If the object exits the target zone in the inspection phase, the human returns to the ready phase and
+    the inspection has to be restarted.
+
+    Reward is given once the task is done, i.e. the animation is finished.
+    Optionally, this sparse reward can be reformulated as a step reward to yield additional gratification
+    for grabbing the object and bringing it to the target zone or as a dense reward incorporating distances
+    to the object and the target zone.
+
+    When using a fixed horizon, these four phases are looped until the horizon is reached.
+    Otherwise, the episode ends with the animation.
 
     Args:
         robots (str | List[str]): Specification for specific robot arm(s) to be instantiated within this env
@@ -90,14 +176,21 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
             Setting `n_targets_sampled_per_100_steps != n_object_placements_sampled_per_100_steps`
             yields more possible object-goal combinations.
 
+        goal_exit_tolerance (float): Absolute tolerance by which the goal distance is increased once the goal zone is
+            entered. This is used to avoid oscillating rapidly between WAIT and INSPECTION phases.
+
         collision_reward (float): Reward to be given in the case of a collision.
 
-        task_reward (float): Reward to be given in the case of reaching the goal.
+        task_reward (float): Reward to be given in the case of completing the task (i.e. finishing the animation).
+
+        object_at_target_reward (float): Reward if the object is within `goal_dist` of the target position.
+            Applied when `reward_shaping=False`.
 
         object_gripped_reward (float): Additional reward for gripping the object when `reward_shaping=False`.
             If object is not gripped: `reward = -1`.
             If object gripped but not at the target: `object_gripped_reward`.
-            If object is at the target: `reward = task_reward`.
+            If object is at the target: `reward = object_at_target_reward`.
+            If task completed (animation finished): `reward = task_reward`.
             `object_gripped_reward` defaults to `-1`.
 
         object_placement_initializer (ObjectPositionSampler): if provided, will
@@ -226,11 +319,13 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
         use_object_obs: bool = True,
         reward_scale: Optional[float] = 1.0,
         reward_shaping: bool = False,
-        goal_dist: float = 0.1,
+        goal_dist: float = 0.15,
         n_object_placements_sampled_per_100_steps: int = 3,
         n_targets_sampled_per_100_steps: int = 3,
+        goal_exit_tolerance: float = 0.02,
         collision_reward: float = -10,
         task_reward: float = 1,
+        object_at_target_reward: float = -1,
         object_gripped_reward: float = -1,
         object_placement_initializer: Optional[ObjectPositionSampler] = None,
         obstacle_placement_initializer: Optional[ObjectPositionSampler] = None,
@@ -256,8 +351,8 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
         visualize_pinocchio: bool = False,
         control_sample_time: float = 0.004,
         human_animation_names: List[str] = [
-            "PickPlacePointingHuman/0",
-            "PickPlacePointingHuman/1",
+            "ObjectInspection/0",
+            "ObjectInspection/1",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 30,
@@ -270,6 +365,17 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
         done_at_collision: bool = False,
         done_at_success: bool = False,
     ):
+        self.task_phase: ObjectInspectionPhase = ObjectInspectionPhase.COMPLETE
+        # Number of timesteps the animation is delayed because of the loop phase
+        self._n_delayed_timesteps = None
+        # Characteristics of the loop phase, set according to the animation info json files
+        # with some randomization
+        self._animation_loop_amplitudes = None
+        self._animation_loop_speeds = None
+
+        self.object_at_target_reward = object_at_target_reward
+        self.goal_exit_tolerance = goal_exit_tolerance
+
         super().__init__(
             robots=robots,
             robot_base_offset=robot_base_offset,
@@ -328,8 +434,47 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
         )
 
     @property
+    def animation_loop_amplitude(self) -> float:
+        return self._animation_loop_amplitudes[self._human_animation_ids_index]
+
+    @property
+    def animation_loop_speed(self) -> float:
+        return self._animation_loop_speeds[self._human_animation_ids_index]
+
+    @property
     def target_pos(self) -> np.ndarray:
         return self._get_current_target_pos()
+
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
+        """Override super `step` method to enter the `INSPECTION` phase when the object first is in the target zone.
+
+        if the object exits the target zone in the inspection phase, the human returns to the ready phase
+        and the inspection has to be restarted.
+
+        Args:
+            action (np.ndarray): The action to take.
+
+        Returns:
+            Tuple[np.ndarray, float, bool, Dict[str, Any]]: The observation, reward, done flag, and info dict.
+        """
+        obs, reward, done, info = super().step(action)
+
+        achieved_goal = self._get_achieved_goal_from_obs(obs)
+        desired_goal = self._get_desired_goal_from_obs(obs)
+
+        if self.task_phase == ObjectInspectionPhase.READY and self._check_object_in_target_zone(
+            achieved_goal=achieved_goal,
+            desired_goal=desired_goal,
+        ):
+            self.task_phase = ObjectInspectionPhase.INSPECTION
+        elif self.task_phase == ObjectInspectionPhase.INSPECTION and not self._check_object_in_target_zone(
+            achieved_goal=achieved_goal,
+            desired_goal=desired_goal,
+            tolerance=self.goal_exit_tolerance,  # Add a tolerance to avoid oscillating between WAIT and INSPECTION
+        ):
+            self.task_phase = ObjectInspectionPhase.READY
+
+        return obs, reward, done, info
 
     def _setup_arena(self):
         """Setup the mujoco arena.
@@ -377,29 +522,205 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
             objects=self.obstacles,
         )
 
+    def _check_success(self, achieved_goal: List[float], desired_goal: List[float]) -> bool:
+        """Override super method to change the success condition to whether or not the animation is complete.
+        If the object never reaches the target zone the inspection phase is never entered
+        and the episode is not successful.
+
+        Args:
+            achieved_goal (List[float]): Part of the robot state observation relevant for the goal.
+            desired_goal (List[float]): The desired goal.
+        Returns:
+            bool: Whether or not the episode is successful.
+        """
+        return self.task_phase == ObjectInspectionPhase.COMPLETE
+
+    def reward(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict[str, Any],
+    ) -> float:
+        r"""Override super method to modify the sparse reward function.
+
+        Compute the reward based on the achieved goal, the desired goal and the info dict.
+
+        If `self.reward_shaping` is `True`, we use a dense reward function:
+            r = (eef_to_object * 0.2 + object_to_target) * 0.1
+        Otherwise, we use a sparse reward function:
+            - `self.task_reward` if the task is completed (i.e. the animation is finished)
+            - `self._object_at_target_reward` if the object is within the target zone
+            - `self._object_gripped_reward` if the object is gripped
+            - `-1` otherwise
+
+        If a self-collision or a collision with the human occurs, `self.collision_reward` is added (a negative amount).
+        If `self.reward_scale` is not `None`, the reward is scaled by this amount.
+
+        Args:
+            achieved_goal (List[float]): Part of the robot state observation relevant for the goal.
+            desired_goal (List[float]): The desired goal.
+            info (Dict[str, Any]): The info dict.
+        Returns:
+            float: The reward.
+        """
+        object_gripped = bool(achieved_goal[6])
+
+        reward = -1
+
+        if self.reward_shaping:
+            eef_pos = np.array(achieved_goal[0:3])
+            obj_pos = np.array(achieved_goal[3:6])
+            reward += 1
+            eef_2_obj = np.linalg.norm(eef_pos - obj_pos)
+            obj_2_target = np.linalg.norm(np.array(desired_goal - obj_pos))
+            reward -= (eef_2_obj * 0.2 + obj_2_target) * 0.1
+        else:
+            if self._check_success(achieved_goal, desired_goal):
+                reward = self.task_reward
+            elif self._check_object_in_target_zone(achieved_goal=achieved_goal, desired_goal=desired_goal):
+                reward = self.object_at_target_reward
+            elif object_gripped:
+                reward = self.object_gripped_reward
+
+        if info["collision"] and COLLISION_TYPE(info["collision_type"]) != COLLISION_TYPE.STATIC:
+            reward += self.collision_reward
+
+        if self.reward_scale is not None:
+            reward *= self.reward_scale
+
+        return reward
+
+    def _compute_animation_time(self, control_time: float) -> float:
+        """Compute the current animation time.
+
+        The human should perform an idle animation when waiting for the object to enter the target zone.
+        To achieve this, we use multiple layered sine funtions to loop some frames around the first keyframe
+        back and forth. The frequency and amplitudes of the sine functions are set according to the animation info
+        json files with some randomization (see `self._set_animation_loop_properties`).
+
+        The number of frames the animation is delayed because of the loop phase
+        is stored in `self._n_delayed_timesteps`.
+        This value is used after the beginning of the object inspection to achieve a smooth transition.
+
+        Args:
+            control_time (float): The current control time.
+        Returns:
+            float: The current animation time.
+        """
+        animation_time = super()._compute_animation_time(control_time)
+        classic_animation_time = animation_time
+
+        animation_length = self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
+        keyframes = self.human_animation_data[self.human_animation_id][1]["keyframes"]
+
+        # Enter the `READY` phase when past the first keyframe
+        if animation_time > keyframes[0] and self.task_phase == ObjectInspectionPhase.APPROACH:
+            self.task_phase = ObjectInspectionPhase.READY
+
+        # When in the `READY` phase, loop the animation until the object enters the target zone
+        if self.task_phase == ObjectInspectionPhase.READY:
+            def sin_animation_time(x, a, s):
+                return a * np.sin((x - keyframes[0]) / (a / s))
+
+            animation_time = int(
+                sin_animation_time(
+                    animation_time, self.animation_loop_amplitude, self.animation_loop_speed
+                ) + sin_animation_time(
+                    animation_time, self.animation_loop_amplitude / 2.5, self.animation_loop_speed * 1.4,
+                ) + sin_animation_time(
+                    animation_time, self.animation_loop_amplitude / 1.3, self.animation_loop_speed * 0.11,
+                ) + keyframes[0]
+            )
+
+            self._n_delayed_timesteps = classic_animation_time - animation_time
+        else:
+            animation_time -= self._n_delayed_timesteps
+
+        # Enter the `RETREAT` phase when past the second keyframe
+        if animation_time > keyframes[1]:
+            self.task_phase = ObjectInspectionPhase.RETREAT
+
+        # Once the animation is complete, freeze the animation time at the last frame
+        if animation_time >= animation_length - 1:
+            self.task_phase = ObjectInspectionPhase.COMPLETE
+            animation_time = animation_length - 1
+
+        return animation_time
+
+    def _control_human(self, force_update: bool = True):
+        """Override super method to force update the human every frame to avoid glitches in the wait animation."""
+        super()._control_human(force_update=True)
+
+    def _on_goal_reached(self):
+        """Extend super method to select a new animation when the goal is reached."""
+        super()._on_goal_reached()
+
+        if not self.done_at_success:
+            self._progress_to_next_animation(
+                animation_start_time=int(self.low_level_time / self.human_animation_step_length)
+            )
+
+    def _set_animation_loop_properties(self):
+        """Set the lists of amplitude and frequency of the animation loop
+        when waiting for the object to enter the target zone (see `self._compute_animation_time`).
+
+        Takes the values from the animation info json files corresponding to the sampled animation ids in
+        `self._human_animation_ids` and adds some randomization.
+
+        Amplitude and frequency are multiplied by an exponential of a clipped normal distributed random variable.
+        The random variable is clipped to [-3, 3] to avoid extreme values.
+        A scaling parameter sets the range of possible random factors. For example, with a value of 1.1,
+        this gives a range of [1.1^-3, 1.1^3] ~ [0.75, 1.33]
+        Scaling parameters taken from the animation info json files.
+        """
+        def get_random_factor(std_factor: float):
+            return np.exp(np.clip(np.random.normal(), -3, 3) * np.log(std_factor))
+
+        self._animation_loop_amplitudes = [
+            self.human_animation_data[human_animation_id][1]["loop_amt"] * get_random_factor(
+                std_factor=self.human_animation_data[human_animation_id][1]["loop_amt_std_factor"],
+            )
+            for human_animation_id in self._human_animation_ids
+        ]
+
+        self._animation_loop_speeds = [
+            self.human_animation_data[human_animation_id][1]["loop_speed"] * get_random_factor(
+                std_factor=self.human_animation_data[human_animation_id][1]["loop_speed_std_factor"],
+            )
+            for human_animation_id in self._human_animation_ids
+        ]
+
+    def _reset_animation(self):
+        """Reset the inspection phase and the animation-specific internal variables."""
+        self.task_phase = ObjectInspectionPhase.APPROACH
+        self._n_delayed_timesteps = 0
+
+    def _progress_to_next_animation(self, animation_start_time: int):
+        """Extend super method to reset animation-specific internal variables.
+
+        Args:
+            animation_start_time (int): The current control time to set the animation start time to.
+        """
+        super()._progress_to_next_animation(animation_start_time)
+        self._reset_animation()
+
+    def _reset_internal(self):
+        """Extend super method to reset internal variables concerning task and animation."""
+        super()._reset_internal()
+        self._reset_animation()
+        self._set_animation_loop_properties()
+
     def _get_current_target_pos(self) -> np.ndarray:
         """Evaluate the current position of the target.
 
-        Returns a position on the table where the human is pointing at. The position is evaluated by
-        extrapolating the vector from the human's elbow to the human's hand to the table.
+        Returns a position specified in the info json file of the current animation.
 
         Returns:
             np.ndarray: The current target position.
         """
+        target_pos = np.array(self.human_animation_data[self.human_animation_id][1]["target_pos"])
 
-        if self.human_animation_data[self.human_animation_id][1]["pointing_hand"] == "right":
-            pf = "Human_R"
-        elif self.human_animation_data[self.human_animation_id][1]["pointing_hand"] == "left":
-            pf = "Human_L"
-
-        hand_pos = self.sim.data.get_site_xpos(pf + "_Hand")
-        dir = hand_pos - self.sim.data.get_site_xpos(pf + "_Elbow")
-
-        if dir[2] == 0:
-            dir[2] += 1e-6
-
-        scaling = (hand_pos[2] - self.table_offset[2]) / dir[2]
-        target_pos = hand_pos - scaling * dir
+        target_pos += self.human_pos_offset
 
         return target_pos
 
@@ -407,7 +728,7 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
         """Override the parent function to return the current target position.
 
         In contrast to the basic pick place environment, the target position is not sampled but
-        evaluated from the human's hand position.
+        specified in the animation info json file.
 
         Returns:
             np.ndarray: The current target position.
@@ -432,6 +753,40 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
         )
 
     def _visualize(self):
-        """Visualize the goal space and the sampling space of initial object positions."""
-        self._visualize_goal()
+        """Visualize the goal space and the sampling space of initial object positions.
+
+        The goal is only visualized during the inspection phase or .
+        """
+        if self.task_phase in [ObjectInspectionPhase.READY, ObjectInspectionPhase.INSPECTION]:
+            self._visualize_goal()
         self._visualize_object_sample_space()
+
+    def get_environment_state(self) -> HumanObjectInspectionCartEnvState:
+        """Get the current state of the environment. Can be used for storing/loading.
+
+        Returns:
+            state (HumanObjectInspectionCartEnvState): The current state of the environment.
+        """
+        pick_place_env_state = super().get_environment_state()
+        return HumanObjectInspectionCartEnvState(
+            task_phase_value=self.task_phase.value,
+            n_delayed_timesteps=self._n_delayed_timesteps,
+            animation_loop_amplitudes=self._animation_loop_amplitudes,
+            animation_loop_speeds=self._animation_loop_speeds,
+            **asdict(pick_place_env_state),
+        )
+
+    def set_environment_state(self, state: HumanObjectInspectionCartEnvState):
+        """Set the current state of the environment. Can be used for storing/loading.
+
+        Args:
+            HumanObjectInspectionCartEnvState: The state to be set.
+        """
+        super().set_environment_state(state)
+        self.task_phase = ObjectInspectionPhase(state.task_phase_value)
+        self._n_delayed_timesteps = state.n_delayed_timesteps
+        self._animation_loop_amplitudes = state.animation_loop_amplitudes
+        self._animation_loop_speeds = state.animation_loop_speeds
+
+        if self.has_renderer:
+            self._visualize()

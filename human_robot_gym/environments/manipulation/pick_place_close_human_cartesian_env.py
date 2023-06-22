@@ -89,12 +89,12 @@ class PickPlaceCloseHumanCart(PickPlaceHumanCart):
 
         collision_reward (float): Reward to be given in the case of a collision.
 
-        goal_reward (float): Reward to be given in the case of reaching the goal.
+        task_reward (float): Reward to be given in the case of reaching the goal.
 
         object_gripped_reward (float): Additional reward for gripping the object when `reward_shaping=False`.
             If object is not gripped: `reward = -1`.
             If object gripped but not at the target: `object_gripped_reward`.
-            If object is at the target: `reward = goal_reward`.
+            If object is at the target: `reward = task_reward`.
             `object_gripped_reward` defaults to `-1`.
 
         object_placement_initializer (ObjectPositionSampler): if provided, will
@@ -232,7 +232,7 @@ class PickPlaceCloseHumanCart(PickPlaceHumanCart):
         n_object_placements_sampled_per_100_steps: int = 3,
         n_targets_sampled_per_100_steps: int = 3,
         collision_reward: float = -10,
-        goal_reward: float = 1,
+        task_reward: float = 1,
         object_gripped_reward: float = -1,
         object_placement_initializer: Optional[ObjectPositionSampler] = None,
         target_placement_initializer: Optional[ObjectPositionSampler] = None,
@@ -299,7 +299,7 @@ class PickPlaceCloseHumanCart(PickPlaceHumanCart):
             n_object_placements_sampled_per_100_steps=n_object_placements_sampled_per_100_steps,
             n_targets_sampled_per_100_steps=n_targets_sampled_per_100_steps,
             collision_reward=collision_reward,
-            goal_reward=goal_reward,
+            task_reward=task_reward,
             object_gripped_reward=object_gripped_reward,
             object_placement_initializer=object_placement_initializer,
             target_placement_initializer=target_placement_initializer,

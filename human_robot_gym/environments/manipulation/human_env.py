@@ -1405,8 +1405,8 @@ class HumanEnv(SingleArmEnv):
         )
         self._human_animation_ids_index = 0
 
-        self.animation_start_time = 0
         self.low_level_time = 0
+        self.animation_start_time = 0
         self.animation_time = -1
 
         # Reset all object positions using initializer sampler if we're not directly loading from an xml
@@ -1497,11 +1497,36 @@ class HumanEnv(SingleArmEnv):
 
         return animation_data
 
+    def _compute_animation_time(self, control_time: float) -> float:
+        """Compute the animation time from the control time and the animation start time.
+
+        Can be overridden to implement custom animation time computation, e.g. for looping, pausing, etc.
+
+        Args:
+            control_time (float): Current control time
+
+        Returns:
+            float: Animation time
+        """
+        return control_time - self.animation_start_time
+
+    def _progress_to_next_animation(self, animation_start_time: int):
+        """Changes the human animation id during an episode.
+
+        Args:
+            animation_start_time (int): Current control time. Used to set the animation start time.
+        """
+        self._human_animation_ids_index = self._human_animation_ids_index = (
+            (self._human_animation_ids_index + 1) % self._n_animations_to_sample_at_resets
+        )
+        self.animation_time = 0
+        self.animation_start_time = animation_start_time
+
     def _control_human(self, force_update: bool = False):
         """Set the human joint positions according to the human animation files.
 
         Args:
-            force (bool): Force the human to be controlled
+            force_update (bool): Force the human to be controlled
                 even if the animation time has not changed since the last call.
         """
         # <<< Time management and animation selection >>>
@@ -1509,18 +1534,16 @@ class HumanEnv(SingleArmEnv):
         control_time = math.floor(
             self.low_level_time / self.human_animation_step_length
         )
+
+        updated_animation_time = self._compute_animation_time(control_time)
         # If the animation time would stay the same, there is no need to update the human.
-        if control_time - self.animation_start_time == self.animation_time and not force_update:
+        if updated_animation_time == self.animation_time and not force_update:
             return
-        self.animation_time = control_time - self.animation_start_time
+
+        self.animation_time = updated_animation_time
         # Check if current animation is finished
         if (self.animation_time > self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]-1):
-            # Rotate to next human animation
-            self._human_animation_ids_index = (
-                (self._human_animation_ids_index + 1) % self._n_animations_to_sample_at_resets
-            )
-            self.animation_time = 0
-            self.animation_start_time = control_time
+            self._progress_to_next_animation(animation_start_time=control_time)
 
         human_animation, human_animation_info = self.human_animation_data[self.human_animation_id]
 
