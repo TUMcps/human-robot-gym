@@ -667,6 +667,8 @@ class ReachHuman(HumanEnv):
             observables[prefix + "eef_quat"].set_active(False)
         if "gripper_pos" in observables:
             observables["gripper_pos"].set_active(False)
+        if "gripper_aperture" in observables:
+            observables["gripper_aperture"].set_active(False)
 
         # low-level object information
         modality = "goal"
