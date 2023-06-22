@@ -116,6 +116,13 @@ class ActionBasedExpertImitationRewardWrapperConfig:
 
 
 @dataclass
+class StateBasedExpertImitationRewardWrapperConfig:
+    """State based expert imitation reward wrapper configuration."""
+    alpha: float
+    rsi_prob: Optional[float]
+    dataset_name: str
+
+@dataclass
 class DatasetObsNormWrapperConfig:
     """Dataset observation normalization wrapper configuration."""
     dataset_name: str
@@ -129,6 +136,7 @@ class WrappersConfig:
     visualization: Optional[VisualizationWrapperConfig]
     ik_position_delta: Optional[IKPositionDeltaWrapperConfig]
     action_based_expert_imitation_reward: Optional[ActionBasedExpertImitationRewardWrapperConfig]
+    state_based_expert_imitation_reward: Optional[StateBasedExpertImitationRewardWrapperConfig]
     dataset_obs_norm: Optional[DatasetObsNormWrapperConfig]
 
 

@@ -1,0 +1,76 @@
+defaults:
+  - robot: schunk
+  - environment: pick_place_human_cart
+  - wrappers: safe_ik
+  - algorithm: sac
+  - expert: pick_place_human_cart
+  - run: expert_imitation_training
+  - wandb_run: default_wandb
+  - _self_
+  - consistent_seeding
+#  - eval
+  - override wrappers/state_based_expert_imitation_reward: pick_place_human_cart_state_based_expert_imitation_reward
+  - override wrappers/dataset_obs_norm: default_dataset_obs_norm
+
+environment:
+  done_at_success: true
+  object_gripped_reward: -0.25
+  horizon: 1000
+wrappers:
+  ik_position_delta:
+    action_limit: 0.1
+  state_based_expert_imitation_reward:
+    dataset_name: pick-place-small-obs
+    alpha: 0.25
+    beta: 0.7
+    rsi_prob: 0.5
+    use_et: false
+    iota_m: 0.1
+    iota_g: 0.01
+    et_dist: 6
+  dataset_obs_norm:
+    dataset_name: ${wrappers.state_based_expert_imitation_reward.dataset_name}
+    squash_factor: null
+algorithm:
+  policy_kwargs:
+    net_arch:
+      - 64
+      - 64
+      - 64
+  verbose: 0
+run:
+  run_type: wandb
+  n_envs: 8
+  n_steps: 3_000_000
+  obs_keys:
+    - object_gripped
+    - vec_eef_to_object
+    - vec_eef_to_target
+    - gripper_aperture
+    - dist_eef_to_human_head
+    - dist_eef_to_human_lh
+    - dist_eef_to_human_rh
+  seed: 0
+  log_info_keys:
+    - n_goal_reached
+    - collision
+    - collision_type
+    - n_collisions
+    - n_collisions_static
+    - n_collisions_robot
+    - n_collisions_human
+    - n_collisions_critical
+    - timeout
+    - failsafe_interventions
+    - action_resamples
+    - im_rew_mean
+    - env_rew_mean
+    - full_rew_mean
+    - ep_im_rew_mean
+    - ep_env_rew_mean
+    - ep_full_rew_mean
+    - g_im_rew_mean
+    - m_im_rew_mean
+    - ep_g_im_rew_mean
+    - ep_m_im_rew_mean
+    - early_termination
