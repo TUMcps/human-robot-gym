@@ -1,5 +1,5 @@
 defaults:
-  - default/pick_place_human_cart@_here_
+  - default/pick_place_pointing_human_cart@_here_
   - _self_
 
 robot_base_offset:
@@ -15,4 +15,3 @@ horizon: 500
 hard_reset: false
 done_at_collision: false
 done_at_success: false
-target_placement_initializer: null

@@ -13,7 +13,8 @@ Changelog:
     13.7.22 JB adjusted observation space (sensors) to relative distances eef and L_hand, R_hand, and Head
 """
 from typing import Any, Dict, Union, List, Optional, Tuple
-from enum import Enum
+from dataclasses import dataclass
+from enum import IntFlag
 import math
 import json
 
@@ -50,21 +51,55 @@ from human_robot_gym.controllers.failsafe_controller.failsafe_controller import 
 import human_robot_gym.models.objects.obstacle as obstacle
 
 
-class COLLISION_TYPE(Enum):
+class COLLISION_TYPE(IntFlag):
     """Define the collision types.
 
-    0 - No collision.
-    1 - Self-collision or robot-robot collision.
-    2 - Collision with the static environment.
-    3 - Collision with a human but robot has low speed.
-    4 - Collision with a human and robot has high speed.
-    """
+    Their order corresponds to the severeness of the collision.
+    `HUMAN` collisions may occur without explicit fault of the robot,
+    e.g. if the robot remains still and the human moves into the robot.
 
+    The value and fragility of other objects in the scene is not known.
+    Accordingly, we mark `STATIC` collisions as more severe than `ROBOT` self-collisions.
+
+    0 - No collision.
+    1 - Collision with white-listed objects
+    2 - Self-collision or robot-robot collision.
+    3 - Collision with the static environment.
+    4 - Collision with a human but robot has low speed.
+    5 - Collision with a human and robot has high speed.
+    """
     NULL = 0
-    ROBOT = 1
-    STATIC = 2
-    HUMAN = 3
-    HUMAN_CRIT = 4
+    ALLOWED = 1
+    HUMAN = 2
+    ROBOT = 4
+    STATIC = 8
+    HUMAN_CRIT = 16
+
+
+@dataclass
+class HumanEnvState:
+    """Dataclass for encapsulating the state of the HumanEnv environment.
+    HumanEnv environment states should be fully recoverable from the information stored in this class.
+
+    Attributes:
+        sim_state (np.ndarray): State of the mujoco simulation
+        human_animation_ids (np.ndarray): List of sampled human animation ids. During the episode this list is
+            iterated over and the corresponding human animation is played.
+        human_animation_ids_index (int): Index of the current human animation id in the list of human animation ids.
+        animation_start_time (int): Start time of the current human animation.
+        animation_time (int): Current time of the current human animation.
+        low_level_time (int): Current time of the low level controller.
+        human_pos_offset (List[float]): Offset of the human position.
+        human_rot_offset (List[float]): Offset of the human rotation.
+    """
+    sim_state: np.ndarray
+    human_animation_ids: np.ndarray
+    human_animation_ids_index: int
+    animation_start_time: int
+    animation_time: int
+    low_level_time: int
+    human_pos_offset: List[float]
+    human_rot_offset: List[float]
 
 
 class HumanEnv(SingleArmEnv):
@@ -197,6 +232,10 @@ class HumanEnv(SingleArmEnv):
 
         human_rand (List[float]): Max. randomization of the human [x-pos, y-pos, z-angle]
 
+        n_animations_sampled_per_100_steps (int): How many animations to sample at resets per 100 steps in the horizon.
+            After all animations of the list have been played, restart from the first animation in the list.
+            This is done to ensure the same list of animations can be played when loading the env state from a file.
+
         safe_vel (float): Safe cartesian velocity. The robot is allowed to move with this velocity in the vicinity of
             humans.
 
@@ -259,6 +298,7 @@ class HumanEnv(SingleArmEnv):
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 120,
         human_rand: List[float] = [0.0, 0.0, 0.0],
+        n_animations_sampled_per_100_steps: int = 5,
         safe_vel: float = 0.001,
         self_collision_safety: float = 0.01,
         seed: int = 0,
@@ -304,7 +344,11 @@ class HumanEnv(SingleArmEnv):
         self.human_base_quat = Rotation.from_quat([0.5, 0.5, 0.5, 0.5])
         self.human_animation_freq = human_animation_freq
         self.low_level_time = int(0)
-        self.human_animation_id = 0
+        self._n_animations_to_sample_at_resets = int(
+            horizon * n_animations_sampled_per_100_steps / 100
+        )
+        self._human_animation_ids = None
+        self._human_animation_ids_index = 0
         self.animation_start_time = 0
         self.human_placement_initializer = None
         self.human_rand = human_rand
@@ -318,6 +362,10 @@ class HumanEnv(SingleArmEnv):
         # RL memory
         self.has_collision = False
         self.collision_type = COLLISION_TYPE.NULL
+        # List of objects that may collide with the robot (e.g. manipulation objects)
+        # Collision with these objects yields CollsiionType.ALLOWED
+        # Set up in self._setup_collision_info()
+        self.whitelisted_collision_geoms = None
 
         super().__init__(
             robots=robots,
@@ -358,6 +406,11 @@ class HumanEnv(SingleArmEnv):
         self.n_collisions_static = 0
         self.n_collisions_human = 0
         self.n_collisions_critical = 0
+
+    @property
+    def human_animation_id(self) -> int:
+        """Get the current human animation id in the random list of human animation ids."""
+        return self._human_animation_ids[self._human_animation_ids_index]
 
     def step(self, action):
         """Override base step function.
@@ -607,7 +660,7 @@ class HumanEnv(SingleArmEnv):
         """Compute the done flag based on the achieved goal, the desired goal, and the info dict.
 
         This function can only be called for one sample.
-        If the robot is in collision, this function returns done=True.
+        If the robot is in an illegal collision, this function returns done=True.
 
         Args:
             achieved_goal: observation of robot state that is relevant for goal
@@ -616,7 +669,7 @@ class HumanEnv(SingleArmEnv):
         Returns:
             done
         """
-        return info["collision"]
+        return info["collision_type"] not in (COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED)
 
     def _get_achieved_goal_from_obs(
         self, observation: Union[List[float], Dict]
@@ -667,6 +720,8 @@ class HumanEnv(SingleArmEnv):
             self.sim.model.geom_name2id(item) for item in self.human.contact_geoms
         }
 
+        self.whitelisted_collision_geoms = set()
+
     def _check_action_safety(self, robot_model, q):
         """Check if the robot would collide with the environment in the end position of the given action.
 
@@ -684,112 +739,175 @@ class HumanEnv(SingleArmEnv):
         # Self-collision
         return not robot_model.has_self_collision(q)
 
+    def _determine_geom_contact_type(self, geom_id: int) -> COLLISION_TYPE:
+        """Determine to which category the given geom belongs, i.e. which COLLISION_TYPE it is associated with.
+
+        Args:
+            geom_id (int): The id of the geom
+
+        Returns:
+            COLLISION_TYPE: The associated contact type
+        """
+        if geom_id in self.robot_collision_geoms:
+            return COLLISION_TYPE.ROBOT
+        elif geom_id in self.human_collision_geoms:
+            return COLLISION_TYPE.HUMAN
+        elif geom_id in self.whitelisted_collision_geoms:
+            return COLLISION_TYPE.ALLOWED
+        else:
+            return COLLISION_TYPE.STATIC
+
+    def _on_self_collision_detected(self, contact_geom_1: int, contact_geom_2: int):
+        """Perform bookkeeping when a self-collision is detected."""
+        if self.verbose:
+            print(
+                "Self-collision detected between ",
+                self.sim.model.geom_id2name(contact_geom_1),
+                " and ",
+                self.sim.model.geom_id2name(contact_geom_2),
+            )
+
+        self.collision_type |= COLLISION_TYPE.ROBOT
+        self.n_collisions_robot += 1
+
+    def _on_human_collision_detected(self, robot_contact_geom: int, human_contact_geom: int):
+        """Perform bookkeeping when a human-robot collision is detected."""
+        if self.verbose:
+            print(
+                "Human-robot collision detected between ",
+                self.sim.model.geom_id2name(human_contact_geom),
+                " and ",
+                self.sim.model.geom_id2name(robot_contact_geom),
+            )
+        # <<< This value may not be correct since it rapidely changes BEFORE the collision >>>
+        # Ways to handle this:
+        # 1) forward dynamic of the robot
+        #   --> We need to do this anyway at some point to allow low speed driving
+        """
+        if contact_type1 == COLLISION_TYPE.ROBOT:
+            robot_id = self.robot_collision_geoms[contact.geom1]
+        else:
+            robot_id = self.robot_collision_geoms[contact.geom2]
+        vel_safe = self._check_robot_vel_safe(
+            robot_id=robot_id,
+            threshold=self.safe_vel,
+            q=self.sim.data.qpos[self.robots[robot_id].joint_indexes],
+            dq=self.sim.data.qvel[self.robots[robot_id].joint_indexes])
+        """
+        # 2) Use the velocity of the simulation
+        robot_geom_velocity = self.sim.data.geom_xvelp[robot_contact_geom]
+
+        if self.verbose:
+            print(f"Robot speed: {robot_geom_velocity}")
+
+        vel_safe = self._check_vel_safe(
+            v_arr=robot_geom_velocity, threshold=self.safe_vel,
+        )
+
+        if vel_safe:
+            self.collision_type |= COLLISION_TYPE.HUMAN
+            self.n_collisions_human += 1
+            if self.verbose:
+                print("Robot at safe speed.")
+        else:
+            self.collision_type |= COLLISION_TYPE.HUMAN_CRIT
+            self.n_collisions_critical += 1
+            if self.verbose:
+                print("Robot too fast during collision!")
+
+    def _on_allowed_collision_detected(self, robot_contact_geom: int, other_contact_geom: int):
+        """Perform bookkeeping when a collision between the robot and a white-listed object is detected."""
+        if self.verbose:
+            print(
+                "Collision with white-listed object detected between ",
+                self.sim.model.geom_id2name(other_contact_geom),
+                " and ",
+                self.sim.model.geom_id2name(robot_contact_geom),
+            )
+
+        self.collision_type |= COLLISION_TYPE.ALLOWED
+
+    def _on_static_collision_detected(self, robot_contact_geom: int, other_contact_geom: int):
+        """Perform bookkeeping when a collision between the robot and the static environment is detected."""
+        if self.verbose:
+            print(
+                "Collision with static environment detected between ",
+                self.sim.model.geom_id2name(other_contact_geom),
+                " and ",
+                self.sim.model.geom_id2name(robot_contact_geom),
+            )
+        self.has_collision = True
+        self.collision_type |= COLLISION_TYPE.STATIC
+        self.n_collisions_static += 1
+
+    def _on_collision_detected(self, contact_type: COLLISION_TYPE, robot_contact_geom: int, other_contact_geom: int):
+        """Perform bookkeeping when a collision is detected."""
+        self.has_collision = True
+
+        # Self-collision
+        if contact_type == COLLISION_TYPE.ROBOT:
+            self._on_self_collision_detected(
+                contact_geom_1=robot_contact_geom,
+                contact_geom_2=other_contact_geom,
+            )
+        # Collision with the human
+        elif contact_type == COLLISION_TYPE.HUMAN:
+            self._on_human_collision_detected(
+                robot_contact_geom=robot_contact_geom,
+                human_contact_geom=other_contact_geom,
+            )
+        # Collision with a white-listed object
+        elif contact_type == COLLISION_TYPE.ALLOWED:
+            self._on_allowed_collision_detected(
+                robot_contact_geom=robot_contact_geom,
+                other_contact_geom=other_contact_geom,
+            )
+        # Collision with the static environment
+        else:
+            self._on_static_collision_detected(
+                robot_contact_geom=robot_contact_geom,
+                other_contact_geom=other_contact_geom,
+            )
+
     def _collision_detection(self):
         """Detect true collisions in the simulation between the robot and the environment.
 
         Returns:
             CollisionType
         """
-        this_collision_dict = dict()
-        for i in range(self.sim.data.ncon):
-            # Note that the contact array has more than `ncon` entries,
-            # so be careful to only read the valid entries.
-            contact = self.sim.data.contact[i]
-            if contact.geom1 in self.robot_collision_geoms:
-                contact_type1 = COLLISION_TYPE.ROBOT
-            elif contact.geom1 in self.human_collision_geoms:
-                contact_type1 = COLLISION_TYPE.HUMAN
-            else:
-                contact_type1 = COLLISION_TYPE.STATIC
-            if contact.geom2 in self.robot_collision_geoms:
-                contact_type2 = COLLISION_TYPE.ROBOT
-            elif contact.geom2 in self.human_collision_geoms:
-                contact_type2 = COLLISION_TYPE.HUMAN
-            else:
-                contact_type2 = COLLISION_TYPE.STATIC
-            # Only collisions with the robot are considered
-            if (contact_type1 == COLLISION_TYPE.ROBOT or contact_type2 == COLLISION_TYPE.ROBOT):
-                # Add this collision to the current collision dictionary
-                this_collision_dict[cantor_pairing(contact.geom1, contact.geom2)] = 0
-                # If the current collision already existed previously, skip it to avoid double counting
-                if cantor_pairing(contact.geom1, contact.geom2) in self.previous_robot_collisions or\
-                   cantor_pairing(contact.geom2, contact.geom1) in self.previous_robot_collisions:
-                    continue
-                # Self-collision
-                if (contact_type1 == COLLISION_TYPE.ROBOT and contact_type2 == COLLISION_TYPE.ROBOT):
-                    if self.verbose:
-                        print(
-                            "Self-collision detected between ",
-                            self.sim.model.geom_id2name(contact.geom1),
-                            " and ",
-                            self.sim.model.geom_id2name(contact.geom2),
-                        )
-                    self.has_collision = True
-                    self.collision_type = COLLISION_TYPE.ROBOT
-                    self.n_collisions_robot += 1
-                # Collision with the human
-                elif (contact_type1 == COLLISION_TYPE.HUMAN or contact_type2 == COLLISION_TYPE.HUMAN):
-                    if self.verbose:
-                        print(
-                            "Human-robot collision detected between ",
-                            self.sim.model.geom_id2name(contact.geom1),
-                            " and ",
-                            self.sim.model.geom_id2name(contact.geom2),
-                        )
-                    # <<< This value may not be correct since it rapidely changes BEFORE the collision >>>
-                    # Ways to handle this:
-                    # 1) forward dynamic of the robot
-                    #   --> We need to do this anyway at some point to allow low speed driving
-                    """
-                    if contact_type1 == COLLISION_TYPE.ROBOT:
-                        robot_id = self.robot_collision_geoms[contact.geom1]
-                    else:
-                        robot_id = self.robot_collision_geoms[contact.geom2]
-                    vel_safe = self._check_robot_vel_safe(
-                        robot_id=robot_id,
-                        threshold=self.safe_vel,
-                        q=self.sim.data.qpos[self.robots[robot_id].joint_indexes],
-                        dq=self.sim.data.qvel[self.robots[robot_id].joint_indexes])
-                    """
-                    # 2) Use the velocity of the simulation
-                    if contact_type1 == COLLISION_TYPE.ROBOT:
-                        if self.verbose:
-                            print("Robot speed:")
-                            print(self.sim.data.geom_xvelp[contact.geom1])
-                        # print(self.sim.data.geom_xvelr[contact.geom1])
-                        vel_safe = self._check_vel_safe(
-                            self.sim.data.geom_xvelp[contact.geom1], self.safe_vel
-                        )
-                    else:
-                        vel_safe = self._check_vel_safe(
-                            self.sim.data.geom_xvelp[contact.geom2], self.safe_vel
-                        )
+        current_robot_collisions = dict()
 
-                    if vel_safe:
-                        self.has_collision = True
-                        self.collision_type = COLLISION_TYPE.HUMAN
-                        self.n_collisions_human += 1
-                        if self.verbose:
-                            print("Robot at safe speed.")
-                    else:
-                        self.has_collision = True
-                        self.collision_type = COLLISION_TYPE.HUMAN_CRIT
-                        self.n_collisions_critical += 1
-                        if self.verbose:
-                            print("Robot too fast during collision!")
-                # Collision with the static environment
-                else:
-                    if self.verbose:
-                        print(
-                            "Collision with static environment detected between ",
-                            self.sim.model.geom_id2name(contact.geom1),
-                            " and ",
-                            self.sim.model.geom_id2name(contact.geom2),
-                        )
-                    self.has_collision = True
-                    self.collision_type = COLLISION_TYPE.STATIC
-                    self.n_collisions_static += 1
-        self.previous_robot_collisions = this_collision_dict
+        # Note that the contact array has more than `ncon` entries,
+        # so be careful to only read the valid entries.
+        for contact in self.sim.data.contact[:self.sim.data.ncon]:
+            contact_type1 = self._determine_geom_contact_type(contact.geom1)
+            contact_type2 = self._determine_geom_contact_type(contact.geom2)
+
+            # Only collisions with the robot are considered
+            if contact_type1 != COLLISION_TYPE.ROBOT and contact_type2 != COLLISION_TYPE.ROBOT:
+                continue
+
+            # Add this collision to the current collision dictionary
+            current_robot_collisions[cantor_pairing(contact.geom1, contact.geom2)] = 0
+            current_robot_collisions[cantor_pairing(contact.geom2, contact.geom1)] = 0
+            # If the current collision already existed previously, skip it to avoid double counting
+            if cantor_pairing(contact.geom1, contact.geom2) in self.previous_robot_collisions:
+                continue
+
+            if contact_type1 == COLLISION_TYPE.ROBOT:
+                self._on_collision_detected(
+                    contact_type=contact_type2,
+                    robot_contact_geom=contact.geom1,
+                    other_contact_geom=contact.geom2,
+                )
+            else:
+                self._on_collision_detected(
+                    contact_type=contact_type1,
+                    robot_contact_geom=contact.geom2,
+                    other_contact_geom=contact.geom1,
+                )
+
+        self.previous_robot_collisions = current_robot_collisions
         return self.collision_type
 
     def _check_robot_vel_safe(self, robot_id, threshold, q, dq):
@@ -1077,15 +1195,14 @@ class HumanEnv(SingleArmEnv):
     def _reset_controller(self):
         """Reset all failsafe controllers."""
         if self.use_failsafe_controller:
-            if self.failsafe_controller is not None:
+            if self.failsafe_controller is None or self.hard_reset or self.deterministic_reset:
+                self._create_new_controller()
+            else:
                 for i in range(len(self.failsafe_controller)):
                     self.failsafe_controller[i].reset(
-                        init_qpos=self.robots[i].init_qpos,
                         base_pos=self.robots[i].base_pos,
                         base_orientation=self.robots[i].base_ori
                     )
-            else:
-                self._create_new_controller()
             self._override_controller()
         else:
             self.failsafe_controller = None
@@ -1244,8 +1361,12 @@ class HumanEnv(SingleArmEnv):
         self.n_collisions_critical = 0
         self.n_goal_reached = 0
 
+        self._human_animation_ids = np.random.randint(
+            0, len(self.human_animation_data), size=self._n_animations_to_sample_at_resets
+        )
+        self._human_animation_ids_index = 0
+
         self.low_level_time = 0
-        self.human_animation_id = np.random.randint(0, len(self.human_animation_data))
         self.animation_start_time = 0
         self.animation_time = -1
 
@@ -1356,12 +1477,19 @@ class HumanEnv(SingleArmEnv):
         Args:
             animation_start_time (int): Current control time. Used to set the animation start time.
         """
-        self.human_animation_id = np.random.randint(0, len(self.human_animation_data))
+        self._human_animation_ids_index = self._human_animation_ids_index = (
+            (self._human_animation_ids_index + 1) % self._n_animations_to_sample_at_resets
+        )
         self.animation_time = 0
         self.animation_start_time = animation_start_time
 
-    def _control_human(self):
-        """Set the human joint positions according to the human animation files."""
+    def _control_human(self, force_update: bool = False):
+        """Set the human joint positions according to the human animation files.
+
+        Args:
+            force_update (bool): Force the human to be controlled
+                even if the animation time has not changed since the last call.
+        """
         # <<< Time management and animation selection >>>
         # Convert low level time to human animation time
         control_time = math.floor(
@@ -1370,8 +1498,8 @@ class HumanEnv(SingleArmEnv):
 
         updated_animation_time = self._compute_animation_time(control_time)
         # If the animation time would stay the same, there is no need to update the human.
-        # if updated_animation_time == self.animation_time:
-        #     return
+        if updated_animation_time == self.animation_time and not force_update:
+            return
 
         self.animation_time = updated_animation_time
         # Check if current animation is finished
@@ -1407,9 +1535,9 @@ class HumanEnv(SingleArmEnv):
         human_rot = human_rot.__mul__(rot)
         human_quat = rot_to_quat(human_rot)
         # Set base position and rotation
-        human_body_id = self.sim.model.body_name2id(self.human.root_body)
-        self.sim.model.body_pos[human_body_id] = human_pos
-        self.sim.model.body_quat[human_body_id] = human_quat
+        self.sim.data.set_mocap_pos(self.human.root_body, human_pos)
+        self.sim.data.set_mocap_quat(self.human.root_body, human_quat)
+
         # Set rotation of all other joints
         all_joint_pos = [human_animation[key][self.animation_time] for key in self.human_joint_names]
         self.sim.data.qpos[self.human_joint_addr] = all_joint_pos
@@ -1496,3 +1624,39 @@ class HumanEnv(SingleArmEnv):
             np.ndarray: The rendered image.
         """
         self.viewer.render()
+
+    def get_environment_state(self) -> HumanEnvState:
+        """Get the current state of the environment. Can be used for storing/loading.
+
+        Returns:
+            HumanEnvState: The current state of the environment.
+        """
+        return HumanEnvState(
+            sim_state=self.sim.get_state().flatten(),
+            human_animation_ids=self._human_animation_ids,
+            human_animation_ids_index=self._human_animation_ids_index,
+            animation_start_time=self.animation_start_time,
+            animation_time=self.animation_time,
+            low_level_time=self.low_level_time,
+            human_pos_offset=self.human_pos_offset,
+            human_rot_offset=self.human_rot_offset,
+        )
+
+    def set_environment_state(self, state: HumanEnvState):
+        """Set the current state of the environment. Can be used for storing/loading.
+
+        Args:
+            state (HumanEnvState): The state to be set.
+        """
+        self.sim.reset()
+        self.sim.set_state_from_flattened(state.sim_state)
+        self._human_animation_ids = state.human_animation_ids
+        self._human_animation_ids_index = state.human_animation_ids_index
+        self.animation_start_time = state.animation_start_time
+        self.animation_time = state.animation_time
+        self.low_level_time = state.low_level_time
+        self.human_pos_offset = state.human_pos_offset
+        self.human_rot_offset = state.human_rot_offset
+        self._control_human(force_update=True)
+        self.sim.forward()
+        self._reset_controller()

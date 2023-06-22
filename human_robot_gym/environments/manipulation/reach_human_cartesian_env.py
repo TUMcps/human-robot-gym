@@ -86,6 +86,10 @@ class ReachHumanCart(ReachHuman):
 
         goal_dist (float): Distance threshold for reaching the goal.
 
+        n_goals_sampled_per_100_steps (int): Length of the list of desired goals to sample at resets.
+            After all goals of the list have been reached, restart from the first in the list.
+            This is done to ensure the same list of goals can be played when loading the env state from a file.
+
         collision_reward (float): Reward to be given in the case of a collision.
 
         goal_reward (float): Reward to be given in the case of reaching the goal.
@@ -181,6 +185,10 @@ class ReachHumanCart(ReachHuman):
 
         human_rand (List[float]): Max. randomization of the human [x-pos, y-pos, z-angle]
 
+        n_animations_sampled_per_100_steps (int): How many animations to sample at resets per 100 steps in the horizon.
+            After all animations of the list have been played, restart from the first animation in the list.
+            This is done to ensure the same list of animations can be played when loading the env state from a file.
+
         safe_vel (float): Safe cartesian velocity. The robot is allowed to move with this velocity in the vicinity of
             humans.
 
@@ -214,6 +222,7 @@ class ReachHumanCart(ReachHuman):
         reward_scale: Optional[float] = 1.0,
         reward_shaping: bool = False,
         goal_dist: float = 0.1,
+        n_goals_sampled_per_100_steps: int = 8,
         collision_reward: float = -10,
         goal_reward: float = 1,
         object_placement_initializer: Optional[ObjectPositionSampler] = None,
@@ -257,6 +266,7 @@ class ReachHumanCart(ReachHuman):
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 120,
         human_rand: List[float] = [0.0, 0.0, 0.0],
+        n_animations_sampled_per_100_steps: int = 5,
         safe_vel: float = 0.001,
         self_collision_safety: float = 0.01,
         seed: int = 0,
@@ -281,6 +291,7 @@ class ReachHumanCart(ReachHuman):
             reward_scale=reward_scale,
             reward_shaping=reward_shaping,
             goal_dist=goal_dist,
+            n_goals_sampled_per_100_steps=n_goals_sampled_per_100_steps,
             collision_reward=collision_reward,
             goal_reward=goal_reward,
             object_placement_initializer=object_placement_initializer,
@@ -310,6 +321,7 @@ class ReachHumanCart(ReachHuman):
             base_human_pos_offset=base_human_pos_offset,
             human_animation_freq=human_animation_freq,
             human_rand=human_rand,
+            n_animations_sampled_per_100_steps=n_animations_sampled_per_100_steps,
             safe_vel=safe_vel,
             self_collision_safety=self_collision_safety,
             seed=seed,
@@ -317,6 +329,11 @@ class ReachHumanCart(ReachHuman):
             done_at_collision=done_at_collision,
             done_at_success=done_at_success
         )
+
+    @property
+    def desired_goal(self):
+        """Return the desired goal."""
+        return self.goal_marker_trans
 
     def step(self, action):
         """Override base step function.
@@ -336,7 +353,6 @@ class ReachHumanCart(ReachHuman):
         """
         obs, reward, done, info = super().step(action)
         # We have to set this in every step since the goal can change.
-        self.desired_goal = self.goal_marker_trans
         return obs, reward, done, info
 
     def _get_achieved_goal_from_obs(
@@ -360,7 +376,6 @@ class ReachHumanCart(ReachHuman):
         """Reset the simulation internal configurations."""
         self.robots[0].init_qpos = self.init_joint_pos
         super()._reset_internal()
-        self.desired_goal = self.goal_marker_trans
 
     def _setup_observables(self):
         """Set up observables to be used for this environment.
