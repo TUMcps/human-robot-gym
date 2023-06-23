@@ -169,6 +169,8 @@ class StateBasedExpertImitationRewardWrapper(DatasetRSIWrapper):
 
             self._add_reward_to_info(info)
 
+        print(f"Imitation reward: {imitation_reward}")
+
         return observation, reward, done, info
 
     def _add_reward_to_info(self, info: Dict[str, Any]):

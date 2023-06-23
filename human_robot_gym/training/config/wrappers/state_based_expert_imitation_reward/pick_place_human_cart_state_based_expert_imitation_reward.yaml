@@ -1,3 +1,6 @@
+defaults:
+  - default_state_based_expert_imitation_reward
+
 beta: 0
 iota_m: 0.1
 iota_g: 0.05
