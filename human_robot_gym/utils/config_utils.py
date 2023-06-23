@@ -122,6 +122,7 @@ class StateBasedExpertImitationRewardWrapperConfig:
     rsi_prob: Optional[float]
     dataset_name: str
 
+
 @dataclass
 class DatasetObsNormWrapperConfig:
     """Dataset observation normalization wrapper configuration."""
