@@ -1,0 +1,5 @@
+defaults:
+  - default_state_based_expert_imitation_reward
+
+iota: 0.1
+et_dist: 2
