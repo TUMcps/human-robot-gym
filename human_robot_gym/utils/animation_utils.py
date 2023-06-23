@@ -65,11 +65,17 @@ def sin_modulation(
 ) -> float:
     """Sinusoidal modulation of the animation speed. Used for playing animations back and forth.
 
+    Continuous transition from linear animation time to sinusoidal animation time at the modulation start time.
+    Transition is continuously differentiable at the modulation start time if `speed` is set to `1`.
+
     Args:
         classic_animation_time (int): Linear progress in the animation.
         modulation_start_time (int): Time in seconds when the modulation should start.
         amplitude (float): Amplitude of the sine.
-        speed (float): Frequency of the sine.
+        speed (float): Frequency modifier of the sine. If `speed = 1`, the transition is continuously
+            differentiable at the modulation start time (maximum animation speed in the sine is equal to the
+            animation speed in the linear phase before).
+            Higher values play the animation faster and lower values slower.
 
     Returns:
         float: Animation time after modulation.
@@ -92,7 +98,8 @@ def layered_sin_modulations(
         classic_animation_time (int): linear progress in the animation.
         modulation_start_time (int): time in seconds when the modulation should start.
         amplitudes (List[float]): amplitudes of the sines.
-        speeds (List[float]): frequencies of the sines.
+        speeds (List[float]): Frequency modifiers of the layered sines.
+            Higher values play the animation faster and lower values slower.
 
     Returns:
         float: animation time after modulation.
@@ -127,7 +134,8 @@ def sample_animation_loop_properties(
             contains information about sine amplitude and frequency mean and std values.
 
     Returns:
-        Tuple[List[float], List[float]]: Amplitude and frequency for the sinusoidal modulation of the animation time.
+        Tuple[List[float], List[float]]: Amplitude and speed modifier
+            for the sinusoidal modulation of the animation time.
     """
     def random_factor_generator(std_factor: float) -> float:
         return np.exp(np.clip(np.random.normal(), -3, 3) * np.log(std_factor))
