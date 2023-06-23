@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 
 import pickle
 import json
@@ -119,7 +119,7 @@ def layered_sin_modulations(
 
 def sample_animation_loop_properties(
     animation_info: Dict[str, Any],
-) -> Tuple[List[float], List[float]]:
+) -> Union[Tuple[List[float], List[float]], Dict[str, Tuple[List[float], List[float]]]]:
     """Sample amplitude and frequency for the sinusoidal modulation of the animation time.
 
     Amplitude and frequency are multiplied by an exponential of a clipped normal distributed random variable.
@@ -129,25 +129,46 @@ def sample_animation_loop_properties(
     this gives a range of [1.1^-3, 1.1^3] ~ [0.75, 1.33]
     Scaling parameters taken from the animation info.
 
+    The animation info may either contain lists of amplitudes and speed modifiers or dictionaries
+    containing such lists for multiple stages in the animation.
+
     Args:
         animation_info (Dict[str, Any]): Animation info dictionary.
             contains information about sine amplitude and frequency mean and std values.
 
     Returns:
-        Tuple[List[float], List[float]]: Amplitude and speed modifier
+        Union[
+            Tuple[List[float], List[float]],
+            Tuple[Dict[str, List[float]], Dict[str, List[float]]]
+        ]: Amplitude and speed modifiers
             for the sinusoidal modulation of the animation time.
+            If the animation contains multiple loopable stages this function returns a tuple of dictionaries
     """
     def random_factor_generator(std_factor: float) -> float:
         return np.exp(np.clip(np.random.normal(), -3, 3) * np.log(std_factor))
 
-    amplitudes = [
-        amp * random_factor_generator(std_factor=animation_info["loop_amt_std_factor"])
-        for amp in animation_info["loop_amts"]
-    ]
+    def sample_loop_properties_lists(amplitudes: List[float], speeds: List[float]) -> Tuple[List[float], List[float]]:
+        return (
+            [
+                amp * random_factor_generator(std_factor=animation_info["loop_amplitude_std_factor"])
+                for amp in amplitudes
+            ],
+            [
+                speed * random_factor_generator(std_factor=animation_info["loop_speed_std_factor"])
+                for speed in speeds
+            ],
+        )
 
-    speeds = [
-        speed * random_factor_generator(std_factor=animation_info["loop_speed_std_factor"])
-        for speed in animation_info["loop_speeds"]
-    ]
-
-    return amplitudes, speeds
+    if isinstance(animation_info["loop_amplitudes"], list):
+        return sample_loop_properties_lists(
+            amplitudes=animation_info["loop_amplitudes"],
+            speeds=animation_info["loop_speeds"],
+        )
+    else:
+        return {
+            stage: sample_loop_properties_lists(
+                amplitudes=animation_info["loop_amplitudes"][stage],
+                speeds=animation_info["loop_speeds"][stage],
+            )
+            for stage in animation_info["loop_amplitudes"]
+        }

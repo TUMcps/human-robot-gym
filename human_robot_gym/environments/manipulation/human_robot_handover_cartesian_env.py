@@ -9,6 +9,7 @@ Changelog:
 """
 from enum import Enum
 from typing import Any, Dict, List, Optional, OrderedDict, Tuple, Union
+from dataclasses import asdict, dataclass
 
 import xml.etree.ElementTree as ET
 
@@ -24,11 +25,12 @@ from robosuite.utils.placement_samplers import ObjectPositionSampler
 import robosuite.utils.transform_utils as T
 
 from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE
-from human_robot_gym.environments.manipulation.pick_place_human_cartesian_env import PickPlaceHumanCart
+from human_robot_gym.environments.manipulation.pick_place_human_cartesian_env import (
+    PickPlaceHumanCart, PickPlaceHumanCartEnvState
+)
 from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat, quat_to_rot
-from human_robot_gym.utils.pairing import cantor_pairing
 from human_robot_gym.utils.animation_utils import (
-    sin_modulation, layered_sin_modulations, sample_animation_loop_properties
+    layered_sin_modulations, sample_animation_loop_properties
 )
 
 
@@ -38,6 +40,13 @@ class HumanRobotHandoverPhase(Enum):
     WAIT = 2
     RETREAT = 3
     COMPLETE = 4
+
+
+@dataclass
+class HumanRobotHandoverCartEnvState(PickPlaceHumanCartEnvState):
+    task_phase_value: int
+    n_delayed_timesteps: List[int]
+    animation_loop_properties: List[Dict[str, Tuple[List[float], List[float]]]]
 
 
 class HumanRobotHandoverCart(PickPlaceHumanCart):
@@ -99,6 +108,17 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         reward_shaping (bool): if `True`, use dense rewards, else use sparse rewards.
 
         goal_dist (float): Distance threshold for reaching the goal.
+
+        n_object_placements_sampled_per_100_steps (int): How many object placements to sample at resets
+            per 100 steps in the horizon.
+            After all objects of the list have been placed, restart from the first in the list.
+            This is done to ensure the same list of objects can be placed when loading the env state from a file.
+
+        n_targets_sampled_per_100_steps (int): How many targets to sample at resets per 100 steps in the horizon.
+            After all goals of the list have been reached, restart from the first in the list.
+            This is done to ensure the same list of goals can be played when loading the env state from a file.
+            Setting `n_targets_sampled_per_100_steps != n_object_placements_sampled_per_100_steps`
+            yields more possible object-goal combinations.
 
         collision_reward (float): Reward to be given in the case of a collision.
 
@@ -204,6 +224,10 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
 
         human_rand (List[float]): Max. randomization of the human [x-pos, y-pos, z-angle]
 
+        n_animations_sampled_per_100_steps (int): How many animations to sample at resets per 100 steps in the horizon.
+            After all animations of the list have been played, restart from the first animation in the list.
+            This is done to ensure the same list of animations can be played when loading the env state from a file.
+
         safe_vel (float): Safe cartesian velocity. The robot is allowed to move with this velocity in the vicinity of
             humans.
 
@@ -236,6 +260,8 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         reward_scale: Optional[float] = 1.0,
         reward_shaping: bool = False,
         goal_dist: float = 0.1,
+        n_object_placements_sampled_per_100_steps: int = 3,
+        n_targets_sampled_per_100_steps: int = 3,
         collision_reward: float = -10,
         task_reward: float = 1,
         object_at_target_reward: float = -1,
@@ -270,6 +296,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 30,
         human_rand: List[float] = [0.0, 0.0, 0.0],
+        n_animations_sampled_per_100_steps: int = 5,
         safe_vel: float = 0.001,
         self_collision_safety: float = 0.01,
         seed: int = 0,
@@ -277,15 +304,11 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         done_at_collision: bool = False,
         done_at_success: bool = False,
     ):
-        self.handover_phase: HumanRobotHandoverPhase = HumanRobotHandoverPhase.COMPLETE
+        self.task_phase: HumanRobotHandoverPhase = HumanRobotHandoverPhase.COMPLETE
         self._manipulation_object_weld_eq_id = None
         self._n_delayed_timesteps = None
 
-        # Characteristics of the wait phase: The animation time is modulated by multiple layered
-        # sine functions. The amplitudes and frequencies of these functions are obtained from the
-        # animation info file with additional randomization.
-        self._wait_animation_loop_amplitudes = None
-        self._wait_animation_loop_speeds = None
+        self._animation_loop_properties = None
 
         self.object_at_target_reward = object_at_target_reward
 
@@ -304,6 +327,8 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             reward_scale=reward_scale,
             reward_shaping=reward_shaping,
             goal_dist=goal_dist,
+            n_object_placements_sampled_per_100_steps=n_object_placements_sampled_per_100_steps,
+            n_targets_sampled_per_100_steps=n_targets_sampled_per_100_steps,
             collision_reward=collision_reward,
             task_reward=task_reward,
             object_gripped_reward=object_gripped_reward,
@@ -335,6 +360,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             base_human_pos_offset=base_human_pos_offset,
             human_animation_freq=human_animation_freq,
             human_rand=human_rand,
+            n_animations_sampled_per_100_steps=n_animations_sampled_per_100_steps,
             safe_vel=safe_vel,
             self_collision_safety=self_collision_safety,
             seed=seed,
@@ -343,17 +369,33 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             done_at_success=done_at_success,
         )
 
+    @property
+    def present_animation_loop_amplitudes(self) -> Dict[str, List[float]]:
+        return self._animation_loop_properties[self._human_animation_ids_index]["present"][0]
+
+    @property
+    def present_animation_loop_speeds(self) -> Dict[str, List[float]]:
+        return self._animation_loop_properties[self._human_animation_ids_index]["present"][1]
+
+    @property
+    def wait_animation_loop_amplitudes(self) -> Dict[str, List[float]]:
+        return self._animation_loop_properties[self._human_animation_ids_index]["wait"][0]
+
+    @property
+    def wait_animation_loop_speeds(self) -> Dict[str, List[float]]:
+        return self._animation_loop_properties[self._human_animation_ids_index]["wait"][1]
+
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
         obs, rew, done, info = super().step(action)
 
-        if self.handover_phase == HumanRobotHandoverPhase.PRESENT and obs["object_gripped"]:
+        if self.task_phase == HumanRobotHandoverPhase.PRESENT and obs["object_gripped"]:
             self._human_drop_object()
-            self.handover_phase = HumanRobotHandoverPhase.WAIT
-        elif self.handover_phase == HumanRobotHandoverPhase.WAIT and self._check_object_in_target_zone(
+            self.task_phase = HumanRobotHandoverPhase.WAIT
+        elif self.task_phase == HumanRobotHandoverPhase.WAIT and self._check_object_in_target_zone(
             achieved_goal=self._get_achieved_goal_from_obs(obs),
             desired_goal=self._get_desired_goal_from_obs(obs),
         ):
-            self.handover_phase = HumanRobotHandoverPhase.RETREAT
+            self.task_phase = HumanRobotHandoverPhase.RETREAT
 
         return obs, rew, done, info
 
@@ -452,7 +494,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         assert self._manipulation_object_weld_eq_id != -1
 
     def _check_success(self, achieved_goal: List[float], desired_goal: List[float]) -> bool:
-        return self.handover_phase == HumanRobotHandoverPhase.COMPLETE
+        return self.task_phase == HumanRobotHandoverPhase.COMPLETE
 
     def reward(
         self,
@@ -491,51 +533,51 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         keyframes = self.human_animation_data[self.human_animation_id][1]["keyframes"]
 
         # Progress to present phase automatically depending on the animation
-        if animation_time > keyframes[0] and self.handover_phase == HumanRobotHandoverPhase.APPROACH:
-            self.handover_phase = HumanRobotHandoverPhase.PRESENT
+        if animation_time > keyframes[0] and self.task_phase == HumanRobotHandoverPhase.APPROACH:
+            self.task_phase = HumanRobotHandoverPhase.PRESENT
 
         # Within the present phase loop back and forth between the two keyframes enclosing it
         if (
             animation_time > keyframes[0] + (keyframes[1] - keyframes[0]) / 2 and
-            self.handover_phase == HumanRobotHandoverPhase.PRESENT
+            self.task_phase == HumanRobotHandoverPhase.PRESENT
         ):
             animation_time = int(
-                sin_modulation(
+                layered_sin_modulations(
                     classic_animation_time=classic_animation_time,
                     modulation_start_time=(keyframes[0] + keyframes[1]) / 2,
-                    amplitude=(keyframes[1] - keyframes[0]) / 2,
-                    speed=1,
+                    amplitudes=self.present_animation_loop_amplitudes,
+                    speeds=self.present_animation_loop_speeds,
                 )
             )
 
             self._n_delayed_timesteps[0] = classic_animation_time - animation_time
 
         # In the wait phase loop around the second keyframe
-        if self.handover_phase == HumanRobotHandoverPhase.WAIT:
+        if self.task_phase == HumanRobotHandoverPhase.WAIT:
             animation_time = int(
                 layered_sin_modulations(
                     classic_animation_time=animation_time - self._n_delayed_timesteps[0],
                     modulation_start_time=keyframes[1],
-                    amplitudes=self._wait_animation_loop_amplitudes,
-                    speeds=self._wait_animation_loop_speeds,
+                    amplitudes=self.wait_animation_loop_amplitudes,
+                    speeds=self.wait_animation_loop_speeds,
                 )
             )
 
             self._n_delayed_timesteps[1] = classic_animation_time - animation_time
 
         # In the retreat phase run the animation linearly until it is finished
-        if self.handover_phase == HumanRobotHandoverPhase.RETREAT:
+        if self.task_phase == HumanRobotHandoverPhase.RETREAT:
             animation_time -= self._n_delayed_timesteps[1]
 
         # Once the animation is complete, freeze the animation time at the last frame
         if animation_time >= animation_length - 1:
-            self.handover_phase = HumanRobotHandoverPhase.COMPLETE
+            self.task_phase = HumanRobotHandoverPhase.COMPLETE
             animation_time = animation_length - 1
 
         return animation_time
 
-    def _control_human(self):
-        super()._control_human()
+    def _control_human(self, force_update: bool = True):
+        super()._control_human(force_update=True)
 
         object_holding_hand = self.human_animation_data[self.human_animation_id][1]["object_holding_hand"]
 
@@ -578,12 +620,8 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             )
 
     def _reset_animation(self):
-        self.handover_phase = HumanRobotHandoverPhase.APPROACH
+        self.task_phase = HumanRobotHandoverPhase.APPROACH
         self._n_delayed_timesteps = [0, 0]
-
-        self._wait_animation_loop_amplitudes, self._wait_animation_loop_speeds = sample_animation_loop_properties(
-            animation_info=self.human_animation_data[self.human_animation_id][1],
-        )
 
         self.sim.data.set_joint_qpos(
             "manipulation_object_joint0",
@@ -607,20 +645,15 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         self._control_human()
         self._reset_animation()
 
+        self._animation_loop_properties = [
+            sample_animation_loop_properties(
+                animation_info=self.human_animation_data[human_animation_id][1],
+            )
+            for human_animation_id in self._human_animation_ids
+        ]
+
     def _setup_observables(self) -> OrderedDict[str, Observable]:
         observables = super()._setup_observables()
-
-        @sensor(modality="object")
-        def object_gripped(obs_cache: Dict[str, Any]) -> bool:
-            coll = cantor_pairing(
-                self.sim.model.geom_name2id("gripper0_l_fingerpad_g0"),
-                self.sim.model.geom_name2id("manipulation_object_handle"),
-            ) in self.previous_robot_collisions and cantor_pairing(
-                self.sim.model.geom_name2id("gripper0_r_fingerpad_g0"),
-                self.sim.model.geom_name2id("manipulation_object_handle"),
-            ) in self.previous_robot_collisions
-
-            return coll
 
         @sensor(modality="object")
         def object_quat(obs_cache: Dict[str, Any]) -> bool:
@@ -637,7 +670,6 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             return T.convert_quat(np.array(quat), "xyzw")
 
         sensors = [
-            object_gripped,
             object_quat,
             quat_eef_to_object,
         ]
@@ -682,11 +714,11 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
     def _visualize_goal(self):
         """Draw a sphere at the target location."""
         # sphere (type 2)
-        if self.handover_phase == HumanRobotHandoverPhase.APPROACH:
+        if self.task_phase == HumanRobotHandoverPhase.APPROACH:
             color = [1, 0, 0, 0.7]
-        elif self.handover_phase == HumanRobotHandoverPhase.PRESENT:
+        elif self.task_phase == HumanRobotHandoverPhase.PRESENT:
             color = [1, 1, 0, 0.7]
-        elif self.handover_phase == HumanRobotHandoverPhase.WAIT:
+        elif self.task_phase == HumanRobotHandoverPhase.WAIT:
             color = [0, 1, 0, 0.7]
         else:
             color = [0, 0, 1, 0.7]
@@ -704,3 +736,31 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         """Visualize the goal space and the sampling space of initial object positions."""
         self._visualize_goal()
         self._visualize_target_sample_space()
+
+    def get_environment_state(self) -> HumanRobotHandoverCartEnvState:
+        """Get the current state of the environment. Can be used for storing/loading.
+
+        Returns:
+            state (HumanRobotHandoverCartEnvState): The current state of the environment.
+        """
+        pick_place_env_state = super().get_environment_state()
+        return HumanRobotHandoverCartEnvState(
+            task_phase_value=self.task_phase.value,
+            n_delayed_timesteps=self._n_delayed_timesteps,
+            animation_loop_properties=self._animation_loop_properties,
+            **asdict(pick_place_env_state),
+        )
+
+    def set_environment_state(self, state: HumanRobotHandoverCartEnvState):
+        """Set the current state of the environment. Can be used for storing/loading.
+
+        Args:
+            HumanRobotHandoverCartEnvState: The state to be set.
+        """
+        super().set_environment_state(state)
+        self.task_phase = HumanRobotHandoverPhase(state.task_phase_value)
+        self._n_delayed_timesteps = state.n_delayed_timesteps
+        self._animation_loop_properties = state.animation_loop_properties
+
+        if self.has_renderer:
+            self._visualize()
