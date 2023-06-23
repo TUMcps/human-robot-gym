@@ -176,13 +176,21 @@ class DatasetObsNormWrapper(DatasetWrapper):
     Args:
         env (gym.Env): The environment to wrap
         dataset_name (str): The name of the dataset to use
-        squash_factor (float, optional): The factor to use for squashing observations.
+        squash_factor (Optional[float]): The factor to use for squashing observations.
+        allow_different_observation_shapes (bool): Whether to allow the dataset observations to have a different shape
+            than the environment observations. Defaults to False.
+            This is useful if observations are added during the training that were not available during dataset
+            collection.
+
+    Raises:
+        AssertionError: Environment and dataset observation space do not match!
     """
     def __init__(
         self,
         env: gym.Env,
         dataset_name: str,
         squash_factor: Optional[float] = None,
+        allow_different_observation_shapes: bool = False,
     ):
         super().__init__(env=env, dataset_name=dataset_name)
 
@@ -190,8 +198,21 @@ class DatasetObsNormWrapper(DatasetWrapper):
         self._obs_mean = np.mean(observations, axis=0)
         self._obs_std = np.std(observations, axis=0)
 
-        assert self._obs_mean.shape == self.observation_space.shape, \
-            "Environment and dataset observation space do not match!"
+        if self._obs_mean.shape != self.observation_space.shape:
+            assert allow_different_observation_shapes, "Environment and dataset observation space do not match!"
+            assert len(self._obs_mean.shape) == len(self.observation_space.shape) == 1, \
+                "Matching shapes only supported for one-dimensional observations!"
+
+            if self._obs_mean.shape[0] < self.observation_space.shape[0]:
+                self._obs_mean = np.concatenate(
+                    [self._obs_mean, np.zeros(self.observation_space.shape[0] - self._obs_mean.shape[0])]
+                )
+                self._obs_std = np.concatenate(
+                    [self._obs_std, np.ones(self.observation_space.shape[0] - self._obs_std.shape[0])]
+                )
+            else:
+                self._obs_mean = self._obs_mean[: self.observation_space.shape[0]]
+                self._obs_std = self._obs_std[: self.observation_space.shape[0]]
 
         # Remove dataset from memory to save memory
         del self.dataset

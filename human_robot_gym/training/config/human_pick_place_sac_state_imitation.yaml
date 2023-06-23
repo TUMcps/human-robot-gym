@@ -31,6 +31,7 @@ wrappers:
   dataset_obs_norm:
     dataset_name: ${wrappers.state_based_expert_imitation_reward.dataset_name}
     squash_factor: null
+    allow_different_observation_shapes: true  # needed because of time observation
 algorithm:
   policy_kwargs:
     net_arch:
