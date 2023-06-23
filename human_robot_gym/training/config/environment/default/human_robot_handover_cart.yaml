@@ -1,0 +1,9 @@
+defaults:
+  - pick_place_human_cart
+  - _self_
+
+env_id: HumanRobotHandoverCart
+human_animation_names:
+  - HumanRobotHandover/0
+  - HumanRobotHandover/1
+n_animations_sampled_per_100_steps: 2

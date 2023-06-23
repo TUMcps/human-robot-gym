@@ -296,7 +296,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 30,
         human_rand: List[float] = [0.0, 0.0, 0.0],
-        n_animations_sampled_per_100_steps: int = 5,
+        n_animations_sampled_per_100_steps: int = 2,
         safe_vel: float = 0.001,
         self_collision_safety: float = 0.01,
         seed: int = 0,
@@ -578,7 +578,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
 
     def _control_human(self, force_update: bool = True):
         super()._control_human(force_update=True)
-
+        self.sim.step()
         object_holding_hand = self.human_animation_data[self.human_animation_id][1]["object_holding_hand"]
 
         if object_holding_hand == "left":
@@ -757,10 +757,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         Args:
             HumanRobotHandoverCartEnvState: The state to be set.
         """
-        super().set_environment_state(state)
         self.task_phase = HumanRobotHandoverPhase(state.task_phase_value)
         self._n_delayed_timesteps = state.n_delayed_timesteps
         self._animation_loop_properties = state.animation_loop_properties
-
-        if self.has_renderer:
-            self._visualize()
+        super().set_environment_state(state)

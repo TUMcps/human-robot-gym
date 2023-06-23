@@ -759,6 +759,3 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         self.task_phase = ObjectInspectionPhase(state.task_phase_value)
         self._n_delayed_timesteps = state.n_delayed_timesteps
         self._animation_loop_properties = state.animation_loop_properties
-
-        if self.has_renderer:
-            self._visualize()
