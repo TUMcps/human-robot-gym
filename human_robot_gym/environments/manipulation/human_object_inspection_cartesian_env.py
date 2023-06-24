@@ -168,12 +168,6 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
             After all objects of the list have been placed, restart from the first in the list.
             This is done to ensure the same list of objects can be placed when loading the env state from a file.
 
-        n_targets_sampled_per_100_steps (int): How many targets to sample at resets per 100 steps in the horizon.
-            After all goals of the list have been reached, restart from the first in the list.
-            This is done to ensure the same list of goals can be played when loading the env state from a file.
-            Setting `n_targets_sampled_per_100_steps != n_object_placements_sampled_per_100_steps`
-            yields more possible object-goal combinations.
-
         goal_exit_tolerance (float): Absolute tolerance by which the goal distance is increased once the goal zone is
             entered. This is used to avoid oscillating rapidly between WAIT and INSPECTION phases.
 
@@ -319,7 +313,6 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         reward_shaping: bool = False,
         goal_dist: float = 0.15,
         n_object_placements_sampled_per_100_steps: int = 3,
-        n_targets_sampled_per_100_steps: int = 3,
         goal_exit_tolerance: float = 0.02,
         collision_reward: float = -10,
         task_reward: float = 1,
@@ -355,7 +348,7 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 30,
         human_rand: List[float] = [0.0, 0.0, 0.0],
-        n_animations_sampled_per_100_steps: int = 5,
+        n_animations_sampled_per_100_steps: int = 2,
         safe_vel: float = 0.001,
         self_collision_safety: float = 0.01,
         seed: int = 0,
@@ -389,7 +382,7 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
             reward_shaping=reward_shaping,
             goal_dist=goal_dist,
             n_object_placements_sampled_per_100_steps=n_object_placements_sampled_per_100_steps,
-            n_targets_sampled_per_100_steps=n_targets_sampled_per_100_steps,
+            n_targets_sampled_per_100_steps=0,
             collision_reward=collision_reward,
             task_reward=task_reward,
             object_gripped_reward=object_gripped_reward,
@@ -474,6 +467,21 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
             self.task_phase = ObjectInspectionPhase.READY
 
         return obs, reward, done, info
+
+    def _on_goal_reached(self):
+        """Select a new animation and sample new object locations when the goal is reached."""
+        if self.done_at_success:
+            return
+
+        self._object_placements_list_index = (
+            (self._object_placements_list_index + 1) % self._n_objects_to_sample_at_resets
+        )
+        for joint_name, joint_qpos in self.object_placements:
+            self.sim.data.set_joint_qpos(joint_name, joint_qpos)
+
+        self._progress_to_next_animation(
+            animation_start_time=int(self.low_level_time / self.human_animation_step_length)
+        )
 
     def _setup_arena(self):
         """Setup the mujoco arena.
@@ -648,15 +656,6 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
     def _control_human(self, force_update: bool = True):
         """Override super method to force update the human every frame to avoid glitches in the wait animation."""
         super()._control_human(force_update=True)
-
-    def _on_goal_reached(self):
-        """Extend super method to select a new animation when the goal is reached."""
-        super()._on_goal_reached()
-
-        if not self.done_at_success:
-            self._progress_to_next_animation(
-                animation_start_time=int(self.low_level_time / self.human_animation_step_length)
-            )
 
     def _reset_animation(self):
         """Reset the inspection phase and the animation-specific internal variables."""

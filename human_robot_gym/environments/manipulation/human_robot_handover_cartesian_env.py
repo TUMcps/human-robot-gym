@@ -109,11 +109,6 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
 
         goal_dist (float): Distance threshold for reaching the goal.
 
-        n_object_placements_sampled_per_100_steps (int): How many object placements to sample at resets
-            per 100 steps in the horizon.
-            After all objects of the list have been placed, restart from the first in the list.
-            This is done to ensure the same list of objects can be placed when loading the env state from a file.
-
         n_targets_sampled_per_100_steps (int): How many targets to sample at resets per 100 steps in the horizon.
             After all goals of the list have been reached, restart from the first in the list.
             This is done to ensure the same list of goals can be played when loading the env state from a file.
@@ -133,10 +128,10 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             If task completed (animation finished): `reward = task_reward`.
             `object_gripped_reward` defaults to `-1`.
 
-        object_placement_initializer (ObjectPositionSampler): if provided, will
-            be used to place objects on every reset, else a `UniformRandomSampler`
-            is used by default.
-            Objects are elements that can and should be manipulated.
+        target_placement_initializer (ObjectPositionSampler): if provided, will
+            be used to generate target locations every time the previous target was reached
+            and on resets. If not set, a `UniformRandomSampler` is used by default.
+            Targets specify the coordinates to which the object should be moved.
 
         obstacle_placement_initializer (ObjectPositionSampler): if provided, will
             be used to place obstacles on every reset, else a `UniformRandomSampler`
@@ -260,13 +255,12 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         reward_scale: Optional[float] = 1.0,
         reward_shaping: bool = False,
         goal_dist: float = 0.1,
-        n_object_placements_sampled_per_100_steps: int = 3,
-        n_targets_sampled_per_100_steps: int = 3,
+        n_targets_sampled_per_100_steps: int = 2,
         collision_reward: float = -10,
         task_reward: float = 1,
         object_at_target_reward: float = -1,
         object_gripped_reward: float = -1,
-        object_placement_initializer: Optional[ObjectPositionSampler] = None,
+        target_placement_initializer: Optional[ObjectPositionSampler] = None,
         obstacle_placement_initializer: Optional[ObjectPositionSampler] = None,
         has_renderer: bool = False,
         has_offscreen_renderer: bool = True,
@@ -327,13 +321,13 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             reward_scale=reward_scale,
             reward_shaping=reward_shaping,
             goal_dist=goal_dist,
-            n_object_placements_sampled_per_100_steps=n_object_placements_sampled_per_100_steps,
+            n_object_placements_sampled_per_100_steps=0,
             n_targets_sampled_per_100_steps=n_targets_sampled_per_100_steps,
             collision_reward=collision_reward,
             task_reward=task_reward,
             object_gripped_reward=object_gripped_reward,
-            object_placement_initializer=object_placement_initializer,
-            target_placement_initializer=None,
+            object_placement_initializer=None,
+            target_placement_initializer=target_placement_initializer,
             obstacle_placement_initializer=obstacle_placement_initializer,
             has_renderer=has_renderer,
             has_offscreen_renderer=has_offscreen_renderer,
@@ -399,6 +393,18 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
 
         return obs, rew, done, info
 
+    def _on_goal_reached(self):
+        if self.done_at_success:
+            return
+
+        self._target_positions_index = (
+            (self._target_positions_index + 1) % self._n_targets_to_sample_at_resets
+        )
+
+        self._progress_to_next_animation(
+            animation_start_time=int(self.low_level_time / self.human_animation_step_length)
+        )
+
     def _setup_arena(self):
         """Setup the mujoco arena.
 
@@ -414,8 +420,6 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         self._set_origin()
 
         self._set_mujoco_camera()
-
-        box_size = np.array(self.object_full_size)
 
         self.manipulation_object = HammerObject(
             name="manipulation_object",
@@ -435,6 +439,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
 
         # << TARGETS >>
         # Targets specify the coordinates to which the object should be moved.
+        box_size = np.array(self.object_full_size)
         target = BoxObject(
             name="target",
             size=box_size * 0.5,
@@ -610,14 +615,6 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             "mocap_object",
             quat,
         )
-
-    def _on_goal_reached(self):
-        super()._on_goal_reached()
-
-        if not self.done_at_success:
-            self._progress_to_next_animation(
-                animation_start_time=int(self.low_level_time / self.human_animation_step_length)
-            )
 
     def _reset_animation(self):
         self.task_phase = HumanRobotHandoverPhase.APPROACH

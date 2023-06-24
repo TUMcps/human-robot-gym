@@ -8,3 +8,4 @@ human_animation_names:
   - ObjectInspection/1
 object_at_target_reward: -1
 goal_exit_tolerance: 0.02
+n_animations_sampled_per_100_steps: 2
