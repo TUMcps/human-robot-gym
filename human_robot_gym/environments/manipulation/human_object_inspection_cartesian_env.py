@@ -435,7 +435,18 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
 
     @property
     def target_pos(self) -> np.ndarray:
-        return self._get_current_target_pos()
+        """Evaluate the current position of the target.
+
+        Returns a position specified in the info json file of the current animation.
+
+        Returns:
+            np.ndarray: The current target position.
+        """
+        target_pos = np.array(self.human_animation_data[self.human_animation_id][1]["target_pos"])
+
+        target_pos += self.human_pos_offset
+
+        return target_pos
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
         """Override super `step` method to enter the `INSPECTION` phase when the object first is in the target zone.
@@ -683,20 +694,6 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
             for human_animation_id in self._human_animation_ids
         ]
 
-    def _get_current_target_pos(self) -> np.ndarray:
-        """Evaluate the current position of the target.
-
-        Returns a position specified in the info json file of the current animation.
-
-        Returns:
-            np.ndarray: The current target position.
-        """
-        target_pos = np.array(self.human_animation_data[self.human_animation_id][1]["target_pos"])
-
-        target_pos += self.human_pos_offset
-
-        return target_pos
-
     def _sample_target_pos(self) -> np.ndarray:
         """Override the parent function to return the current target position.
 
@@ -706,7 +703,7 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         Returns:
             np.ndarray: The current target position.
         """
-        return self._get_current_target_pos()
+        return self.target_pos
 
     def _get_default_object_bin_boundaries(self) -> Tuple[float, float, float, float]:
         """Get the x and y boundaries of the object sampling space.
