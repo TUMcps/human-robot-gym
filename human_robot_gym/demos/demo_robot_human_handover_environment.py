@@ -181,7 +181,17 @@ if __name__ == "__main__":
         global use_kb_agent
         use_kb_agent = not use_kb_agent
 
+    def break_pnt():
+        print("Break!")
+
+    def toggle_grip():
+        rsenv.sim.model.eq_active[
+            rsenv._manipulation_object_weld_eq_id
+        ] = not rsenv.sim.model.eq_active[rsenv._manipulation_object_weld_eq_id]
+
     kb_agent.add_keypress_callback(glfw.KEY_O, lambda *_: switch_agent())
+    kb_agent.add_keypress_callback(glfw.KEY_B, lambda *_: break_pnt())
+    kb_agent.add_keypress_callback(glfw.KEY_L, lambda *_: toggle_grip())
 
     expert_obs_wrapper = ExpertObsWrapper.get_from_wrapped_env(env)
 

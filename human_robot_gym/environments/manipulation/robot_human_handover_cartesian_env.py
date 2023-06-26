@@ -404,10 +404,27 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         achieved_goal: List[float],
         desired_goal: List[float],
     ):
-        return super()._check_object_in_target_zone(
-            achieved_goal=achieved_goal,
-            desired_goal=desired_goal,
+        palm_geom_id = self.sim.model.geom_name2id(
+            "Human_{}_Palm_collision".format(
+                "L"
+                if self.human_animation_data[self.human_animation_id][1]["object_holding_hand"] == "left"
+                else "R"
+            )
         )
+
+        hammer_contact_geoms = [
+            self.sim.model.geom_name2id(geom_name) for geom_name in self.manipulation_object.contact_geoms
+        ]
+
+        for contact in self.sim.data.contact[:self.sim.data.ncon]:
+            if contact.geom1 == palm_geom_id:
+                if contact.geom2 in hammer_contact_geoms:
+                    return True
+            elif contact.geom2 == palm_geom_id:
+                if contact.geom1 in hammer_contact_geoms:
+                    return True
+
+        return False
 
     def _setup_arena(self):
         """Setup the mujoco arena.
@@ -425,15 +442,11 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
 
         self._set_mujoco_camera()
 
-        '''self.manipulation_object = HammerObject(
+        self.manipulation_object = HammerObject(
             name="manipulation_object",
-            handle_length=(0.35, 0.45),
-        )'''
-
-        from robosuite.models.objects import BoxObject
-        self.manipulation_object = BoxObject(
-            name="manipulation_object",
-            size=(0.02, 0.02, 0.02),
+            handle_length=(0.25, 0.3),
+            handle_density=10,
+            handle_radius=0.022
         )
 
         self.objects = [
@@ -447,6 +460,7 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
             objects=self.objects,
             x_range=[object_bin_boundaries[0], object_bin_boundaries[1]],
             y_range=[object_bin_boundaries[2], object_bin_boundaries[3]],
+            z_offset=0.15
         )
 
         # << OBSTACLES >>
@@ -470,6 +484,40 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
             "body", name="mocap_object", pos="0 0 0", quat="0 0 0 1", mocap="true"
         )
 
+        from robosuite.utils.mjcf_utils import find_elements
+
+        find_elements(
+            root=self.model.root,
+            tags="body",
+            attribs={"name": "Human_L_Hand"},
+            return_first=True,
+        ).append(
+            ET.Element(
+                "geom",
+                group="1",
+                name="Human_L_Palm_collision",
+                pos="0.7753 0.1840 -0.0285",
+                type="ellipsoid",
+                size="0.035 0.03 0.035",
+            )
+        )
+
+        find_elements(
+            root=self.model.root,
+            tags="body",
+            attribs={"name": "Human_R_Hand"},
+            return_first=True,
+        ).append(
+            ET.Element(
+                "geom",
+                group="1",
+                name="Human_R_Palm_collision",
+                pos="-0.7753 0.1840 -0.0285",
+                type="ellipsoid",
+                size="0.035 0.03 0.035",
+            )
+        )
+
         self.model.worldbody.append(mocap_object)
 
         self.model.equality.append(
@@ -477,9 +525,10 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
                 "weld",
                 name="manipulation_object_weld",
                 body1="mocap_object",
-                body2="manipulation_object_main",
-                relpose="0 0 0 0 0 0 1",
+                body2="manipulation_object_root",
+                relpose="0 0 -0.18 0 0 0 1",
                 solref="-700 -100",
+                active="false",
             )
         )
 
@@ -610,8 +659,8 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         self._control_human()
 
     def _reset_internal(self):
-        self._reset_animation()
         super()._reset_internal()
+        self._reset_animation()
         self._control_human()
 
         self._animation_loop_properties = [
@@ -626,7 +675,7 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
 
         @sensor(modality="object")
         def object_quat(obs_cache: Dict[str, Any]) -> bool:
-            return T.convert_quat(self.sim.data.get_body_xquat("manipulation_object_main"), to="xyzw")
+            return T.convert_quat(self.sim.data.get_body_xquat("manipulation_object_root"), to="xyzw")
 
         @sensor(modality="object")
         def quat_eef_to_object(obs_cache: Dict[str, Any]) -> bool:
