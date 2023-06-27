@@ -1,5 +1,5 @@
 """
-Demo for testing PFL criterion. 
+Demo for testing PFL criterion.
 With PFL, robot can move past the human with reduced speed.
 With SSM, robot cannot move past the human because it is too close
 
@@ -10,7 +10,6 @@ Leonardo Maglanoc
 import robosuite as suite
 import time
 import numpy as np  # noqa: F401
-import matplotlib.pyplot as plt
 
 from robosuite.wrappers import GymWrapper
 from robosuite.controllers import load_controller_config
@@ -53,7 +52,7 @@ if __name__ == "__main__":
             shield_type="PFL",
             visualize_failsafe_controller=True,
             visualize_pinocchio=False,
-            human_animation_names=["CMU/static"],
+            human_animation_names=["Static/tpose"],
             base_human_pos_offset=[1.15, 0, 0.8],
             verbose=True,
             goal_dist=0.0001,

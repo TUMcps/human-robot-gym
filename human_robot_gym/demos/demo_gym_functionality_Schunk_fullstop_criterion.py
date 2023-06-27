@@ -1,5 +1,5 @@
 """
-Demo for testing fullstop criterion. 
+Demo for testing fullstop criterion.
 With SSM, the robot doesn't collide with the human.
 With PFL, the robot collides with the human with a reduced impact velocity.
 
@@ -10,7 +10,6 @@ Leonardo Maglanoc
 import robosuite as suite
 import time
 import numpy as np  # noqa: F401
-import matplotlib.pyplot as plt
 
 from robosuite.wrappers import GymWrapper
 from robosuite.controllers import load_controller_config
@@ -53,8 +52,8 @@ if __name__ == "__main__":
             shield_type="SSM",
             visualize_failsafe_controller=True,
             visualize_pinocchio=False,
-            human_animation_names=["CMU/static"],
-            base_human_pos_offset= [1.1, 0, 0.8],
+            human_animation_names=["Static/tpose"],
+            base_human_pos_offset=[1.1, 0, 0.8],
             verbose=True,
             goal_dist=0.0001,
         ),
@@ -83,5 +82,3 @@ if __name__ == "__main__":
             time.sleep(0.025)
             if done or t == t_max:
                 break
-
-    
