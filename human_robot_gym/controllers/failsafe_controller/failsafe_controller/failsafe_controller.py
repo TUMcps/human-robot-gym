@@ -165,8 +165,8 @@ class FailsafeController(JointPositionController):
                 base_orientation[3],
             ]
         )
-        self.table = AABB([base_pos[0]-1.0, base_pos[1]-1.0, base_pos[2]-0.1],
-                          [base_pos[0]+1.0, base_pos[1]+1.0, base_pos[2]+0.0])
+        self.table = AABB([base_pos[0]-0.5, base_pos[1]-0.5, 0.775],
+                          [base_pos[0]+0.5, base_pos[1]+0.5, 0.825])
         rpy = rot.as_euler("XYZ")
         # Unfortunately, all other native python enum functions seem to fail.
         self.shield_type = eval("ShieldType." + shield_type)
@@ -329,6 +329,10 @@ class FailsafeController(JointPositionController):
 
         current_time = self.sim.data.time
         self.desired_motion = self.safety_shield.step(current_time)
+        # Debug
+        print("Safety shield safe? {}", self.get_safety())
+        self.get_human_capsules()
+        # End debug
         desired_qpos = self.desired_motion.getAngle()
         desired_qvel = self.desired_motion.getVelocity()
         desided_qacc = self.desired_motion.getAcceleration()
@@ -415,7 +419,7 @@ class FailsafeController(JointPositionController):
         Returns:
             list[capsule]
         """
-        self.human_cap_in = self.safety_shield.getHumanReachCapsules()
+        self.human_cap_in = self.safety_shield.getHumanReachCapsules(2)
         if len(self.human_capsules) == 0:
             for cap in self.human_cap_in:
                 self.human_capsules.append(PlotCapsule(cap[0:3], cap[3:6], cap[6]))

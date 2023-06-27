@@ -12,7 +12,7 @@ from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 import human_robot_gym.environments.manipulation.reach_human_env  # noqa: F401
 import human_robot_gym.robots  # noqa: F401
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
-from human_robot_gym.wrappers.collision_prevention_wrapper import (
+from human_robot_gym.wrappers.collision_prevention_wrapper import (  # noqa: F401
     CollisionPreventionWrapper,
 )
 
@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
     env = VisualizationWrapper(env)
 
-    t_max = 1000
+    t_max = 120
     for i_episode in range(20):
         observation = env.reset()
         env.desired_goal = np.array([0, 2.0, -np.pi / 2 + 1.7, 0, -np.pi / 2, 0])
@@ -75,7 +75,7 @@ if __name__ == "__main__":
             action = env.action_space.sample()
             pos = np.array([env.sim.data.qpos[x] for x in env.robots[0]._ref_joint_pos_indexes])
             # goal = env.desired_goal
-            goal = np.abs(np.sin(t/t_max * 8 * 2 * np.pi)) * env.desired_goal
+            goal = np.abs(np.sin(t/t_max * 2 * np.pi)) * env.desired_goal
             action[:pos.shape[0]] = np.clip(goal-pos, -0.5, 0.5)
             observation, reward, done, info = env.step(action)
             # print("Reward: {}".format(reward))
