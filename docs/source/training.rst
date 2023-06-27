@@ -19,11 +19,12 @@ It contains several subfolders defining different aspects of the training:
     - `environment`: configuration files for the different environments provided by the human-robot-gym.
     - `expert`: specifies expert policies that could be used for imitation learning or RL from demonstrations (optional).
     - `robot`: which robot the agent should control inside the environment.
-    - `training`: defines the training hyperparameters, such as the number of training steps, the number of episodes, etc.
+    - `run`: defines the training hyperparameters, such as the number of training steps, the number of episodes, etc.
     - `wandb_run`: configures the logging to `Weights & Biases <https://wandb.ai>`_ (optional).
     - `wrappers`: used to add different wrappers to the environment to enable different features:
 
         - `action_based_expert_imitation_reward`: augments the reward function by adding an expert behavioral cloning term. Requires an expert to be configured.
+        - `dataset_obs_norm`: normalizes the observations using the mean and standard deviation of a dataset. Requires a stored dataset.
         - `collision_prevention`: Enables action replacement using the SaRA safety shield.
         - `ik_position_delta`: Changes the action space from joint space to Cartesian space. As such, actions are interpreted as intended cartesian movement of the robot end effector and joint torques are computed using inverse kinematics.
         - `visualization`: render the environment at every step
@@ -35,7 +36,7 @@ Running the training
 --------------------
 
 Training `stable-baselines3` RL agents can be done using the `human_robot_gym/training/train_SB3.py` script.
-To start a run, please select a config file from the `human_robot_gym/training/config` folder using the ``--config-name`` flag:
+To start a run, please select a config file from the `human_robot_gym/training/config` folder using the ``--config-name`` flag (or ``-cn`` for short):
 
 .. code-block:: bash
 
@@ -53,7 +54,7 @@ Config parameters can be overridden from the command line:
 
 .. code-block:: bash
 
-    python human_robot_gym/training/train_SB3.py --config-name human_reach_ppo_parallel training.run_type=debug training.n_envs=8 environment.horizon=1000
+    python human_robot_gym/training/train_SB3.py --config-name human_reach_ppo_parallel run.type=debug run.n_envs=8 environment.horizon=1000
 
 The configuration files are also stored in the `outputs/` directory at the corresponding timestamp.
 
@@ -70,12 +71,12 @@ Then you can configure wandb for your training:
 
 .. code-block:: bash
 
-    python human_robot_gym/training/train_SB3.py --config-name human_reach_ppo_parallel training.run_type=wandb wandb_run.project_name=my_project wandb_run.name=name_of_my_run wandb_run.group=group_of_my_run
+    python human_robot_gym/training/train_SB3.py --config-name human_reach_ppo_parallel run.type=wandb wandb_run.project_name=my_project wandb_run.name=name_of_my_run wandb_run.group=group_of_my_run
 
-You can store your trained models to disk by setting the ``training.run_type`` parameter to ``tensorboard`` or ``wandb``.
+You can store your trained models to disk by setting the ``run.type`` parameter to ``tensorboard`` or ``wandb``.
 This will create a subfolder in the `models/` directory corresponding to the id of your training run.
-In this folder, the final model will be stored as `model_final.zip`. If ``training.run_type`` is set to ``wandb``,
-intermediate models will be stored every ``training.save_freq`` episodes.
+In this folder, the final model will be stored as `model_final.zip`. If ``run.type`` is set to ``wandb``,
+intermediate models will be stored every ``run.save_freq`` episodes.
 A copy of your training config is also stored in this folder to ease loading the model from disk for evaluation.
 Finally, the replay buffer of the finished training is also stored when using an off-policy algorithm.
 
@@ -88,7 +89,7 @@ To evaluate a training by deploying the trained policy on a rendered test enviro
       - robot: schunk
       - environment: reach_human
       - wrappers: safe
-      - training: parallel_training
+      - run: parallel_training
       - algorithm: ppo
       - wandb_run: default_wandb
       - _self_

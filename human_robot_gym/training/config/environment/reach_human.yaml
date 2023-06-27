@@ -23,3 +23,4 @@ camera_names: frontview
 safe_vel: 0.01
 self_collision_safety: 0.012
 done_at_success: true
+randomize_initial_pos: false

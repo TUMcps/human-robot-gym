@@ -1,0 +1,8 @@
+defaults:
+  - pick_place_human_cart
+  - _self_
+
+env_id: PickPlacePointingHumanCart
+human_animation_names:
+  - PickPlacePointingHuman/0
+  - PickPlacePointingHuman/1

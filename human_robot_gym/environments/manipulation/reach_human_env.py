@@ -14,6 +14,7 @@ Changelog:
     16.05.23 FT Formatted docstrings
 """
 from typing import Any, Dict, Union, List, Optional, Tuple
+from dataclasses import asdict, dataclass
 
 import numpy as np
 
@@ -23,10 +24,34 @@ from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import ObjectPositionSampler
 
 from human_robot_gym.utils.mjcf_utils import xml_path_completion
-from human_robot_gym.environments.manipulation.human_env import HumanEnv
+from human_robot_gym.environments.manipulation.human_env import HumanEnv, HumanEnvState
 from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import (
     PinocchioManipulatorModel,
 )
+
+
+@dataclass
+class ReachHumanEnvState(HumanEnvState):
+    """Dataclass for encapsulating the state of the ReachHuman environment.
+    Extends the `HumanEnvState` dataclass to include all variables necessary
+    to restore a `PickPlaceHumanCart` environment state.
+
+    Attributes:
+        sim_state (np.ndarray): State of the mujoco simulation
+        human_animation_ids (np.ndarray): List of sampled human animation ids. During the episode this list is
+            iterated over and the corresponding human animation is played.
+        human_animation_ids_index (int): Index of the current human animation id in the list of human animation ids.
+        animation_start_time (int): Start time of the current human animation.
+        animation_time (int): Current time of the current human animation.
+        low_level_time (int): Current time of the low level controller.
+        human_pos_offset (List[float]): Offset of the human position.
+        human_rot_offset (List[float]): Offset of the human rotation.
+        desired_goals (List[np.ndarray]): List of desired goals. During the episode this list is
+            iterated over and the corresponding target_position is used.
+        desired_goals_index (int): Index of the current desired goal in the list of target_position.
+    """
+    desired_goals: List[np.ndarray]
+    desired_goals_index: int
 
 
 class ReachHuman(HumanEnv):
@@ -86,6 +111,10 @@ class ReachHuman(HumanEnv):
         reward_shaping (bool): if `True`, use dense rewards, else use sparse rewards.
 
         goal_dist (float): Distance threshold for reaching the goal.
+
+        n_goals_sampled_per_100_steps (int): Length of the list of desired goals to sample at resets.
+            After all goals of the list have been reached, restart from the first in the list.
+            This is done to ensure the same list of goals can be played when loading the env state from a file.
 
         collision_reward (float): Reward to be given in the case of a collision.
 
@@ -182,6 +211,10 @@ class ReachHuman(HumanEnv):
 
         human_rand (List[float]): Max. randomization of the human [x-pos, y-pos, z-angle]
 
+        n_animations_sampled_per_100_steps (int): How many animations to sample at resets per 100 steps in the horizon.
+            After all animations of the list have been played, restart from the first animation in the list.
+            This is done to ensure the same list of animations can be played when loading the env state from a file.
+
         safe_vel (float): Safe cartesian velocity. The robot is allowed to move with this velocity in the vicinity of
             humans.
 
@@ -216,6 +249,7 @@ class ReachHuman(HumanEnv):
         reward_scale: Optional[float] = 1.0,
         reward_shaping: bool = False,
         goal_dist: float = 0.1,
+        n_goals_sampled_per_100_steps: int = 8,
         collision_reward: float = -10,
         goal_reward: float = 1,
         object_placement_initializer: Optional[ObjectPositionSampler] = None,
@@ -259,6 +293,7 @@ class ReachHuman(HumanEnv):
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 120,
         human_rand: List[float] = [0.0, 0.0, 0.0],
+        n_animations_sampled_per_100_steps: int = 5,
         safe_vel: float = 0.001,
         randomize_initial_pos=False,
         self_collision_safety: float = 0.01,
@@ -278,7 +313,14 @@ class ReachHuman(HumanEnv):
         self.collision_reward = collision_reward
         self.goal_reward = goal_reward
         self.goal_dist = goal_dist
-        self.desired_goal = np.array([0.0])
+        self._desired_goals = None
+        self._desired_goals_index = 0
+        self._n_goals_to_sample_at_resets = int(
+            horizon * n_goals_sampled_per_100_steps / 100
+        )
+
+        self.goal_marker_trans = None
+        self.goal_marker_rot = None
         # object placement initializer
         self.object_placement_initializer = object_placement_initializer
         self.obstacle_placement_initializer = obstacle_placement_initializer
@@ -320,11 +362,17 @@ class ReachHuman(HumanEnv):
             base_human_pos_offset=base_human_pos_offset,
             human_animation_freq=human_animation_freq,
             human_rand=human_rand,
+            n_animations_sampled_per_100_steps=n_animations_sampled_per_100_steps,
             safe_vel=safe_vel,
             self_collision_safety=self_collision_safety,
             seed=seed,
             verbose=verbose,
         )
+
+    @property
+    def desired_goal(self):
+        """Return the current desired goal in the list of sampled goals."""
+        return self._desired_goals[self._desired_goals_index]
 
     def step(self, action):
         """Override base step function.
@@ -345,11 +393,11 @@ class ReachHuman(HumanEnv):
         obs, reward, done, info = super().step(action)
         if self.goal_reached:
             # if goal is reached, calculate a new goal.
-            self.desired_goal = self._sample_valid_pos()
+            self._desired_goals_index = (self._desired_goals_index + 1) % self._n_goals_to_sample_at_resets
             if isinstance(self.robots[0].robot_model, PinocchioManipulatorModel):
                 (self.goal_marker_trans, self.goal_marker_rot) = self.robots[
                     0
-                ].robot_model.get_eef_transformation(self.desired_goal)
+                ].robot_model.get_eef_transformation(self._desired_goals[self._desired_goals_index])
             self.goal_reached = False
         if self.has_renderer:
             self._visualize_goal()
@@ -496,11 +544,14 @@ class ReachHuman(HumanEnv):
             if self.robots[0].controller is not None:
                 self.robots[0].init_qpos = self._sample_valid_pos()
         super()._reset_internal()
-        self.desired_goal = self._sample_valid_pos()
+
+        self._desired_goals = [self._sample_valid_pos() for _ in range(self._n_goals_to_sample_at_resets)]
+        self._desired_goals_index = 0
+
         if isinstance(self.robots[0].robot_model, PinocchioManipulatorModel):
             (self.goal_marker_trans, self.goal_marker_rot) = self.robots[
                 0
-            ].robot_model.get_eef_transformation(self.desired_goal)
+            ].robot_model.get_eef_transformation(self._desired_goals[self._desired_goals_index])
 
     def _sample_valid_pos(self):
         """Randomly sample a new valid joint configuration
@@ -616,6 +667,8 @@ class ReachHuman(HumanEnv):
             observables[prefix + "eef_quat"].set_active(False)
         if "gripper_pos" in observables:
             observables["gripper_pos"].set_active(False)
+        if "gripper_aperture" in observables:
+            observables["gripper_aperture"].set_active(False)
 
         # low-level object information
         modality = "goal"
@@ -655,3 +708,34 @@ class ReachHuman(HumanEnv):
             label="",
             shininess=0.0,
         )
+
+    def get_environment_state(self) -> ReachHumanEnvState:
+        """Get the current state of the environment. Can be used for storing/loading.
+
+        Returns:
+            state (ReachHumanEnvState): The current state of the environment.
+        """
+        human_env_state = super().get_environment_state()
+        return ReachHumanEnvState(
+            desired_goals=self._desired_goals,
+            desired_goals_index=self._desired_goals_index,
+            **asdict(human_env_state),
+        )
+
+    def set_environment_state(self, state: ReachHumanEnvState):
+        """Set the current state of the environment. Can be used for storing/loading.
+
+        Args:
+            ReachHumanEnvState: The state to be set.
+        """
+        super().set_environment_state(state)
+        self._desired_goals = state.desired_goals
+        self._desired_goals_index = state.desired_goals_index
+
+        if isinstance(self.robots[0].robot_model, PinocchioManipulatorModel):
+            (self.goal_marker_trans, self.goal_marker_rot) = self.robots[
+                0
+            ].robot_model.get_eef_transformation(self._desired_goals[self._desired_goals_index])
+
+        if self.has_renderer:
+            self._visualize_goal()

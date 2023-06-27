@@ -1,0 +1,5 @@
+defaults:
+  - default/reach_human@_here_
+  - _self_
+
+signal_to_noise_ratio: 0.95

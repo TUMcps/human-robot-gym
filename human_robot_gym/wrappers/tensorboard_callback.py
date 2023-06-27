@@ -34,7 +34,7 @@ class TensorboardCallback(WandbCallback):
         model_save_path: Path to save the model regularly.
         model_save_freq: Save the model every x episodes.
         gradient_save_freq: Save the gradients every x episodes.
-        save_freq: Save the model and replay buffer every x episodes.
+        save_freq: Save the model and replay buffer every x steps.
         model_file: predefined model file for loading / saving.
         start_episode: Define start episode (if model is loaded).
         additional_log_info_keys: Additionally log these keys from the info dict.
@@ -63,6 +63,7 @@ class TensorboardCallback(WandbCallback):
             verbose, model_save_path, model_save_freq, gradient_save_freq
         )
         self.save_freq = save_freq
+        self._n_stored_models = 0
         self.episode_counter = start_episode
         self.additional_log_info_keys = additional_log_info_keys
         self.model_file = model_file
@@ -108,20 +109,22 @@ class TensorboardCallback(WandbCallback):
                             "rollout/{}".format(key), safe_mean(self._info_buffer[key])
                         )
                         self._info_buffer[key] = []
-        return True
 
-    def _on_rollout_end(self) -> None:
-        """After each n-th rollout (episode), log data."""
-        # for key in self.additional_log_info_keys:
-        #     if key in self.locals["infos"][0]:
-        #         self.logger.record(key, self.locals["infos"][0][key])
-        # self.logger.dump(self.episode_counter)
-        if self.episode_counter % self.save_freq == 0:
+        # Store models every `self.save_freq` timesteps
+        # With parallel envs, `self.num_timesteps` is incremented by `n_envs` at each step
+        # Thus, We save the model at the first step that crosses the next threshold
+        if (n_stored_models := self.num_timesteps // self.save_freq) > self._n_stored_models:
+            self._n_stored_models = n_stored_models
+            if self.verbose > 0:
+                print(f"Saving model at {self.save_freq * self._n_stored_models} timesteps")
+
             self.model.save(
-                "{}/model_{}".format(self.model_file, str(self.episode_counter))
+                f"{self.model_file}/model_{self.save_freq * self._n_stored_models:_}"  # File format: model_100_000.zip
             )
             if hasattr(self.model, 'save_replay_buffer'):
-                self.model.save_replay_buffer("{}/replay_buffer".format(self.model_file))
+                self.model.save_replay_buffer(f"{self.model_file}/replay_buffer")
+
+        return True
 
     def _log_success_callback(
         self, locals_: Dict[str, Any], globals_: Dict[str, Any]

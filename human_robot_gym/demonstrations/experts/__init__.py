@@ -1,6 +1,10 @@
 from .expert import Expert  # noqa: 401
-from .pick_place_expert import PickPlaceExpert, PickPlaceExpertObservation  # noqa: 401
+from .reach_human_expert import ReachHumanExpert, ReachHumanExpertObservation  # noqa: 401
+from .reach_human_cart_expert import ReachHumanCartExpert  # noqa: 401
+from .pick_place_human_cart_expert import PickPlaceHumanCartExpert, PickPlaceHumanCartExpertObservation  # noqa: 401
 
 REGISTERED_EXPERTS = {
-    "PickPlace": PickPlaceExpert,
+    "ReachHuman": ReachHumanExpert,
+    "ReachHumanCart": ReachHumanCartExpert,
+    "PickPlaceHumanCart": PickPlaceHumanCartExpert,
 }

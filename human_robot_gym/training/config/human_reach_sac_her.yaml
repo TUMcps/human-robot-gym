@@ -2,15 +2,15 @@ defaults:
   - robot: schunk
   - environment: reach_human
   - wrappers: safe
-  - training: her_training
+  - run: her_training
   - algorithm: sac_her
   - wandb_run: default_wandb
   - _self_
   - consistent_seeding
 #  - eval  # uncomment to evaluate with renderer instead of training
 
-training:
-  run_type: wandb
+run:
+  type: wandb
   obs_keys:
     - object-state
     - goal_difference
