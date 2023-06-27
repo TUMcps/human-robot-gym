@@ -244,7 +244,7 @@ class FailsafeController(JointPositionController):
             init_roll=rpy[0],
             init_pitch=rpy[1],
             init_yaw=rpy[2],
-            init_qpos=init_qpos,
+            init_qpos=self.joint_pos,
             current_time=self.sim.data.time,
             environment_elements=[self.table],
             shield_type=self.shield_type
