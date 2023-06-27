@@ -459,7 +459,7 @@ class HumanEnv(SingleArmEnv):
                             self.failsafe_interventions += 1
                 # Step the simulation n times
                 for n in range(int(self.control_sample_time / self.model_timestep)):
-                    self._control_human()
+                    self._control_human(force_update=True)
                     # If qpos or qvel have been modified directly, the user is required to call forward() before step()
                     # if their udd_callback requires access to MuJoCo state set during the forward dynamics.
                     self.sim.forward()
