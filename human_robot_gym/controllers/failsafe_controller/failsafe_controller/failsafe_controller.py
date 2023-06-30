@@ -165,8 +165,8 @@ class FailsafeController(JointPositionController):
                 base_orientation[3],
             ]
         )
-        self.table = AABB([base_pos[0]-0.5, base_pos[1]-0.5, 0.775],
-                          [base_pos[0]+0.5, base_pos[1]+0.5, 0.825])
+        self.table = AABB([base_pos[0]-0.75, base_pos[1]-1.0, 0.82 - 0.05],
+                          [base_pos[0]+0.75, base_pos[1]+1.0, 0.82])
         rpy = rot.as_euler("XYZ")
         # Unfortunately, all other native python enum functions seem to fail.
         self.shield_type = eval("ShieldType." + shield_type)
