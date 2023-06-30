@@ -87,6 +87,9 @@ class CollaborativeLiftingCart(HumanEnv):
 
         task_reward (float): Reward to be given in the case of reaching the goal.
 
+        min_balance (float): If the dot product between the board's normal and the up vector is smaller than this
+            value, the episode is terminated.
+
         obstacle_placement_initializer (ObjectPositionSampler): if provided, will
             be used to place obstacles on every reset, else a `UniformRandomSampler`
             is used by default.
@@ -209,6 +212,7 @@ class CollaborativeLiftingCart(HumanEnv):
         reward_scale: Optional[float] = 1.0,
         collision_reward: float = -10,
         task_reward: float = 1,
+        min_balance: float = 0.8,
         obstacle_placement_initializer: Optional[ObjectPositionSampler] = None,
         has_renderer: bool = False,
         has_offscreen_renderer: bool = True,
@@ -233,7 +237,7 @@ class CollaborativeLiftingCart(HumanEnv):
         control_sample_time: float = 0.004,
         human_animation_names: List[str] = [
             "CollaborativeLifting/7",
-            # "CollaborativeLifting/8",
+            "CollaborativeLifting/8",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 30,
@@ -255,11 +259,14 @@ class CollaborativeLiftingCart(HumanEnv):
         self.reward_scale = reward_scale
         self.collision_reward = collision_reward
         self.task_reward = task_reward
+        self.min_balance = min_balance
 
         self.object_placement_initializer = None  # TODO
         self.obstacle_placement_initializer = obstacle_placement_initializer
         self.board = None
         self.board_body_id = None
+
+        self._n_steps_without_gripped_board = 0
 
         self.done_at_collision = done_at_collision
         self.done_at_success = done_at_success
@@ -308,6 +315,7 @@ class CollaborativeLiftingCart(HumanEnv):
         )
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
+        action[-1] = 1  # Always close the gripper
         obs, rew, done, info = super().step(action)
 
         if self.goal_reached:
@@ -321,6 +329,9 @@ class CollaborativeLiftingCart(HumanEnv):
 
     def _on_goal_reached(self):
         if not self.done_at_success:
+            self.robots[0].reset(deterministic=True)
+            self._reset_controller()
+            self._reset_pin_models()
             self._progress_to_next_animation(
                 animation_start_time=int(self.low_level_time / self.human_animation_step_length)
             )
@@ -360,6 +371,23 @@ class CollaborativeLiftingCart(HumanEnv):
         desired_goal: List[float],
         info: Dict[str, Any],
     ) -> bool:
+        balance = achieved_goal[0]
+        board_gripped = achieved_goal[1]
+
+        if board_gripped:
+            self._n_steps_without_gripped_board = 0
+        else:
+            self._n_steps_without_gripped_board += 1
+
+        if balance < self.min_balance:
+            if self.verbose:
+                print("Episode terminated due to board being unbalanced.")
+            return True
+        if self._n_steps_without_gripped_board > 5:
+            if self.verbose:
+                print("Episode terminated due to board not being gripped.")
+            return True
+
         if self.done_at_collision and COLLISION_TYPE(info["collision_type"]) not in (
             COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED
         ):
@@ -382,7 +410,8 @@ class CollaborativeLiftingCart(HumanEnv):
         # TODO
         return np.concatenate(
             [
-                [observation["board_quat"]],
+                [observation["board_balance"]],
+                [observation["board_gripped"]],
             ]
         ).tolist()
 
@@ -440,6 +469,7 @@ class CollaborativeLiftingCart(HumanEnv):
 
     def _reset_animation(self):
         self._animation_complete = False
+        self._n_steps_without_gripped_board = 0
 
         self.sim.data.set_joint_qpos(
             "board_joint0",
@@ -685,7 +715,7 @@ class CollaborativeLiftingCart(HumanEnv):
         if (obs_key := "gripper_pos") in observables:
             observables[obs_key].set_active(False)
 
-        # goal_mod = "goal"
+        goal_mod = "goal"
         obj_mod = "object"
 
         @sensor(modality=obj_mod)
@@ -695,6 +725,24 @@ class CollaborativeLiftingCart(HumanEnv):
         @sensor(modality=obj_mod)
         def board_quat(obs_cache: Dict[str, Any]) -> np.ndarray:
             return T.convert_quat(self.sim.data.body_xquat[self.board_body_id], to="xyzw")
+
+        @sensor(modality=goal_mod)
+        def board_balance(obs_cache: Dict[str, Any]) -> np.ndarray:
+            if "board_quat" not in obs_cache:
+                return np.zeros(1)
+            else:
+                balance = quat_to_rot(self.sim.data.body_xquat[self.board_body_id]).apply(
+                    np.array([0, 0, 1])
+                ).dot(np.array([0, 0, 1]))
+                print(f"balance: {balance}")
+                return balance
+
+        @sensor(modality=goal_mod)
+        def board_gripped(obs_cache: Dict[str, Any]) -> np.ndarray:
+            return self._check_grasp(
+                gripper=self.robots[0].gripper,
+                object_geoms=self.board,
+            )
 
         @sensor(modality=obj_mod)
         def vec_eef_to_board(obs_cache: Dict[str, Any]) -> np.ndarray:
@@ -717,6 +765,8 @@ class CollaborativeLiftingCart(HumanEnv):
         sensors = [
             board_pos,
             board_quat,
+            board_balance,
+            board_gripped,
             vec_eef_to_board,
             quat_eef_to_board,
         ]

@@ -114,7 +114,7 @@ if __name__ == "__main__":
         visualize_pinocchio=False,
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_rand=[0, 0.0, 0.0],
-        verbose=True,
+        verbose=False,
     )
 
     env = ExpertObsWrapper(
