@@ -46,7 +46,7 @@ if __name__ == "__main__":
             shield_type="PFL",
             visualize_failsafe_controller=True,
             visualize_pinocchio=False,
-            base_human_pos_offset=[1.45, -1.9, -0.52],
+            base_human_pos_offset=[1.45, -1.9, -0.54],
             verbose=True,
             goal_dist=0.0001,
             human_rand=[0.0, 0.0, 0.0],
