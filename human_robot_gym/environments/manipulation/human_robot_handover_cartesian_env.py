@@ -284,7 +284,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         visualize_pinocchio: bool = False,
         control_sample_time: float = 0.004,
         human_animation_names: List[str] = [
-            "HumanRobotHandover/0",
+            "HumanRobotHandover/Handover_9",
             # "HumanRobotHandover/1",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],

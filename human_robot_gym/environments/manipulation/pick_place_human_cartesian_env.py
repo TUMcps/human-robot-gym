@@ -645,7 +645,7 @@ class PickPlaceHumanCart(HumanEnv):
     def _sample_target_pos(self) -> np.ndarray:
         """Sample a new target location from the defined space.
 
-        Returns:
+        Returns:b
             np.ndarray: a new target location
         """
         return np.array(self.target_placement_initializer.sample()['target'][0])

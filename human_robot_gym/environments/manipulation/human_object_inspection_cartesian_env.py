@@ -344,6 +344,12 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         human_animation_names: List[str] = [
             "ObjectInspection/0",
             "ObjectInspection/1",
+            "ObjectInspection/2",
+            "ObjectInspection/3",
+            "ObjectInspection/4",
+            "ObjectInspection/5",
+            "ObjectInspection/6",
+            "ObjectInspection/7",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 30,

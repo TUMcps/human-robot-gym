@@ -282,8 +282,8 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         visualize_pinocchio: bool = False,
         control_sample_time: float = 0.004,
         human_animation_names: List[str] = [
-            "RobotHumanHandover/0",
-            "RobotHumanHandover/1",
+            "RobotHumanHandover/2",
+            # "RobotHumanHandover/1",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 30,
@@ -376,10 +376,19 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
         obs, rew, done, info = super().step(action)
 
-        if self.task_phase == RobotHumanHandoverPhase.REACH_OUT and self._human_should_grab_object(
+        contact_pos = self._human_should_grab_object(
             achieved_goal=self._get_achieved_goal_from_obs(observation=obs),
             desired_goal=self._get_desired_goal_from_obs(observation=obs),
-        ):
+        )
+
+        if self.task_phase == RobotHumanHandoverPhase.REACH_OUT and contact_pos is not None:
+            hammer_pos = self.sim.data.get_body_xpos("manipulation_object_root")
+
+            self.sim.model.body_pos[
+                self.sim.model.body_name2id("hammer_grip")
+            ] = quat_to_rot(self.sim.data.get_body_xquat("manipulation_object_root")).inv().apply(
+                contact_pos - hammer_pos
+            )
             self._human_pickup_object()
             self.task_phase = RobotHumanHandoverPhase.RETREAT
 
@@ -403,7 +412,7 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         self,
         achieved_goal: List[float],
         desired_goal: List[float],
-    ):
+    ) -> Optional[np.ndarray]:
         palm_geom_id = self.sim.model.geom_name2id(
             "Human_{}_Palm_collision".format(
                 "L"
@@ -419,12 +428,12 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         for contact in self.sim.data.contact[:self.sim.data.ncon]:
             if contact.geom1 == palm_geom_id:
                 if contact.geom2 in hammer_contact_geoms:
-                    return True
+                    return contact.pos
             elif contact.geom2 == palm_geom_id:
                 if contact.geom1 in hammer_contact_geoms:
-                    return True
+                    return contact.pos
 
-        return False
+        return None
 
     def _setup_arena(self):
         """Setup the mujoco arena.
@@ -498,7 +507,9 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
                 name="Human_L_Palm_collision",
                 pos="0.7753 0.1840 -0.0285",
                 type="ellipsoid",
-                size="0.035 0.03 0.035",
+                size="0.035 0.01 0.035",
+                margin="0.08",
+                gap="0.2"
             )
         )
 
@@ -512,11 +523,39 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
                 "geom",
                 group="1",
                 name="Human_R_Palm_collision",
-                pos="-0.7753 0.1840 -0.0285",
+                pos="-0.7753 0.1740 -0.0285",
                 type="ellipsoid",
-                size="0.035 0.03 0.035",
+                size="0.04 0.04 0.04",
+                margin="0.00",
+                gap="0.2",
             )
         )
+
+        hammer_grip = ET.Element(
+            "body",
+            name="hammer_grip",
+            pos="0 0 0",
+        )
+
+        hammer_grip.append(
+            ET.Element(
+                "geom",
+                name="hammer_grip_geom",
+                type="box",
+                size="0.06 0.06 0.06",
+                rgba="0.8 0.8 0.8 0.5",
+                contype="0",
+                conaffinity="0",
+                group="1",
+            )
+        )
+
+        find_elements(
+            root=self.model.root,
+            tags="body",
+            attribs={"name": "manipulation_object_root"},
+            return_first=True,
+        ).append(hammer_grip)
 
         self.model.worldbody.append(mocap_object)
 
@@ -525,8 +564,9 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
                 "weld",
                 name="manipulation_object_weld",
                 body1="mocap_object",
-                body2="manipulation_object_root",
-                relpose="0 0 -0.18 0 0 0 1",
+                body2="hammer_grip",
+                # relpose="0 0 -0.18 0 0 0 1",
+                relpose="0 0 0 1 0 0 0",  # MuJoCo quaternions: (w, x, y, z)
                 solref="-700 -100",
                 active="false",
             )
@@ -652,6 +692,10 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         self._n_delayed_timesteps = 0
 
         self._human_drop_object()
+
+        self.sim.model.body_pos[
+            self.sim.model.body_name2id("hammer_grip")
+        ] = np.array([0.0, 0.0, 0.0])
 
     def _progress_to_next_animation(self, animation_start_time: float):
         super()._progress_to_next_animation(animation_start_time=animation_start_time)
