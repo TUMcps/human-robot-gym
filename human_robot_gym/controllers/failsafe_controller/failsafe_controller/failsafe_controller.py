@@ -366,8 +366,9 @@ class FailsafeController(JointPositionController):
 
         # Return desired torques plus gravity compensations
         # Similar to PD+ control, without squared velocity term
+        feedback_torque = feedback_torque + desided_qacc
         self.torques = (
-            np.dot(self.mass_matrix, feedback_torque + desided_qacc)
+            np.dot(self.mass_matrix, feedback_torque)
             + self.torque_compensation
         )
 
