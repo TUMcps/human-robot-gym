@@ -567,7 +567,7 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
                 body2="hammer_grip",
                 # relpose="0 0 -0.18 0 0 0 1",
                 relpose="0 0 0 1 0 0 0",  # MuJoCo quaternions: (w, x, y, z)
-                solref="-700 -100",
+                # solref="-700 -100",
                 active="false",
             )
         )
@@ -652,6 +652,17 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
 
     def _control_human(self, force_update: bool = True):
         super()._control_human(force_update=True)
+
+        self.sim.data.qpos[
+            self.sim.model.joint_name2id(
+                "Human_{}_Wrist_x".format(
+                    "L"
+                    if self.human_animation_data[self.human_animation_id][1]["object_holding_hand"] == "left"
+                    else "R"
+                )
+            )
+        ] -= 100 * np.pi / 180
+
         self.sim.step()
         object_holding_hand = self.human_animation_data[self.human_animation_id][1]["object_holding_hand"]
 
@@ -779,7 +790,7 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
 
         return (
             bin_x_half * 0.45,
-            bin_x_half * 0.85,
+            bin_x_half * 0.75,
             -bin_y_half * 0.15,
             bin_y_half * 0.15,
         )
@@ -790,9 +801,9 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         if self.task_phase == RobotHumanHandoverPhase.APPROACH:
             color = [1, 0, 0, 0.7]
         elif self.task_phase == RobotHumanHandoverPhase.REACH_OUT:
-            color = [0, 1, 0, 0.7]
+            color = [1, 1, 0, 0.7]
         else:
-            color = [0, 0, 1, 0.7]
+            color = [0, 1, 0, 0.7]
 
         self.viewer.viewer.add_marker(
             pos=self.target_pos,
