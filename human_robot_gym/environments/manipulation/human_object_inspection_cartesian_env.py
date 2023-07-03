@@ -10,13 +10,13 @@ It is divided into four phases:
 If the object exits the target zone in the inspection phase, the human returns to the ready phase and
 the inspection has to be restarted.
 
+When using a fixed horizon, these four phases are looped until the horizon is reached.
+Otherwise, the episode ends with the animation.
+
 Reward is given once the task is done, i.e. the animation is finished.
 Optionally, this sparse reward can be reformulated as a step reward to yield additional gratification
 for grabbing the object and bringing it to the target zone or as a dense reward incorporating distances
 to the object and the target zone.
-
-When using a fixed horizon, these four phases are looped until the horizon is reached.
-Otherwise, the episode ends with the animation.
 
 Author: Felix Trost
 
@@ -52,7 +52,7 @@ class ObjectInspectionPhase(Enum):
 
 @dataclass
 class HumanObjectInspectionCartEnvState(PickPlaceHumanCartEnvState):
-    """Dataclass for encapsulating the state of the HumanObjectInspectionCart environment.
+    """Dataclass for encapsulating the state of the `HumanObjectInspectionCart` environment.
 
     Extends the `PickPlaceHumanCartEnvState` dataclass to include all variables necessary
     to restore a `HumanObjectInspectionCart` environment state.
@@ -441,7 +441,7 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
 
     @property
     def target_pos(self) -> np.ndarray:
-        """Evaluate the current position of the target.
+        """Current position of the target.
 
         Returns a position specified in the info json file of the current animation.
 

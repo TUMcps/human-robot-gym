@@ -285,7 +285,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         control_sample_time: float = 0.004,
         human_animation_names: List[str] = [
             "HumanRobotHandover/Handover_9",
-            # "HumanRobotHandover/1",
+            # "HumanRobotHandover/0",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 30,
@@ -346,7 +346,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             camera_segmentations=camera_segmentations,
             renderer=renderer,
             renderer_config=renderer_config,
-            use_failsafe_controller=use_failsafe_controller,
+            # use_failsafe_controller=use_failsafe_controller,
             visualize_failsafe_controller=visualize_failsafe_controller,
             visualize_pinocchio=visualize_pinocchio,
             control_sample_time=control_sample_time,

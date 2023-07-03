@@ -1,4 +1,4 @@
-"""Demo script for the pick place close human environment using a failsafe controller.
+"""Demo script for the robot-human handover environment using a failsafe controller.
 Uses a scripted expert to demonstrate the environment functionality.
 
 Pressing 'o' switches between scripted policy and keyboard control.
@@ -31,6 +31,8 @@ Available observations (possible GymWrapper keys):
         (x,y,z) absolute position of the target
     object_pos
         (x,y,z) absolute position of the object
+    object_quat
+        (x,y,z,w) quaternion of the object
     object_gripped
         (True/False) whether the object has contact to both fingerpads
     vec_eef_to_object
@@ -45,13 +47,15 @@ Available observations (possible GymWrapper keys):
                 vector from end effector to target (vec_eef_to_target)
             otherwise:
                 vector from end effector to object (vec_eef_to_object)
+    quat_eef_to_object
+        (x,y,z,w) relative quaternion from end effector to object
     robot0_proprio-state
         (7-tuple) concatenation of
             - robot0_eef_pos (robot0_proprio-state[0:3])
             - robot0_gripper_qpos (robot0_proprio-state[3:5])
             - robot0_gripper_qvel (robot0_proprio-state[5:7])
     object-state
-        (20-tuple) concatenation of
+        (28-tuple) concatenation of
             - gripper_aperture (object-state[0])
             - vec_eef_to_human_lh (object-state[1:4])
             - dist_eef_to_human_lh (object-state[4])
@@ -62,6 +66,8 @@ Available observations (possible GymWrapper keys):
             - object_pos (object-state[13:16])
             - vec_eef_to_object (object-state[16-19])
             - object_gripped (object-state[19])
+            - object_quat (object-state[20:24])
+            - quat_eef_to_object (object-state[20:24])
     goal-state
         (12-tuple) concatenation of
             - target_pos (object-state[0:3])
@@ -124,12 +130,12 @@ if __name__ == "__main__":
         horizon=1000,
         done_at_success=False,
         controller_configs=controller_configs,
-        shield_type="SSM",
+        shield_type="PFL",
         visualize_failsafe_controller=False,
         visualize_pinocchio=False,
         base_human_pos_offset=[0.0, 0.0, 0.0],
         verbose=True,
-        goal_dist=0.03
+        goal_dist=0.03,
     )
 
     env = ExpertObsWrapper(

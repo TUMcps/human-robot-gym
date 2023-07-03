@@ -1,11 +1,25 @@
-"""This file describes a variant for the pick place task
-where the robot should place the object onto the hand of the human.
+"""This file describes a robot-to-human handover task for a single robot arm in a human environment.
+
+The objective of this task is to pick the object up and place the it into the hand of the human.
+It is divided into three phases:
+    1. Approach: The human walks to the table
+    2. Reach out: The human extends one arm over the table to grasp the object
+    3. Retreat: Once the object was placed into the human's hand, the human moves back to the initial position.
+
+When using a fixed horizon, these four phases are looped until the horizon is reached.
+Otherwise, the episode ends with the animation.
+
+Reward is given once the task is done, i.e. the animation of the human is finished.
+Optionally, this sparse reward can be augmented by sub-objective rewards for the object being grasped by the robot
+and for being grasped by the human.
+
 
 Author
     Felix Trost (FT)
 
 Changelog:
     16.05.23 FT File creation
+    03.07.23 FT Tied task to human animations
 """
 from enum import Enum
 from typing import Any, Dict, List, Optional, OrderedDict, Tuple, Union
@@ -14,10 +28,11 @@ from dataclasses import asdict, dataclass
 import xml.etree.ElementTree as ET
 
 import numpy as np
-from robosuite.utils.observables import Observable, sensor
 from scipy.spatial.transform import Rotation
 import mujoco_py
 
+from robosuite.utils.observables import Observable, sensor
+from robosuite.utils.mjcf_utils import find_elements
 from robosuite.models.arenas import TableArena
 from robosuite.models.objects.composite import HammerObject
 from robosuite.utils.placement_samplers import ObjectPositionSampler
@@ -34,6 +49,7 @@ from human_robot_gym.utils.animation_utils import (
 
 
 class RobotHumanHandoverPhase(Enum):
+    """Enum for the different phases of the robot-human handover task."""
     APPROACH = 0
     REACH_OUT = 1
     RETREAT = 2
@@ -42,14 +58,55 @@ class RobotHumanHandoverPhase(Enum):
 
 @dataclass
 class RobotHumanHandoverCartEnvState(PickPlaceHumanCartEnvState):
+    """Dataclass for encapsulating the state of the `RobotHumanHandoverCart` environment.
+
+    Extends the `PickPlaceHumanCartEnvState` dataclass to include all variables necessary
+    to restore the state of the `RobotHumanHandoverCart` environment.
+
+    Attributes:
+        sim_state (np.ndarray): State of the mujoco simulation
+        human_animation_ids (np.ndarray): List of sampled human animation ids. During the episode this list is
+            iterated over and the corresponding human animation is played.
+        human_animation_ids_index (int): Index of the current human animation id in the list of human animation ids.
+        animation_start_time (int): Start time of the current human animation.
+        animation_time (int): Current time of the current human animation.
+        low_level_time (int): Current time of the low level controller.
+        human_pos_offset (List[float]): Offset of the human position.
+        human_rot_offset (List[float]): Offset of the human rotation.
+        object_placements_list (List[List[Tuple[str, np.ndarray]]]): List of object placements.
+            Stores joint name and joint position for each object for each placement.
+            During the episode this list is iterated over and the corresponding object joint position is used.
+        object_placements_list_index (int): Index of the current object joint position in the list of object joint
+            positions.
+        target_positions (List[np.ndarray]): List of target positions. During the episode this list is
+            iterated over and the corresponding target_position is used.
+        target_positions_index (int): Index of the current target position in the list of target_position.
+        task_phase (int): Value corresponding to the current task phase.
+        n_delayed_timesteps (int): Number of timesteps the current animation is delayed because of the loop phase.
+        animation_loop_properties (List[Tuple[float, float]]):  Loop amplitudes and speed modifiers
+            for all layered sines for all human animations sampled for the current episode.
+    """
     task_phase_value: int
     n_delayed_timesteps: int
     animation_loop_properties: List[Tuple[List[float], List[float]]]
 
 
 class RobotHumanHandoverCart(PickPlaceHumanCart):
-    """This class corresponds to the pick place task for a single robot arm in a human environment
-    where the robot should place the object to a spot on the table the human is pointing at.
+    """This class corresponds to a robot-to-human handover task, where the robot should pick up the object and place it
+    into the hand of the human.
+
+    The objective of this task is to pick the object up and place the it into the hand of the human.
+    It is divided into three phases:
+        1. Approach: The human walks to the table
+        2. Reach out: The human extends one arm over the table to grasp the object
+        3. Retreat: Once the object was placed into the human's hand, the human moves back to the initial position.
+
+    When using a fixed horizon, these four phases are looped until the horizon is reached.
+    Otherwise, the episode ends with the animation.
+
+    Reward is given once the task is done, i.e. the animation of the human is finished.
+    Optionally, this sparse reward can be augmented by sub-objective rewards for the object being grasped by the robot
+    and for being grasped by the human.
 
     Args:
         robots (str | List[str]): Specification for specific robot arm(s) to be instantiated within this env
@@ -297,12 +354,18 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         done_at_success: bool = False,
     ):
         self.task_phase: RobotHumanHandoverPhase = RobotHumanHandoverPhase.COMPLETE
-        self._manipulation_object_weld_eq_id = None
         self._n_delayed_timesteps = None
 
         self._animation_loop_properties = None
 
         self.object_in_human_hand_reward = object_in_human_hand_reward
+
+        self._l_palm_contact_geom_id = None
+        self._r_palm_contact_geom_id = None
+        self._manipulation_object_grip_body_id = None
+        self._manipulation_object_weld_eq_id = None
+        self._mocap_body_name = "mocap_object"
+        self._manipulation_object_grip_body_name = "manipulation_object_grip"
 
         super().__init__(
             robots=robots,
@@ -363,56 +426,55 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
 
     @property
     def animation_loop_amplitudes(self) -> Dict[str, List[float]]:
+        """Loop amplitudes for all layered sines for the current human animation."""
         return self._animation_loop_properties[self._human_animation_ids_index][0]
 
     @property
     def animation_loop_speeds(self) -> Dict[str, List[float]]:
+        """Loop speed modifiers for all layered sines for the current human animation."""
         return self._animation_loop_properties[self._human_animation_ids_index][1]
 
     @property
     def target_pos(self) -> np.ndarray:
-        return self.sim.data.get_mocap_pos("mocap_object")
+        """Current position of the target (i.e. the mocap object's position at the human's hand)."""
+        return self.sim.data.get_mocap_pos(self._mocap_body_name)
+
+    @property
+    def object_holding_hand(self) -> str:
+        return self.human_animation_data[self.human_animation_id][1]["object_holding_hand"]
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
+        """Override super `step` method to pick up the object if the human's palm is in contact with the object."""
         obs, rew, done, info = super().step(action)
 
-        contact_pos = self._human_should_grab_object(
+        contact_pos = self._get_object_palm_contact_pos(
             achieved_goal=self._get_achieved_goal_from_obs(observation=obs),
             desired_goal=self._get_desired_goal_from_obs(observation=obs),
         )
 
         if self.task_phase == RobotHumanHandoverPhase.REACH_OUT and contact_pos is not None:
-            hammer_pos = self.sim.data.get_body_xpos("manipulation_object_root")
-
-            self.sim.model.body_pos[
-                self.sim.model.body_name2id("hammer_grip")
-            ] = quat_to_rot(self.sim.data.get_body_xquat("manipulation_object_root")).inv().apply(
-                contact_pos - hammer_pos
-            )
-            self._human_pickup_object()
+            self._human_pickup_object(contact_pos=contact_pos)
             self.task_phase = RobotHumanHandoverPhase.RETREAT
 
         return obs, rew, done, info
 
-    def _on_goal_reached(self):
-        if self.done_at_success:
-            return
-
-        self._progress_to_next_animation(
-            animation_start_time=int(self.low_level_time / self.human_animation_step_length)
-        )
-
-        self._object_placements_list_index = (
-            (self._object_placements_list_index + 1) % self._n_objects_to_sample_at_resets
-        )
-        for joint_name, joint_qpos in self.object_placements:
-            self.sim.data.set_joint_qpos(joint_name, joint_qpos)
-
-    def _human_should_grab_object(
+    def _get_object_palm_contact_pos(
         self,
         achieved_goal: List[float],
         desired_goal: List[float],
     ) -> Optional[np.ndarray]:
+        """Determine the position of the contact between the object and the human's palm of the extended arm.
+
+        If there is no such contact, return `None`.
+
+        Args:
+            achieved_goal (List[float]): Achieved goal of the current timestep.
+            desired_goal (List[float]): Desired goal of the current timestep.
+
+        Returns:
+            Optional[np.ndarray]: Position of the contact between the object and the human's palm of the extended arm.
+                Set to `None` if there is no such contact.
+        """
         palm_geom_id = self.sim.model.geom_name2id(
             "Human_{}_Palm_collision".format(
                 "L"
@@ -435,152 +497,11 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
 
         return None
 
-    def _setup_arena(self):
-        """Setup the mujoco arena.
-
-        Must define `self.mujoco_arena`.
-        Defines `self.objects` and `self.obstacles`.
-        """
-        self.mujoco_arena = TableArena(
-            table_full_size=self.table_full_size,
-            table_offset=self.table_offset,
-            xml=xml_path_completion("arenas/table_arena.xml"),
-        )
-
-        self._set_origin()
-
-        self._set_mujoco_camera()
-
-        self.manipulation_object = HammerObject(
-            name="manipulation_object",
-            handle_length=(0.25, 0.3),
-            handle_density=10,
-            handle_radius=0.022
-        )
-
-        self.objects = [
-            self.manipulation_object,
-        ]
-
-        object_bin_boundaries = self._get_default_object_bin_boundaries()
-        self.object_placement_initializer = self._setup_placement_initializer(
-            name="ObjectSampler",
-            initializer=self.object_placement_initializer,
-            objects=self.objects,
-            x_range=[object_bin_boundaries[0], object_bin_boundaries[1]],
-            y_range=[object_bin_boundaries[2], object_bin_boundaries[3]],
-            z_offset=0.15
-        )
-
-        # << OBSTACLES >>
-        self._setup_collision_objects(
-            add_table=True,
-            add_base=True,
-            safety_margin=0.0
-        )
-        # Obstacles are elements that the robot should avoid.
-        self.obstacles = []
-        self.obstacle_placement_initializer = self._setup_placement_initializer(
-            name="ObstacleSampler",
-            initializer=self.obstacle_placement_initializer,
-            objects=self.obstacles,
-        )
-
-    def _postprocess_model(self):
-        super()._postprocess_model()
-
-        mocap_object = ET.Element(
-            "body", name="mocap_object", pos="0 0 0", quat="0 0 0 1", mocap="true"
-        )
-
-        from robosuite.utils.mjcf_utils import find_elements
-
-        find_elements(
-            root=self.model.root,
-            tags="body",
-            attribs={"name": "Human_L_Hand"},
-            return_first=True,
-        ).append(
-            ET.Element(
-                "geom",
-                group="1",
-                name="Human_L_Palm_collision",
-                pos="0.7753 0.1840 -0.0285",
-                type="ellipsoid",
-                size="0.035 0.01 0.035",
-                margin="0.08",
-                gap="0.2"
-            )
-        )
-
-        find_elements(
-            root=self.model.root,
-            tags="body",
-            attribs={"name": "Human_R_Hand"},
-            return_first=True,
-        ).append(
-            ET.Element(
-                "geom",
-                group="1",
-                name="Human_R_Palm_collision",
-                pos="-0.7753 0.1740 -0.0285",
-                type="ellipsoid",
-                size="0.04 0.04 0.04",
-                margin="0.00",
-                gap="0.2",
-            )
-        )
-
-        hammer_grip = ET.Element(
-            "body",
-            name="hammer_grip",
-            pos="0 0 0",
-        )
-
-        hammer_grip.append(
-            ET.Element(
-                "geom",
-                name="hammer_grip_geom",
-                type="box",
-                size="0.06 0.06 0.06",
-                rgba="0.8 0.8 0.8 0.5",
-                contype="0",
-                conaffinity="0",
-                group="1",
-            )
-        )
-
-        find_elements(
-            root=self.model.root,
-            tags="body",
-            attribs={"name": "manipulation_object_root"},
-            return_first=True,
-        ).append(hammer_grip)
-
-        self.model.worldbody.append(mocap_object)
-
-        self.model.equality.append(
-            ET.Element(
-                "weld",
-                name="manipulation_object_weld",
-                body1="mocap_object",
-                body2="hammer_grip",
-                # relpose="0 0 -0.18 0 0 0 1",
-                relpose="0 0 0 1 0 0 0",  # MuJoCo quaternions: (w, x, y, z)
-                # solref="-700 -100",
-                active="false",
-            )
-        )
-
-    def _setup_references(self):
-        super()._setup_references()
-        self._manipulation_object_weld_eq_id = mujoco_py.functions.mj_name2id(
-            self.sim.model, mujoco_py.const.OBJ_EQUALITY, "manipulation_object_weld"
-        )
-
-        assert self._manipulation_object_weld_eq_id != -1
-
     def _check_success(self, achieved_goal: List[float], desired_goal: List[float]) -> bool:
+        """Override the super class success condition to check if the animation is complete.
+
+        If the object is never passed to the human, the animation remains in the `REACH_OUT` phase.
+        """
         return self.task_phase == RobotHumanHandoverPhase.COMPLETE
 
     def reward(
@@ -589,20 +510,45 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         desired_goal: List[float],
         info: Dict[str, Any],
     ) -> float:
-        object_gripped = bool(achieved_goal[6])
+        r"""Override super method to modify the sparse reward function.
+
+        Compute the reward based on achieved and desired goals and the info dict.
+
+        If `self.reward_shaping` is `True`, the reward is the same as in the pick-place task:
+            r = (eef_to_object * 0.2 + object_to_target) * 0.1
+        Otherwise, we use a sparse reward function:
+            - `self.task_reward` if the task is completed (i.e. the animation is finished)
+            - `self._object_in_human_hand_reward` if the object was successfully passed to the human
+            - `self._object_gripped_reward` if the object is gripped
+            - `-1` otherwise
+
+        If a self-collision or a collision with the human occurs, `self.collision_reward` is added (a negative amount).
+        If `self.reward_scale` is not `None`, the reward is scaled by this amount.
+
+        Args:
+            achieved_goal (List[float]): Part of the robot state observation relevant for the goal.
+            desired_goal (List[float]): The desired goal.
+            info (Dict[str, Any]): The info dict.
+        Returns:
+            float: The reward.
+        """
+        if self.reward_shaping:
+            # Dense reward function is the same as in the pick-place task.
+            return super().reward(
+                achieved_goal=achieved_goal,
+                desired_goal=desired_goal,
+            )
 
         reward = -1
 
-        if self.reward_shaping:
-            # TODO implement reward shaping
-            pass
-        else:
-            if self._check_success(achieved_goal=achieved_goal, desired_goal=desired_goal):
-                reward = self.task_reward
-            elif self._check_object_in_target_zone(achieved_goal=achieved_goal, desired_goal=desired_goal):
-                reward = self.object_in_human_hand_reward
-            elif object_gripped:
-                reward = self.object_gripped_reward
+        object_gripped = bool(achieved_goal[6])
+
+        if self._check_success(achieved_goal=achieved_goal, desired_goal=desired_goal):
+            reward = self.task_reward
+        elif self._check_object_in_target_zone(achieved_goal=achieved_goal, desired_goal=desired_goal):
+            reward = self.object_in_human_hand_reward
+        elif object_gripped:
+            reward = self.object_gripped_reward
 
         if COLLISION_TYPE(info["collision_type"]) not in (COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED):
             reward += self.collision_reward
@@ -613,6 +559,25 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         return reward
 
     def _compute_animation_time(self, control_time: int) -> int:
+        """Compute the current animation time.
+
+        The human should loop a section of the animation in the `REACH_OUT` phase.
+        This phase is triggered by passing the first keyframe.
+        The second keyframe marks the time at which the human starts retreating from the table.
+
+        Looping is done by modulating the animation time with layered sine functions.
+        Amplitudes and frequencies are randomized via values in the animation info files
+        (see `sample_animation_loop_properties`).
+
+        After the object is passed to the human, the animation continues linearly from the current point.
+        This might lead to a delay for the animation to finish but prevents disruptive jumps in the animation.
+
+        Args:
+            control_time (int): Current time of the low level controller.
+
+        Returns:
+            int: Current time of the current human animation.
+        """
         animation_time = super()._compute_animation_time(control_time)
         classic_animation_time = animation_time
 
@@ -651,8 +616,10 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         return animation_time
 
     def _control_human(self, force_update: bool = True):
+        """Augment super class method to keep the mocap object's position at the human's hand."""
         super()._control_human(force_update=True)
 
+        # Hack to open the hand of the human upwards. TODO: create script to manipulate .bvh files instead
         self.sim.data.qpos[
             self.sim.model.joint_name2id(
                 "Human_{}_Wrist_x".format(
@@ -664,56 +631,45 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         ] -= 100 * np.pi / 180
 
         self.sim.step()
-        object_holding_hand = self.human_animation_data[self.human_animation_id][1]["object_holding_hand"]
+        self._update_mocap_body_transform()
 
-        if object_holding_hand == "left":
+    def _update_mocap_body_transform(self):
+        """Update the mocap body's position and orientation to be at the human's extended hand."""
+        if self.object_holding_hand == "left":
             hand_body_name = "Human_L_Hand"
-        elif object_holding_hand == "right":
+        elif self.object_holding_hand == "right":
             hand_body_name = "Human_R_Hand"
         else:
             raise ValueError(
-                f"Animation info file does not specify a valid value for object_holding_hand: {object_holding_hand}"
+                "Animation info file does not specify a valid value for object_holding_hand: "
+                f"{self.object_holding_hand}"
             )
 
         hand_rot = quat_to_rot(self.sim.data.get_body_xquat(hand_body_name))
 
-        if object_holding_hand == "left":
+        if self.object_holding_hand == "left":
             hand_rot *= Rotation.from_euler("y", -np.pi / 2)
         else:
             hand_rot *= Rotation.from_euler("y", np.pi / 2)
 
         pos_offset_towards_thumb = hand_rot.apply(np.array(
-            [0.02 if object_holding_hand == "left" else -0.02, -0.03, -0.03]
+            [0.02 if self.object_holding_hand == "left" else -0.02, -0.03, -0.03]
         ))
 
         quat = rot_to_quat(hand_rot)
 
         self.sim.data.set_mocap_pos(
-            "mocap_object",
+            self._mocap_body_name,
             self.sim.data.get_site_xpos(hand_body_name) + pos_offset_towards_thumb
         )
 
         self.sim.data.set_mocap_quat(
-            "mocap_object",
+            self._mocap_body_name,
             quat,
         )
 
-    def _reset_animation(self):
-        self.task_phase = RobotHumanHandoverPhase.APPROACH
-        self._n_delayed_timesteps = 0
-
-        self._human_drop_object()
-
-        self.sim.model.body_pos[
-            self.sim.model.body_name2id("hammer_grip")
-        ] = np.array([0.0, 0.0, 0.0])
-
-    def _progress_to_next_animation(self, animation_start_time: float):
-        super()._progress_to_next_animation(animation_start_time=animation_start_time)
-        self._reset_animation()
-        self._control_human()
-
     def _reset_internal(self):
+        """Reset the environment's internal state."""
         super()._reset_internal()
         self._reset_animation()
         self._control_human()
@@ -725,57 +681,96 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
             for human_animation_id in self._human_animation_ids
         ]
 
-    def _setup_observables(self) -> OrderedDict[str, Observable]:
-        observables = super()._setup_observables()
+    def _on_goal_reached(self):
+        """Generate a new task during the episode if `self.done_at_success` is set to `False`."""
+        if self.done_at_success:
+            return
 
-        @sensor(modality="object")
-        def object_quat(obs_cache: Dict[str, Any]) -> bool:
-            return T.convert_quat(self.sim.data.get_body_xquat("manipulation_object_root"), to="xyzw")
+        self._progress_to_next_animation(
+            animation_start_time=int(self.low_level_time / self.human_animation_step_length)
+        )
 
-        @sensor(modality="object")
-        def quat_eef_to_object(obs_cache: Dict[str, Any]) -> bool:
-            if "robot0_eef_quat" not in obs_cache or "object_quat" not in obs_cache:
-                return np.zeros(4)
+        self._object_placements_list_index = (
+            (self._object_placements_list_index + 1) % self._n_objects_to_sample_at_resets
+        )
+        for joint_name, joint_qpos in self.object_placements:
+            self.sim.data.set_joint_qpos(joint_name, joint_qpos)
 
-            quat = rot_to_quat(
-                quat_to_rot(obs_cache["object_quat"]) * quat_to_rot(obs_cache["robot0_eef_quat"]).inv()
-            )
-            return T.convert_quat(np.array(quat), "xyzw")
+    def _progress_to_next_animation(self, animation_start_time: float):
+        """Pick a new animation during an episode.
 
-        sensors = [
-            object_quat,
-            quat_eef_to_object,
-        ]
+        Called when the current animation is complete and `self.done_at_success` is set to `False`.
 
-        names = [s.__name__ for s in sensors]
+        Args:
+            animation_start_time (float): The time at which the new animation should start.
+        """
+        super()._progress_to_next_animation(animation_start_time=animation_start_time)
+        self._reset_animation()
+        self._control_human()
 
-        for name, s in zip(names, sensors):
-            observables[name] = Observable(
-                name=name,
-                sensor=s,
-                sampling_rate=self.control_freq,
-            )
+    def _reset_animation(self):
+        """Reset animation-dependent internal variables"""
+        self.task_phase = RobotHumanHandoverPhase.APPROACH
+        self._n_delayed_timesteps = 0
 
-        return observables
-
-    def _set_manipulation_object_equality_status(self, status: bool):
-        self.sim.model.eq_active[self._manipulation_object_weld_eq_id] = int(status)
+        self._human_drop_object()
 
     def _sample_target_pos(self) -> np.ndarray:
         """Override the parent function to return the current target position.
 
-        In contrast to the basic pick place environment, the target position is not sampled but
-        specified in the animation info json file.
+        It depends on the current location of the human's extended hand.
 
         Returns:
             np.ndarray: The current target position.
         """
-        return self._get_current_target_pos()
+        return self.target_pos
+
+    def _set_manipulation_object_equality_status(self, status: bool):
+        """Set the equality status of the weld connecting human and object.
+
+        The constraint is made between a mocap object at the human's extended hand and a sub-body
+        of the manipulation object. Used for the human grasping / dropping the object.
+
+        Args:
+            status (bool): Whether or not the equality constraint should be active.
+        """
+        self.sim.model.eq_active[self._manipulation_object_weld_eq_id] = int(status)
 
     def _human_drop_object(self):
+        """Separate the human from the object.
+        Reset position and orientation of the sub-body of the manipulation object that is connected to the human.
+        """
         self._set_manipulation_object_equality_status(False)
 
-    def _human_pickup_object(self):
+        self.sim.model.body_pos[self._manipulation_object_grip_body_id] = np.array([0.0, 0.0, 0.0])
+        self.sim.model.body_quat[self._manipulation_object_grip_body_id] = np.array([1, 0, 0, 0])
+
+    def _human_pickup_object(self, contact_pos: np.ndarray):
+        """Simulate the human grasping the object.
+
+        The sub-body of the manipulation object that is part of the equality between human and object is relocated to
+        match the contact position and orientation of the human's palm.
+
+        Visually, this appears as if the object was sticked to the human's palm,
+        without sudden jerks when the constraint is activated.
+
+        Args:
+            contact_pos (np.ndarray): Position of the contact between the object and the human's palm in world space.
+        """
+        manipulation_object_pos = self.sim.data.body_xpos[self.manipulation_object_body_id]
+
+        rot = quat_to_rot(self.sim.data.body_xquat[self.manipulation_object_body_id])
+
+        # Convert the global contact position to a local position within the object's local coordinate frame.
+        self.sim.model.body_pos[self._manipulation_object_grip_body_id] = rot.inv().apply(
+            contact_pos - manipulation_object_pos
+        )
+
+        # Change the rotation of the sub-body to match the rotation of the human's palm.
+        self.sim.model.body_quat[self._manipulation_object_grip_body_id] = rot_to_quat(
+            rot.inv() * quat_to_rot(self.sim.data.get_mocap_quat(self._mocap_body_name))
+        )
+
         self._set_manipulation_object_equality_status(True)
 
     def _get_default_object_bin_boundaries(self) -> Tuple[float, float, float, float]:
@@ -818,6 +813,228 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         """Visualize the goal space and the sampling space of initial object positions."""
         self._visualize_goal()
         self._visualize_object_sample_space()
+
+    def _setup_arena(self):
+        """Setup the mujoco arena. We use a hammer as manipulation object for the robot-human handover task.
+
+        Must define `self.mujoco_arena`.
+        Defines `self.objects` and `self.obstacles`.
+        """
+        self.mujoco_arena = TableArena(
+            table_full_size=self.table_full_size,
+            table_offset=self.table_offset,
+            xml=xml_path_completion("arenas/table_arena.xml"),
+        )
+
+        self._set_origin()
+
+        self._set_mujoco_camera()
+
+        self.manipulation_object = HammerObject(
+            name="manipulation_object",
+            handle_length=(0.25, 0.3),
+            handle_density=10,  # Reduced weight to make it easier to lift
+            handle_radius=0.022
+        )
+
+        self.objects = [
+            self.manipulation_object,
+        ]
+
+        object_bin_boundaries = self._get_default_object_bin_boundaries()
+        self.object_placement_initializer = self._setup_placement_initializer(
+            name="ObjectSampler",
+            initializer=self.object_placement_initializer,
+            objects=self.objects,
+            x_range=[object_bin_boundaries[0], object_bin_boundaries[1]],
+            y_range=[object_bin_boundaries[2], object_bin_boundaries[3]],
+            z_offset=0.15
+        )
+
+        # << OBSTACLES >>
+        self._setup_collision_objects(
+            add_table=True,
+            add_base=True,
+            safety_margin=0.0
+        )
+        # Obstacles are elements that the robot should avoid.
+        self.obstacles = []
+        self.obstacle_placement_initializer = self._setup_placement_initializer(
+            name="ObstacleSampler",
+            initializer=self.obstacle_placement_initializer,
+            objects=self.obstacles,
+        )
+
+    def _postprocess_model(self):
+        """Extend super class method to add additional elements to the model before creating the sim object."""
+        super()._postprocess_model()
+
+        # Object at the human hand (position and rotation), handover object may be welded to it
+        self._add_mocap_body_to_model()
+
+        # Geoms for detecting whether the human can grasp the object
+        self._add_palm_contact_geom_to_model(left_hand=True)
+        self._add_palm_contact_geom_to_model(left_hand=False)
+
+        # Body to which the mocap object can be welded to. When the object is grasped, this body is moved to
+        # the intersection point between the object and the palm contact geom.
+        self._add_manipulation_object_grip_to_model()
+
+        # Connection between a motion capture object at the human's hand and a sub-body of the object.
+        # Can be activated to simulate the human grasping the object.
+        self._add_weld_equality_to_model()
+
+    def _add_mocap_body_to_model(self) -> ET.Element:
+        """Add a mocap body to the model.
+
+        This body is a direct child of the world body and has no joints.
+        Its position and rotation can be controlled by calling `self.sim.data.set_mocap_pos` and
+        `self.sim.data.set_mocap_quat`.
+
+        Returns:
+            ET.Element: The created mocap body xml tree element.
+        """
+        mocap_object = ET.Element(
+            "body", name=self._mocap_body_name, pos="0 0 0", quat="0 0 0 1", mocap="true"
+        )
+
+        self.model.worldbody.append(mocap_object)
+
+        return mocap_object
+
+    def _add_palm_contact_geom_to_model(self, left_hand: bool) -> ET.Element:
+        """Add a geom to the model of the human at the palm of one of the hands. Which hand is determined by the
+        `left_hand` argument.
+
+        This geom is used to detect whether the human can grasp the object with the respective hand.
+        It produces inactive contacts, i.e. contacts that generate no forces but can be queried to check whether
+        a contact exists.
+
+        Args:
+            left_hand (bool): Whether to add the geom to the left or right hand.
+
+        Returns:
+            ET.Element: The created geom xml tree element.
+        """
+        palm_contact_geom = ET.Element(
+            "geom",
+            group="0",
+            name=f"Human_{'L' if left_hand else 'R'}_Palm_collision",
+            pos=f"{'0.7753' if left_hand else '-0.7753'} 0.1740 -0.0285",
+            type="ellipsoid",
+            size="0.04 0.04 0.04",
+            gap="0.2"  # Geom only produces inactive contacts
+        )
+
+        find_elements(
+            root=self.model.root,
+            tags="body",
+            attribs={"name": f"Human_{'L' if left_hand else 'R'}_Hand"},
+            return_first=True,
+        ).append(palm_contact_geom)
+
+        return palm_contact_geom
+
+    def _add_manipulation_object_grip_to_model(self) -> ET.Element:
+        """Add a body to the model of the manipulation object to which the mocap object can be welded to.
+
+        Returns:
+            ET.Element: The created body xml tree element.
+        """
+        manipulation_object_grip = ET.Element(
+            "body",
+            name=self._manipulation_object_grip_body_name,
+            pos="0 0 0",
+        )
+
+        find_elements(
+            root=self.model.root,
+            tags="body",
+            attribs={"name": "manipulation_object_root"},
+            return_first=True,
+        ).append(manipulation_object_grip)
+
+        return manipulation_object_grip
+
+    def _add_weld_equality_to_model(self) -> ET.Element:
+        """Add a weld equality to the model between the mocap object and the manipulation object grip.
+
+        This equality can be activated to simulate the human grasping the object.
+
+        Returns:
+            ET.Element: The created weld equality xml tree element.
+        """
+        equality = ET.Element(
+            "weld",
+            name="manipulation_object_weld",
+            body1=self._mocap_body_name,
+            body2=self._manipulation_object_grip_body_name,
+            relpose="0 0 0 1 0 0 0",  # MuJoCo quaternions: (w, x, y, z)
+            # solref="-700 -100",
+            active="false",
+        )
+
+        self.model.equality.append(equality)
+
+        return equality
+
+    def _setup_references(self):
+        """Extend super class method to add additional references.
+
+        Raises:
+            AssertionError: If any of the references could not be found.
+        """
+        super()._setup_references()
+        self._manipulation_object_weld_eq_id = mujoco_py.functions.mj_name2id(
+            self.sim.model, mujoco_py.const.OBJ_EQUALITY, "manipulation_object_weld"
+        )
+
+        self._l_palm_contact_geom_id = self.sim.model.geom_name2id("Human_L_Palm_collision")
+        self._r_palm_contact_geom_id = self.sim.model.geom_name2id("Human_R_Palm_collision")
+
+        self._manipulation_object_grip_body_id = self.sim.model.body_name2id(self._manipulation_object_grip_body_name)
+
+        assert self._manipulation_object_weld_eq_id != -1
+        assert self._l_palm_contact_geom_id != -1
+        assert self._r_palm_contact_geom_id != -1
+        assert self._manipulation_object_grip_body_id != -1
+
+    def _setup_observables(self) -> OrderedDict[str, Observable]:
+        """Extend super class method to add additional observables.
+
+        As we work with assymetric objects, the rotation of the object may be also of interest.
+        """
+        observables = super()._setup_observables()
+
+        @sensor(modality="object")
+        def object_quat(obs_cache: Dict[str, Any]) -> bool:
+            return T.convert_quat(self.sim.data.get_body_xquat("manipulation_object_root"), to="xyzw")
+
+        @sensor(modality="object")
+        def quat_eef_to_object(obs_cache: Dict[str, Any]) -> bool:
+            if "robot0_eef_quat" not in obs_cache or "object_quat" not in obs_cache:
+                return np.zeros(4)
+
+            quat = rot_to_quat(
+                quat_to_rot(obs_cache["object_quat"]) * quat_to_rot(obs_cache["robot0_eef_quat"]).inv()
+            )
+            return T.convert_quat(np.array(quat), "xyzw")
+
+        sensors = [
+            object_quat,
+            quat_eef_to_object,
+        ]
+
+        names = [s.__name__ for s in sensors]
+
+        for name, s in zip(names, sensors):
+            observables[name] = Observable(
+                name=name,
+                sensor=s,
+                sampling_rate=self.control_freq,
+            )
+
+        return observables
 
     def get_environment_state(self) -> RobotHumanHandoverCartEnvState:
         """Get the current state of the environment. Can be used for storing/loading.
