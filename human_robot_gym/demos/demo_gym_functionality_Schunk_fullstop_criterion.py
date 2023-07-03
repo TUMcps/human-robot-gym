@@ -1,21 +1,19 @@
-"""This script shows an example of the Schunk robot being safely controlled in the `ReachHuman`.
+"""
+Demo for testing fullstop criterion.
+With SSM, the robot doesn't collide with the human.
+With PFL, the robot collides with the human with a reduced impact velocity.
 
-For instance, this can be used with our provided training function to train a safe RL agent.
-
-Contributors:
-    Felix Trost (FT)
-
-Changelog:
-    16.06.23 FT Actions now provided by expert policy
+Author:
+Leonardo Maglanoc
 """
 
 import robosuite as suite
 import time
 import numpy as np  # noqa: F401
 
+from robosuite.wrappers import GymWrapper
 from robosuite.controllers import load_controller_config
 
-from human_robot_gym.demonstrations.experts import ReachHumanExpert
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 import human_robot_gym.environments.manipulation.reach_human_env  # noqa: F401
 import human_robot_gym.robots  # noqa: F401
@@ -23,7 +21,6 @@ from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.collision_prevention_wrapper import (
     CollisionPreventionWrapper,
 )
-from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
 
 if __name__ == "__main__":
     # Notice how the environment is wrapped by the wrapper
@@ -37,7 +34,7 @@ if __name__ == "__main__":
     controller_config = merge_configs(controller_config, robot_config)
     controller_configs = [controller_config]
 
-    env = ExpertObsWrapper(
+    env = GymWrapper(
         suite.make(
             "ReachHuman",
             robots="Schunk",  # use Sawyer robot
@@ -55,17 +52,14 @@ if __name__ == "__main__":
             shield_type="SSM",
             visualize_failsafe_controller=True,
             visualize_pinocchio=False,
-            base_human_pos_offset=[1.0, 0.0, 0.0],
+            human_animation_names=["Static/tpose"],
+            base_human_pos_offset=[1.1, 0, 0.8],
             verbose=True,
             goal_dist=0.0001,
-            human_rand=[1.0, 0.5, 0.2]
         ),
-        agent_keys=[
+        keys=[
             "object-state",
             "robot0_proprio-state",
-            "goal_difference"
-        ],
-        expert_keys=[
             "goal_difference"
         ]
     )
@@ -76,25 +70,15 @@ if __name__ == "__main__":
 
     env = VisualizationWrapper(env)
 
-    expert = ReachHumanExpert(
-        observation_space=env.observation_space,
-        action_space=env.action_space,
-        signal_to_noise_ratio=0.99,
-    )
-
-    expert_obs_wrapper = ExpertObsWrapper.get_from_wrapped_env(env=env)
-
-    t_max = 100
-    for i_episode in range(20):
+    t_max = 50
+    for i_episode in range(10):
         observation = env.reset()
         t1 = time.time()
         for t in range(t_max):
-            expert_observation = expert_obs_wrapper.current_expert_observation
-            action = expert(expert_observation)
-
+            action = np.array([0.0, 2, 0.0, 0.0, 0.0, 0.0, 0.0])
+            pos = np.array([env.sim.data.qpos[x] for x in env.robots[0]._ref_joint_pos_indexes])
+            goal = env.desired_goal
             observation, reward, done, info = env.step(action)
-            print("Reward: {}".format(reward))
+            time.sleep(0.025)
             if done or t == t_max:
-                print("Episode finished after {} timesteps".format(t + 1))
                 break
-        print("Episode {}, fps = {}".format(i_episode, t / (time.time() - t1)))

@@ -20,7 +20,7 @@ from scipy.spatial.transform import Rotation
 from robosuite.controllers.joint_pos import JointPositionController
 from robosuite.utils.control_utils import set_goal_position
 
-from safety_shield_py import SafetyShield
+from safety_shield_py import SafetyShield, ShieldType  # noqa: F401
 
 from .plot_capsule import PlotCapsule
 
@@ -49,6 +49,8 @@ class FailsafeController(JointPositionController):
         base_pos (list[double]): position of base [x, y, z]
 
         base_orientation (list[double]): orientation of base as quaternion [x, y, z, w]
+
+        shield_type (str): Shield type to use. Valid options are: "OFF", "SSM", and "PFL"
 
         input_max (float or Iterable of float): Maximum above which an inputted action will be clipped. Can be either be
             a scalar (same value for all action dimensions), or a list (specific values for each dimension). If the
@@ -117,6 +119,7 @@ class FailsafeController(JointPositionController):
         init_qpos,
         base_pos=[0.0, 0.0, 0.0],
         base_orientation=[0.0, 0.0, 0.0, 1.0],
+        shield_type="SSM",
         input_max=1,
         input_min=-1,
         output_max=0.05,
@@ -163,8 +166,10 @@ class FailsafeController(JointPositionController):
             ]
         )
         rpy = rot.as_euler("XYZ")
+        # Unfortunately, all other native python enum functions seem to fail.
+        self.shield_type = eval("ShieldType." + shield_type)
+
         self.safety_shield = SafetyShield(
-            activate_shield=True,
             sample_time=control_sample_time,
             trajectory_config_file=dir_path
             + "/../sara-shield/safety_shield/config/trajectory_parameters_schunk.yaml",
@@ -178,6 +183,7 @@ class FailsafeController(JointPositionController):
             init_pitch=rpy[1],
             init_yaw=rpy[2],
             init_qpos=init_qpos,
+            shield_type=self.shield_type
         )
         self.desired_motion = self.safety_shield.step(0.0)
         self.robot_capsules = []
@@ -194,12 +200,14 @@ class FailsafeController(JointPositionController):
 
     def reset(self,
               base_pos=[0.0, 0.0, 0.0],
-              base_orientation=[0.0, 0.0, 0.0, 1.0]):
+              base_orientation=[0.0, 0.0, 0.0, 1.0],
+              shield_type="SSM",):
         """Reset the failsafe controller.
 
         Args:
             base_pos (list[double]): position of base [x, y, z]
             base_orientation (list[double]): orientation of base as quaternion [x, y, z, w]
+            shield_type (str): Shield type to use. Valid options are: "OFF", "SSM", and "PFL"
         """
         self.goal_qpos = None
         # Torques being outputted by the controller
@@ -224,8 +232,9 @@ class FailsafeController(JointPositionController):
             ]
         )
         rpy = rot.as_euler("XYZ")
+        # Unfortunately, all other native python enum functions seem to fail.
+        self.shield_type = eval("ShieldType." + shield_type)
         self.safety_shield.reset(
-            activate_shield=True,
             init_x=base_pos[0],
             init_y=base_pos[1],
             init_z=base_pos[2],
@@ -233,7 +242,8 @@ class FailsafeController(JointPositionController):
             init_pitch=rpy[1],
             init_yaw=rpy[2],
             init_qpos=self.joint_pos,
-            current_time=self.sim.data.time
+            current_time=self.sim.data.time,
+            shield_type=self.shield_type
         )
 
     def set_goal(self, action, set_qpos=None):
