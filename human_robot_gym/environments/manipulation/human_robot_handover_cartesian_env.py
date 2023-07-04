@@ -1,11 +1,25 @@
-"""This file describes a variant for the pick place task
-where the robot should place the object onto the hand of the human.
+"""This file describes a human-to-robot handover task for a single robot arm in a human environment.
+
+The objective of this task is to grasp the object the human is holding and place it to a marked spot on the table.
+It is divided into four phases:
+    1. Approach: The robot moves towards the table.
+    2. Present: The human presents the object to the robot
+    3. Wait: Once the object was taken over by the robot,
+        the human waits until the robot has placed the object at the target.
+    4. Retreat: The human moves back to the starting position.
+
+When using a fixed horizon, these four phases are looped until the horizon is reached.
+Otherwise, the episode ends with the animation.
+
+Reward is given once the task is done, i.e. the animation of the human is finished.
+Optionally, this sparse reward can be augmented by sub-objective rewards for the object being grasped by the robot
+and for being placed at the target location.
 
 Author
     Felix Trost (FT)
 
 Changelog:
-    16.05.23 FT File creation
+    04.07.23 FT File creation
 """
 from enum import Enum
 from typing import Any, Dict, List, Optional, OrderedDict, Tuple, Union
@@ -35,6 +49,7 @@ from human_robot_gym.utils.animation_utils import (
 
 
 class HumanRobotHandoverPhase(Enum):
+    """Enum for the different phases of the human-robot handover task."""
     APPROACH = 0
     PRESENT = 1
     WAIT = 2
@@ -44,14 +59,57 @@ class HumanRobotHandoverPhase(Enum):
 
 @dataclass
 class HumanRobotHandoverCartEnvState(PickPlaceHumanCartEnvState):
+    """Dataclass for encapsulating the state of the `HumanRobotHandoverCart` environment.
+
+    Extends the `PickPlaceHumanCartEnvState` dataclass to include all variables necessary
+    to restore the state of the `HumanRobotHandoverCart` environment.
+
+    Attributes:
+        sim_state (np.ndarray): State of the mujoco simulation
+        human_animation_ids (np.ndarray): List of sampled human animation ids. During the episode this list is
+            iterated over and the corresponding human animation is played.
+        human_animation_ids_index (int): Index of the current human animation id in the list of human animation ids.
+        animation_start_time (int): Start time of the current human animation.
+        animation_time (int): Current time of the current human animation.
+        low_level_time (int): Current time of the low level controller.
+        human_pos_offset (List[float]): Offset of the human position.
+        human_rot_offset (List[float]): Offset of the human rotation.
+        object_placements_list (List[List[Tuple[str, np.ndarray]]]): List of object placements.
+            Stores joint name and joint position for each object for each placement.
+            During the episode this list is iterated over and the corresponding object joint position is used.
+        object_placements_list_index (int): Index of the current object joint position in the list of object joint
+            positions.
+        target_positions (List[np.ndarray]): List of target positions. During the episode this list is
+            iterated over and the corresponding target_position is used.
+        target_positions_index (int): Index of the current target position in the list of target_position.
+        task_phase_value (int): Value corresponding to the current task phase.
+        n_delayed_timesteps (List[int]): Number of timesteps the current animation is delayed
+            because of the loop phases. Contains two values: delays for the present and wait phase.
+        animation_loop_properties (List[Dict[str, Tuple[float, float]]]): Loop amplitudes and speed modifiers
+            for all layered sines for all human animations sampled for the current episode.
+    """
     task_phase_value: int
     n_delayed_timesteps: List[int]
     animation_loop_properties: List[Dict[str, Tuple[List[float], List[float]]]]
 
 
 class HumanRobotHandoverCart(PickPlaceHumanCart):
-    """This class corresponds to the pick place task for a single robot arm in a human environment
-    where the robot should place the object to a spot on the table the human is pointing at.
+    """This class corresponds to a human-to-robot handover task where the robot should take an object
+    the human is holding and place it to a target location.
+
+    It is divided into four phases:
+        1. Approach: The robot moves towards the table.
+        2. Present: The human presents the object to the robot
+        3. Wait: Once the object was taken over by the robot,
+            the human waits until the robot has placed the object at the target.
+        4. Retreat: The human moves back to the starting position.
+
+    When using a fixed horizon, these four phases are looped until the horizon is reached.
+    Otherwise, the episode ends with the animation.
+
+    Reward is given once the task is done, i.e. the animation of the human is finished.
+    Optionally, this sparse reward can be augmented by sub-objective rewards for the object being grasped by the robot
+    and for being placed at the target location.
 
     Args:
         robots (str | List[str]): Specification for specific robot arm(s) to be instantiated within this env
@@ -299,12 +357,14 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         done_at_success: bool = False,
     ):
         self.task_phase: HumanRobotHandoverPhase = HumanRobotHandoverPhase.COMPLETE
-        self._manipulation_object_weld_eq_id = None
         self._n_delayed_timesteps = None
 
         self._animation_loop_properties = None
 
         self.object_at_target_reward = object_at_target_reward
+
+        self._manipulation_object_weld_eq_id = None
+        self._mocap_body_name = "mocap_object"
 
         super().__init__(
             robots=robots,
@@ -379,7 +439,12 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
     def wait_animation_loop_speeds(self) -> Dict[str, List[float]]:
         return self._animation_loop_properties[self._human_animation_ids_index]["wait"][1]
 
+    @property
+    def object_holding_hand(self) -> str:
+        return self.human_animation_data[self.human_animation_id][1]["object_holding_hand"]
+
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
+        """Override super `step` method to manage the animation phase state machine."""
         obs, rew, done, info = super().step(action)
 
         if self.task_phase == HumanRobotHandoverPhase.PRESENT and obs["object_gripped"]:
@@ -393,7 +458,192 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
 
         return obs, rew, done, info
 
+    def _check_success(self, achieved_goal: List[float], desired_goal: List[float]) -> bool:
+        """Override the super class success condition to check if the animation is complete.
+
+        If the robot never graspes the object, the animation remains in the `PRESENT` phase.
+        If the robot does not manage to place the object to the target, the animation does not exceed the `WAIT` phase.
+        """
+        return self.task_phase == HumanRobotHandoverPhase.COMPLETE
+
+    def reward(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict[str, Any],
+    ) -> float:
+        r"""Override super method to modify the sparse reward function.
+
+        Compute the reward based on achieved and desired goals and the info dict.
+
+        If `self.reward_shaping` is `True`, the reward is the same as in the pick-place task:
+            r = (eef_to_object * 0.2 + object_to_target) * 0.1
+        Otherwise, we use a sparse reward function:
+            - `self.task_reward` if the task is completed (i.e. the animation is finished)
+            - `self._object_at_target_reward` if the object was successfully placed at the target
+            - `self._object_gripped_reward` if the object is gripped by the robot
+            - `-1` otherwise
+
+        If a self-collision or a collision with the human occurs, `self.collision_reward` is added (a negative amount).
+        If `self.reward_scale` is not `None`, the reward is scaled by this amount.
+
+        Args:
+            achieved_goal (List[float]): Part of the robot state observation relevant for the goal.
+            desired_goal (List[float]): The desired goal.
+            info (Dict[str, Any]): The info dict.
+        Returns:
+            float: The reward.
+        """
+        if self.reward_shaping:
+            # Dense reward function is the same as in the pick-place task.
+            return super().reward(
+                achieved_goal=achieved_goal,
+                desired_goal=desired_goal,
+            )
+
+        reward = -1
+
+        object_gripped = bool(achieved_goal[6])
+
+        if self._check_success(achieved_goal=achieved_goal, desired_goal=desired_goal):
+            reward = self.task_reward
+        elif self._check_object_in_target_zone(achieved_goal=achieved_goal, desired_goal=desired_goal):
+            reward = self.object_at_target_reward
+        elif object_gripped:
+            reward = self.object_gripped_reward
+
+        if COLLISION_TYPE(info["collision_type"]) not in (COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED):
+            reward += self.collision_reward
+
+        if self.reward_scale is not None:
+            reward *= self.reward_scale
+
+        return reward
+
+    def _compute_animation_time(self, control_time: int) -> int:
+        """Compute the current animation time.
+
+        The human should loop a section of the animation in the `PRESENT` phase.
+        This phase is triggered by passing the first keyframe.
+        The second keyframe marks the time at which the human should wait for the robot to correctly place the object.
+
+        Looping is done by modulating the animation time with layered sine functions.
+        Amplitudes and frequencies are randomized via values in the animation info files
+        (see `sample_animation_loop_properties`).
+
+        After the object was placed at the target, the animation continues linearly from the current point.
+        This might lead to a delay for the animation to finish but prevents disruptive jumps in the animation.
+
+        Args:
+            control_time (int): Current time of the low level controller.
+
+        Returns:
+            int: Current time of the current human animation.
+        """
+        animation_time = super()._compute_animation_time(control_time)
+        classic_animation_time = animation_time
+
+        animation_length = self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
+        keyframes = self.human_animation_data[self.human_animation_id][1]["keyframes"]
+
+        # Progress to present phase automatically depending on the animation
+        if animation_time > keyframes[0] and self.task_phase == HumanRobotHandoverPhase.APPROACH:
+            self.task_phase = HumanRobotHandoverPhase.PRESENT
+
+        # Within the present phase loop back and forth between the two keyframes enclosing it
+        if (
+            animation_time > keyframes[0] + (keyframes[1] - keyframes[0]) / 2 and
+            self.task_phase == HumanRobotHandoverPhase.PRESENT
+        ):
+            animation_time = int(
+                layered_sin_modulations(
+                    classic_animation_time=classic_animation_time,
+                    modulation_start_time=(keyframes[0] + keyframes[1]) / 2,
+                    amplitudes=self.present_animation_loop_amplitudes,
+                    speeds=self.present_animation_loop_speeds,
+                )
+            )
+
+            self._n_delayed_timesteps[0] = classic_animation_time - animation_time
+
+        # In the wait phase loop around the second keyframe
+        if self.task_phase == HumanRobotHandoverPhase.WAIT:
+            animation_time = int(
+                layered_sin_modulations(
+                    classic_animation_time=animation_time - self._n_delayed_timesteps[0],
+                    modulation_start_time=keyframes[1],
+                    amplitudes=self.wait_animation_loop_amplitudes,
+                    speeds=self.wait_animation_loop_speeds,
+                )
+            )
+
+            self._n_delayed_timesteps[1] = classic_animation_time - animation_time
+
+        # In the retreat phase run the animation linearly until it is finished
+        if self.task_phase == HumanRobotHandoverPhase.RETREAT:
+            animation_time -= self._n_delayed_timesteps[1]
+
+        # Once the animation is complete, freeze the animation time at the last frame
+        if animation_time >= animation_length - 1:
+            self.task_phase = HumanRobotHandoverPhase.COMPLETE
+            animation_time = animation_length - 1
+
+        return animation_time
+
+    def _control_human(self, force_update: bool = True):
+        """Augment super class method to keep the mocap object's position at the human's hand."""
+        super()._control_human(force_update=True)
+        self.sim.step()
+        self._update_mocap_body_transform()
+
+    def _update_mocap_body_transform(self):
+        """Update the mocap body's position and orientation to be at the human's extended hand."""
+        if self.object_holding_hand == "left":
+            hand_body_name = "Human_L_Hand"
+        elif self.object_holding_hand == "right":
+            hand_body_name = "Human_R_Hand"
+        else:
+            raise ValueError(
+                "Animation info file does not specify a valid value for object_holding_hand: "
+                f"{self.object_holding_hand}"
+            )
+
+        hand_rot = quat_to_rot(self.sim.data.get_body_xquat(hand_body_name))
+
+        pos_offset_towards_thumb = hand_rot.apply(np.array([0, 0, 1])) * 0.03
+
+        if self.object_holding_hand == "left":
+            hand_rot *= Rotation.from_euler("y", -np.pi / 2)
+        else:
+            hand_rot *= Rotation.from_euler("y", np.pi / 2)
+
+        quat = rot_to_quat(hand_rot)
+
+        self.sim.data.set_mocap_pos(
+            self._mocap_body_name,
+            self.sim.data.get_site_xpos(hand_body_name) + pos_offset_towards_thumb
+        )
+
+        self.sim.data.set_mocap_quat(
+            self._mocap_body_name,
+            quat,
+        )
+
+    def _reset_internal(self):
+        """Reset the environment's internal state."""
+        super()._reset_internal()
+        self._control_human()
+        self._reset_animation()
+
+        self._animation_loop_properties = [
+            sample_animation_loop_properties(
+                animation_info=self.human_animation_data[human_animation_id][1],
+            )
+            for human_animation_id in self._human_animation_ids
+        ]
+
     def _on_goal_reached(self):
+        """Generate a new task during the episode if `self.done_at_success` is set to `False`."""
         if self.done_at_success:
             return
 
@@ -404,6 +654,97 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         self._progress_to_next_animation(
             animation_start_time=int(self.low_level_time / self.human_animation_step_length)
         )
+
+    def _progress_to_next_animation(self, animation_start_time: float):
+        """Pick a new animation during an episode.
+
+        Called when the current animation is complete and `self.done_at_success` is set to `False`.
+
+        Args:
+            animation_start_time (float): The time at which the new animation should start.
+        """
+        super()._progress_to_next_animation(animation_start_time=animation_start_time)
+        self._control_human()
+        self._reset_animation()
+
+    def _reset_animation(self):
+        """Reset animation-dependent internal variables"""
+        self.task_phase = HumanRobotHandoverPhase.APPROACH
+        self._n_delayed_timesteps = [0, 0]
+
+        self._human_pickup_object()
+
+    def _set_manipulation_object_equality_status(self, status: bool):
+        """Set the equality status of the weld connecting human and object.
+
+        The constraint is made between a mocap object at the human's extended hand and the root body
+        of the manipulation object. Used for the human grasping / dropping the object.
+
+        Args:
+            status (bool): Whether or not the equality constraint should be active.
+        """
+        self.sim.model.eq_active[self._manipulation_object_weld_eq_id] = int(status)
+
+    def _human_drop_object(self):
+        """Separate the human from the object."""
+        self._set_manipulation_object_equality_status(False)
+
+    def _human_pickup_object(self):
+        """Put the object into the hand of the human"""
+        self.sim.data.set_joint_qpos(
+            "manipulation_object_joint0",
+            np.concatenate(
+                [
+                    self.sim.data.get_mocap_pos("mocap_object"),
+                    self.sim.data.get_mocap_quat("mocap_object"),
+                ]
+            )
+        )
+
+        self._set_manipulation_object_equality_status(True)
+
+    def _get_default_target_bin_boundaries(self) -> Tuple[float, float, float, float]:
+        """Get the x and y boundaries of the target sampling space.
+
+        Returns:
+            Tuple[float, float, float, float]:
+                Boundaries of sampling space in the form (xmin, xmax, ymin, ymax)
+        """
+        bin_x_half = self.table_full_size[0] / 2 - 0.05
+        bin_y_half = self.table_full_size[1] / 2 - 0.05
+
+        return (
+            bin_x_half * 0.45,
+            bin_x_half * 0.85,
+            -bin_y_half * 0.15,
+            bin_y_half * 0.15,
+        )
+
+    def _visualize_goal(self):
+        """Draw a sphere at the target location."""
+        # sphere (type 2)
+        if self.task_phase == HumanRobotHandoverPhase.APPROACH:
+            color = [1, 0, 0, 0.7]
+        elif self.task_phase == HumanRobotHandoverPhase.PRESENT:
+            color = [1, 1, 0, 0.7]
+        elif self.task_phase == HumanRobotHandoverPhase.WAIT:
+            color = [0, 1, 0, 0.7]
+        else:
+            color = [0, 0, 1, 0.7]
+
+        self.viewer.viewer.add_marker(
+            pos=self.target_pos,
+            type=2,
+            size=[self.goal_dist, self.goal_dist, self.goal_dist],
+            rgba=color,
+            label="",
+            shininess=0.0,
+        )
+
+    def _visualize(self):
+        """Visualize the goal space and the sampling space of initial object positions."""
+        self._visualize_goal()
+        self._visualize_target_sample_space()
 
     def _setup_arena(self):
         """Setup the mujoco arena.
@@ -471,26 +812,61 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         )
 
     def _postprocess_model(self):
+        """Extend super class method to add additional elements to the model before creating the sim object."""
         super()._postprocess_model()
 
+        # Object at the human hand (position and rotation), handover object may be welded to it
+        self._add_mocap_body_to_model()
+
+        # Connection between a motion capture object at the human's hand and the root body of the object.
+        # Can be activated to simulate the human grasping the object.
+        self._add_weld_equality_to_model()
+
+    def _add_mocap_body_to_model(self) -> ET.Element:
+        """Add a mocap body to the model.
+
+        This body is a direct child of the world body and has no joints.
+        Its position and rotation can be controlled by calling `self.sim.data.set_mocap_pos` and
+        `self.sim.data.set_mocap_quat`.
+
+        Returns:
+            ET.Element: The created mocap body xml tree element.
+        """
         mocap_object = ET.Element(
             "body", name="mocap_object", pos="0 0 0", quat="0 0 0 1", mocap="true"
         )
 
         self.model.worldbody.append(mocap_object)
 
-        self.model.equality.append(
-            ET.Element(
-                "weld",
-                name="manipulation_object_weld",
-                body1="mocap_object",
-                body2="manipulation_object_root",
-                relpose="0 -0.03 -0.26 0 0 0 1",
-                solref="-700 -100",
-            )
+        return mocap_object
+
+    def _add_weld_equality_to_model(self) -> ET.Element:
+        """Add a weld equality to the model between the mocap object and the manipulation object.
+
+        This equality can be deactivated to simulate the human letting go of the object.
+
+        Returns:
+            ET.Element: The created weld equality xml tree element.
+        """
+        equality = ET.Element(
+            "weld",
+            name="manipulation_object_weld",
+            body1="mocap_object",
+            body2="manipulation_object_root",
+            relpose="0 -0.03 -0.26 0 0 0 1",
+            solref="-700 -100",
         )
 
+        self.model.equality.append(equality)
+
+        return equality
+
     def _setup_references(self):
+        """Extend super class method to add additional references.
+
+        Raises:
+            AssertionError: If any of the references could not be found.
+        """
         super()._setup_references()
         self._manipulation_object_weld_eq_id = mujoco_py.functions.mj_name2id(
             self.sim.model, mujoco_py.const.OBJ_EQUALITY, "manipulation_object_weld"
@@ -498,158 +874,11 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
 
         assert self._manipulation_object_weld_eq_id != -1
 
-    def _check_success(self, achieved_goal: List[float], desired_goal: List[float]) -> bool:
-        return self.task_phase == HumanRobotHandoverPhase.COMPLETE
-
-    def reward(
-        self,
-        achieved_goal: List[float],
-        desired_goal: List[float],
-        info: Dict[str, Any],
-    ) -> float:
-        object_gripped = bool(achieved_goal[6])
-
-        reward = -1
-
-        if self.reward_shaping:
-            # TODO implement reward shaping
-            pass
-        else:
-            if self._check_success(achieved_goal=achieved_goal, desired_goal=desired_goal):
-                reward = self.task_reward
-            elif self._check_object_in_target_zone(achieved_goal=achieved_goal, desired_goal=desired_goal):
-                reward = self.object_at_target_reward
-            elif object_gripped:
-                reward = self.object_gripped_reward
-
-        if COLLISION_TYPE(info["collision_type"]) not in (COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED):
-            reward += self.collision_reward
-
-        if self.reward_scale is not None:
-            reward *= self.reward_scale
-
-        return reward
-
-    def _compute_animation_time(self, control_time: int) -> int:
-        animation_time = super()._compute_animation_time(control_time)
-        classic_animation_time = animation_time
-
-        animation_length = self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
-        keyframes = self.human_animation_data[self.human_animation_id][1]["keyframes"]
-
-        # Progress to present phase automatically depending on the animation
-        if animation_time > keyframes[0] and self.task_phase == HumanRobotHandoverPhase.APPROACH:
-            self.task_phase = HumanRobotHandoverPhase.PRESENT
-
-        # Within the present phase loop back and forth between the two keyframes enclosing it
-        if (
-            animation_time > keyframes[0] + (keyframes[1] - keyframes[0]) / 2 and
-            self.task_phase == HumanRobotHandoverPhase.PRESENT
-        ):
-            animation_time = int(
-                layered_sin_modulations(
-                    classic_animation_time=classic_animation_time,
-                    modulation_start_time=(keyframes[0] + keyframes[1]) / 2,
-                    amplitudes=self.present_animation_loop_amplitudes,
-                    speeds=self.present_animation_loop_speeds,
-                )
-            )
-
-            self._n_delayed_timesteps[0] = classic_animation_time - animation_time
-
-        # In the wait phase loop around the second keyframe
-        if self.task_phase == HumanRobotHandoverPhase.WAIT:
-            animation_time = int(
-                layered_sin_modulations(
-                    classic_animation_time=animation_time - self._n_delayed_timesteps[0],
-                    modulation_start_time=keyframes[1],
-                    amplitudes=self.wait_animation_loop_amplitudes,
-                    speeds=self.wait_animation_loop_speeds,
-                )
-            )
-
-            self._n_delayed_timesteps[1] = classic_animation_time - animation_time
-
-        # In the retreat phase run the animation linearly until it is finished
-        if self.task_phase == HumanRobotHandoverPhase.RETREAT:
-            animation_time -= self._n_delayed_timesteps[1]
-
-        # Once the animation is complete, freeze the animation time at the last frame
-        if animation_time >= animation_length - 1:
-            self.task_phase = HumanRobotHandoverPhase.COMPLETE
-            animation_time = animation_length - 1
-
-        return animation_time
-
-    def _control_human(self, force_update: bool = True):
-        super()._control_human(force_update=True)
-        self.sim.step()
-        object_holding_hand = self.human_animation_data[self.human_animation_id][1]["object_holding_hand"]
-
-        if object_holding_hand == "left":
-            hand_body_name = "Human_L_Hand"
-        elif object_holding_hand == "right":
-            hand_body_name = "Human_R_Hand"
-        else:
-            raise ValueError(
-                f"Animation info file does not specify a valid value for object_holding_hand: {object_holding_hand}"
-            )
-
-        hand_rot = quat_to_rot(self.sim.data.get_body_xquat(hand_body_name))
-
-        pos_offset_towards_thumb = hand_rot.apply(np.array([0, 0, 1])) * 0.03
-
-        if object_holding_hand == "left":
-            hand_rot *= Rotation.from_euler("y", -np.pi / 2)
-        else:
-            hand_rot *= Rotation.from_euler("y", np.pi / 2)
-
-        quat = rot_to_quat(hand_rot)
-
-        self.sim.data.set_mocap_pos(
-            "mocap_object",
-            self.sim.data.get_site_xpos(hand_body_name) + pos_offset_towards_thumb
-        )
-
-        self.sim.data.set_mocap_quat(
-            "mocap_object",
-            quat,
-        )
-
-    def _reset_animation(self):
-        self.task_phase = HumanRobotHandoverPhase.APPROACH
-        self._n_delayed_timesteps = [0, 0]
-
-        self.sim.data.set_joint_qpos(
-            "manipulation_object_joint0",
-            np.concatenate(
-                [
-                    self.sim.data.get_mocap_pos("mocap_object"),
-                    self.sim.data.get_mocap_quat("mocap_object"),
-                ]
-            )
-        )
-
-        self._human_pickup_object()
-
-    def _progress_to_next_animation(self, animation_start_time: float):
-        super()._progress_to_next_animation(animation_start_time=animation_start_time)
-        self._control_human()
-        self._reset_animation()
-
-    def _reset_internal(self):
-        super()._reset_internal()
-        self._control_human()
-        self._reset_animation()
-
-        self._animation_loop_properties = [
-            sample_animation_loop_properties(
-                animation_info=self.human_animation_data[human_animation_id][1],
-            )
-            for human_animation_id in self._human_animation_ids
-        ]
-
     def _setup_observables(self) -> OrderedDict[str, Observable]:
+        """Extend super class method to add additional observables.
+
+        As we work with assymetric objects, the rotation of the object may be also of interest.
+        """
         observables = super()._setup_observables()
 
         @sensor(modality="object")
@@ -681,58 +910,6 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             )
 
         return observables
-
-    def _set_manipulation_object_equality_status(self, status: bool):
-        self.sim.model.eq_active[self._manipulation_object_weld_eq_id] = int(status)
-
-    def _human_drop_object(self):
-        self._set_manipulation_object_equality_status(False)
-
-    def _human_pickup_object(self):
-        self._set_manipulation_object_equality_status(True)
-
-    def _get_default_target_bin_boundaries(self) -> Tuple[float, float, float, float]:
-        """Get the x and y boundaries of the object sampling space.
-
-        Returns:
-            Tuple[float, float, float, float]:
-                Boundaries of sampling space in the form (xmin, xmax, ymin, ymax)
-        """
-        bin_x_half = self.table_full_size[0] / 2 - 0.05
-        bin_y_half = self.table_full_size[1] / 2 - 0.05
-
-        return (
-            bin_x_half * 0.45,
-            bin_x_half * 0.85,
-            -bin_y_half * 0.15,
-            bin_y_half * 0.15,
-        )
-
-    def _visualize_goal(self):
-        """Draw a sphere at the target location."""
-        # sphere (type 2)
-        if self.task_phase == HumanRobotHandoverPhase.APPROACH:
-            color = [1, 0, 0, 0.7]
-        elif self.task_phase == HumanRobotHandoverPhase.PRESENT:
-            color = [1, 1, 0, 0.7]
-        elif self.task_phase == HumanRobotHandoverPhase.WAIT:
-            color = [0, 1, 0, 0.7]
-        else:
-            color = [0, 0, 1, 0.7]
-
-        self.viewer.viewer.add_marker(
-            pos=self.target_pos,
-            type=2,
-            size=[self.goal_dist, self.goal_dist, self.goal_dist],
-            rgba=color,
-            label="",
-            shininess=0.0,
-        )
-
-    def _visualize(self):
-        """Visualize the goal space and the sampling space of initial object positions."""
-        self._visualize_goal()
-        self._visualize_target_sample_space()
 
     def get_environment_state(self) -> HumanRobotHandoverCartEnvState:
         """Get the current state of the environment. Can be used for storing/loading.

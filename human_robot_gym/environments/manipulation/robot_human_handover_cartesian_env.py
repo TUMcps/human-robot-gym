@@ -6,13 +6,12 @@ It is divided into three phases:
     2. Reach out: The human extends one arm over the table to grasp the object
     3. Retreat: Once the object was placed into the human's hand, the human moves back to the initial position.
 
-When using a fixed horizon, these four phases are looped until the horizon is reached.
+When using a fixed horizon, these three phases are looped until the horizon is reached.
 Otherwise, the episode ends with the animation.
 
 Reward is given once the task is done, i.e. the animation of the human is finished.
 Optionally, this sparse reward can be augmented by sub-objective rewards for the object being grasped by the robot
 and for being grasped by the human.
-
 
 Author
     Felix Trost (FT)
@@ -81,7 +80,7 @@ class RobotHumanHandoverCartEnvState(PickPlaceHumanCartEnvState):
         target_positions (List[np.ndarray]): List of target positions. During the episode this list is
             iterated over and the corresponding target_position is used.
         target_positions_index (int): Index of the current target position in the list of target_position.
-        task_phase (int): Value corresponding to the current task phase.
+        task_phase_value (int): Value corresponding to the current task phase.
         n_delayed_timesteps (int): Number of timesteps the current animation is delayed because of the loop phase.
         animation_loop_properties (List[Tuple[float, float]]):  Loop amplitudes and speed modifiers
             for all layered sines for all human animations sampled for the current episode.
@@ -95,7 +94,6 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
     """This class corresponds to a robot-to-human handover task, where the robot should pick up the object and place it
     into the hand of the human.
 
-    The objective of this task is to pick the object up and place the it into the hand of the human.
     It is divided into three phases:
         1. Approach: The human walks to the table
         2. Reach out: The human extends one arm over the table to grasp the object
@@ -686,15 +684,15 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         if self.done_at_success:
             return
 
-        self._progress_to_next_animation(
-            animation_start_time=int(self.low_level_time / self.human_animation_step_length)
-        )
-
         self._object_placements_list_index = (
             (self._object_placements_list_index + 1) % self._n_objects_to_sample_at_resets
         )
         for joint_name, joint_qpos in self.object_placements:
             self.sim.data.set_joint_qpos(joint_name, joint_qpos)
+
+        self._progress_to_next_animation(
+            animation_start_time=int(self.low_level_time / self.human_animation_step_length)
+        )
 
     def _progress_to_next_animation(self, animation_start_time: float):
         """Pick a new animation during an episode.
@@ -1040,7 +1038,7 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         """Get the current state of the environment. Can be used for storing/loading.
 
         Returns:
-            state (HumanRobotHandoverCartEnvState): The current state of the environment.
+            state (RobotHumanHandoverCartEnvState): The current state of the environment.
         """
         pick_place_env_state = super().get_environment_state()
         return RobotHumanHandoverCartEnvState(
@@ -1054,7 +1052,7 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         """Set the current state of the environment. Can be used for storing/loading.
 
         Args:
-            HumanRobotHandoverCartEnvState: The state to be set.
+            RobotHumanHandoverCartEnvState: The state to be set.
         """
         self.task_phase = RobotHumanHandoverPhase(state.task_phase_value)
         self._n_delayed_timesteps = state.n_delayed_timesteps
