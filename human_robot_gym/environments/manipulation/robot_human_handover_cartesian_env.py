@@ -439,6 +439,7 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
 
     @property
     def object_holding_hand(self) -> str:
+        """Name of the hand the human is holding the object with. Should be either 'left' or 'right'."""
         return self.human_animation_data[self.human_animation_id][1]["object_holding_hand"]
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:

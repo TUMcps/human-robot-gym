@@ -425,22 +425,27 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
 
     @property
     def present_animation_loop_amplitudes(self) -> Dict[str, List[float]]:
+        """Loop amplitudes for all layered sines of the present phase for the current human animation."""
         return self._animation_loop_properties[self._human_animation_ids_index]["present"][0]
 
     @property
     def present_animation_loop_speeds(self) -> Dict[str, List[float]]:
+        """Loop speed modifiers for all layered sines of the present phase for the current human animation."""
         return self._animation_loop_properties[self._human_animation_ids_index]["present"][1]
 
     @property
     def wait_animation_loop_amplitudes(self) -> Dict[str, List[float]]:
+        """Loop amplitudes for all layered sines of the wait phase for the current human animation."""
         return self._animation_loop_properties[self._human_animation_ids_index]["wait"][0]
 
     @property
     def wait_animation_loop_speeds(self) -> Dict[str, List[float]]:
+        """Loop speed modifiers for all layered sines of the wait phase for the current human animation."""
         return self._animation_loop_properties[self._human_animation_ids_index]["wait"][1]
 
     @property
     def object_holding_hand(self) -> str:
+        """Name of the hand the human is holding the object with. Should be either 'left' or 'right'."""
         return self.human_animation_data[self.human_animation_id][1]["object_holding_hand"]
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
