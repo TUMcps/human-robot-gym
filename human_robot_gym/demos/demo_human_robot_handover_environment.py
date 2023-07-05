@@ -130,13 +130,14 @@ if __name__ == "__main__":
         horizon=5000,
         done_at_success=False,
         controller_configs=controller_configs,
-        use_failsafe_controller=True,
-        visualize_failsafe_controller=True,
+        shield_type="PFL",
+        visualize_failsafe_controller=False,
         visualize_pinocchio=False,
         base_human_pos_offset=[0.0, 0.0, 0.0],
         verbose=True,
         object_gripped_reward=-0.5,
         object_at_target_reward=0,
+        human_animation_freq=100,
     )
 
     env = ExpertObsWrapper(

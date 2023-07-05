@@ -337,7 +337,16 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         visualize_pinocchio: bool = False,
         control_sample_time: float = 0.004,
         human_animation_names: List[str] = [
+            "RobotHumanHandover/0",
+            "RobotHumanHandover/1",
             "RobotHumanHandover/2",
+            "RobotHumanHandover/3",
+            "RobotHumanHandover/4",
+            "RobotHumanHandover/5",
+            "RobotHumanHandover/6",
+            "RobotHumanHandover/7",
+            "RobotHumanHandover/8",
+            # "RobotHumanHandover/2",
             # "RobotHumanHandover/1",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
@@ -847,7 +856,9 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
             objects=self.objects,
             x_range=[object_bin_boundaries[0], object_bin_boundaries[1]],
             y_range=[object_bin_boundaries[2], object_bin_boundaries[3]],
-            z_offset=0.15
+            z_offset=0.15,
+            rotation=np.pi,
+            rotation_axis="y"
         )
 
         # << OBSTACLES >>

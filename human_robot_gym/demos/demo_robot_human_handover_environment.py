@@ -136,6 +136,7 @@ if __name__ == "__main__":
         base_human_pos_offset=[0.0, 0.0, 0.0],
         verbose=True,
         goal_dist=0.03,
+        human_animation_freq=100,
     )
 
     env = ExpertObsWrapper(

@@ -260,7 +260,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
 
         renderer_config (dict): dictionary for the renderer configurations
 
-        use_failsafe_controller (bool): Whether or not the safety shield / failsafe controller should be active
+        shield_type (str): Shield type to use. Valid options are: "OFF", "SSM", and "PFL"
 
         visualize_failsafe_controller (bool): Whether or not the reachable sets of the failsafe controller should be
             visualized
@@ -305,7 +305,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         controller_configs: Optional[Union[str, List[Dict[str, Any]]]] = None,
         gripper_types: Union[str, List[str]] = "default",
         initialization_noise: Union[str, List[str], List[Dict[str, Any]]] = "default",
-        table_full_size: Tuple[float, float, float] = (1.5, 2.0, 0.05),
+        table_full_size: Tuple[float, float, float] = (1., 2.0, 0.05),
         table_friction: Tuple[float, float, float] = (1.0, 5e-3, 1e-4),
         object_full_size: Tuple[float, float, float] = (0.04, 0.04, 0.04),
         use_camera_obs: bool = True,
@@ -337,13 +337,19 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         camera_segmentations: Optional[Union[str, List[str], List[List[str]]]] = None,
         renderer: str = "mujoco",
         renderer_config: Dict[str, Any] = None,
-        use_failsafe_controller: bool = True,
+        shield_type: str = "SSM",
         visualize_failsafe_controller: bool = False,
         visualize_pinocchio: bool = False,
         control_sample_time: float = 0.004,
         human_animation_names: List[str] = [
-            "HumanRobotHandover/Handover_9",
-            # "HumanRobotHandover/0",
+            "HumanRobotHandover/0",
+            "HumanRobotHandover/1",
+            "HumanRobotHandover/2",
+            "HumanRobotHandover/3",
+            "HumanRobotHandover/4",
+            "HumanRobotHandover/5",
+            "HumanRobotHandover/6",
+            "HumanRobotHandover/7",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 30,
@@ -406,7 +412,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             camera_segmentations=camera_segmentations,
             renderer=renderer,
             renderer_config=renderer_config,
-            # use_failsafe_controller=use_failsafe_controller,
+            shield_type=shield_type,
             visualize_failsafe_controller=visualize_failsafe_controller,
             visualize_pinocchio=visualize_pinocchio,
             control_sample_time=control_sample_time,
@@ -769,7 +775,9 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
 
         self.manipulation_object = HammerObject(
             name="manipulation_object",
-            handle_length=(0.35, 0.45),
+            handle_length=(0.25, 0.3),
+            handle_density=10,
+            handle_radius=0.022,
         )
 
         self.objects = [
@@ -827,12 +835,15 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         # Can be activated to simulate the human grasping the object.
         self._add_weld_equality_to_model()
 
-    def _add_mocap_body_to_model(self) -> ET.Element:
+    def _add_mocap_body_to_model(self, visualize: bool = False) -> ET.Element:
         """Add a mocap body to the model.
 
         This body is a direct child of the world body and has no joints.
         Its position and rotation can be controlled by calling `self.sim.data.set_mocap_pos` and
         `self.sim.data.set_mocap_quat`.
+
+        Args:
+            visualize (bool): If `True`, visualize the mocap body with a cube geom. Defaults to `False`.
 
         Returns:
             ET.Element: The created mocap body xml tree element.
@@ -840,6 +851,20 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         mocap_object = ET.Element(
             "body", name="mocap_object", pos="0 0 0", quat="0 0 0 1", mocap="true"
         )
+
+        if visualize:
+            mocap_object.append(
+                ET.Element(
+                    "geom",
+                    name="mocap_object_vis",
+                    size="0.1 0.1 0.1",
+                    rgba="0.8 0.2 0.2 0.7",
+                    type="box",
+                    contype="0",
+                    conaffinity="0",
+                    group="1",
+                )
+            )
 
         self.model.worldbody.append(mocap_object)
 
@@ -856,10 +881,10 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         equality = ET.Element(
             "weld",
             name="manipulation_object_weld",
-            body1="mocap_object",
-            body2="manipulation_object_root",
-            relpose="0 -0.03 -0.26 0 0 0 1",
-            solref="-700 -100",
+            body2=self._mocap_body_name,
+            body1=self.manipulation_object.root_body,
+            relpose="0 0.045 0.15 1 0 0 0",
+            # solref="-700 -100",
         )
 
         self.model.equality.append(equality)

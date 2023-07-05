@@ -16,7 +16,7 @@ import argparse
 import os
 import numpy as np
 
-from bvh import Bvh
+import bvhio
 
 
 if __name__ == "__main__":
