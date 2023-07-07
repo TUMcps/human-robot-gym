@@ -243,16 +243,16 @@ class CollaborativeLiftingCart(HumanEnv):
         control_sample_time: float = 0.004,
         human_animation_names: List[str] = [
             "CollaborativeLifting/0",
-            "CollaborativeLifting/1",
-            "CollaborativeLifting/2",
-            "CollaborativeLifting/3",
-            "CollaborativeLifting/4",
-            "CollaborativeLifting/5",
-            "CollaborativeLifting/6",
-            "CollaborativeLifting/7",
-            "CollaborativeLifting/8",
-            "CollaborativeLifting/9",
-            "CollaborativeLifting/10",
+            # "CollaborativeLifting/1",
+            # "CollaborativeLifting/2",
+            # "CollaborativeLifting/3",
+            # "CollaborativeLifting/4",
+            # "CollaborativeLifting/5",
+            # "CollaborativeLifting/6",
+            # "CollaborativeLifting/7",
+            # "CollaborativeLifting/8",
+            # "CollaborativeLifting/9",
+            # "CollaborativeLifting/10",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 30,
@@ -356,82 +356,6 @@ class CollaborativeLiftingCart(HumanEnv):
 
         return obs, rew, done, info
 
-    def _on_goal_reached(self):
-        if not self.done_at_success:
-            self.robots[0].reset(deterministic=True)
-            self._reset_controller()
-            self._reset_pin_models()
-            self._progress_to_next_animation(
-                animation_start_time=int(self.low_level_time / self.human_animation_step_length)
-            )
-
-    def reward(
-        self,
-        achieved_goal: List[float],
-        desired_goal: List[float],
-        info: Dict[str, Any],
-    ) -> float:
-        reward = -1.0
-
-        if self._check_success(achieved_goal=achieved_goal, desired_goal=desired_goal):
-            reward = self.task_reward
-
-        # TODO
-
-        # Add a penalty for self-collisions and collisions with the human
-        if COLLISION_TYPE(info["collision_type"]) not in (COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED):
-            reward += self.collision_reward
-
-        if self.reward_scale is not None:
-            reward *= self.reward_scale
-
-        return reward
-
-    def _check_success(
-        self,
-        achieved_goal: List[float],
-        desired_goal: List[float]
-    ) -> bool:
-        return self._animation_complete
-
-    def _check_done(
-        self,
-        achieved_goal: List[float],
-        desired_goal: List[float],
-        info: Dict[str, Any],
-    ) -> bool:
-        balance = achieved_goal[0]
-        board_gripped = achieved_goal[1]
-
-        if board_gripped:
-            self._n_steps_without_gripped_board = 0
-        else:
-            self._n_steps_without_gripped_board += 1
-
-        if balance < self.min_balance:
-            if self.verbose:
-                print("Episode terminated due to board being unbalanced.")
-            return True
-        if self._n_steps_without_gripped_board > 1:
-            if self.verbose:
-                print("Episode terminated due to board not being gripped.")
-            return True
-
-        if self.done_at_collision and COLLISION_TYPE(info["collision_type"]) not in (
-            COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED
-        ):
-            return True
-
-        success = self._check_success(
-            achieved_goal=achieved_goal,
-            desired_goal=desired_goal,
-        )
-
-        if self.done_at_success and success:
-            return True
-
-        return False
-
     def _get_achieved_goal_from_obs(
         self,
         observation: OrderedDict[str, Any],
@@ -455,6 +379,73 @@ class CollaborativeLiftingCart(HumanEnv):
                 [observation[f"{robot_prefix}eef_pos"]],
             ]
         ).tolist()
+
+    def _check_success(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float]
+    ) -> bool:
+        return self._animation_complete
+
+    def reward(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict[str, Any],
+    ) -> float:
+        reward = -1.0
+
+        if self._check_success(achieved_goal=achieved_goal, desired_goal=desired_goal):
+            reward = self.task_reward
+
+        # TODO
+
+        # Add a penalty for self-collisions and collisions with the human
+        if COLLISION_TYPE(info["collision_type"]) not in (COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED):
+            reward += self.collision_reward
+
+        if self.reward_scale is not None:
+            reward *= self.reward_scale
+
+        return reward
+
+    def _check_done(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict[str, Any],
+    ) -> bool:
+        balance = achieved_goal[0]
+        board_gripped = achieved_goal[1]
+
+        if board_gripped:
+            self._n_steps_without_gripped_board = 0
+        else:
+            self._n_steps_without_gripped_board += 1
+
+        if balance < self.min_balance:
+            if self.verbose:
+                print("Episode terminated due to board being unbalanced.")
+            return True
+        if self._n_steps_without_gripped_board > 5:
+            if self.verbose:
+                print("Episode terminated due to board not being gripped.")
+            return True
+
+        if self.done_at_collision and COLLISION_TYPE(info["collision_type"]) not in (
+            COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED
+        ):
+            return True
+
+        success = self._check_success(
+            achieved_goal=achieved_goal,
+            desired_goal=desired_goal,
+        )
+
+        if self.done_at_success and success:
+            return True
+
+        return False
 
     def _compute_animation_time(self, control_time: int) -> int:
         animation_time = super()._compute_animation_time(control_time)
@@ -496,6 +487,15 @@ class CollaborativeLiftingCart(HumanEnv):
             rh_quat,
         )
 
+    def _on_goal_reached(self):
+        if not self.done_at_success:
+            self.robots[0].reset(deterministic=True)
+            self._reset_controller()
+            self._reset_pin_models()
+            self._progress_to_next_animation(
+                animation_start_time=int(self.low_level_time / self.human_animation_step_length)
+            )
+
     def _reset_animation(self):
         self._animation_complete = False
         self._n_steps_without_gripped_board = 0
@@ -510,6 +510,16 @@ class CollaborativeLiftingCart(HumanEnv):
             )
         )
 
+    def _human_pickup_object(self):
+        self._change_grip_equalities_active(True)
+
+    def _human_drop_object(self):
+        self._change_grip_equalities_active(False)
+
+    def _change_grip_equalities_active(self, active: bool):
+        self.sim.model.eq_active[self.eq_l_id] = active
+        self.sim.model.eq_active[self.eq_r_id] = active
+
     def _progress_to_next_animation(self, animation_start_time: float):
         super()._progress_to_next_animation(animation_start_time=animation_start_time)
         self._control_human()
@@ -523,6 +533,34 @@ class CollaborativeLiftingCart(HumanEnv):
 
         self._control_human()
         self._reset_animation()
+
+    def reset(self) -> OrderedDict[str, Any]:
+        obs = super().reset()
+
+        # Try 2 steps to grasp the board, reset again if unsuccessful
+        for i in range(2):
+            obs, _, done, _ = self.step(np.concatenate(
+                [
+                    [0 for _ in range(self.action_dim - 1)],
+                    [1],
+                ]
+            ))
+
+            if done:
+                if self.verbose:
+                    print(f"Episode done after {i} steps. Animation id: {self.human_animation_id}")
+                return self.reset()
+
+            if self._check_grasp(
+                gripper=self.robots[0].gripper,
+                object_geoms=self.board,
+            ):
+                return obs
+
+        if self.verbose:
+            print(f"Episode terminated due to unsuccessful grasp. Animation id: {self.human_animation_id}")
+
+        return self.reset()
 
     def _setup_arena(self):
         """Setup the mujoco arena.
@@ -691,7 +729,7 @@ class CollaborativeLiftingCart(HumanEnv):
                 body1="rh_grip",
                 body2="rh_mocap_object",
                 anchor="0 0 0",
-                active="false",
+                active="true",
                 solimp="-100 -100"
             )
         )
@@ -707,16 +745,6 @@ class CollaborativeLiftingCart(HumanEnv):
         self.eq_r_id = mujoco_py.functions.mj_name2id(
             self.sim.model, mujoco_py.const.OBJ_EQUALITY, "rh_mocap_object_connect",
         )
-
-    def _human_pickup_object(self):
-        self._change_grip_equalities_active(True)
-
-    def _human_drop_object(self):
-        self._change_grip_equalities_active(False)
-
-    def _change_grip_equalities_active(self, active: bool):
-        self.sim.model.eq_active[self.eq_l_id] = active
-        self.sim.model.eq_active[self.eq_r_id] = active
 
     def _setup_observables(self) -> OrderedDict[str, Observable]:
         observables = super()._setup_observables()
