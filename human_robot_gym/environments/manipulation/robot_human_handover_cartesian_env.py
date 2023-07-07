@@ -628,17 +628,6 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         """Augment super class method to keep the mocap object's position at the human's hand."""
         super()._control_human(force_update=True)
 
-        # Hack to open the hand of the human upwards. TODO: create script to manipulate .bvh files instead
-        self.sim.data.qpos[
-            self.sim.model.joint_name2id(
-                "Human_{}_Wrist_x".format(
-                    "L"
-                    if self.human_animation_data[self.human_animation_id][1]["object_holding_hand"] == "left"
-                    else "R"
-                )
-            )
-        ] -= 100 * np.pi / 180
-
         self.sim.step()
         self._update_mocap_body_transform()
 
