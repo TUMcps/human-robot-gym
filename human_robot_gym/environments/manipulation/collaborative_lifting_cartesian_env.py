@@ -744,6 +744,7 @@ class CollaborativeLiftingCart(HumanEnv):
         )
 
     def _postprocess_model(self):
+        """Extend super class method to add elements to the model before creating the sim object."""
         super()._postprocess_model()
 
         r_anchor = "-0.45 -0.25, 0"
@@ -759,6 +760,16 @@ class CollaborativeLiftingCart(HumanEnv):
         r_anchor_pos: str,
         visualize: bool = False
     ) -> Tuple[ET.Element, ET.Element]:
+        """Add two mocap objects to the model. These are used to keep the board at the human's hands.
+
+        Args:
+            l_anchor_pos (str): The position attribute of the left mocap object.
+            r_anchor_pos (str): The position attribute of the right mocap object.
+            visualize (bool): Whether or not to visualize the mocap objects. Defaults to False.
+
+        Returns:
+            Tuple[ET.Element, ET.Element]: The nodes for both mocap objects.
+        """
         lh_mocap_object = ET.Element(
             "body",
             name=self._lh_mocap_body_name,
@@ -813,6 +824,16 @@ class CollaborativeLiftingCart(HumanEnv):
         r_anchor_pos: str,
         visualize: bool = False
     ) -> Tuple[ET.Element, ET.Element]:
+        """Add two bodies to the board that are connected to the mocap objects at the human's hands.
+
+        Args:
+            l_anchor_pos (str): The position attribute of the left grip.
+            r_anchor_pos (str): The position attribute of the right grip.
+            visualize (bool): Whether or not to visualize the grips. Defaults to False.
+
+        Returns:
+            Tuple[ET.Element, ET.Element]: The nodes for both grips.
+        """
         box_elem = find_elements(
             root=self.model.root,
             tags="body",
@@ -861,6 +882,12 @@ class CollaborativeLiftingCart(HumanEnv):
         return l_grip, r_grip
 
     def _add_connect_equalities_to_model(self) -> Tuple[ET.Element, ET.Element]:
+        """Add two connect equalities to the model that connect the grip bodies at the board
+        to the mocap objects at the human's hands.
+
+        Returns:
+            Tuple[ET.Element, ET.Element]: The nodes for both connect equalities.
+        """
         l_eq = ET.Element(
             "connect",
             name=self._lh_connect_name,
@@ -900,6 +927,7 @@ class CollaborativeLiftingCart(HumanEnv):
         )
 
     def _setup_references(self):
+        """Extend super class method by setting up additional references."""
         super()._setup_references()
 
         self.board_body_id = self.sim.model.body_name2id(self.board.root_body)
@@ -912,6 +940,16 @@ class CollaborativeLiftingCart(HumanEnv):
         )
 
     def _setup_observables(self) -> OrderedDict[str, Observable]:
+        """Extend super class method to set up additional observables.
+
+        The following observables are added:
+        - board_pos: The position of the board.
+        - board_quat: The orientation of the board.
+        - board_balance: The dot product between the board's normal and the up vector.
+        - board_gripped: Whether or not the board is grasped by the robot
+        - vec_eef_to_board: The relative vector from the robot's end effector to the board.
+        - quat_eef_to_board: The relative quaternion from the robot's end effector to the board.
+        """
         observables = super()._setup_observables()
 
         robot_prefix = self.robots[0].robot_model.naming_prefix
