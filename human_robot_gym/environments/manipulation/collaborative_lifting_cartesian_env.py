@@ -487,6 +487,16 @@ class CollaborativeLiftingCart(HumanEnv):
             rh_quat,
         )
 
+    def _change_grip_equalities_active(self, active: bool):
+        self.sim.model.eq_active[self.eq_l_id] = active
+        self.sim.model.eq_active[self.eq_r_id] = active
+
+    def _human_pickup_object(self):
+        self._change_grip_equalities_active(True)
+
+    def _human_drop_object(self):
+        self._change_grip_equalities_active(False)
+
     def _on_goal_reached(self):
         if not self.done_at_success:
             self.robots[0].reset(deterministic=True)
@@ -509,16 +519,6 @@ class CollaborativeLiftingCart(HumanEnv):
                 ]
             )
         )
-
-    def _human_pickup_object(self):
-        self._change_grip_equalities_active(True)
-
-    def _human_drop_object(self):
-        self._change_grip_equalities_active(False)
-
-    def _change_grip_equalities_active(self, active: bool):
-        self.sim.model.eq_active[self.eq_l_id] = active
-        self.sim.model.eq_active[self.eq_r_id] = active
 
     def _progress_to_next_animation(self, animation_start_time: float):
         super()._progress_to_next_animation(animation_start_time=animation_start_time)
