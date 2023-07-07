@@ -1,4 +1,4 @@
-"""Demo script for the human object inspection environment using a failsafe controller.
+"""Demo script for the collaborative lifting environment using a failsafe controller.
 Uses a scripted expert to demonstrate the environment functionality.
 
 Pressing 'o' switches between scripted policy and keyboard control.
@@ -13,50 +13,43 @@ Available observations (possible GymWrapper keys):
         (l,r) gripper joint position
     robot0_gripper_qvel
         (l,r) gripper joint velocity
-    eef_to_human_head
+    vec_eef_to_human_head
         (x,y,z) vector from end effector to human head
-    eef_to_human_lh
+    vec_eef_to_human_lh
         (x,y,z) vector from end effector to human left hand
-    eef_to_human_rh
+    vec_eef_to_human_rh
         (x,y,z) vector from end effector to human right hand
-    target_pos
-        (x,y,z) absolute position of the target
-    object_pos
-        (x,y,z) absolute position of the object
-    object_gripped
-        (True/False) whether the object has contact to both fingerpads
-    eef_to_object
+    board_pos
+        (x,y,z) absolute position of the board
+    board_quat
+        (x,y,z,w) absolute orientation of the board
+    board_balance
+        The dot product of the board normal and the up vector (0,0,1)
+    board_gripped
+        (True/False) whether the board has contact to both fingerpads
+    vec_eef_to_board
         (x,y,z) vector from end effector to object (object_pos - robot0_eef_pos)
-    object_to_target
-        (x,y,z) vector from object to target (target_pos - object_pos)
-    eef_to_target
-        (x,y,z) vector from end effector to target (target_pos - robot0_eef_pos)
-    vec_to_next_objective
-        (x,y,z)
-            if the object is gripped (object_gripped):
-                vector from object to target (object_to_target)
-            otherwise:
-                vector from end effector to object (eef_to_object)
+    quat_eef_to_board
+        (x,y,z,w) relative quaternion from end effector to object
+        quat_eef_to_board = board_quat * robot0_eef_quat^{-1}
     robot0_proprio-state
         (7-tuple) concatenation of
             -robot0_eef_pos (robot0_proprio-state[0:3])
             -robot0_gripper_qpos (robot0_proprio-state[3:5])
             -robot0_gripper_qvel (robot0_proprio-state[5:7])
     object-state
-        (16-tuple) concatenation of
-            -human_head_to_eff (object-state[0:3])
-            -human_lh_to_eff (object-state[3:6])
-            -human_rh_to_eff (object-state[6:9])
-            -object_pos (object-state[9:12])
-            -eef_to_object (object-state[12-15])
-            -object_gripped (object-state[15])
+        (23-tuple) concatenation of
+            -vec_human_head_to_eef (object-state[0:3])
+            -vec_human_lh_to_eef (object-state[3:6])
+            -vec_human_rh_to_eef (object-state[6:9])
+            -board_pos (object-state[9:12])
+            -board_quat (object-state[12:16])
+            -vec_eef_to_board (object-state[16:19])
+            -quat_eef_to_board (object-state[19:23])
     goal-state
-        (12-tuple) concatenation of
-            -target_pos (object-state[0:3])
-            -object_to_target (object-state[3:6])
-            -eef_to_target (object-state[6:9])
-            -vec_to_next_objective (object-state[9:12])
-
+        (2-tuple) concatenation of
+            -board_balance (goal-state[0])
+            -board_gripped (goal-state[1])
 Author:
     Felix Trost
 

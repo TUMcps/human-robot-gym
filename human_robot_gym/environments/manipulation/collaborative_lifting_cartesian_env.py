@@ -949,6 +949,9 @@ class CollaborativeLiftingCart(HumanEnv):
         - board_gripped: Whether or not the board is grasped by the robot
         - vec_eef_to_board: The relative vector from the robot's end effector to the board.
         - quat_eef_to_board: The relative quaternion from the robot's end effector to the board.
+
+        Returns:
+            OrderedDict[str, Observable]: The observables of the environment.
         """
         observables = super()._setup_observables()
 
@@ -1013,11 +1016,11 @@ class CollaborativeLiftingCart(HumanEnv):
 
         @sensor(modality=obj_mod)
         def quat_eef_to_board(obs_cache: Dict[str, Any]) -> np.ndarray:
-            if "robot0_eef_quat" not in obs_cache or "object_quat" not in obs_cache:
+            if "robot0_eef_quat" not in obs_cache or "board_quat" not in obs_cache:
                 return np.zeros(4)
 
             quat = rot_to_quat(
-                quat_to_rot(obs_cache["object_quat"]) * quat_to_rot(obs_cache["robot0_eef_quat"]).inv()
+                quat_to_rot(obs_cache["board_quat"]) * quat_to_rot(obs_cache["robot0_eef_quat"]).inv()
             )
             return T.convert_quat(np.array(quat), "xyzw")
 
@@ -1042,5 +1045,25 @@ class CollaborativeLiftingCart(HumanEnv):
         return observables
 
     def _visualize(self):
-        """Visualize the goal space and the sampling space of initial object positions."""
-        pass
+        """Place markers in the renderer to highlight certain elements."""
+        self._visualize_board_normal()
+
+    def _visualize_board_normal(self):
+        """Visualize the board's normal as a marker in the renderer."""
+        balance = quat_to_rot(self.sim.data.body_xquat[self.board_body_id]).apply(
+            np.array([0, 0, 1])
+        ).dot(np.array([0, 0, 1]))
+
+        balance = (balance - self.min_balance) / (1 - self.min_balance)
+
+        color = np.array([1, 0, 0, 0.3]) * (1 - balance) + np.array([0, 1, 0, 0.3]) * balance
+
+        self.viewer.viewer.add_marker(
+            pos=self.sim.data.get_body_xpos(self.board.root_body),
+            type=100,
+            size=[0.005, 0.005, 0.5],
+            mat=quat_to_rot(self.sim.data.get_body_xquat(self.board.root_body)).as_matrix(),
+            rgba=color,
+            label="",
+            shininess=0.0,
+        )
