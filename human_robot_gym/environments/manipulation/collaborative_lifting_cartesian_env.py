@@ -89,9 +89,16 @@ class CollaborativeLiftingCart(HumanEnv):
         reward_scale (None | float): Scales the normalized reward function by the amount specified.
             If `None`, environment reward remains unnormalized
 
+        reward_shaping (bool): if `True`, use dense rewards, else use sparse rewards.
+
+        board_released_reward (float): Reward to be given when the board is released.
+
         collision_reward (float): Reward to be given in the case of a collision.
 
         task_reward (float): Reward to be given in the case of reaching the goal.
+
+        imbalance_failure_reward (float): Reward to be given when the episode is terminated
+            due to the board being unbalanced.
 
         min_balance (float): If the dot product between the board's normal and the up vector is smaller than this
             value, the episode is terminated.
@@ -216,8 +223,11 @@ class CollaborativeLiftingCart(HumanEnv):
         use_camera_obs: bool = True,
         use_object_obs: bool = True,
         reward_scale: Optional[float] = 1.0,
+        reward_shaping: bool = False,
+        board_released_reward: float = -10,
         collision_reward: float = -10,
         task_reward: float = 1,
+        imbalance_failure_reward: float = -10,
         min_balance: float = 0.8,
         obstacle_placement_initializer: Optional[ObjectPositionSampler] = None,
         has_renderer: bool = False,
@@ -272,9 +282,12 @@ class CollaborativeLiftingCart(HumanEnv):
         self.table_offset = np.array([1.0, 0.0, 0.85])
 
         self.reward_scale = reward_scale
+        self.reward_shaping = reward_shaping
         self.collision_reward = collision_reward
         self.task_reward = task_reward
+        self.imbalance_failure_reward = imbalance_failure_reward
         self.min_balance = min_balance
+        self.board_released_reward = board_released_reward
 
         self.object_placement_initializer = None  # TODO
         self.obstacle_placement_initializer = obstacle_placement_initializer
@@ -289,6 +302,15 @@ class CollaborativeLiftingCart(HumanEnv):
         self.done_at_success = done_at_success
 
         self._animation_complete = False
+
+        self._lh_mocap_body_name = "lh_mocap"
+        self._rh_mocap_body_name = "rh_mocap"
+
+        self._lh_grip_body_name = "lh_grip"
+        self._rh_grip_body_name = "rh_grip"
+
+        self._lh_connect_name = "lh_mocap_object_connect"
+        self._rh_connect_name = "rh_mocap_object_connect"
 
         super().__init__(
             robots=robots,
@@ -360,11 +382,20 @@ class CollaborativeLiftingCart(HumanEnv):
         self,
         observation: OrderedDict[str, Any],
     ) -> List[float]:
-        # TODO
+        """Returns the achieved goal from the observation.
+        Used for calculating reward and setting the done flag.
+
+        Args:
+            observation (OrderedDict[str, Any]): The observation from the environment.
+
+        Returns:
+            List[float]: The achieved goal.
+        """
         return np.concatenate(
             [
                 [observation["board_balance"]],
                 [observation["board_gripped"]],
+                observation[f"{self.robots[0].robot_model.naming_prefix}eef_pos"]
             ]
         ).tolist()
 
@@ -372,19 +403,32 @@ class CollaborativeLiftingCart(HumanEnv):
         self,
         observation: OrderedDict[str, Any],
     ) -> List[float]:
-        robot_prefix = self.robots[0].robot_model.naming_prefix
+        """Returns the desired goal from the observation.
+        The collaborative lifting environment does not support HER and this function returns an empty list.
 
-        return np.concatenate(
-            [
-                [observation[f"{robot_prefix}eef_pos"]],
-            ]
-        ).tolist()
+        Args:
+            observation (OrderedDict[str, Any]): The observation from the environment.
+
+        Returns:
+            List[float]: The desired goal. In the collaborative lifting environment, this is an empty list.
+        """
+        return []
 
     def _check_success(
         self,
         achieved_goal: List[float],
         desired_goal: List[float]
     ) -> bool:
+        """The task is successful, if the animation is finished
+        and the episode was not terminated before due to unbalance.
+
+        Args:
+            achieved_goal (List[float]): The achieved goal.
+            desired_goal (List[float]): The desired goal.
+
+        Returns:
+            bool: Whether or not the task is successful.
+        """
         return self._animation_complete
 
     def reward(
@@ -393,12 +437,46 @@ class CollaborativeLiftingCart(HumanEnv):
         desired_goal: List[float],
         info: Dict[str, Any],
     ) -> float:
+        """Compute the reward from achieved goal, desired goal, and info dict.
+
+        If `self.reward_shaping` is `True`, the reward is given by the normalized balance of the board,
+        i.e. the dot product between the board's normal and the up vector rescaled from the interval
+        [`self.min_balance`, 1] to [0, 1]
+
+        Otherwise, we give a constant reward of -1 for  each step.
+
+        In either case, a task reward is added when an animation is finished (`self.task_reward`), and a negative reward
+        is added in case the episode is terminated due to the board being unbalanced (`self.imbalance_failure_reward`).
+
+        If the robot does not have the board in the gripper anymore, we give a penalty of `self.board_released_reward`.
+
+        If an illegal collision occurs, a penalty is added (`self.collision_reward`).
+
+        Supports scaling the final reward by a factor (`self.reward_scale`).
+
+        Args:
+            achieved_goal (List[float]): The achieved goal.
+            desired_goal (List[float]): The desired goal.
+            info (Dict[str, Any]): The info dict.
+
+        Returns:
+            float: The reward.
+        """
         reward = -1.0
+        balance = achieved_goal[0]
+        board_gripped = achieved_goal[1]
+
+        if self.reward_shaping:
+            normed_balance = (balance - self.min_balance) / (1 - self.min_balance)
+            reward = normed_balance
 
         if self._check_success(achieved_goal=achieved_goal, desired_goal=desired_goal):
             reward = self.task_reward
+        elif balance < self.min_balance:
+            reward = self.imbalance_failure_reward
 
-        # TODO
+        if not board_gripped:
+            reward += self.board_released_reward
 
         # Add a penalty for self-collisions and collisions with the human
         if COLLISION_TYPE(info["collision_type"]) not in (COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED):
@@ -415,6 +493,23 @@ class CollaborativeLiftingCart(HumanEnv):
         desired_goal: List[float],
         info: Dict[str, Any],
     ) -> bool:
+        """Check if the episode is done.
+
+        The episode is done if the board is unbalanced or if the board is not gripped anymore.
+        For the board not being gripped, we give a tolerance of 3 consecutive steps to avoid false positives.
+
+        If `self.done_at_collision` is `True`, the episode is also terminated when an illegal collision occurs.
+
+        If `self.done_at_success` is `True`, the episode is also terminated when the goal is reached.
+
+        Args:
+            achieved_goal (List[float]): The achieved goal.
+            desired_goal (List[float]): The desired goal.
+            info (Dict[str, Any]): The info dict.
+
+        Returns:
+            bool: Whether or not the episode is done.
+        """
         balance = achieved_goal[0]
         board_gripped = achieved_goal[1]
 
@@ -427,7 +522,8 @@ class CollaborativeLiftingCart(HumanEnv):
             if self.verbose:
                 print("Episode terminated due to board being unbalanced.")
             return True
-        if self._n_steps_without_gripped_board > 5:
+
+        if self._n_steps_without_gripped_board > 3:
             if self.verbose:
                 print("Episode terminated due to board not being gripped.")
             return True
@@ -437,17 +533,23 @@ class CollaborativeLiftingCart(HumanEnv):
         ):
             return True
 
-        success = self._check_success(
-            achieved_goal=achieved_goal,
-            desired_goal=desired_goal,
-        )
-
-        if self.done_at_success and success:
+        if self.done_at_success and self._check_success(achieved_goal=achieved_goal, desired_goal=desired_goal):
             return True
 
         return False
 
     def _compute_animation_time(self, control_time: int) -> int:
+        """Compute the current animation time.
+
+        If the animation is finished, it is frozen at the last frame until either a new animation is selected
+        (`self.done_at_success = False`) or the episode is reset.
+
+        Args:
+            control_time (int): The current control time.
+
+        Returns:
+            int: The current animation time.
+        """
         animation_time = super()._compute_animation_time(control_time)
 
         animation_length = self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
@@ -459,45 +561,57 @@ class CollaborativeLiftingCart(HumanEnv):
         return animation_time
 
     def _control_human(self, force_update: bool = True):
+        """Augment super class method to keep the mocap object at the positions of the human's hands."""
         super()._control_human(force_update=True)
+        self.sim.step()
+        self._update_mocap_body_transforms()
 
-        lh_rot = quat_to_rot(self.sim.data.get_body_xquat("Human_L_Hand"))
-        rh_rot = quat_to_rot(self.sim.data.get_body_xquat("Human_R_Hand"))
+    def _update_mocap_body_transforms(self):
+        """Update the mocap body transforms to match the human's hand positions."""
+        lh_rot = quat_to_rot(self.sim.data.get_body_xquat(self.human.left_hand))
+        rh_rot = quat_to_rot(self.sim.data.get_body_xquat(self.human.right_hand))
 
         lh_quat = rot_to_quat(lh_rot * Rotation.from_euler("y", -np.pi / 2))
         rh_quat = rot_to_quat(rh_rot * Rotation.from_euler("y", np.pi / 2))
 
         self.sim.data.set_mocap_pos(
-            "lh_mocap_object",
-            self.sim.data.get_site_xpos("Human_L_Hand")
+            self._lh_mocap_body_name,
+            self.sim.data.get_site_xpos(self.human.left_hand)
         )
 
         self.sim.data.set_mocap_pos(
-            "rh_mocap_object",
-            self.sim.data.get_site_xpos("Human_R_Hand")
+            self._rh_mocap_body_name,
+            self.sim.data.get_site_xpos(self.human.right_hand)
         )
 
         self.sim.data.set_mocap_quat(
-            "lh_mocap_object",
+            self._lh_mocap_body_name,
             lh_quat,
         )
 
         self.sim.data.set_mocap_quat(
-            "rh_mocap_object",
+            self._rh_mocap_body_name,
             rh_quat,
         )
 
     def _change_grip_equalities_active(self, active: bool):
+        """Toggle the status of the equalities connecting the mocap objects at the human's hands with the board."""
         self.sim.model.eq_active[self.eq_l_id] = active
         self.sim.model.eq_active[self.eq_r_id] = active
 
     def _human_pickup_object(self):
+        """Activate the equalities connecting the mocap objects at the human's hands with the board."""
         self._change_grip_equalities_active(True)
 
     def _human_drop_object(self):
+        """Deactivate the equalities connecting the mocap objects at the human's hands with the board."""
         self._change_grip_equalities_active(False)
 
     def _on_goal_reached(self):
+        """Callback function that is called when the goal is reached.
+
+        If `self.done_at_success` is `False`, pick a new animation and start a new task in the same episode.
+        """
         if not self.done_at_success:
             self.robots[0].reset(deterministic=True)
             self._reset_controller()
@@ -507,11 +621,12 @@ class CollaborativeLiftingCart(HumanEnv):
             )
 
     def _reset_animation(self):
+        """Reset animation-dependent internal variables and reset the board to its initial position."""
         self._animation_complete = False
         self._n_steps_without_gripped_board = 0
 
         self.sim.data.set_joint_qpos(
-            "board_joint0",
+            self.board.joints[0],
             np.concatenate(
                 [
                     self.table_offset + np.array([0, 0, 0.05]) + self.human_pos_offset,
@@ -521,11 +636,21 @@ class CollaborativeLiftingCart(HumanEnv):
         )
 
     def _progress_to_next_animation(self, animation_start_time: float):
+        """Augment super class method to reset the animation-dependent internal variables and reset the board
+        to its initial position.
+
+        Args:
+            animation_start_time (float): The start time for the new animation.
+        """
         super()._progress_to_next_animation(animation_start_time=animation_start_time)
         self._control_human()
         self._reset_animation()
 
     def _reset_internal(self):
+        """Augment super class method to reset the animation-dependent internal variables and reset the board.
+
+        Specifies the initial joint angles of the robot to grasp the object in the beginning of the episode.
+        """
         # Set the desired new initial joint angles before resetting the robot.
         self.robots[0].init_qpos = np.array([0, np.pi * 19 / 48, -np.pi / 2 - 5 * np.pi/48, 0, np.pi / 2, -np.pi / 4])
 
@@ -535,6 +660,13 @@ class CollaborativeLiftingCart(HumanEnv):
         self._reset_animation()
 
     def reset(self) -> OrderedDict[str, Any]:
+        """Reset the environment.
+
+        If the board is placed outside of the gripper, reset again.
+        We run the environment for two steps to check if the board can be gripped. If not, we reset again.
+
+        Returns:
+            OrderedDict[str, Any]: The initial observation."""
         obs = super().reset()
 
         # Try 2 steps to grasp the board, reset again if unsuccessful
@@ -617,51 +749,70 @@ class CollaborativeLiftingCart(HumanEnv):
         r_anchor = "-0.45 -0.25, 0"
         l_anchor = "-0.45 0.25 0"
 
+        self._add_mocap_bodies_to_model(l_anchor_pos=l_anchor, r_anchor_pos=r_anchor)
+        self._add_grips_to_board(l_anchor_pos=l_anchor, r_anchor_pos=r_anchor)
+        self._add_connect_equalities_to_model()
+
+    def _add_mocap_bodies_to_model(
+        self,
+        l_anchor_pos: str,
+        r_anchor_pos: str,
+        visualize: bool = False
+    ) -> Tuple[ET.Element, ET.Element]:
         lh_mocap_object = ET.Element(
             "body",
-            name="lh_mocap_object",
-            pos=l_anchor,
+            name=self._lh_mocap_body_name,
+            pos=l_anchor_pos,
             quat="0 0 0 1",
             mocap="true",
         )
 
-        lh_mocap_object.append(
-            ET.Element(
+        rh_mocap_object = ET.Element(
+            "body",
+            name=self._rh_mocap_body_name,
+            pos=r_anchor_pos,
+            quat="0 0 0 1",
+            mocap="true",
+        )
+
+        if visualize:
+            lh_mocap_object.append(ET.Element(
                 "geom",
-                name="lh_mocap_object_g0_vis",
+                name=f"{self._lh_mocap_body_name}_g0_vis",
                 type="box",
                 size="0.05 0.05 0.05",
                 contype="0",
                 conaffinity="0",
                 group="1",
                 rgba="0 1 1 0.5",
-            )
-        )
+            ))
 
-        rh_mocap_object = ET.Element(
-            "body",
-            name="rh_mocap_object",
-            pos=r_anchor,
-            quat="0 0 0 1",
-            mocap="true",
-        )
-
-        rh_mocap_object.append(
-            ET.Element(
+            rh_mocap_object.append(ET.Element(
                 "geom",
-                name="rh_mocap_object_g0_vis",
+                name=f"{self._rh_mocap_body_name}_g0_vis",
                 type="box",
                 size="0.05 0.05 0.05",
                 contype="0",
                 conaffinity="0",
                 group="1",
                 rgba="1 0 1 0.5",
-            )
+            ))
+
+        self.model.worldbody.extend(
+            [
+                lh_mocap_object,
+                rh_mocap_object,
+            ]
         )
 
-        self.model.worldbody.append(lh_mocap_object)
-        self.model.worldbody.append(rh_mocap_object)
+        return lh_mocap_object, rh_mocap_object
 
+    def _add_grips_to_board(
+        self,
+        l_anchor_pos: str,
+        r_anchor_pos: str,
+        visualize: bool = False
+    ) -> Tuple[ET.Element, ET.Element]:
         box_elem = find_elements(
             root=self.model.root,
             tags="body",
@@ -671,67 +822,81 @@ class CollaborativeLiftingCart(HumanEnv):
 
         l_grip = ET.Element(
             "body",
-            name="lh_grip",
-            pos=l_anchor,
+            name=self._lh_grip_body_name,
+            pos=l_anchor_pos,
         )
 
         r_grip = ET.Element(
             "body",
-            name="rh_grip",
-            pos=r_anchor,
+            name=self._rh_grip_body_name,
+            pos=r_anchor_pos,
         )
 
-        l_grip.append(
-            ET.Element(
+        if visualize:
+            l_grip.append(ET.Element(
                 "geom",
-                name="lh_grip_g0_vis",
+                name=f"{self._lh_grip_body_name}_g0_vis",
                 type="box",
                 size="0.05 0.05 0.05",
                 contype="0",
                 conaffinity="0",
                 group="1",
                 rgba="0 1 0 0.5",
-            )
-        )
+            ))
 
-        r_grip.append(
-            ET.Element(
+            r_grip.append(ET.Element(
                 "geom",
-                name="rh_grip_g0_vis",
+                name=f"{self._rh_grip_body_name}_g0_vis",
                 type="box",
                 size="0.05 0.05 0.05",
                 contype="0",
                 conaffinity="0",
                 group="1",
                 rgba="1 0 0 0.5",
-            )
-        )
+            ))
 
         box_elem.append(l_grip)
         box_elem.append(r_grip)
 
-        self.model.equality.append(
-            ET.Element(
-                "connect",
-                name="lh_mocap_object_connect",
-                body1="lh_grip",
-                body2="lh_mocap_object",
-                anchor="0 0 0",
-                active="true",
-                solimp="-100 -100"
-            )
+        return l_grip, r_grip
+
+    def _add_connect_equalities_to_model(self) -> Tuple[ET.Element, ET.Element]:
+        l_eq = ET.Element(
+            "connect",
+            name=self._lh_connect_name,
+            body1=self._lh_grip_body_name,
+            body2=self._lh_mocap_body_name,
+            anchor="0 0 0",
+            active="true",
+            solimp="-100 -100"
         )
 
-        self.model.equality.append(
-            ET.Element(
-                "connect",
-                name="rh_mocap_object_connect",
-                body1="rh_grip",
-                body2="rh_mocap_object",
-                anchor="0 0 0",
-                active="true",
-                solimp="-100 -100"
-            )
+        r_eq = ET.Element(
+            "connect",
+            name=self._rh_connect_name,
+            body1=self._rh_grip_body_name,
+            body2=self._rh_mocap_body_name,
+            anchor="0 0 0",
+            active="true",
+            solimp="-100 -100"
+        )
+
+        self.model.equality.extend(
+            [
+                l_eq,
+                r_eq,
+            ]
+        )
+
+        return l_eq, r_eq
+
+    def _setup_collision_info(self):
+        """Extend the super method by white-listing the board object for collision detection."""
+        super()._setup_collision_info()
+        self.whitelisted_collision_geoms = self.whitelisted_collision_geoms.union(
+            {
+                self.sim.model.geom_name2id(geom_name) for geom_name in self.board.contact_geoms
+            }
         )
 
     def _setup_references(self):
@@ -739,11 +904,11 @@ class CollaborativeLiftingCart(HumanEnv):
 
         self.board_body_id = self.sim.model.body_name2id(self.board.root_body)
         self.eq_l_id = mujoco_py.functions.mj_name2id(
-            self.sim.model, mujoco_py.const.OBJ_EQUALITY, "lh_mocap_object_connect",
+            self.sim.model, mujoco_py.const.OBJ_EQUALITY, self._lh_connect_name,
         )
 
         self.eq_r_id = mujoco_py.functions.mj_name2id(
-            self.sim.model, mujoco_py.const.OBJ_EQUALITY, "rh_mocap_object_connect",
+            self.sim.model, mujoco_py.const.OBJ_EQUALITY, self._rh_connect_name,
         )
 
     def _setup_observables(self) -> OrderedDict[str, Observable]:
