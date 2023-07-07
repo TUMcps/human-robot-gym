@@ -1,4 +1,4 @@
-"""Demo script for the robot-human handover environment using a failsafe controller.
+"""Demo script for the human-robot handover environment using a failsafe controller.
 Uses a scripted expert to demonstrate the environment functionality.
 
 Pressing 'o' switches between scripted policy and keyboard control.

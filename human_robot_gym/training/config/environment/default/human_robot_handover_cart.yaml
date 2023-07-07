@@ -6,4 +6,12 @@ env_id: HumanRobotHandoverCart
 human_animation_names:
   - HumanRobotHandover/0
   - HumanRobotHandover/1
+  - HumanRobotHandover/2
+  - HumanRobotHandover/3
+  - HumanRobotHandover/4
+  - HumanRobotHandover/5
+  - HumanRobotHandover/6
+  - HumanRobotHandover/7
 n_animations_sampled_per_100_steps: 2
+shield_type: PFL
+n_targets_sampled_per_100_steps: 3

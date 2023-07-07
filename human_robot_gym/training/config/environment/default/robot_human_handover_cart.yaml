@@ -6,3 +6,16 @@ env_id: RobotHumanHandoverCart
 human_animation_names:
   - RobotHumanHandover/0
   - RobotHumanHandover/1
+  - RobotHumanHandover/2
+  - RobotHumanHandover/3
+  - RobotHumanHandover/4
+  - RobotHumanHandover/5
+  - RobotHumanHandover/6
+  - RobotHumanHandover/7
+  - RobotHumanHandover/8
+  - RobotHumanHandover/advanced_0
+  - RobotHumanHandover/advanced_1
+  - RobotHumanHandover/advanced_2
+shield_type: PFL
+n_object_placements_sampled_per_100_steps: 3
+object_placement_initializer: null
