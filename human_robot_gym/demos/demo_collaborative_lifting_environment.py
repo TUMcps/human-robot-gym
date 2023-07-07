@@ -74,6 +74,7 @@ from human_robot_gym.wrappers.collision_prevention_wrapper import (
     CollisionPreventionWrapper,
 )
 from human_robot_gym.wrappers.ik_position_delta_wrapper import IKPositionDeltaWrapper
+from human_robot_gym.demonstrations.experts import CollaborativeLiftingCartExpert
 
 if __name__ == "__main__":
     pybullet_urdf_file = file_path_completion(
@@ -118,7 +119,9 @@ if __name__ == "__main__":
             "vec_eef_to_human_rh",
         ],
         expert_keys=[
-            "robot0_gripper_qpos",
+            "vec_eef_to_human_lh",
+            "vec_eef_to_human_rh",
+            "board_quat",
         ]
     )
     env = CollisionPreventionWrapper(
@@ -152,6 +155,13 @@ if __name__ == "__main__":
 
     expert_obs_wrapper = ExpertObsWrapper.get_from_wrapped_env(env)
 
+    expert = CollaborativeLiftingCartExpert(
+        observation_space=env.observation_space,
+        action_space=env.action_space,
+        board_size=np.array([1.0, 0.5, 0.03]),
+        signal_to_noise_ratio=0.0,
+    )
+
     for i_episode in range(20):
         observation = env.reset()
         print(observation)
@@ -161,7 +171,7 @@ if __name__ == "__main__":
             t += 1
             expert_observation = expert_obs_wrapper.current_expert_observation
 
-            action = kb_agent()
+            action = expert(expert_observation)
 
             observation, reward, done, info = env.step(action)
             if done:

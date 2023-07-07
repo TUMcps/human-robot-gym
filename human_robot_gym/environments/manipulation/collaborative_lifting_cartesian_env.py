@@ -219,7 +219,7 @@ class CollaborativeLiftingCart(HumanEnv):
         initialization_noise: Union[str, List[str], List[Dict[str, Any]]] = "default",
         table_full_size: Tuple[float, float, float] = (0.4, 1.5, 0.05),
         table_friction: Tuple[float, float, float] = (1.0, 5e-3, 1e-4),
-        board_full_size: Tuple[float, float, float] = (1.0, 0.5, 0.03),
+        board_full_size: Tuple[float, float, float] = (1.0, 0.5, 0.04),
         use_camera_obs: bool = True,
         use_object_obs: bool = True,
         reward_scale: Optional[float] = 1.0,
@@ -253,16 +253,16 @@ class CollaborativeLiftingCart(HumanEnv):
         control_sample_time: float = 0.004,
         human_animation_names: List[str] = [
             "CollaborativeLifting/0",
-            # "CollaborativeLifting/1",
-            # "CollaborativeLifting/2",
-            # "CollaborativeLifting/3",
-            # "CollaborativeLifting/4",
-            # "CollaborativeLifting/5",
-            # "CollaborativeLifting/6",
-            # "CollaborativeLifting/7",
-            # "CollaborativeLifting/8",
-            # "CollaborativeLifting/9",
-            # "CollaborativeLifting/10",
+            "CollaborativeLifting/1",
+            "CollaborativeLifting/2",
+            "CollaborativeLifting/3",
+            "CollaborativeLifting/4",
+            "CollaborativeLifting/5",
+            "CollaborativeLifting/6",
+            "CollaborativeLifting/7",
+            "CollaborativeLifting/8",
+            "CollaborativeLifting/9",
+            "CollaborativeLifting/10",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 30,
@@ -895,7 +895,7 @@ class CollaborativeLiftingCart(HumanEnv):
             body2=self._lh_mocap_body_name,
             anchor="0 0 0",
             active="true",
-            solimp="-100 -100"
+            # solimp="-100 -100"
         )
 
         r_eq = ET.Element(
@@ -905,7 +905,7 @@ class CollaborativeLiftingCart(HumanEnv):
             body2=self._rh_mocap_body_name,
             anchor="0 0 0",
             active="true",
-            solimp="-100 -100"
+            # solimp="-100 -100"
         )
 
         self.model.equality.extend(
