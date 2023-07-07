@@ -1,11 +1,14 @@
-"""This file describes a variant for the pick place task
-where the robot should place the object onto the hand of the human.
+"""This file describes a collaborative lifting task for a single robot arm in a human environment.
+
+The objective for the robot is to keep a board level while the human is lifting it from the opposite side.
+
+If the tilt of the object exceeds a certain threshold, the episode is terminated.
 
 Author
     Felix Trost (FT)
 
 Changelog:
-    16.05.23 FT File creation
+    07.07.23 FT File creation
 """
 from typing import Any, Dict, List, Optional, OrderedDict, Tuple, Union
 
@@ -28,8 +31,11 @@ from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat, q
 
 
 class CollaborativeLiftingCart(HumanEnv):
-    """This class corresponds to the pick place task for a single robot arm in a human environment
-    where the robot should place the object to a spot on the table the human is pointing at.
+    """Collaborative lifting environment for a human-like and a robotic agent.
+
+    The objective for the robot is to keep a board level while the human is lifting it from the opposite side.
+
+    If the tilt of the object exceeds a certain threshold, the episode is terminated.
 
     Args:
         robots (str | List[str]): Specification for specific robot arm(s) to be instantiated within this env
@@ -275,6 +281,8 @@ class CollaborativeLiftingCart(HumanEnv):
         self.board = None
         self.board_body_id = None
 
+        # The board should remain in the gripper at all times. If there are too many consecutive steps
+        # where this is not the case, the episode is terminated.
         self._n_steps_without_gripped_board = 0
 
         self.done_at_collision = done_at_collision
@@ -324,6 +332,18 @@ class CollaborativeLiftingCart(HumanEnv):
         )
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
+        """Step the simulation forward one timestep.
+
+        The gripper action is disabled and replaced by a 'close gripper' action.
+        The action space is not changed by this modification, the gripper actuation can be removed
+        from the action space in a wrapper if desired.
+
+        Args:
+            action (np.ndarray): The action to take in the environment.
+
+        Returns:
+            Tuple[np.ndarray, float, bool, Dict[str, Any]]: The observation, reward, done flag, and info dict.
+        """
         action[-1] = 1  # Always close the gripper
         obs, rew, done, info = super().step(action)
 
@@ -392,7 +412,7 @@ class CollaborativeLiftingCart(HumanEnv):
             if self.verbose:
                 print("Episode terminated due to board being unbalanced.")
             return True
-        if self._n_steps_without_gripped_board > 5:
+        if self._n_steps_without_gripped_board > 1:
             if self.verbose:
                 print("Episode terminated due to board not being gripped.")
             return True
@@ -671,7 +691,7 @@ class CollaborativeLiftingCart(HumanEnv):
                 body1="rh_grip",
                 body2="rh_mocap_object",
                 anchor="0 0 0",
-                active="true",
+                active="false",
                 solimp="-100 -100"
             )
         )
@@ -743,7 +763,6 @@ class CollaborativeLiftingCart(HumanEnv):
                 balance = quat_to_rot(self.sim.data.body_xquat[self.board_body_id]).apply(
                     np.array([0, 0, 1])
                 ).dot(np.array([0, 0, 1]))
-                print(f"balance: {balance}")
                 return balance
 
         @sensor(modality=goal_mod)
