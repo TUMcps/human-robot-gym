@@ -679,7 +679,7 @@ class CollaborativeLiftingCart(HumanEnv):
             return obs
 
         # Try 2 steps to grasp the board, reset again if unsuccessful
-        for i in range(5):
+        for i in range(2):
             obs, _, done, _ = self.step(np.concatenate(
                 [
                     [0 for _ in range(self.action_dim - 1)],
