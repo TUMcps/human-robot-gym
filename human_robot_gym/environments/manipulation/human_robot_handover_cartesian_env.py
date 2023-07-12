@@ -961,7 +961,16 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         Args:
             HumanRobotHandoverCartEnvState: The state to be set.
         """
+        super().set_environment_state(state)
         self.task_phase = HumanRobotHandoverPhase(state.task_phase_value)
         self._n_delayed_timesteps = state.n_delayed_timesteps
         self._animation_loop_properties = state.animation_loop_properties
-        super().set_environment_state(state)
+
+        if self.task_phase in [
+            HumanRobotHandoverPhase.WAIT,
+            HumanRobotHandoverPhase.RETREAT,
+            HumanRobotHandoverPhase.COMPLETE,
+        ]:
+            self._set_manipulation_object_equality_status(False)
+        else:
+            self._set_manipulation_object_equality_status(True)

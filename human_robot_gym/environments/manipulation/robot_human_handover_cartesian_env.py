@@ -1060,3 +1060,11 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         self._n_delayed_timesteps = state.n_delayed_timesteps
         self._animation_loop_properties = state.animation_loop_properties
         super().set_environment_state(state)
+
+        if self.task_phase in [
+            RobotHumanHandoverPhase.RETREAT,
+            RobotHumanHandoverPhase.COMPLETE,
+        ]:
+            self._set_manipulation_object_equality_status(True)
+        else:
+            self._set_manipulation_object_equality_status(False)
