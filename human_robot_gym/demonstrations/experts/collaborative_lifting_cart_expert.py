@@ -39,7 +39,7 @@ class CollaborativeLiftingCartExpert(Expert):
 
         height = vec_eef_to_human[2]
         flat_vec = quat_to_rot(obs.board_quat).apply(np.array([-1, 0, 0]))[:2]
-        human_robot_xy_vec = self.board_size[0] * flat_vec
+        human_robot_xy_vec = self.board_size[0] * flat_vec * 0.9
 
         action = np.append(vec_eef_to_human[:2] - human_robot_xy_vec, height)
 

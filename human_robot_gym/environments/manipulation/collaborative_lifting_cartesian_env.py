@@ -265,7 +265,7 @@ class CollaborativeLiftingCart(HumanEnv):
             "CollaborativeLifting/10",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
-        human_animation_freq: float = 30,
+        human_animation_freq: float = 20,
         human_rand: List[float] = [0.0, 0.0, 0.0],
         n_animations_sampled_per_100_steps: int = 5,
         safe_vel: float = 0.001,

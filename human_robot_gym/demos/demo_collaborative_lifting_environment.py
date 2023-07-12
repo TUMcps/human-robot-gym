@@ -162,6 +162,8 @@ if __name__ == "__main__":
         signal_to_noise_ratio=0.0,
     )
 
+    from scipy.spatial.transform import Rotation
+
     for i_episode in range(20):
         observation = env.reset()
         print(observation)
@@ -173,6 +175,15 @@ if __name__ == "__main__":
 
             action = expert(expert_observation)
 
+            env.viewer.viewer.add_marker(
+                pos=env.sim.data.get_site_xpos("gripper0_grip_site"),
+                type=100,
+                size=[0.005, 0.005, np.linalg.norm(action[:3]) * 5],
+                mat=Rotation.align_vectors(action[:3].reshape(1, -1), np.array([0, 0, 0.1]).reshape(1, -1))[0].as_matrix(),
+                rgba=[1, 0, 0, 1],
+                label="",
+                shininess=0.0,
+            )
             observation, reward, done, info = env.step(action)
             if done:
                 print("Episode finished after {} timesteps".format(t + 1))
