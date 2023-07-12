@@ -23,17 +23,16 @@ task_reward: 1
 imbalance_failure_reward: -10
 min_balance: 0.8
 obstacle_placement_initializer: null
+horizon: 1000
 human_animation_names: 
-  - CollaborativeLifting/0
-  - CollaborativeLifting/1
   - CollaborativeLifting/2
   - CollaborativeLifting/3
   - CollaborativeLifting/4
-  - CollaborativeLifting/5
   - CollaborativeLifting/6
-  - CollaborativeLifting/7
   - CollaborativeLifting/8
   - CollaborativeLifting/9
   - CollaborativeLifting/10
 done_at_collision: false
 done_at_success: false
+human_animation_freq: 20
+n_animations_sampled_per_100_steps: 3

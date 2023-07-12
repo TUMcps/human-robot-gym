@@ -38,14 +38,17 @@ Available observations (possible GymWrapper keys):
             -robot0_gripper_qpos (robot0_proprio-state[3:5])
             -robot0_gripper_qvel (robot0_proprio-state[5:7])
     object-state
-        (23-tuple) concatenation of
-            -vec_human_head_to_eef (object-state[0:3])
-            -vec_human_lh_to_eef (object-state[3:6])
-            -vec_human_rh_to_eef (object-state[6:9])
-            -board_pos (object-state[9:12])
-            -board_quat (object-state[12:16])
-            -vec_eef_to_board (object-state[16:19])
-            -quat_eef_to_board (object-state[19:23])
+        (26-tuple) concatenation of
+            -vec_eef_to_human_lh (object-state[0:3])
+            -dist_eef_to_human_lh (object-state[3])
+            -vec_eef_to_human_rh (object-state[4:7])
+            -dist_eef_to_human_rh (object_state[7])
+            -vec_eef_to_human_head (object-state[8:11])
+            -dist_eef_to_human_head (object-state[11])
+            -board_pos (object-state[12:15])
+            -board_quat (object-state[15:19])
+            -vec_eef_to_board (object-state[19:22])
+            -quat_eef_to_board (object-state[22:26])
     goal-state
         (2-tuple) concatenation of
             -board_balance (goal-state[0])
@@ -60,8 +63,6 @@ import robosuite as suite
 import time
 import numpy as np
 import glfw
-
-import mujoco_py
 
 from robosuite.controllers import load_controller_config
 
@@ -139,16 +140,10 @@ if __name__ == "__main__":
         use_kb_agent = not use_kb_agent
 
     def toggle_board():
-        eq_l_id = mujoco_py.functions.mj_name2id(
-            rsenv.sim.model, mujoco_py.const.OBJ_EQUALITY, "lh_mocap_object_connect",
-        )
-
-        eq_r_id = mujoco_py.functions.mj_name2id(
-            rsenv.sim.model, mujoco_py.const.OBJ_EQUALITY, "rh_mocap_object_connect",
-        )
-
-        rsenv.sim.model.eq_active[eq_l_id] = not rsenv.sim.model.eq_active[eq_l_id]
-        rsenv.sim.model.eq_active[eq_r_id] = not rsenv.sim.model.eq_active[eq_r_id]
+        if rsenv.human_holds_board:
+            rsenv.human_drop_board()
+        else:
+            rsenv.human_pickup_board()
 
     kb_agent.add_keypress_callback(glfw.KEY_O, lambda *_: switch_agent())
     kb_agent.add_keypress_callback(glfw.KEY_B, lambda *_: toggle_board())
@@ -159,21 +154,21 @@ if __name__ == "__main__":
         observation_space=env.observation_space,
         action_space=env.action_space,
         board_size=np.array([1.0, 0.5, 0.03]),
-        signal_to_noise_ratio=0.0,
+        signal_to_noise_ratio=0.98,
     )
 
     from scipy.spatial.transform import Rotation
 
     for i_episode in range(20):
         observation = env.reset()
-        print(observation)
+
         t1 = time.time()
         t = 0
         while True:
             t += 1
             expert_observation = expert_obs_wrapper.current_expert_observation
 
-            action = expert(expert_observation)
+            action = kb_agent() if use_kb_agent else expert(expert_observation)
 
             env.viewer.viewer.add_marker(
                 pos=env.sim.data.get_site_xpos("gripper0_grip_site"),

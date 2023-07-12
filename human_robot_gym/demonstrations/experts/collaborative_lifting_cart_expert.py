@@ -56,10 +56,12 @@ class CollaborativeLiftingCartExpert(Expert):
     Args:
         observation_space (Space): the environment observation space
         action_space (Space): the environment action space
-        board_size (np.ndarray): [x, y, z] size of the board as an array
         signal_to_noise_ratio (float): interpolation between
             noise signal (Ornstein-Uhlenbeck process) -> signal_to_noise_ratio = 0
             and expert policy -> signal_to_noise_ratio = 1
+        board_size (np.ndarray): [x, y, z] size of the board as an array
+        human_grip_offset (float): distance of the human's hands from the board's corners
+            Necessary to calculate the horizontal distance the robot should maintain to the human's hands
         delta_time (float): approximate time between two calls of the expert policy. Only used to step the OU process
         seed (int): random seed for the noise signal
     """
@@ -67,9 +69,9 @@ class CollaborativeLiftingCartExpert(Expert):
         self,
         observation_space: Box,
         action_space: Box,
-        board_size: np.ndarray,
-
         signal_to_noise_ratio: float,
+        board_size: np.ndarray,
+        human_grip_offset: float = 0.1,
         delta_time: float = 0.01,
         seed: Optional[int] = None,
     ):
@@ -82,6 +84,7 @@ class CollaborativeLiftingCartExpert(Expert):
         self._gripper_action_limit = action_space.high[-1]
         self._board_size = board_size
         self._signal_to_noise_ratio = signal_to_noise_ratio
+        self._human_grip_offset = human_grip_offset
         self._delta_time = delta_time
         self._motion_noise = ReparameterizedOrnsteinUhlenbeckProcess(
             size=3,
@@ -106,8 +109,8 @@ class CollaborativeLiftingCartExpert(Expert):
 
         height = vec_eef_to_human[2]
         flat_vec = quat_to_rot(obs.board_quat).apply(np.array([-1, 0, 0]))[:2]
-        # Factor of 0.9 to account for the human not gripping the board at the corners
-        human_robot_xy_vec = self._board_size[0] * flat_vec * 0.9
+        # Offset to account for the human not gripping the board at the corners
+        human_robot_xy_vec = (self._board_size[0] - self._human_grip_offset) * flat_vec
 
         motion = np.append(vec_eef_to_human[:2] - human_robot_xy_vec, height).clip(
             -self._motion_action_limit, self._motion_action_limit

@@ -263,7 +263,7 @@ class CollaborativeLiftingCart(HumanEnv):
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 20,
         human_rand: List[float] = [0.0, 0.0, 0.0],
-        n_animations_sampled_per_100_steps: int = 5,
+        n_animations_sampled_per_100_steps: int = 3,
         safe_vel: float = 0.001,
         self_collision_safety: float = 0.01,
         seed: int = 0,
@@ -348,6 +348,15 @@ class CollaborativeLiftingCart(HumanEnv):
             seed=seed,
             verbose=verbose,
         )
+
+    @property
+    def human_holds_board(self) -> bool:
+        """Whether or not the human holds the board.
+
+        Returns:
+            bool: Whether or not the human holds the board.
+        """
+        return bool(self.sim.model.eq_active[self.eq_l_id]) and bool(self.sim.model.eq_active[self.eq_r_id])
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
         """Step the simulation forward one timestep.
@@ -519,7 +528,7 @@ class CollaborativeLiftingCart(HumanEnv):
                 print("Episode terminated due to board being unbalanced.")
             return True
 
-        if self._n_steps_without_gripped_board > 3:
+        if self._n_steps_without_gripped_board > 2:
             if self.verbose:
                 print("Episode terminated due to board not being gripped.")
             return True
@@ -590,18 +599,18 @@ class CollaborativeLiftingCart(HumanEnv):
             rh_quat,
         )
 
-    def _change_grip_equalities_active(self, active: bool):
+    def _toggle_grip_equalities_active(self, active: bool):
         """Toggle the status of the equalities connecting the mocap objects at the human's hands with the board."""
         self.sim.model.eq_active[self.eq_l_id] = active
         self.sim.model.eq_active[self.eq_r_id] = active
 
-    def _human_pickup_object(self):
+    def human_pickup_board(self):
         """Activate the equalities connecting the mocap objects at the human's hands with the board."""
-        self._change_grip_equalities_active(True)
+        self._toggle_grip_equalities_active(True)
 
-    def _human_drop_object(self):
+    def human_drop_board(self):
         """Deactivate the equalities connecting the mocap objects at the human's hands with the board."""
-        self._change_grip_equalities_active(False)
+        self._toggle_grip_equalities_active(False)
 
     def _on_goal_reached(self):
         """Callback function that is called when the goal is reached.
@@ -665,8 +674,12 @@ class CollaborativeLiftingCart(HumanEnv):
             OrderedDict[str, Any]: The initial observation."""
         obs = super().reset()
 
+        # Important for resetting from xml strings, otherwise might get stuck in an infinite reset loop
+        if self.deterministic_reset:
+            return obs
+
         # Try 2 steps to grasp the board, reset again if unsuccessful
-        for i in range(2):
+        for i in range(5):
             obs, _, done, _ = self.step(np.concatenate(
                 [
                     [0 for _ in range(self.action_dim - 1)],
@@ -891,7 +904,7 @@ class CollaborativeLiftingCart(HumanEnv):
             body2=self._lh_mocap_body_name,
             anchor="0 0 0",
             active="true",
-            # solimp="-100 -100"
+            # solimp="-100 -100"  # Adds a mass-spring-damper to the equality
         )
 
         r_eq = ET.Element(
@@ -901,7 +914,7 @@ class CollaborativeLiftingCart(HumanEnv):
             body2=self._rh_mocap_body_name,
             anchor="0 0 0",
             active="true",
-            # solimp="-100 -100"
+            # solimp="-100 -100"  # Adds a mass-spring-damper to the equality
         )
 
         self.model.equality.extend(
