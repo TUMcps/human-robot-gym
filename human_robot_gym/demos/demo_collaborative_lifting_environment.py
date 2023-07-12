@@ -179,7 +179,10 @@ if __name__ == "__main__":
                 pos=env.sim.data.get_site_xpos("gripper0_grip_site"),
                 type=100,
                 size=[0.005, 0.005, np.linalg.norm(action[:3]) * 5],
-                mat=Rotation.align_vectors(action[:3].reshape(1, -1), np.array([0, 0, 0.1]).reshape(1, -1))[0].as_matrix(),
+                mat=Rotation.align_vectors(
+                    action[:3].reshape(1, -1),
+                    np.array([0, 0, 0.1]).reshape(1, -1)
+                )[0].as_matrix(),
                 rgba=[1, 0, 0, 1],
                 label="",
                 shininess=0.0,

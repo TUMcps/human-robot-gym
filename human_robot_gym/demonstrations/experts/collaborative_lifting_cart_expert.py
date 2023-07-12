@@ -43,8 +43,7 @@ class CollaborativeLiftingCartExpert(Expert):
 
         action = np.append(vec_eef_to_human[:2] - human_robot_xy_vec, height)
 
-        # return np.array([0, 0, height, 1])
-        return np.append(np.clip(action, -0.1, 0.1), 1)  #  * np.array([0.1, 0.1, 1, 1])
+        return np.append(np.clip(action, -0.1, 0.1), 1)
 
     @staticmethod
     def expert_observation_from_dict(obs_dict: Dict[str, Any]) -> CollaborativeLiftingCartExpertObservation:
