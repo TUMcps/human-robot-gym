@@ -243,7 +243,7 @@ class FailsafeController(JointPositionController):
             init_yaw=rpy[2],
             init_qpos=self.joint_pos,
             current_time=self.sim.data.time,
-            shield_type=self.shield_type
+            shield_type=self.shield_type,
         )
 
     def set_goal(self, action, set_qpos=None):

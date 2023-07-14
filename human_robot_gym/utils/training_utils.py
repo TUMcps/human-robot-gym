@@ -40,6 +40,10 @@ from human_robot_gym.wrappers.ik_position_delta_wrapper import IKPositionDeltaWr
 from human_robot_gym.wrappers.action_based_expert_imitation_reward_wrapper import (
     CartActionBasedExpertImitationRewardWrapper
 )
+from human_robot_gym.wrappers.state_based_expert_imitation_reward_wrapper import (
+    ReachHumanCartStateBasedExpertImitationRewardWrapper,
+    PickPlaceHumanCartStateBasedExpertImitationRewardWrapper,
+)
 from human_robot_gym.wrappers.HER_buffer_add_monkey_patch import custom_add, _custom_sample_transitions
 from human_robot_gym.wrappers.tensorboard_callback import TensorboardCallback
 from human_robot_gym.wrappers.dataset_collection_wrapper import DatasetCollectionWrapper
@@ -242,6 +246,49 @@ def _compose_ik_position_delta_wrapper_kwargs(config: TrainingConfig) -> Dict[st
     return kwargs
 
 
+def env_has_cartesian_action_space(config: TrainingConfig) -> bool:
+    """Checks whether the wrapped environment has a Cartesian action space."""
+    return hasattr(config.wrappers, "ik_position_delta") and config.wrappers.ik_position_delta is not None
+
+
+def state_based_expert_imitation_reward_wrap_fn(
+    config: TrainingConfig,
+    env: gym.Env,
+) -> gym.Env:
+    """Wrap the environment in an `StateBasedExpertImitationRewardWrapper`.
+
+    Which subclass is used depends on the expert specified in the config.
+
+    Args:
+        config (TrainingConfig): The config object containing information about the wrapper
+        env (gym.Env): The environment to wrap
+
+    Returns:
+        gym.Env: The wrapped environment
+
+    Raises:
+        [AssertionError: No expert specified in config!]
+        [NotImplementedError:
+            State based expert imitation reward wrapper not implemented for expert {config.expert.id}!]
+    """
+    assert hasattr(config, "expert") and config.expert is not None, "No expert specified in config!"
+
+    if config.expert.id == "ReachHumanCart":
+        return ReachHumanCartStateBasedExpertImitationRewardWrapper(
+            env=env,
+            **config.wrappers.state_based_expert_imitation_reward,
+        )
+    elif config.expert.id == "PickPlaceHumanCart":
+        return PickPlaceHumanCartStateBasedExpertImitationRewardWrapper(
+            env=env,
+            **config.wrappers.state_based_expert_imitation_reward,
+        )
+    else:
+        raise NotImplementedError(
+            f"State based expert imitation reward wrapper not implemented for expert {config.expert.id}!"
+        )
+
+
 def _compose_action_based_expert_imitation_reward_wrapper_kwargs(config: TrainingConfig) -> Dict[str, Any]:
     """Compose a dictionary of all configured keyword arguments for the `CartActionBasedExpertImitationRewardWrapper`.
 
@@ -264,11 +311,6 @@ def _compose_action_based_expert_imitation_reward_wrapper_kwargs(config: Trainin
     return kwargs
 
 
-def env_has_cartesian_action_space(config: TrainingConfig) -> bool:
-    """Checks whether the wrapped environment has a Cartesian action space."""
-    return hasattr(config.wrappers, "ik_position_delta") and config.wrappers.ik_position_delta is not None
-
-
 def action_based_expert_imitation_reward_wrap_fn(
     config: TrainingConfig,
     env: gym.Env,
@@ -276,6 +318,8 @@ def action_based_expert_imitation_reward_wrap_fn(
     """Wrap the environment in an `CartActionBasedExpertImitationRewardWrapper`.
 
     If the config specifies a `rsi_prob` > 0, the environment is also wrapped in a `DatasetRSIWrapper`.
+    This step is omitted if the config specifies a state-based expert imitation reward wrapper,
+    as the state-based wrapper already inherits from the dataset wrapper.
 
     Args:
         config (TrainingConfig): The config object containing information about the wrapper
@@ -290,7 +334,12 @@ def action_based_expert_imitation_reward_wrap_fn(
     """
     assert hasattr(config, "expert") and config.expert is not None, "No expert specified in config!"
 
-    if config.wrappers.action_based_expert_imitation_reward.rsi_prob is not None:
+    if (
+        config.wrappers.action_based_expert_imitation_reward.rsi_prob is not None and not (
+            hasattr(config.wrappers, "state_based_expert_imitation_reward") and
+            config.wrappers.state_based_expert_imitation_reward is not None
+        )
+    ):
         env = DatasetRSIWrapper(
             env=env,
             dataset_name=config.wrappers.action_based_expert_imitation_reward.dataset_name,
@@ -339,6 +388,12 @@ def get_environment_wrap_fn(config: TrainingConfig) -> Callable[[gym.Env], gym.E
                 env=env,
                 **ikPositionDeltaKwargs,
             )
+
+        if (
+            hasattr(config.wrappers, "state_based_expert_imitation_reward") and
+            config.wrappers.state_based_expert_imitation_reward is not None
+        ):
+            env = state_based_expert_imitation_reward_wrap_fn(config=config, env=env)
 
         # Action based expert imitation reward wrapper
         if (

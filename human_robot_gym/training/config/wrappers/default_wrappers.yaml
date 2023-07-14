@@ -3,5 +3,6 @@ defaults:
   - optional ik_position_delta: null
   - optional visualization: null
   - optional action_based_expert_imitation_reward: null
+  - optional state_based_expert_imitation_reward: null
   - optional dataset_obs_norm: null
   - _self_

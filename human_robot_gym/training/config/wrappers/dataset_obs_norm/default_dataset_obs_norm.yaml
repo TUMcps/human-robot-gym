@@ -1,2 +1,3 @@
 dataset_name: dataset
 squash_factor: null
+allow_different_observation_shapes: false
