@@ -194,7 +194,7 @@ class ReachHuman(HumanEnv):
 
         renderer_config (dict): dictionary for the renderer configurations
 
-        use_failsafe_controller (bool): Whether or not the safety shield / failsafe controller should be active
+        shield_type (str): Shield type to use. Valid options are: "OFF", "SSM", and "PFL"
 
         visualize_failsafe_controller (bool): Whether or not the reachable sets of the failsafe controller should be
             visualized
@@ -271,7 +271,7 @@ class ReachHuman(HumanEnv):
         camera_segmentations: Optional[Union[str, List[str], List[List[str]]]] = None,
         renderer: str = "mujoco",
         renderer_config: Dict[str, Any] = None,
-        use_failsafe_controller: bool = True,
+        shield_type: str = "SSM",
         visualize_failsafe_controller: bool = False,
         visualize_pinocchio: bool = False,
         control_sample_time: float = 0.004,
@@ -354,7 +354,7 @@ class ReachHuman(HumanEnv):
             camera_segmentations=camera_segmentations,
             renderer=renderer,
             renderer_config=renderer_config,
-            use_failsafe_controller=use_failsafe_controller,
+            shield_type=shield_type,
             visualize_failsafe_controller=visualize_failsafe_controller,
             visualize_pinocchio=visualize_pinocchio,
             control_sample_time=control_sample_time,
