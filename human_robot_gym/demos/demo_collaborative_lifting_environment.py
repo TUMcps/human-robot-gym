@@ -104,7 +104,7 @@ if __name__ == "__main__":
         horizon=1000,
         done_at_success=False,
         controller_configs=controller_configs,
-        use_failsafe_controller=True,
+        shield_type="SSM",  # Shield mode, can be "SSM" or "PFL"
         visualize_failsafe_controller=False,
         visualize_pinocchio=False,
         base_human_pos_offset=[0.0, 0.0, 0.0],
