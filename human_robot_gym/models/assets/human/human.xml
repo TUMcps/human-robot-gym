@@ -40,7 +40,7 @@
   </asset>
   <worldbody>
     <body>
-        <body name="object">
+        <body name="object" mocap="true">
             <!-- quat="-0.5 -0.5 0.5 0.5" -->
             <body name="Pelvis" pos="0.0 0.0 0.0" quat="1.0000 0.0000 0.0000 0.0000">
                 <inertial pos="0 0 0" mass="1" diaginertia="1 1 1" />

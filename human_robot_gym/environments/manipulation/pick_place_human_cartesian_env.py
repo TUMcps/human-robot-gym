@@ -11,6 +11,7 @@ Changelog:
     16.05.23 FT Formatted docstrings
 """
 from typing import Any, Dict, List, Optional, OrderedDict, Tuple, Union
+from dataclasses import asdict, dataclass
 
 import numpy as np
 
@@ -20,8 +21,38 @@ from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import ObjectPositionSampler
 
 from human_robot_gym.utils.mjcf_utils import xml_path_completion
-from human_robot_gym.utils.pairing import cantor_pairing
-from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE, HumanEnv
+from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE, HumanEnv, HumanEnvState
+
+
+@dataclass
+class PickPlaceHumanCartEnvState(HumanEnvState):
+    """Dataclass for encapsulating the state of the PickPlaceHumanCart environment.
+    Extends the `HumanEnvState` dataclass to include all variables necessary
+    to restore a `PickPlaceHumanCart` environment state.
+
+    Attributes:
+        sim_state (np.ndarray): State of the mujoco simulation
+        human_animation_ids (np.ndarray): List of sampled human animation ids. During the episode this list is
+            iterated over and the corresponding human animation is played.
+        human_animation_ids_index (int): Index of the current human animation id in the list of human animation ids.
+        animation_start_time (int): Start time of the current human animation.
+        animation_time (int): Current time of the current human animation.
+        low_level_time (int): Current time of the low level controller.
+        human_pos_offset (List[float]): Offset of the human position.
+        human_rot_offset (List[float]): Offset of the human rotation.
+        object_placements_list (List[List[Tuple[str, np.ndarray]]]): List of object placements.
+            Stores joint name and joint position for each object for each placement.
+            During the episode this list is iterated over and the corresponding object joint position is used.
+        object_placements_list_index (int): Index of the current object joint position in the list of object joint
+            positions.
+        target_positions (List[np.ndarray]): List of target positions. During the episode this list is
+            iterated over and the corresponding target_position is used.
+        target_positions_index (int): Index of the current target position in the list of target_position.
+    """
+    object_placements_list: List[List[Tuple[str, np.ndarray]]]
+    object_placements_list_index: int
+    target_positions: List[np.ndarray]
+    target_positions_index: int
 
 
 class PickPlaceHumanCart(HumanEnv):
@@ -83,14 +114,25 @@ class PickPlaceHumanCart(HumanEnv):
 
         goal_dist (float): Distance threshold for reaching the goal.
 
+        n_object_placements_sampled_per_100_steps (int): How many object placements to sample at resets
+            per 100 steps in the horizon.
+            After all objects of the list have been placed, restart from the first in the list.
+            This is done to ensure the same list of objects can be placed when loading the env state from a file.
+
+        n_targets_sampled_per_100_steps (int): How many targets to sample at resets per 100 steps in the horizon.
+            After all goals of the list have been reached, restart from the first in the list.
+            This is done to ensure the same list of goals can be played when loading the env state from a file.
+            Setting `n_targets_sampled_per_100_steps != n_object_placements_sampled_per_100_steps`
+            yields more possible object-goal combinations.
+
         collision_reward (float): Reward to be given in the case of a collision.
 
-        goal_reward (float): Reward to be given in the case of reaching the goal.
+        task_reward (float): Reward to be given in the case of completing the task.
 
         object_gripped_reward (float): Additional reward for gripping the object when `reward_shaping=False`.
             If object is not gripped: `reward = -1`.
             If object gripped but not at the target: `object_gripped_reward`.
-            If object is at the target: `reward = goal_reward`.
+            If object is at the target: `reward = task_reward`.
             `object_gripped_reward` defaults to `-1`.
 
         object_placement_initializer (ObjectPositionSampler): if provided, will
@@ -189,6 +231,10 @@ class PickPlaceHumanCart(HumanEnv):
 
         human_rand (List[float]): Max. randomization of the human [x-pos, y-pos, z-angle]
 
+        n_animations_sampled_per_100_steps (int): How many animations to sample at resets per 100 steps in the horizon.
+            After all animations of the list have been played, restart from the first animation in the list.
+            This is done to ensure the same list of animations can be played when loading the env state from a file.
+
         safe_vel (float): Safe cartesian velocity. The robot is allowed to move with this velocity in the vicinity of
             humans.
 
@@ -221,8 +267,10 @@ class PickPlaceHumanCart(HumanEnv):
         reward_scale: Optional[float] = 1.0,
         reward_shaping: bool = False,
         goal_dist: float = 0.1,
+        n_object_placements_sampled_per_100_steps: int = 3,
+        n_targets_sampled_per_100_steps: int = 3,
         collision_reward: float = -10,
-        goal_reward: float = 1,
+        task_reward: float = 1,
         object_gripped_reward: float = -1,
         object_placement_initializer: Optional[ObjectPositionSampler] = None,
         target_placement_initializer: Optional[ObjectPositionSampler] = None,
@@ -266,6 +314,7 @@ class PickPlaceHumanCart(HumanEnv):
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 120,
         human_rand: List[float] = [0.0, 0.0, 0.0],
+        n_animations_sampled_per_100_steps: int = 5,
         safe_vel: float = 0.001,
         self_collision_safety: float = 0.01,
         seed: int = 0,
@@ -283,15 +332,26 @@ class PickPlaceHumanCart(HumanEnv):
         self.reward_scale = reward_scale
         self.reward_shaping = reward_shaping
         self.collision_reward = collision_reward
-        self.goal_reward = goal_reward
+        self.task_reward = task_reward
         self.object_gripped_reward = object_gripped_reward
         self.goal_dist = goal_dist
-        self.target_pos = None
+        self._object_placements_list = None
+        self._object_placements_list_index = 0
+        self._n_objects_to_sample_at_resets = int(
+            horizon * n_object_placements_sampled_per_100_steps / 100
+        )
+        self._target_positions = None
+        self._target_positions_index = 0
+        self._n_targets_to_sample_at_resets = int(
+            horizon * n_targets_sampled_per_100_steps / 100
+        )
         # object placement initializer
         self.object_placement_initializer = object_placement_initializer
         self.target_placement_initializer = target_placement_initializer
         self.obstacle_placement_initializer = obstacle_placement_initializer
-        self.box_body_id = None
+
+        self.manipulation_object = None
+        self.manipulation_object_body_id = None
         # if run should stop at collision
         self.done_at_collision = done_at_collision
         self.done_at_success = done_at_success
@@ -329,11 +389,22 @@ class PickPlaceHumanCart(HumanEnv):
             base_human_pos_offset=base_human_pos_offset,
             human_animation_freq=human_animation_freq,
             human_rand=human_rand,
+            n_animations_sampled_per_100_steps=n_animations_sampled_per_100_steps,
             safe_vel=safe_vel,
             self_collision_safety=self_collision_safety,
             seed=seed,
             verbose=verbose,
         )
+
+    @property
+    def object_placements(self) -> List[Tuple[str, np.ndarray]]:
+        """Get the name and current initial object joint positions"""
+        return self._object_placements_list[self._object_placements_list_index]
+
+    @property
+    def target_pos(self) -> np.ndarray:
+        """Get the current target position in the list of target positions."""
+        return self._target_positions[self._target_positions_index]
 
     def step(self, action: np.ndarray) -> Tuple[OrderedDict[str, Any], float, bool, Dict[str, Any]]:
         """Override base step function.
@@ -358,6 +429,7 @@ class PickPlaceHumanCart(HumanEnv):
             self.goal_reached = False
         if self.has_renderer:
             self._visualize()
+
         return obs, reward, done, info
 
     def _on_goal_reached(self):
@@ -366,13 +438,14 @@ class PickPlaceHumanCart(HumanEnv):
         Samples a new position for the object and a new target position.
         """
         # if goal is reached, calculate a new goal.
-        self.target_pos = self._sample_target_pos()
-        object_placements = self.object_placement_initializer.sample()
-        for obj_pos, obj_quat, obj in object_placements.values():
-            self.sim.data.set_joint_qpos(
-                obj.joints[0],
-                np.concatenate([np.array(obj_pos), np.array(obj_quat)]),
-            )
+        self._target_positions_index = (
+            (self._target_positions_index + 1) % self._n_targets_to_sample_at_resets
+        )
+        self._object_placements_list_index = (
+            (self._object_placements_list_index + 1) % self._n_objects_to_sample_at_resets
+        )
+        for joint_name, joint_qpos in self.object_placements:
+            self.sim.data.set_joint_qpos(joint_name, joint_qpos)
 
     def _get_info(self) -> Dict[str, Any]:
         """Return the info dictionary of this step.
@@ -400,7 +473,7 @@ class PickPlaceHumanCart(HumanEnv):
 
         If `self.reward_shaping`, we use a dense reward, otherwise a sparse reward.
         The sparse reward yields
-            - `self.goal_reward` if the target is reached
+            - `self.task_reward` if the target is reached
             - `self.object_gripped_reward` if the object is gripped but the target is not reached
             - `-1` otherwise
 
@@ -417,7 +490,7 @@ class PickPlaceHumanCart(HumanEnv):
 
         # sparse completion reward
         if self._check_success(achieved_goal, desired_goal):
-            reward = self.goal_reward
+            reward = self.task_reward
         elif object_gripped:
             reward = self.object_gripped_reward
         else:
@@ -433,7 +506,7 @@ class PickPlaceHumanCart(HumanEnv):
             reward -= (eef_2_obj * 0.2 + obj_2_target) * 0.1
 
         # Add a penalty for self-collisions and collisions with the human
-        if info["collision"] and COLLISION_TYPE(info["collision_type"]) != COLLISION_TYPE.STATIC:
+        if COLLISION_TYPE(info["collision_type"]) not in (COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED):
             reward += self.collision_reward
 
         # Scale reward if requested
@@ -459,7 +532,33 @@ class PickPlaceHumanCart(HumanEnv):
         Returns:
             bool: whether the goal was reached
         """
+        return self._check_object_in_target_zone(
+            achieved_goal=achieved_goal,
+            desired_goal=desired_goal,
+        )
+
+    def _check_object_in_target_zone(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        tolerance: Optional[float] = None,
+    ) -> bool:
+        """Check if the object is within the target zone.
+        The distance metric is a RMSE and the threshold is `self.goal_dist`.
+
+        Args:
+            achieved_goal (List[float]): observation of robot state that is relevant for goal
+            desired_goal (List[float]): the desired goal
+            tolerance (Optional[float]): optional tolerance to `self.goal_dist`. Allows to specify a larger
+                target zone. Defaults to `None`.
+        Returns:
+            bool: whether the object is within the target zone
+        """
         dist = np.linalg.norm(np.array(achieved_goal[3:6]) - np.array(desired_goal))
+
+        if tolerance is not None:
+            dist -= tolerance
+
         return dist <= self.goal_dist
 
     def _check_done(
@@ -479,8 +578,9 @@ class PickPlaceHumanCart(HumanEnv):
         Returns:
             bool: done flag
         """
-        collision = info["collision"]
-        if self.done_at_collision and collision:
+        if self.done_at_collision and COLLISION_TYPE(info["collision_type"]) not in (
+            COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED
+        ):
             return True
         success = self._check_success(achieved_goal, desired_goal)
         if self.done_at_success and success:
@@ -532,7 +632,14 @@ class PickPlaceHumanCart(HumanEnv):
         self.robots[0].init_qpos = np.array([0, 0.0, -np.pi / 2, 0, -np.pi / 2, np.pi / 4])
 
         super()._reset_internal()
-        self.target_pos = self._sample_target_pos()
+        self._target_positions = [self._sample_target_pos() for _ in range(self._n_targets_to_sample_at_resets)]
+        self._target_positions_index = 0
+        self._object_placements_list = [
+            [
+                (obj.joints[0], np.concatenate([obj_pos, obj_quat]))
+                for obj_pos, obj_quat, obj in self.object_placement_initializer.sample().values()
+            ] for _ in range(self._n_objects_to_sample_at_resets)
+        ]
 
     def _get_current_target_pos(self) -> np.ndarray:
         """Return the target position.
@@ -573,12 +680,12 @@ class PickPlaceHumanCart(HumanEnv):
         # Create objects
         # Box example
         box_size = np.array(self.object_full_size)
-        box = BoxObject(
-            name="smallBox",
+        self.manipulation_object = BoxObject(
+            name="manipulation_object",
             size=box_size * 0.5,
             rgba=[0.1, 0.7, 0.3, 1],
         )
-        self.objects = [box]
+        self.objects = [self.manipulation_object]
         # Placement sampler for objects
         object_bin_boundaries = self._get_default_object_bin_boundaries()
 
@@ -622,12 +729,21 @@ class PickPlaceHumanCart(HumanEnv):
             objects=self.obstacles,
         )
 
+    def _setup_collision_info(self):
+        """Extend the super method by white-listing the manipulation object for collision detection."""
+        super()._setup_collision_info()
+        self.whitelisted_collision_geoms = self.whitelisted_collision_geoms.union(
+            {
+                self.sim.model.geom_name2id(geom_name) for geom_name in self.manipulation_object.contact_geoms
+            }
+        )
+
     def _setup_references(self):
         """Set up references to important components."""
         super()._setup_references()
 
         assert len(self.objects) == 1
-        self.box_body_id = self.sim.model.body_name2id(self.objects[0].root_body)
+        self.manipulation_object_body_id = self.sim.model.body_name2id(self.objects[0].root_body)
 
     def _setup_observables(self) -> OrderedDict[str, Observable]:
         """Set up observables to be used for this environment.
@@ -660,6 +776,8 @@ class PickPlaceHumanCart(HumanEnv):
             observables[prefix + "eef_quat"].set_active(False)
         if "gripper_pos" in observables:
             observables["gripper_pos"].set_active(False)
+        if "gripper_aperture" in observables:
+            observables["gripper_aperture"].set_active(True)
 
         # low-level object information
         goal_mod = "goal"
@@ -669,17 +787,17 @@ class PickPlaceHumanCart(HumanEnv):
         # Absolute coordinates of goal position
         @sensor(modality=goal_mod)
         def target_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            self.target_pos = self._get_current_target_pos()
+            # self.target_pos = self._get_current_target_pos()
             return self.target_pos
 
         # Absolute coordinates of object position
         @sensor(modality=obj_mod)
         def object_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return np.array(self.sim.data.body_xpos[self.box_body_id])
+            return np.array(self.sim.data.body_xpos[self.manipulation_object_body_id])
 
         # Vector from robot end-effector to object
         @sensor(modality=obj_mod)
-        def eef_to_object(obs_cache: Dict[str, Any]) -> np.ndarray:
+        def vec_eef_to_object(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
                 np.array(obs_cache["object_pos"]) - np.array(obs_cache[f"{pf}eef_pos"])
                 if "object_pos" in obs_cache and f"{pf}eef_pos" in obs_cache
@@ -688,7 +806,7 @@ class PickPlaceHumanCart(HumanEnv):
 
         # Vector from object to target
         @sensor(modality=goal_mod)
-        def object_to_target(obs_cache: Dict[str, Any]) -> np.ndarray:
+        def vec_object_to_target(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
                 np.array(obs_cache["target_pos"]) - np.array(obs_cache["object_pos"])
                 if "target_pos" in obs_cache and "object_pos" in obs_cache
@@ -696,7 +814,7 @@ class PickPlaceHumanCart(HumanEnv):
             )
 
         @sensor(modality=goal_mod)
-        def eef_to_target(obs_cache: Dict[str, Any]) -> np.ndarray:
+        def vec_eef_to_target(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
                 np.array(obs_cache["target_pos"]) - np.array(obs_cache[f"{pf}eef_pos"])
                 if "target_pos" in obs_cache and f"{pf}eef_pos" in obs_cache
@@ -707,23 +825,18 @@ class PickPlaceHumanCart(HumanEnv):
         # Checks if both finger pads are in contact with the object
         @sensor(modality="object")
         def object_gripped(obs_cache: Dict[str, Any]) -> bool:
-            coll = cantor_pairing(
-                self.sim.model.geom_name2id("gripper0_l_fingerpad_g0"),
-                self.sim.model.geom_name2id("smallBox_g0"),
-            ) in self.previous_robot_collisions and cantor_pairing(
-                self.sim.model.geom_name2id("gripper0_r_fingerpad_g0"),
-                self.sim.model.geom_name2id("smallBox_g0"),
-            ) in self.previous_robot_collisions
-
-            return coll
+            return self._check_grasp(
+                gripper=self.robots[0].gripper,
+                object_geoms=self.manipulation_object,
+            )
 
         @sensor(modality=goal_mod)
-        def vec_to_next_objective(obs_cache: Dict[str, Any]) -> np.ndarray:
-            if all([key in obs_cache for key in ["eef_to_object", "object_to_target", "object_gripped"]]):
+        def vec_eef_to_next_objective(obs_cache: Dict[str, Any]) -> np.ndarray:
+            if all([key in obs_cache for key in ["vec_eef_to_object", "vec_eef_to_target", "object_gripped"]]):
                 return np.array(
-                    obs_cache["object_to_target"]
+                    obs_cache["vec_eef_to_target"]
                 ) if obs_cache["object_gripped"] else np.array(
-                    obs_cache["eef_to_object"]
+                    obs_cache["vec_eef_to_object"]
                 )
             else:
                 return np.zeros(3)
@@ -731,11 +844,11 @@ class PickPlaceHumanCart(HumanEnv):
         sensors = [
             target_pos,
             object_pos,
-            eef_to_object,
-            object_to_target,
-            eef_to_target,
+            vec_eef_to_object,
+            vec_object_to_target,
+            vec_eef_to_target,
             object_gripped,
-            vec_to_next_objective,
+            vec_eef_to_next_objective,
         ]
 
         names = [s.__name__ for s in sensors]
@@ -852,3 +965,33 @@ class PickPlaceHumanCart(HumanEnv):
             label="",
             shininess=0.0,
         )
+
+    def get_environment_state(self) -> PickPlaceHumanCartEnvState:
+        """Get the current state of the environment. Can be used for storing/loading.
+
+        Returns:
+            state (PickPlaceHumanCartEnvState): The current state of the environment.
+        """
+        human_env_state = super().get_environment_state()
+        return PickPlaceHumanCartEnvState(
+            object_placements_list=self._object_placements_list,
+            object_placements_list_index=self._object_placements_list_index,
+            target_positions=self._target_positions,
+            target_positions_index=self._target_positions_index,
+            **asdict(human_env_state),
+        )
+
+    def set_environment_state(self, state: PickPlaceHumanCartEnvState):
+        """Set the current state of the environment. Can be used for storing/loading.
+
+        Args:
+            PickPlaceHumanCartEnvState: The state to be set.
+        """
+        super().set_environment_state(state)
+        self._object_placements_list = state.object_placements_list
+        self._object_placements_list_index = state.object_placements_list_index
+        self._target_positions = state.target_positions
+        self._target_positions_index = state.target_positions_index
+
+        if self.has_renderer:
+            self._visualize()

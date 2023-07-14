@@ -107,16 +107,26 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         """Add data to the info dict.
 
         Add the following data to the info dict:
-            - ep_im_rew_mean: sum of imitation rewards in episode
-            - ep_env_rew_mean: sum of environment rewards in episode
-            - im_rew_mean: mean of imitation rewards in episode
-            - env_rew_mean: mean of environment rewards in episode
+            - `ep_im_rew_mean`: sum of imitation rewards in episode
+            - `ep_env_rew_mean`: sum of environment rewards in episode
+            - `ep_full_rew_mean`: sum of combined imitation and environment rewards in episode
+            - `im_rew_mean`: mean of imitation rewards in episode
+            - `env_rew_mean`: mean of environment rewards in episode
+            - `full_rew_mean`: mean of combined imitation and environment rewards in episode
         """
         info["ep_im_rew_mean"] = np.sum(self._imitation_rewards)
         info["ep_env_rew_mean"] = np.sum(self._environment_rewards)
+        info["ep_full_rew_mean"] = self._combine_reward(
+            env_reward=info["ep_env_rew_mean"],
+            imitation_reward=info["ep_im_rew_mean"],
+        )
 
-        info["im_rew_mean"] = np.nan if len(self._imitation_rewards == 0) else np.mean(self._imitation_rewards)
-        info["env_rew_mean"] = np.nan if len(self._environment_rewards == 0) else np.mean(self._environment_rewards)
+        info["im_rew_mean"] = np.nan if len(self._imitation_rewards) == 0 else np.mean(self._imitation_rewards)
+        info["env_rew_mean"] = np.nan if len(self._environment_rewards) == 0 else np.mean(self._environment_rewards)
+        info["full_rew_mean"] = self._combine_reward(
+            env_reward=info["env_rew_mean"],
+            imitation_reward=info["im_rew_mean"],
+        )
 
     def _combine_reward(
         self,

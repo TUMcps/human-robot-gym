@@ -199,14 +199,12 @@ class FailsafeController(JointPositionController):
         # self.dbg_c = 0
 
     def reset(self,
-              init_qpos,
               base_pos=[0.0, 0.0, 0.0],
               base_orientation=[0.0, 0.0, 0.0, 1.0],
               shield_type="SSM",):
         """Reset the failsafe controller.
 
         Args:
-            init_qpos (list[double]): Initial joint angles
             base_pos (list[double]): position of base [x, y, z]
             base_orientation (list[double]): orientation of base as quaternion [x, y, z, w]
             shield_type (str): Shield type to use. Valid options are: "OFF", "SSM", and "PFL"
@@ -220,6 +218,7 @@ class FailsafeController(JointPositionController):
         self.sim.forward()
         # Initialize controller by updating internal state and setting the initial joint, pos, and ori
         self.update()
+        self.joint_pos = np.array(self.sim.data.qpos[self.qpos_index])
         self.initial_joint = self.joint_pos
         self.initial_ee_pos = self.ee_pos
         self.initial_ee_ori_mat = self.ee_ori_mat
@@ -242,9 +241,9 @@ class FailsafeController(JointPositionController):
             init_roll=rpy[0],
             init_pitch=rpy[1],
             init_yaw=rpy[2],
-            init_qpos=init_qpos,
+            init_qpos=self.joint_pos,
             current_time=self.sim.data.time,
-            shield_type=self.shield_type
+            shield_type=self.shield_type,
         )
 
     def set_goal(self, action, set_qpos=None):
