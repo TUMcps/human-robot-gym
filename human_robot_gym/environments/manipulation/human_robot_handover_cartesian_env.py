@@ -643,8 +643,8 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
     def _reset_internal(self):
         """Reset the environment's internal state."""
         super()._reset_internal()
-        self._control_human()
         self._reset_animation()
+        self._control_human()
 
         self._animation_loop_properties = [
             sample_animation_loop_properties(
@@ -675,8 +675,8 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             animation_start_time (float): The time at which the new animation should start.
         """
         super()._progress_to_next_animation(animation_start_time=animation_start_time)
-        self._control_human()
         self._reset_animation()
+        self._control_human()
 
     def _reset_animation(self):
         """Reset animation-dependent internal variables"""
