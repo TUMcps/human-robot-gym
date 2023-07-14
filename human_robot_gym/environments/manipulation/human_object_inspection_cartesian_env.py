@@ -430,12 +430,12 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         )
 
     @property
-    def animation_loop_amplitudes(self) -> float:
+    def animation_loop_amplitudes(self) -> List[float]:
         """Loop amplitudes for all layered sines for the current human animation."""
         return self._animation_loop_properties[self._human_animation_ids_index][0]
 
     @property
-    def animation_loop_speeds(self) -> float:
+    def animation_loop_speeds(self) -> List[float]:
         """Loop speed modifiers for all layered sines for the current human animation."""
         return self._animation_loop_properties[self._human_animation_ids_index][1]
 
