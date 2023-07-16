@@ -23,7 +23,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3 import SAC, PPO, HerReplayBuffer
 
 
-from human_robot_gym.utils.env_util import make_vec_env
+from human_robot_gym.utils.env_util_SB3 import make_vec_env
 from human_robot_gym.utils.config_utils import TrainingConfig
 from human_robot_gym.utils.training_utils import _compose_environment_kwargs, get_environment_wrap_fn, init_wandb
 
