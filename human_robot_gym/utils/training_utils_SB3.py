@@ -4,7 +4,8 @@ Author:
     Martin Winter (MW)
 
 Changelog:
-    16.07.23 MW moved all SB3 specific code from human_robot_gym/utils/training_utils.py to human_robot_gym/utils/training_utils_SB3.py
+    16.07.23 MW moved all SB3 specific code from human_robot_gym/utils/training_utils.py to 
+human_robot_gym/utils/training_utils_SB3.py
 """
 from typing import Any, Dict, Optional, Union
 from copy import deepcopy
@@ -35,6 +36,7 @@ SB3_ALGORITHMS = {
     "SAC": SAC,
     "PPO": PPO,
 }
+
 
 def create_training_vec_env(config: TrainingConfig, evaluation_mode: bool = False) -> VecEnv:
     """Create an environment from a config and optionally wrap it in specified wrappers.
@@ -235,6 +237,7 @@ def get_model(
         return create_model(config=config, env=env, run_id=run_id, save_logs=save_logs)
     else:
         return load_model(config=config, env=env, run_id=run_id, load_step=config.run.load_step)
+
 
 def run_debug_training(config: TrainingConfig) -> BaseAlgorithm:
     """Run a training without storing any data to disk.
