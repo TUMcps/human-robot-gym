@@ -14,6 +14,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
 from stable_baselines3.common.env_util import make_vec_env as sb3_make_vec_env
 from human_robot_gym.utils.env_util import make_gym_env, make_goal_env, make_expert_obs_env
 
+
 def make_vec_env(
     env_id: str,
     type: str = "env",
