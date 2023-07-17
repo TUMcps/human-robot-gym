@@ -141,7 +141,7 @@ class TensorboardCallback(WandbCallback):
                 "rollout/{}".format(key), safe_mean(self._info_buffer[key])
             )
             self._info_buffer[key] = []
-        self.logger.dump(self.num_timesteps)
+        self.model._dump_logs()
 
     def _log_success_callback(
         self, locals_: Dict[str, Any], globals_: Dict[str, Any]
