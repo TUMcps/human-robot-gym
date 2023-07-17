@@ -4,9 +4,9 @@ Contributors:
     Martin Winter (MW)
 
 Changelog:
-    16.07.23 MW moved all SB3 specific code form human_robot_gym/utils/env_util.py to 
-human_robot_gym/utils/env_util_SB3.py
-"""
+    16.07.23 MW moved all SB3 specific code form human_robot_gym/utils/env_util.py to
+    human_robot_gym/utils/env_util_SB3.py
+    """
 from typing import Optional, Dict, Any, Type, Callable, Union, List
 from functools import partial
 import gym

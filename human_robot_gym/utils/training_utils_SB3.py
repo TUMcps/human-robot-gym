@@ -4,8 +4,8 @@ Author:
     Martin Winter (MW)
 
 Changelog:
-    16.07.23 MW moved all SB3 specific code from human_robot_gym/utils/training_utils.py to 
-human_robot_gym/utils/training_utils_SB3.py
+    16.07.23 MW moved all SB3 specific code from human_robot_gym/utils/training_utils.py to
+    human_robot_gym/utils/training_utils_SB3.py
 """
 from typing import Any, Dict, Optional, Union
 from copy import deepcopy
