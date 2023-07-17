@@ -21,6 +21,9 @@ run:
     - dist_eef_to_human_head
     - dist_eef_to_human_lh
     - dist_eef_to_human_rh
+  log_interval:
+    - 100
+    - step
 wrappers:
   ik_position_delta:
     action_limit: 0.1
