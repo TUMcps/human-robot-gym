@@ -44,7 +44,10 @@ class TensorboardCallback(WandbCallback):
             Can be set to a single integer or a (int, str) tuple
             If an integer: log each `log_interval` timesteps.
             If a tuple (int, str): tuple of frequency and unit, e.g. (100, "step").
-            Valid units are "step" and "episode".
+                Valid units are "step" and "episode".
+            If the unit is "step" and multiple environments are used, make sure the
+                interval is a multiple of the number of environments, otherwise the
+                data will be logged in irregular intervals.
     """
 
     def __init__(
