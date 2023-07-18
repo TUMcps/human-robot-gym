@@ -32,6 +32,7 @@ from human_robot_gym.demonstrations.experts import ReachHumanCartExpert
 from human_robot_gym.demonstrations.experts import PickPlaceHumanCartExpert
 from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
 from human_robot_gym.wrappers.dataset_wrapper import DatasetRSIWrapper
+from human_robot_gym.utils.expert_imitation_reward_utils import similarity_fn
 
 
 class StateBasedExpertImitationRewardWrapper(DatasetRSIWrapper):
@@ -44,11 +45,11 @@ class StateBasedExpertImitationRewardWrapper(DatasetRSIWrapper):
     by changing the `rsi_prob` parameter.
 
     The imitation reward is given by this formula:
-    r = r_i * \alpha + r_{env} * (1 - \alpha)
+    $r = r_i * \alpha + r_{env} * (1 - \alpha)$
 
     Where:
-        r_{env}: reward from wrapped environment.
-        r_i: reward obtained from the similarity to the corresponding state in the expert demonstration episode.
+        $r_{env}$: reward from wrapped environment.
+        $r_i$: reward obtained from the similarity to the corresponding state in the expert demonstration episode.
             Depends on the specific environment, therefore implemented in subclasses.
 
     Args:
@@ -279,35 +280,9 @@ class StateBasedExpertImitationRewardWrapper(DatasetRSIWrapper):
             "should_terminate_early method not implemented in StateBasedExpertImitationRewardWrapper"
         )
 
-    @staticmethod
-    def _similarity_fn(dist: float, iota: float) -> float:
-        """Form a reward from the difference between agent and expert state parameters.
-        Use a Gaussian density function with mean 0 and variance 1.
-        Rescale distances so that dist=0 => reward=1 and dist=iota => reward=0.5.
-        DeepMimic (Peng et al., 2018) uses a similar model for the end-effector similarity reward.
-        Link to paper: https://arxiv.org/abs/1804.02717
-
-        Exponential form:
-        exp(-1/2 * (dist * nu / iota)^2)
-
-        where:
-        nu = sqrt{2 * ln(2)}
-
-        Simplifies to:
-        2^{-(dist / iota)^2}
-
-        Args:
-            dist (float): euclidean distance between agent and expert state parameters
-            iota (float): half width at half maximum;
-                distance after which the reward should be at 0.5
-        Returns:
-            float: similarity based on distance
-        """
-        return np.power(2, -(dist / iota)**2)
-
 
 class ReachHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertImitationRewardWrapper):
-    """State-based expert imitation reward gym wrapper for the `ReachHumanCart` environment.
+    r"""State-based expert imitation reward gym wrapper for the `ReachHumanCart` environment.
 
     The expert observation dicts should contain all keys necessary
     to be stored as `ReachHumanExpertObservation` objects.
@@ -319,13 +294,15 @@ class ReachHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertImita
     and agent states beomes too large.
 
     The reward is given by this formula:
-        r = r_i * alpha + r_{env} * (1 - alpha)
+        $r = r_i * \alpha + r_{env} * (1 - \alpha)$
 
     Where:
-        r_{env}: reward from wrapped environment
-        r_i = 2^{-(||obs_diff|| / iota_m)^2}
+        $r_{env}$: reward from wrapped environment
+        $r_i = s(||obsdiff||, \iota_m)$
 
-        obs_diff: difference between demonstration and training state end effector position
+        $obsdiff$: difference between demonstration and training state end effector position
+        $s$: similarity function, either $s_G$ or $s_T$.
+            For more details, see `human_robot_gym.utils.expert_imitation_reward_utils`
 
     Args:
         env (Env): gym environment to wrap
@@ -335,6 +312,7 @@ class ReachHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertImita
         iota (float): tolerance parameter for imitation reward:
             if the distance between demonstration and training state end effector position is smaller than `iota`,
             r_i is greater than 0.5 (1 at maximum, i.e. perfect imitation)
+        sim_fn (str): similarity function to use for imitation reward. Can be either `"gaussian"` or `"tanh"`.
         observe_time (bool): whether to add a time parameter to the observation space
             normalized to the range [0, 1], where
             0: start of episode (after reset and one zero action)
@@ -357,6 +335,7 @@ class ReachHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertImita
         dataset_name: str,
         alpha: float = 0,
         iota: float = 0.1,
+        sim_fn: str = "gaussian",
         observe_time: bool = True,
         rsi_prob: float = 0.0,
         use_et: bool = False,
@@ -374,6 +353,7 @@ class ReachHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertImita
         )
 
         self._iota = iota
+        self._sim_fn = sim_fn
         self._et_dist = et_dist
 
     def _get_imitation_reward(
@@ -396,7 +376,8 @@ class ReachHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertImita
         policy_obs = ReachHumanCartExpert.expert_observation_from_dict(policy_obs_dict)
 
         imitation_error = demonstration_obs.goal_difference - policy_obs.goal_difference
-        imitation_reward = self._similarity_fn(
+        imitation_reward = similarity_fn(
+            name=self._sim_fn,
             dist=np.linalg.norm(imitation_error),
             iota=self._iota,
         )
@@ -431,7 +412,7 @@ class ReachHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertImita
 
 
 class PickPlaceHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertImitationRewardWrapper):
-    """State-based expert imitation reward gym wrapper for the `PickPlaceHumanCart` environment.
+    r"""State-based expert imitation reward gym wrapper for the `PickPlaceHumanCart` environment.
 
     Can be used with any environment that can be solved the `PickPlaceHumanCartExpert` expert policy.
 
@@ -445,20 +426,23 @@ class PickPlaceHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertI
     to initialize the environment at a random state from the demonstration episode.
 
     The reward is given by this formula:
-        r = r_i * alpha + r_{env} * (1 - alpha)
+        $r = r_i * \alpha + r_{env} * (1 - \alpha)$
 
     Where:
-        r_{env}: reward from wrapped environment
-        r_i:
-            if the expert has gripped the object but not the agent: 0
+        $r_{env}$: reward from wrapped environment
+        $r_i$:
+            if the expert has gripped the object but not the agent: $0$
             otherwise:
-                r_{motion} * beta + r_{gripper} * (1 - beta)
-        r_{motion} = 2^{-(||motion_diff|| / iota_m)^2}
-        r_{gripper} = 2^{-(|gripper_diff| / iota_g)^2}
+                $r_{motion} * \beta + r_{gripper} * (1 - \beta)$
 
-        motion_diff: difference in end effector position between demonstration state and training state
-        gripper_diff: difference in gripper joint position (joint angles of both fingers added together)
+        $r_{motion} = s(||motiondiff||, \iota_m)$
+        $r_{gripper} = s(|gripperdiff|, \iota_g)$
+
+        $motiondiff$: difference in end effector position between demonstration state and training state
+        $gripperdiff$: difference in gripper joint position (joint angles of both fingers added together)
             between demonstration state and training state
+        $s$: a similarity function, either $s_G$ or $s_T$
+            For more details, see `human_robot_gym.utils.expert_imitation_reward_utils`
 
     Args:
         env (Env): gym environment to wrap
@@ -475,6 +459,8 @@ class PickPlaceHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertI
         iota_g (float): tolerance parameter for gripper reward:
             if the distance between demonstration and training state gripper joint position is smaller than iota_g,
             r_{gripper} is greater than 0.5 (1 at maximum, i.e. perfect imitation)
+        m_sim_fn: similarity function to use for motion imitation reward. Can be either `"gaussian"` or `"tanh"`.
+        g_sim_fn: similarity function to use for gripper imitation reward. Can be either `"gaussian"` or `"tanh"`.
         observe_time (bool): whether to add a time parameter to the observation space
             normalized to the range [0, 1], where
             0: start of episode (after reset and one zero action)
@@ -506,6 +492,8 @@ class PickPlaceHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertI
         beta: float = 0,
         iota_m: float = 0.1,
         iota_g: float = 0.05,
+        m_sim_fn: str = "gaussian",
+        g_sim_fn: str = "gaussian",
         observe_time: bool = True,
         rsi_prob: float = 0.0,
         use_et: bool = False,
@@ -525,6 +513,8 @@ class PickPlaceHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertI
         self._beta = beta
         self._iota_m = iota_m
         self._iota_g = iota_g
+        self._m_sim_fn = m_sim_fn
+        self._g_sim_fn = g_sim_fn
         self._et_dist = et_dist
 
         self._motion_imitation_rewards = None
@@ -582,12 +572,14 @@ class PickPlaceHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertI
         motion_imitation_error = demonstration_obs.vec_eef_to_target - policy_obs.vec_eef_to_target
         gripper_imitation_error = demonstration_obs.robot0_gripper_qpos - policy_obs.robot0_gripper_qpos
 
-        motion_imitation_reward = self._similarity_fn(
+        motion_imitation_reward = similarity_fn(
+            name=self._m_sim_fn,
             dist=np.linalg.norm(motion_imitation_error),
             iota=self._iota_m,
         )
 
-        gripper_imitation_reward = self._similarity_fn(
+        gripper_imitation_reward = similarity_fn(
+            name=self._g_sim_fn,
             dist=np.abs(gripper_imitation_error[0] - gripper_imitation_error[1]),
             iota=self._iota_g,
         )
