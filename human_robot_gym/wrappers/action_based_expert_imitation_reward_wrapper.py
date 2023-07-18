@@ -258,13 +258,13 @@ class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewa
         # Action values limited in each direction separately -> maximum distance: 2*sqrt(3)*action_max
         motion_imitation_rew = similarity_fn(
             name=self._m_sim_fn,
-            dist=np.linalg.norm(agent_action[:3] - expert_action[:3]),
+            delta=np.linalg.norm(agent_action[:3] - expert_action[:3]),
             iota=self._iota_m,
         )
 
         gripper_imitation_rew = similarity_fn(
             name=self._g_sim_fn,
-            dist=np.abs(agent_action[3] - expert_action[3]),
+            delta=np.abs(agent_action[3] - expert_action[3]),
             iota=self._iota_g,
         )
 

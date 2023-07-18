@@ -170,8 +170,6 @@ class StateBasedExpertImitationRewardWrapper(DatasetRSIWrapper):
 
             self._add_reward_to_info(info)
 
-        print(f"Imitation reward: {imitation_reward}")
-
         return observation, reward, done, info
 
     def _add_reward_to_info(self, info: Dict[str, Any]):
@@ -378,7 +376,7 @@ class ReachHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertImita
         imitation_error = demonstration_obs.goal_difference - policy_obs.goal_difference
         imitation_reward = similarity_fn(
             name=self._sim_fn,
-            dist=np.linalg.norm(imitation_error),
+            delta=np.linalg.norm(imitation_error),
             iota=self._iota,
         )
 
@@ -574,13 +572,13 @@ class PickPlaceHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertI
 
         motion_imitation_reward = similarity_fn(
             name=self._m_sim_fn,
-            dist=np.linalg.norm(motion_imitation_error),
+            delta=np.linalg.norm(motion_imitation_error),
             iota=self._iota_m,
         )
 
         gripper_imitation_reward = similarity_fn(
             name=self._g_sim_fn,
-            dist=np.abs(gripper_imitation_error[0] - gripper_imitation_error[1]),
+            delta=np.abs(gripper_imitation_error[0] - gripper_imitation_error[1]),
             iota=self._iota_g,
         )
 
