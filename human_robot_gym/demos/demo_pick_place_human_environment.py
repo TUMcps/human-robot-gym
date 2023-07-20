@@ -175,6 +175,7 @@ if __name__ == "__main__":
         observation_space=env.observation_space,
         action_space=env.action_space,
         signal_to_noise_ratio=0.98,
+        release_when_delivered=False,
     )
 
     use_kb_agent = False
