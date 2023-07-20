@@ -24,18 +24,22 @@ import robosuite  # noqa: F401
 
 from human_robot_gym.utils.config_utils import TrainingConfig
 from human_robot_gym.utils.training_utils import train_and_evaluate
-import human_robot_gym.robots  # noqa: F401
 
 
 @hydra.main(version_base=None, config_path="config", config_name=None)
 def main(config: TrainingConfig):
+    torch.set_num_threads(1)
+
     if config.run.verbose:
         print(OmegaConf.to_yaml(cfg=config, resolve=True))
 
-    train_and_evaluate(config)
+    try:
+        train_and_evaluate(config)
+    except Exception as e:
+        import traceback
+        traceback.print_exception(type(e), e, e.__traceback__)
+        raise e
 
 
 if __name__ == "__main__":
-    torch.set_num_threads(1)
-
     main()
