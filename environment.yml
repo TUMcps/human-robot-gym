@@ -32,3 +32,4 @@ dependencies:
     - sphinx-autoapi
     - graphviz
     - hydra-core==1.3.2
+    - hydra-ray-launcher==1.2.0
