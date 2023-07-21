@@ -63,7 +63,7 @@ class TensorboardCallback(WandbCallback):
         additional_log_info_keys: List[str] = ["goal_reached"],
         n_eval_episodes: int = 0,
         deterministic: bool = True,
-        log_interval: Union[int, Tuple[int, str]] = 4,
+        log_interval: Union[int, Tuple[int, str]] = (1000, "step"),
         # log_path: Optional[str] = None,
     ):  # noqa: D107
         super(TensorboardCallback, self).__init__(
@@ -82,7 +82,11 @@ class TensorboardCallback(WandbCallback):
         self._n_logged_infos = 0
 
         if isinstance(log_interval, int):
-            log_interval = (log_interval, "episode")
+            log_interval = (log_interval, "step")
+
+        if isinstance(log_interval[0], str) and isinstance(log_interval[1], int):
+            log_interval = (log_interval[1], log_interval[0])
+
         self.log_interval = log_interval
         # if log_path is not None:
         #     log_path = os.path.join(log_path, "evaluations")
