@@ -8,4 +8,5 @@ exclude =
     human_robot_gym/controllers/failsafe_controller/sara-shield/safety_shield/external/yaml-cpp
     human_robot_gym/controllers/failsafe_controller/sara-shield/safety_shield/external/spdlog
     human_robot_gym/controllers/failsafe_controller/sara-shield/safety_shield/external/pybind11
+    human_robot_gym/models/assets/human/animations/human-robot-animations
 max-line-length = 120
