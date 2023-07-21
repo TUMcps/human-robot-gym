@@ -49,6 +49,9 @@ from human_robot_gym.wrappers.tensorboard_callback import TensorboardCallback
 from human_robot_gym.wrappers.dataset_collection_wrapper import DatasetCollectionWrapper
 from human_robot_gym.wrappers.dataset_wrapper import DatasetObsNormWrapper, DatasetRSIWrapper
 
+import human_robot_gym.robots  # noqa: F401
+
+
 SB3_ALGORITHMS = {
     "SAC": SAC,
     "PPO": PPO,
