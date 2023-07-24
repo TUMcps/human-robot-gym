@@ -697,7 +697,7 @@ def _run_training_with_id(config: TrainingConfig, run_id: int) -> BaseAlgorithm:
 
     model.learn(
         total_timesteps=config.run.n_steps,
-        log_interval=1,
+        log_interval=None,
         reset_num_timesteps=config.run.load_step is None,
         callback=callback,
     )
