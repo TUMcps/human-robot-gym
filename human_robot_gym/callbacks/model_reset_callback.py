@@ -38,13 +38,13 @@ class ModelResetCallback(BaseCallback):
     ):
         super().__init__(verbose)
         self._n_steps_between_resets = n_steps_between_resets
-        self._steps_since_last_resets = 0
+        self._n_resets = 0
         self._reset_fn = reset_fn
 
     def _on_step(self) -> bool:
         """Reset the model parameters periodically."""
-        if (self.num_timesteps - self._steps_since_last_call) >= self._n_steps_between_resets:
-            self._steps_since_last_call = self.num_timesteps
+        if (n_resets := self.num_timesteps // self._n_steps_between_resets) > self._n_resets:
+            self._n_resets = n_resets
             self._reset_model()
 
         return True
@@ -52,7 +52,7 @@ class ModelResetCallback(BaseCallback):
     def _reset_model(self):
         """Reset the model parameters."""
         if self.verbose > 0:
-            print("Resetting model...")
+            print(f"Resetting model at {self.num_timesteps} steps...")
         if self._reset_fn is None:
             # named_modules contains all named modules in the module tree in a single iterator
             for name, module in self.model.policy.named_modules():
