@@ -1,0 +1,10 @@
+defaults:
+  - pick_place_human_cart
+  - _self_
+
+env_id: HumanObjectInspectionCart
+human_animation_names:
+  - ObjectInspection/0
+  - ObjectInspection/1
+object_at_target_reward: -1
+goal_exit_tolerance: 0.02

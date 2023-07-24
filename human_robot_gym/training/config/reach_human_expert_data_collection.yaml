@@ -1,0 +1,24 @@
+defaults:
+  - robot: schunk
+  - environment: reach_human
+  - wrappers: safe
+  - expert: reach_human
+  - run: expert_imitation_training
+  - consistent_seeding
+  - _self_
+  - eval
+
+environment:
+  verbose: true
+  done_at_success: false
+run:
+  obs_keys:
+    - goal_difference
+expert:
+  signal_to_noise_ratio: 0.98
+
+dataset_name: reach-dataset
+start_episode_index: 0
+n_episodes: 200
+n_threads: 1
+load_episode_index: null

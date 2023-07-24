@@ -1,4 +1,4 @@
-id: PickPlace
+id: PickPlaceHumanCart
 signal_to_noise_ratio: 1
 hover_dist: 0.2
 tan_theta: 0.5
@@ -6,9 +6,11 @@ horizontal_epsilon: 0.03
 vertical_epsilon: 0.015
 goal_dist: 0.08
 gripper_fully_opened_threshold: 0.02
+release_when_delivered: true
+delta_time: 0.01
 seed: null
 obs_keys:
   - object_gripped
-  - eef_to_object
-  - eef_to_target
+  - vec_eef_to_object
+  - vec_eef_to_target
   - robot0_gripper_qpos

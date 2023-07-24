@@ -1,0 +1,6 @@
+defaults:
+  - default_state_based_expert_imitation_reward
+
+iota: 0.1
+sim_fn: "gaussian"
+et_dist: 2

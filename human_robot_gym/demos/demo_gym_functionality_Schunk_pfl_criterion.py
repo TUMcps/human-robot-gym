@@ -1,6 +1,10 @@
-"""This script shows an example of the Schunk robot being safely controlled in an human environment.
+"""
+Demo for testing PFL criterion.
+With PFL, robot can move past the human with reduced speed.
+With SSM, robot cannot move past the human because it is too close
 
-For instance, this can be used with our provided training function to train a safe RL agent.
+Author:
+Leonardo Maglanoc
 """
 
 import robosuite as suite
@@ -45,13 +49,13 @@ if __name__ == "__main__":
             hard_reset=False,
             horizon=1000,
             controller_configs=controller_configs,
-            use_failsafe_controller=True,
+            shield_type="PFL",
             visualize_failsafe_controller=True,
             visualize_pinocchio=False,
-            base_human_pos_offset=[1.0, 0.0, 0.0],
+            human_animation_names=["Static/tpose"],
+            base_human_pos_offset=[1.15, 0, 0.8],
             verbose=True,
             goal_dist=0.0001,
-            human_rand=[1.0, 0.5, 0.2]
         ),
         keys=[
             "object-state",
@@ -66,18 +70,17 @@ if __name__ == "__main__":
 
     env = VisualizationWrapper(env)
 
-    t_max = 100
-    for i_episode in range(20):
+    t_max = 200
+    t_episode = 10
+    for i_episode in range(t_episode):
         observation = env.reset()
         t1 = time.time()
         for t in range(t_max):
-            action = env.action_space.sample()
+            action = np.zeros(7)
             pos = np.array([env.sim.data.qpos[x] for x in env.robots[0]._ref_joint_pos_indexes])
-            goal = env.desired_goal
-            action[:pos.shape[0]] = np.clip(goal-pos, -0.5, 0.5)
+            goal = np.array([1.4 * np.sin(4 * t/t_max * 2*np.pi), 1.5, 0.0, 0.0, 0.0, 0.0])
+            action[:6] = np.clip(goal-pos, -1, 1)
             observation, reward, done, info = env.step(action)
-            print("Reward: {}".format(reward))
+            time.sleep(0.025)
             if done or t == t_max:
-                print("Episode finished after {} timesteps".format(t + 1))
                 break
-        print("Episode {}, fps = {}".format(i_episode, t / (time.time() - t1)))
