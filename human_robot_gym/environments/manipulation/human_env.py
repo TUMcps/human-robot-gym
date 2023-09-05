@@ -159,6 +159,10 @@ class HumanEnv(SingleArmEnv):
 
         task_reward (float): Reward to be given in the case of completing a task.
 
+        done_at_collision (bool): If `True`, the episode is terminated when a collision occurs
+
+        done_at_success (bool): If `True`, the episode is terminated when the goal is reached
+
         human_placement_initializer (ObjectPositionSampler): if provided, will
             be used to place the human on every reset, else a `UniformRandomSampler`
             is used by default.
@@ -274,6 +278,8 @@ class HumanEnv(SingleArmEnv):
         reward_shaping: bool = False,
         collision_reward: float = -10,
         task_reward: float = 1,
+        done_at_collision: bool = False,
+        done_at_success: bool = False,
         has_renderer: bool = False,
         has_offscreen_renderer: bool = True,
         render_camera: str = "frontview",
@@ -393,6 +399,9 @@ class HumanEnv(SingleArmEnv):
         self.collision_reward = collision_reward
         self.task_reward = task_reward
         self.simulation_crash_reward = -10
+
+        self.done_at_collision = done_at_collision
+        self.done_at_success = done_at_success
 
         super().__init__(
             robots=robots,
@@ -681,7 +690,7 @@ class HumanEnv(SingleArmEnv):
         Returns:
             float: dense environment reward
         """
-        raise NotImplementedError("Dense guidance reward function is not implemented in the HumanEnv class!")
+        return 0.0
 
     def _collision_reward(
         self,
@@ -702,9 +711,7 @@ class HumanEnv(SingleArmEnv):
         Returns:
             float: collision penalty
         """
-        if COLLISION_TYPE(info["collision_type"]) not in (
-            COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED | COLLISION_TYPE.HUMAN
-        ):
+        if self._check_illegal_collision(COLLISION_TYPE(info["collision_type"])):
             return self.collision_reward
         else:
             return 0.0
@@ -792,13 +799,31 @@ class HumanEnv(SingleArmEnv):
                 for (a_g, d_g, i) in zip(achieved_goal, desired_goal, info)
             ]
 
+    def _check_success(
+        self, achieved_goal: List[float], desired_goal: List[float]
+    ) -> bool:
+        """Check if the desired goal was reached.
+
+        Should be overridden by subclasses to specify task success conditions.
+
+        Args:
+            achieved_goal: observation of robot state that is relevant for goal
+            desired_goal: the desired goal
+        Returns:
+            True if success
+        """
+        return False
+
     def _check_done(
         self, achieved_goal: List[float], desired_goal: List[float], info: Dict
     ) -> bool:
         """Compute the done flag based on the achieved goal, the desired goal, and the info dict.
 
         This function can only be called for one sample.
-        If the robot is in an illegal collision, this function returns done=True.
+
+        Returns `done=True` if either
+            - the desired goal was reached and `self.done_at_success=True`
+            - a collision occurred and `self.done_at_collision=True`
 
         Args:
             achieved_goal: observation of robot state that is relevant for goal
@@ -807,7 +832,32 @@ class HumanEnv(SingleArmEnv):
         Returns:
             done
         """
-        return info["collision_type"] not in (COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED)
+        if self.done_at_collision and self._check_illegal_collision(COLLISION_TYPE(info["collision_type"])):
+            return True
+
+        if self.done_at_success and self._check_success(achieved_goal, desired_goal):
+            return True
+        return False
+
+    def _check_illegal_collision(collision_type: COLLISION_TYPE) -> bool:
+        """Check whether an collision type contains information about an illegal collisions.
+
+        Legal collisions are:
+            - white-listed collisions
+            - collisions with the human below a velocity of `safe_vel`
+
+        Illegal collisions are:
+            - collisions with static environment
+            - self-collisions
+            - collisions with the human above a velocity of `safe_vel`
+
+        Args:
+            collision_type (COLLISION_TYPE): The collision type to check
+
+        Returns:
+            bool: True if the collision is illegal, False otherwise
+        """
+        return collision_type in (COLLISION_TYPE.STATIC | COLLISION_TYPE.ROBOT | COLLISION_TYPE.HUMAN_CRIT)
 
     def _get_achieved_goal_from_obs(
         self, observation: Union[List[float], Dict]

@@ -10,6 +10,8 @@ reward_scale: 1.0
 reward_shaping: false
 collision_reward: -10
 task_reward: 1
+done_at_success: false
+done_at_collision: false
 has_renderer: false
 has_offscreen_renderer: true
 render_camera: frontview

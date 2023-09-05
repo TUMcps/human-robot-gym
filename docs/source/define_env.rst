@@ -116,49 +116,27 @@ Reward and Done Calculation
 
 The fundamentals
 ^^^^^^^^^^^^^^^^
-With each environment, you have to define the ``reward`` and ``_check_done`` function.
-See ``reach_human_env.py`` for example implementations of the following functions.
+With each environment, you have to define the ``_check_success`` function.
+See ``reach_human_env.py`` for an example implementation.
 
 .. code-block:: python
 
-    def reward(
-        self, achieved_goal: List[float], desired_goal: List[float], info: Dict
-    ) -> float:
-        """Compute the reward based on the achieved goal, the desired goal, and the info dict.
-
-        If self.reward_shaping, we use a dense reward, otherwise a sparse reward.
-        This function can only be called for one sample.
-
-        Args:
-            achieved_goal (List[float]): observation of robot state that is relevant for goal
-            desired_goal (List[float]): the desired goal
-            info (Dict): dictionary containing additional information like collision
-        Returns:
-            reward (float)
-        """
-        # Calculate the reward and return a float.
-        return 0.0
-
-.. code-block:: python
-
-    def _check_done(
-        self, achieved_goal: List[float], desired_goal: List[float], info: Dict
+    def _check_success(
+        self, achieved_goal: List[float], desired_goal: List[float]
     ) -> bool:
-        """Compute the done flag based on the achieved goal, the desired goal, and the info dict.
+        """Check if the desired goal was reached.
 
-        This function can only be called for one sample.
+        Should be overridden by subclasses to specify task success conditions.
 
         Args:
             achieved_goal: observation of robot state that is relevant for goal
             desired_goal: the desired goal
-            info: dictionary containing additional information like collision
         Returns:
-            done (bool)
+            True if success
         """
-        # Check if done and return.
         return False
 
-You also have to define, where the achieved and desired goal can be find in the observation using:
+You also have to define, where the achieved and desired goal can be found in the observation using:
 
 .. code-block:: python
 
@@ -193,9 +171,166 @@ You also have to define, where the achieved and desired goal can be find in the 
         """
         return observation["desired_goal"]
 
+The ``_check_done`` function determines whether an episode should be terminated.
+By default, this function returns ``True`` either on task success or if an illegal collision has occurred (collision with the static environment, self-collisions or collisions with the human above a velocity threshold).
+These termination conditions can be deactivated individually by setting ``done_at_success`` or ``done_at_collision`` to ``False``. 
 
-The details
-^^^^^^^^^^^
+.. code-block:: python
+
+    def _check_done(
+        self, achieved_goal: List[float], desired_goal: List[float], info: Dict
+    ) -> bool:
+        """Compute the done flag based on the achieved goal, the desired goal, and the info dict.
+
+        This function can only be called for one sample.
+
+        Returns `done=True` if either
+            - the desired goal was reached and `self.done_at_success=True`
+            - a collision occurred and `self.done_at_collision=True`
+
+        Args:
+            achieved_goal: observation of robot state that is relevant for goal
+            desired_goal: the desired goal
+            info: dictionary containing additional information like collision
+        Returns:
+            done
+        """
+        if self.done_at_collision and self._check_illegal_collision(COLLISION_TYPE(info["collision_type"])):
+            return True
+
+        if self.done_at_success and self._check_success(achieved_goal, desired_goal):
+            return True
+        return False
+
+In the ``reward`` function, the reward is calculated based on the achieved goal, desired goal, and the info dictionary.
+It distributes the reward calculation to the ``_sparse_reward``, ``_dense_reward``, and ``_collision_reward`` functions, that may be overridden by subclasses.
+Additionally, it employs a constant reward scaling factor, if specified in ``reward_scaling``.
+
+.. code-block:: python
+
+    def reward(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict[str, Any],
+    ) -> float:
+        """Compute the reward based on the achieved goal, the desired goal, and the info dict.
+
+        If `self.reward_shaping`, we use a dense reward, otherwise a sparse reward.
+        The sparse reward yields
+            - `self.task_reward` if the target is reached
+            - `self.object_gripped_reward` if the object is gripped but the target is not reached
+            - `-1` otherwise
+
+        Args:
+            achieved_goal (List[float]): observation of robot state that is relevant for the goal
+            desired_goal (List[float]): the desired goal
+            info (Dict[str, Any]): dictionary containing additional information like collisions
+        Returns:
+            float: reward
+        """
+        reward = self._sparse_reward(achieved_goal=achieved_goal, desired_goal=desired_goal, info=info)
+
+        if self.reward_shaping:
+            reward += 1 + self._dense_reward(achieved_goal=achieved_goal, desired_goal=desired_goal, info=info)
+
+        # Add a penalty for self-collisions and collisions with the human
+        collision_reward = self._collision_reward(achieved_goal=achieved_goal, desired_goal=desired_goal, info=info)
+
+        reward = reward + collision_reward
+
+        # Scale reward if requested
+        if self.reward_scale is not None:
+            reward *= self.reward_scale
+
+        return reward
+
+By default, the sparse reward yields ``task_reward`` (which can be controlled via a environment parameter) on task success and ``-1`` otherwise.
+
+.. code-block:: python
+
+    def _sparse_reward(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict[str, Any],
+    ) -> float:
+        """Compute a sparse reward based on the achieved goal, the desired goal, and the info dict.
+
+        The sparse reward function yields
+            - `self.task_reward` if the target is reached,
+            - `-1` otherwise.
+
+        This method may be overridden by subclasses to add subgoal rewards.
+
+        Args:
+            achieved_goal (List[float]): observation of robot state that is relevant for the goal
+            desired_goal (List[float]): the desired goal
+            info (Dict[str, Any]): dictionary containing additional information like collisions
+
+        Returns:
+            float: sparse environment reward
+        """
+        if self.goal_reached:
+            return self.task_reward
+        else:
+            return -1
+
+The dense reward calculation has to be defined in subclasses.
+
+.. code-block:: python
+
+    def _dense_reward(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict[str, Any],
+    ) -> float:
+        """Compute a dense guidance reward based on the achieved goal, the desired goal, and the info dict.
+
+        This method may be overridden to add environment-specific dense rewards.
+
+        Args:
+            achieved_goal (List[float]): observation of robot state that is relevant for the goal
+            desired_goal (List[float]): the desired goal
+            info (Dict[str, Any]): dictionary containing additional information like collisions
+
+        Returns:
+            float: dense environment reward
+        """
+        return 0.0
+
+The collision reward yields a constant reward of ``collision_reward`` if an illegal collision occurs.
+
+.. code-block:: python
+
+    def _collision_reward(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict[str, Any],
+    ) -> float:
+        """Compute a penalty for self-collisions, collisions with the static environment,
+        and critical collisions with the human.
+
+        Collisions that are not critical, or that involve white-listed objects are not penalized
+
+        Args:
+            achieved_goal (List[float]): observation of robot state that is relevant for the goal
+            desired_goal (List[float]): the desired goal
+            info (Dict[str, Any]): dictionary containing additional information like collisions
+
+        Returns:
+            float: collision penalty
+        """
+        if self._check_illegal_collision(COLLISION_TYPE(info["collision_type"])):
+            return self.collision_reward
+        else:
+            return 0.0
+
+
+Hindsight Experience Replay
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 We use a custom version of reward calculation that allows us to use `hindsight experience replay <https://stable-baselines3.readthedocs.io/en/master/modules/her.html>`_ if we would like.
 The reward and done flag are calculated in the environment's ``step`` function based on the current state of the environment and the agent's action. The following code shows how the reward and done flag are calculated:
 

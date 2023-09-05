@@ -21,7 +21,7 @@ from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import ObjectPositionSampler
 
 from human_robot_gym.utils.mjcf_utils import xml_path_completion
-from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE, HumanEnv, HumanEnvState
+from human_robot_gym.environments.manipulation.human_env import HumanEnv, HumanEnvState
 
 
 @dataclass
@@ -347,9 +347,6 @@ class PickPlaceHumanCart(HumanEnv):
 
         self.manipulation_object = None
         self.manipulation_object_body_id = None
-        # if run should stop at collision
-        self.done_at_collision = done_at_collision
-        self.done_at_success = done_at_success
         super().__init__(
             robots=robots,
             robot_base_offset=robot_base_offset,
@@ -363,6 +360,8 @@ class PickPlaceHumanCart(HumanEnv):
             reward_shaping=reward_shaping,
             collision_reward=collision_reward,
             task_reward=task_reward,
+            done_at_collision=done_at_collision,
+            done_at_success=done_at_success,
             has_renderer=has_renderer,
             has_offscreen_renderer=has_offscreen_renderer,
             render_camera=render_camera,
@@ -564,32 +563,6 @@ class PickPlaceHumanCart(HumanEnv):
             dist -= tolerance
 
         return dist <= self.goal_dist
-
-    def _check_done(
-        self,
-        achieved_goal: List[float],
-        desired_goal: List[float],
-        info: Dict[str, Any],
-    ) -> bool:
-        """Compute the done flag based on the achieved goal, the desired goal, and the info dict.
-
-        This function can only be called for one sample.
-
-        Args:
-            achieved_goal (List[float]): observation of robot state that is relevant for goal
-            desired_goal (List[float]): the desired goal
-            info (Dict[str, Any]): dictionary containing additional information like collision
-        Returns:
-            bool: done flag
-        """
-        if self.done_at_collision and COLLISION_TYPE(info["collision_type"]) not in (
-            COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED
-        ):
-            return True
-        success = self._check_success(achieved_goal, desired_goal)
-        if self.done_at_success and success:
-            return True
-        return False
 
     def _get_achieved_goal_from_obs(
         self,

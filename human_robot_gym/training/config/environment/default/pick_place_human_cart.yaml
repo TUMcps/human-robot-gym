@@ -30,5 +30,3 @@ human_animation_names:
   - CMU/62_16
   - CMU/62_18
   - CMU/62_19
-done_at_collision: false
-done_at_success: false
