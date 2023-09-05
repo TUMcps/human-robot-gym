@@ -328,11 +328,6 @@ class PickPlaceHumanCart(HumanEnv):
         self.object_full_size = object_full_size
         # settings for table top (hardcoded since it's not an essential part of the environment)
         self.table_offset = np.array((0.0, 0.0, 0.82))
-        # reward configuration
-        self.reward_scale = reward_scale
-        self.reward_shaping = reward_shaping
-        self.collision_reward = collision_reward
-        self.task_reward = task_reward
         self.object_gripped_reward = object_gripped_reward
         self.goal_dist = goal_dist
         self._object_placements_list = None
@@ -364,6 +359,10 @@ class PickPlaceHumanCart(HumanEnv):
             initialization_noise=initialization_noise,
             use_camera_obs=use_camera_obs,
             use_object_obs=use_object_obs,
+            reward_scale=reward_scale,
+            reward_shaping=reward_shaping,
+            collision_reward=collision_reward,
+            task_reward=task_reward,
             has_renderer=has_renderer,
             has_offscreen_renderer=has_offscreen_renderer,
             render_camera=render_camera,
@@ -463,57 +462,62 @@ class PickPlaceHumanCart(HumanEnv):
         # info["my_cool_info"] = 0
         return info
 
-    def reward(
+    def _sparse_reward(
         self,
         achieved_goal: List[float],
         desired_goal: List[float],
         info: Dict[str, Any],
     ) -> float:
-        """Compute the reward based on the achieved goal, the desired goal, and the info dict.
+        """Compute the sparse reward based on the achieved goal, the desired goal, and the info dict.
 
-        If `self.reward_shaping`, we use a dense reward, otherwise a sparse reward.
-        The sparse reward yields
-            - `self.task_reward` if the target is reached
-            - `self.object_gripped_reward` if the object is gripped but the target is not reached
-            - `-1` otherwise
-
-        This function can only be called for one sample.
+        The sparse reward function yields
+            - `self.task_reward` if the target is reached,
+            - `self.object_gripped_reward` if the object is gripped but the target is not reached, and
+            - `-1` otherwise.
 
         Args:
             achieved_goal (List[float]): observation of robot state that is relevant for the goal
             desired_goal (List[float]): the desired goal
             info (Dict[str, Any]): dictionary containing additional information like collisions
+
         Returns:
-            float: reward
+            float: sparse environment reward
         """
         object_gripped = bool(achieved_goal[6])
 
-        # sparse completion reward
+        # sparse reward
         if self._check_success(achieved_goal, desired_goal):
-            reward = self.task_reward
+            return self.task_reward
         elif object_gripped:
-            reward = self.object_gripped_reward
+            return self.object_gripped_reward
         else:
-            reward = -1
+            return -1
 
-        # use a shaping reward
-        if self.reward_shaping:
-            eef_pos = np.array(achieved_goal[:3])
-            obj_pos = np.array(achieved_goal[3:6])
-            reward += 1.0
-            eef_2_obj = np.linalg.norm(obj_pos - eef_pos)
-            obj_2_target = np.linalg.norm(np.array(desired_goal) - obj_pos)
-            reward -= (eef_2_obj * 0.2 + obj_2_target) * 0.1
+    def _dense_reward(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict[str, Any],
+    ) -> float:
+        """Compute a dense guidance reward based on the achieved goal, the desired goal, and the info dict.
 
-        # Add a penalty for self-collisions and collisions with the human
-        if COLLISION_TYPE(info["collision_type"]) not in (COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED):
-            reward += self.collision_reward
+        The dense reward incorporates the Euclidean distances between robot end effector and object,
+        and between object and target.
 
-        # Scale reward if requested
-        if self.reward_scale is not None:
-            reward *= self.reward_scale
+        Args:
+            achieved_goal (List[float]): observation of robot state that is relevant for the goal
+            desired_goal (List[float]): the desired goal
+            info (Dict[str, Any]): dictionary containing additional information like collisions
 
-        return reward
+        Returns:
+            float: dense environment reward
+        """
+        eef_pos = np.array(achieved_goal[:3])
+        obj_pos = np.array(achieved_goal[3:6])
+
+        eef_2_obj = np.linalg.norm(obj_pos - eef_pos)
+        obj_2_target = np.linalg.norm(np.array(desired_goal) - obj_pos)
+        return -(eef_2_obj * 0.2 + obj_2_target) * 0.1
 
     def _check_success(
         self,
