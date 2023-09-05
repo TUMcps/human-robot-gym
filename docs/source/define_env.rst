@@ -1,4 +1,4 @@
-Define your own environment
+Define Your Own Environment
 ===========================
 
 **Disclaimer: Please evaluate carefully if your functionality should be in a wrapper or in a new environment!**
@@ -376,3 +376,46 @@ The observables are defined in the ``_setup_observables`` function.
         return observables
 
 You can then define which types of observations the agent should receive in the ``GymWrapper`` (see :doc:`demos section</demos>` for an example!).
+
+Human Animations
+----------------
+
+As described in the :doc:`human animation section</human_animations>`, ``HumanEnv`` environments feature an animated human that follows real-world motion capturing data.
+The ``_control_human`` method is responsible for this behavior.
+To determine the progress in the animation, it calls the ``_compute_animation_time`` method, which returns the intex of the current frame in the animation.
+This method may be overridden to transform the progress in the animation, e.g. to loop the animation by alternating between forward and backward replay.
+For more information, please refer to the :doc:`human animation section</human_animations>`.
+Linear playback is implemented as
+
+.. code-block:: python
+
+    def _compute_animation_time(self, control_time: float) -> float:
+        """Compute the animation time from the control time and the animation start time.
+
+        Can be overridden to implement custom animation time computation, e.g. for looping, pausing, etc.
+
+        Args:
+            control_time (float): Current control time
+
+        Returns:
+            float: Animation time
+        """
+        return control_time - self.animation_start_time
+
+Once an animation is finished the ``_progress_to_next_animation`` method is called from within ``_control_human`` to determine the next animation.
+We sample a list of animations at the beginning of each episode in ``_reset_internal`` and then cycle through them.
+This is vital for SIR to be able to replay episodes from datasets.
+
+.. code-block:: python
+
+    def _progress_to_next_animation(self, animation_start_time: int):
+        """Changes the human animation id during an episode.
+
+        Args:
+            animation_start_time (int): Current control time. Used to set the animation start time.
+        """
+        self._human_animation_ids_index = (
+            (self._human_animation_ids_index + 1) % self._n_animations_to_sample_at_resets
+        )
+        self.animation_time = 0
+        self.animation_start_time = animation_start_time
