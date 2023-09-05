@@ -640,13 +640,7 @@ class PickPlaceHumanCart(HumanEnv):
                 for obj_pos, obj_quat, obj in self.object_placement_initializer.sample().values()
             ] for _ in range(self._n_objects_to_sample_at_resets)
         ]
-
-    def _get_current_target_pos(self) -> np.ndarray:
-        """Return the target position.
-
-        Can be overridden to allow for dynamic target positions, e.g. when taking the human into account.
-        """
-        return self.target_pos
+        self._object_placements_list_index = 0
 
     def _sample_target_pos(self) -> np.ndarray:
         """Sample a new target location from the defined space.
@@ -787,7 +781,6 @@ class PickPlaceHumanCart(HumanEnv):
         # Absolute coordinates of goal position
         @sensor(modality=goal_mod)
         def target_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            # self.target_pos = self._get_current_target_pos()
             return self.target_pos
 
         # Absolute coordinates of object position
