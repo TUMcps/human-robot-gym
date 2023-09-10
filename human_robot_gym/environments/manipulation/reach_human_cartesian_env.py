@@ -92,7 +92,7 @@ class ReachHumanCart(ReachHuman):
 
         collision_reward (float): Reward to be given in the case of a collision.
 
-        goal_reward (float): Reward to be given in the case of reaching the goal.
+        task_reward (float): Reward to be given in the case of reaching the goal.
 
         object_placement_initializer (ObjectPositionSampler): if provided, will
             be used to place objects on every reset, else a `UniformRandomSampler`
@@ -224,7 +224,7 @@ class ReachHumanCart(ReachHuman):
         goal_dist: float = 0.1,
         n_goals_sampled_per_100_steps: int = 8,
         collision_reward: float = -10,
-        goal_reward: float = 1,
+        task_reward: float = 1,
         object_placement_initializer: Optional[ObjectPositionSampler] = None,
         obstacle_placement_initializer: Optional[ObjectPositionSampler] = None,
         has_renderer: bool = False,
@@ -293,7 +293,7 @@ class ReachHumanCart(ReachHuman):
             goal_dist=goal_dist,
             n_goals_sampled_per_100_steps=n_goals_sampled_per_100_steps,
             collision_reward=collision_reward,
-            goal_reward=goal_reward,
+            task_reward=task_reward,
             object_placement_initializer=object_placement_initializer,
             obstacle_placement_initializer=obstacle_placement_initializer,
             has_renderer=has_renderer,
