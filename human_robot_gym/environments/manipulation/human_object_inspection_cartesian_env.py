@@ -10,13 +10,13 @@ It is divided into four phases:
 If the object exits the target zone in the inspection phase, the human returns to the ready phase and
 the inspection has to be restarted.
 
+When using a fixed horizon, these four phases are looped until the horizon is reached.
+Otherwise, the episode ends with the animation.
+
 Reward is given once the task is done, i.e. the animation is finished.
 Optionally, this sparse reward can be reformulated as a step reward to yield additional gratification
 for grabbing the object and bringing it to the target zone or as a dense reward incorporating distances
 to the object and the target zone.
-
-When using a fixed horizon, these four phases are looped until the horizon is reached.
-Otherwise, the episode ends with the animation.
 
 Author: Felix Trost
 
@@ -33,7 +33,6 @@ from robosuite.models.arenas import TableArena
 from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.placement_samplers import ObjectPositionSampler
 
-from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE
 from human_robot_gym.environments.manipulation.pick_place_human_cartesian_env import (
     PickPlaceHumanCart, PickPlaceHumanCartEnvState
 )
@@ -52,7 +51,7 @@ class ObjectInspectionPhase(Enum):
 
 @dataclass
 class HumanObjectInspectionCartEnvState(PickPlaceHumanCartEnvState):
-    """Dataclass for encapsulating the state of the HumanObjectInspectionCart environment.
+    """Dataclass for encapsulating the state of the `HumanObjectInspectionCart` environment.
 
     Extends the `PickPlaceHumanCartEnvState` dataclass to include all variables necessary
     to restore a `HumanObjectInspectionCart` environment state.
@@ -555,60 +554,41 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         """
         return self.task_phase == ObjectInspectionPhase.COMPLETE
 
-    def reward(
+    def _sparse_reward(
         self,
         achieved_goal: List[float],
         desired_goal: List[float],
         info: Dict[str, Any],
     ) -> float:
-        r"""Override super method to modify the sparse reward function.
+        """Override super method to add the subobjective rewards of the object inspection task.
 
-        Compute the reward based on the achieved goal, the desired goal and the info dict.
-
-        If `self.reward_shaping` is `True`, we use a dense reward function:
-            r = (eef_to_object * 0.2 + object_to_target) * 0.1
-        Otherwise, we use a sparse reward function:
-            - `self.task_reward` if the task is completed (i.e. the animation is finished)
-            - `self._object_at_target_reward` if the object is within the target zone
-            - `self._object_gripped_reward` if the object is gripped
+        The sparse reward function yilds
+            - `self.task_reward` when the animation is complete
+            - `self.object_at_target_reward` when the object is in the target zone
+            - `self.object_gripped_reward` when the object is gripped
             - `-1` otherwise
-
-        If a self-collision or a collision with the human occurs, `self.collision_reward` is added (a negative amount).
-        If `self.reward_scale` is not `None`, the reward is scaled by this amount.
 
         Args:
             achieved_goal (List[float]): Part of the robot state observation relevant for the goal.
             desired_goal (List[float]): The desired goal.
             info (Dict[str, Any]): The info dict.
+
         Returns:
-            float: The reward.
+            float: The sparse reward.
         """
         object_gripped = bool(achieved_goal[6])
 
-        reward = -1
-
-        if self.reward_shaping:
-            eef_pos = np.array(achieved_goal[0:3])
-            obj_pos = np.array(achieved_goal[3:6])
-            reward += 1
-            eef_2_obj = np.linalg.norm(eef_pos - obj_pos)
-            obj_2_target = np.linalg.norm(np.array(desired_goal - obj_pos))
-            reward -= (eef_2_obj * 0.2 + obj_2_target) * 0.1
+        if self._check_success(
+            achieved_goal=achieved_goal,
+            desired_goal=desired_goal
+        ):
+            return self.task_reward
+        elif self._check_object_in_target_zone(achieved_goal=achieved_goal, desired_goal=desired_goal):
+            return self.object_at_target_reward
+        elif object_gripped:
+            return self.object_gripped_reward
         else:
-            if self._check_success(achieved_goal, desired_goal):
-                reward = self.task_reward
-            elif self._check_object_in_target_zone(achieved_goal=achieved_goal, desired_goal=desired_goal):
-                reward = self.object_at_target_reward
-            elif object_gripped:
-                reward = self.object_gripped_reward
-
-        if info["collision"] and COLLISION_TYPE(info["collision_type"]) != COLLISION_TYPE.STATIC:
-            reward += self.collision_reward
-
-        if self.reward_scale is not None:
-            reward *= self.reward_scale
-
-        return reward
+            return -1
 
     def _compute_animation_time(self, control_time: float) -> float:
         """Compute the current animation time.
