@@ -6,3 +6,5 @@ env_id: PickPlacePointingHumanCart
 human_animation_names:
   - PickPlacePointingHuman/0
   - PickPlacePointingHuman/1
+n_object_placements_sampled_per_100_steps: 3
+object_placement_initializer: null

@@ -18,10 +18,8 @@ from typing import Any, Dict, Union, List, Optional, Tuple
 from dataclasses import dataclass
 from enum import IntFlag
 import math
-import json
 
 import numpy as np
-import pickle
 from scipy.spatial.transform import Rotation
 
 import pinocchio as pin
@@ -44,6 +42,7 @@ from robosuite.models.objects import PrimitiveObject
 from human_robot_gym.models.objects.human.human import HumanObject
 from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat, quat_to_rot
 from human_robot_gym.utils.pairing import cantor_pairing
+from human_robot_gym.utils.animation_utils import load_human_animation_data
 from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import (
     PinocchioManipulatorModel,
 )
@@ -360,7 +359,7 @@ class HumanEnv(SingleArmEnv):
         # Human animation definition
         self.human_animation_names = human_animation_names
 
-        self.human_animation_data = self._load_human_animation_data(
+        self.human_animation_data = load_human_animation_data(
             human_animation_names=human_animation_names,
             verbose=verbose,
         )
@@ -1638,55 +1637,6 @@ class HumanEnv(SingleArmEnv):
                 trans[0:3, 3] = robot.base_pos
                 robot.robot_model.set_base_placement(trans)
 
-    @staticmethod
-    def _load_human_animation_data(
-        human_animation_names: List[str],
-        verbose: bool = False,
-    ) -> List[Tuple[Dict[str, Any], Dict[str, Any]]]:
-        """Load the human animation data from pickled files and the accompanying info json files.
-
-        Gives a list of tuples of the form (animation_data, animation_info).
-        If an animation info file is missing, the animation will be played back without transformation
-        (i.e. no scaling, no position offset, no orientation offset).
-
-        Args:
-            human_animation_names (List[str]): List of human animation names to load.
-            verbose (bool): Whether to print out debug information. Defaults to False.
-
-        Returns:
-            List[Tuple[Dict[str, Any], Dict[str, Any]]]: List of tuples of the form (animation_data, animation_info).
-        """
-        animation_data = []
-
-        for animation_name in human_animation_names:
-            try:
-                with open(
-                    xml_path_completion(f"human/animations/human-robot-animations/{animation_name}.pkl"),
-                    "rb",
-                ) as pkl_file:
-                    animation = pickle.load(pkl_file)
-            except Exception as e:
-                print(f"Error while loading human animation {pkl_file}: {e}")
-
-            try:
-                with open(
-                    xml_path_completion(f"human/animations/human-robot-animations/{animation_name}_info.json"),
-                    "r",
-                ) as info_file:
-                    info = json.load(info_file)
-            except FileNotFoundError:
-                if verbose:
-                    print(f"Animation info file not found: {animation_name}_info")
-                info = {
-                    "position_offset": [0.0, 0.0, 0.0],
-                    "orientation_quat": [0.0, 0.0, 0.0, 1.0],
-                    "scale": 1.0,
-                }
-
-            animation_data.append((animation, info))
-
-        return animation_data
-
     def _compute_animation_time(self, control_time: float) -> float:
         """Compute the animation time from the control time and the animation start time.
 
@@ -1712,7 +1662,7 @@ class HumanEnv(SingleArmEnv):
         self.animation_time = 0
         self.animation_start_time = animation_start_time
 
-    def _control_human(self, force_update: bool = False):
+    def _control_human(self, force_update: bool = True):
         """Set the human joint positions according to the human animation files.
 
         Args:

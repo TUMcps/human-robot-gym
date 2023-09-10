@@ -37,6 +37,7 @@ from human_robot_gym.environments.manipulation.pick_place_human_cartesian_env im
     PickPlaceHumanCart, PickPlaceHumanCartEnvState
 )
 from human_robot_gym.utils.mjcf_utils import xml_path_completion
+from human_robot_gym.utils.animation_utils import layered_sin_modulations, sample_animation_loop_properties
 
 
 class ObjectInspectionPhase(Enum):
@@ -77,13 +78,12 @@ class HumanObjectInspectionCartEnvState(PickPlaceHumanCartEnvState):
         n_delayed_timesteps (int): Number of timesteps the current animation is delayed because of the loop phase.
         animation_loop_amplitudes (List[float]): Amplitudes of the sine functions used to loop the animation.
             Length of the list is equal to the length of `self.human_animation_ids`.
-        animation_loop_speeds (List[float]): Frequency factors of the sine functions used to loop the animation.
-            Length of the list is equal to the length of `self.human_animation_ids`.
+        animation_loop_properties (List[Tuple[float, float]]):  Loop amplitudes and speed modifiers
+            for all layered sines for all human animations sampled for the current episode.
     """
     task_phase_value: int
     n_delayed_timesteps: int
-    animation_loop_amplitudes: List[float]
-    animation_loop_speeds: List[float]
+    animation_loop_properties: List[Tuple[List[float], List[float]]]
 
 
 class HumanObjectInspectionCart(PickPlaceHumanCart):
@@ -168,12 +168,6 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
             per 100 steps in the horizon.
             After all objects of the list have been placed, restart from the first in the list.
             This is done to ensure the same list of objects can be placed when loading the env state from a file.
-
-        n_targets_sampled_per_100_steps (int): How many targets to sample at resets per 100 steps in the horizon.
-            After all goals of the list have been reached, restart from the first in the list.
-            This is done to ensure the same list of goals can be played when loading the env state from a file.
-            Setting `n_targets_sampled_per_100_steps != n_object_placements_sampled_per_100_steps`
-            yields more possible object-goal combinations.
 
         goal_exit_tolerance (float): Absolute tolerance by which the goal distance is increased once the goal zone is
             entered. This is used to avoid oscillating rapidly between WAIT and INSPECTION phases.
@@ -320,7 +314,6 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         reward_shaping: bool = False,
         goal_dist: float = 0.15,
         n_object_placements_sampled_per_100_steps: int = 3,
-        n_targets_sampled_per_100_steps: int = 3,
         goal_exit_tolerance: float = 0.02,
         collision_reward: float = -10,
         task_reward: float = 1,
@@ -356,7 +349,7 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 30,
         human_rand: List[float] = [0.0, 0.0, 0.0],
-        n_animations_sampled_per_100_steps: int = 5,
+        n_animations_sampled_per_100_steps: int = 2,
         safe_vel: float = 0.001,
         self_collision_safety: float = 0.01,
         seed: int = 0,
@@ -369,8 +362,7 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         self._n_delayed_timesteps = None
         # Characteristics of the loop phase, set according to the animation info json files
         # with some randomization
-        self._animation_loop_amplitudes = None
-        self._animation_loop_speeds = None
+        self._animation_loop_properties = None
 
         self.object_at_target_reward = object_at_target_reward
         self.goal_exit_tolerance = goal_exit_tolerance
@@ -391,7 +383,7 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
             reward_shaping=reward_shaping,
             goal_dist=goal_dist,
             n_object_placements_sampled_per_100_steps=n_object_placements_sampled_per_100_steps,
-            n_targets_sampled_per_100_steps=n_targets_sampled_per_100_steps,
+            n_targets_sampled_per_100_steps=0,
             collision_reward=collision_reward,
             task_reward=task_reward,
             object_gripped_reward=object_gripped_reward,
@@ -433,16 +425,29 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         )
 
     @property
-    def animation_loop_amplitude(self) -> float:
-        return self._animation_loop_amplitudes[self._human_animation_ids_index]
+    def animation_loop_amplitudes(self) -> List[float]:
+        """Loop amplitudes for all layered sines for the current human animation."""
+        return self._animation_loop_properties[self._human_animation_ids_index][0]
 
     @property
-    def animation_loop_speed(self) -> float:
-        return self._animation_loop_speeds[self._human_animation_ids_index]
+    def animation_loop_speeds(self) -> List[float]:
+        """Loop speed modifiers for all layered sines for the current human animation."""
+        return self._animation_loop_properties[self._human_animation_ids_index][1]
 
     @property
     def target_pos(self) -> np.ndarray:
-        return self._get_current_target_pos()
+        """Current position of the target.
+
+        Returns a position specified in the info json file of the current animation.
+
+        Returns:
+            np.ndarray: The current target position.
+        """
+        target_pos = np.array(self.human_animation_data[self.human_animation_id][1]["target_pos"])
+
+        target_pos += self.human_pos_offset
+
+        return target_pos
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
         """Override super `step` method to enter the `INSPECTION` phase when the object first is in the target zone.
@@ -474,6 +479,21 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
             self.task_phase = ObjectInspectionPhase.READY
 
         return obs, reward, done, info
+
+    def _on_goal_reached(self):
+        """Select a new animation and sample new object locations when the goal is reached."""
+        if self.done_at_success:
+            return
+
+        self._object_placements_list_index = (
+            (self._object_placements_list_index + 1) % self._n_objects_to_sample_at_resets
+        )
+        for joint_name, joint_qpos in self.object_placements:
+            self.sim.data.set_joint_qpos(joint_name, joint_qpos)
+
+        self._progress_to_next_animation(
+            animation_start_time=int(self.low_level_time / self.human_animation_step_length)
+        )
 
     def _setup_arena(self):
         """Setup the mujoco arena.
@@ -576,7 +596,7 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         The human should perform an idle animation when waiting for the object to enter the target zone.
         To achieve this, we use multiple layered sine funtions to loop some frames around the first keyframe
         back and forth. The frequency and amplitudes of the sine functions are set according to the animation info
-        json files with some randomization (see `self._set_animation_loop_properties`).
+        json files with some randomization (see `sample_animation_loop_properties`).
 
         The number of frames the animation is delayed because of the loop phase
         is stored in `self._n_delayed_timesteps`.
@@ -598,18 +618,15 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
             self.task_phase = ObjectInspectionPhase.READY
 
         # When in the `READY` phase, loop the animation until the object enters the target zone
+        # When in the `READY` phase, loop the animation until the object enters the target zone
         if self.task_phase == ObjectInspectionPhase.READY:
-            def sin_animation_time(x, a, s):
-                return a * np.sin((x - keyframes[0]) / (a / s))
-
             animation_time = int(
-                sin_animation_time(
-                    animation_time, self.animation_loop_amplitude, self.animation_loop_speed
-                ) + sin_animation_time(
-                    animation_time, self.animation_loop_amplitude / 2.5, self.animation_loop_speed * 1.4,
-                ) + sin_animation_time(
-                    animation_time, self.animation_loop_amplitude / 1.3, self.animation_loop_speed * 0.11,
-                ) + keyframes[0]
+                layered_sin_modulations(
+                    classic_animation_time=animation_time,
+                    modulation_start_time=keyframes[0],
+                    amplitudes=self.animation_loop_amplitudes,
+                    speeds=self.animation_loop_speeds,
+                )
             )
 
             self._n_delayed_timesteps = classic_animation_time - animation_time
@@ -631,45 +648,6 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         """Override super method to force update the human every frame to avoid glitches in the wait animation."""
         super()._control_human(force_update=True)
 
-    def _on_goal_reached(self):
-        """Extend super method to select a new animation when the goal is reached."""
-        super()._on_goal_reached()
-
-        if not self.done_at_success:
-            self._progress_to_next_animation(
-                animation_start_time=int(self.low_level_time / self.human_animation_step_length)
-            )
-
-    def _set_animation_loop_properties(self):
-        """Set the lists of amplitude and frequency of the animation loop
-        when waiting for the object to enter the target zone (see `self._compute_animation_time`).
-
-        Takes the values from the animation info json files corresponding to the sampled animation ids in
-        `self._human_animation_ids` and adds some randomization.
-
-        Amplitude and frequency are multiplied by an exponential of a clipped normal distributed random variable.
-        The random variable is clipped to [-3, 3] to avoid extreme values.
-        A scaling parameter sets the range of possible random factors. For example, with a value of 1.1,
-        this gives a range of [1.1^-3, 1.1^3] ~ [0.75, 1.33]
-        Scaling parameters taken from the animation info json files.
-        """
-        def get_random_factor(std_factor: float):
-            return np.exp(np.clip(np.random.normal(), -3, 3) * np.log(std_factor))
-
-        self._animation_loop_amplitudes = [
-            self.human_animation_data[human_animation_id][1]["loop_amt"] * get_random_factor(
-                std_factor=self.human_animation_data[human_animation_id][1]["loop_amt_std_factor"],
-            )
-            for human_animation_id in self._human_animation_ids
-        ]
-
-        self._animation_loop_speeds = [
-            self.human_animation_data[human_animation_id][1]["loop_speed"] * get_random_factor(
-                std_factor=self.human_animation_data[human_animation_id][1]["loop_speed_std_factor"],
-            )
-            for human_animation_id in self._human_animation_ids
-        ]
-
     def _reset_animation(self):
         """Reset the inspection phase and the animation-specific internal variables."""
         self.task_phase = ObjectInspectionPhase.APPROACH
@@ -688,7 +666,12 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         """Extend super method to reset internal variables concerning task and animation."""
         super()._reset_internal()
         self._reset_animation()
-        self._set_animation_loop_properties()
+        self._animation_loop_properties = [
+            sample_animation_loop_properties(
+                animation_info=self.human_animation_data[human_animation_id][1],
+            )
+            for human_animation_id in self._human_animation_ids
+        ]
 
     def _get_current_target_pos(self) -> np.ndarray:
         """Evaluate the current position of the target.
@@ -713,7 +696,7 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         Returns:
             np.ndarray: The current target position.
         """
-        return self._get_current_target_pos()
+        return self.target_pos
 
     def _get_default_object_bin_boundaries(self) -> Tuple[float, float, float, float]:
         """Get the x and y boundaries of the object sampling space.
@@ -751,8 +734,7 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         return HumanObjectInspectionCartEnvState(
             task_phase_value=self.task_phase.value,
             n_delayed_timesteps=self._n_delayed_timesteps,
-            animation_loop_amplitudes=self._animation_loop_amplitudes,
-            animation_loop_speeds=self._animation_loop_speeds,
+            animation_loop_properties=self._animation_loop_properties,
             **asdict(pick_place_env_state),
         )
 
@@ -765,8 +747,7 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         super().set_environment_state(state)
         self.task_phase = ObjectInspectionPhase(state.task_phase_value)
         self._n_delayed_timesteps = state.n_delayed_timesteps
-        self._animation_loop_amplitudes = state.animation_loop_amplitudes
-        self._animation_loop_speeds = state.animation_loop_speeds
+        self._animation_loop_properties = state.animation_loop_properties
 
         if self.has_renderer:
             self._visualize()
