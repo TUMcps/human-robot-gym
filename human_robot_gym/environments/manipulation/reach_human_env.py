@@ -118,7 +118,7 @@ class ReachHuman(HumanEnv):
 
         collision_reward (float): Reward to be given in the case of a collision.
 
-        goal_reward (float): Reward to be given in the case of reaching the goal.
+        task_reward (float): Reward to be given in the case of reaching the goal.
 
         object_placement_initializer (ObjectPositionSampler): if provided, will
             be used to place objects on every reset, else a `UniformRandomSampler`
@@ -251,7 +251,7 @@ class ReachHuman(HumanEnv):
         goal_dist: float = 0.1,
         n_goals_sampled_per_100_steps: int = 8,
         collision_reward: float = -10,
-        goal_reward: float = 1,
+        task_reward: float = 1,
         object_placement_initializer: Optional[ObjectPositionSampler] = None,
         obstacle_placement_initializer: Optional[ObjectPositionSampler] = None,
         has_renderer: bool = False,
@@ -308,10 +308,6 @@ class ReachHuman(HumanEnv):
         # settings for table top (hardcoded since it's not an essential part of the environment)
         self.table_offset = np.array((0.0, 0.0, 0.82))
         # reward configuration
-        self.reward_scale = reward_scale
-        self.reward_shaping = reward_shaping
-        self.collision_reward = collision_reward
-        self.goal_reward = goal_reward
         self.goal_dist = goal_dist
         self._desired_goals = None
         self._desired_goals_index = 0
@@ -325,9 +321,7 @@ class ReachHuman(HumanEnv):
         self.object_placement_initializer = object_placement_initializer
         self.obstacle_placement_initializer = obstacle_placement_initializer
         self.randomize_initial_pos = randomize_initial_pos
-        # if run should stop at collision
-        self.done_at_collision = done_at_collision
-        self.done_at_success = done_at_success
+
         super().__init__(
             robots=robots,
             robot_base_offset=robot_base_offset,
@@ -337,6 +331,12 @@ class ReachHuman(HumanEnv):
             initialization_noise=initialization_noise,
             use_camera_obs=use_camera_obs,
             use_object_obs=use_object_obs,
+            reward_scale=reward_scale,
+            reward_shaping=reward_shaping,
+            collision_reward=collision_reward,
+            task_reward=task_reward,
+            done_at_collision=done_at_collision,
+            done_at_success=done_at_success,
             has_renderer=has_renderer,
             has_offscreen_renderer=has_offscreen_renderer,
             render_camera=render_camera,
@@ -428,40 +428,25 @@ class ReachHuman(HumanEnv):
         # info["my_cool_info"] = 0
         return info
 
-    def reward(
-        self, achieved_goal: List[float], desired_goal: List[float], info: Dict
+    def _dense_reward(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict[str, Any],
     ) -> float:
-        """Compute the reward based on the achieved goal, the desired goal, and the info dict.
+        """Compute a dense guidance reward based on the achieved goal, the desired goal, and the info dict.
 
-        If self.reward_shaping, we use a dense reward, otherwise a sparse reward.
-        This function can only be called for one sample.
+        The dense reward is proportional to the L2-distance between the achieved goal and the desired goal.
 
         Args:
-            achieved_goal (List[float]): observation of robot state that is relevant for goal
+            achieved_goal (List[float]): observation of robot state that is relevant for the goal
             desired_goal (List[float]): the desired goal
-            info (Dict): dictionary containing additional information like collision
+            info (Dict[str, Any]): dictionary containing additional information like collisions
+
         Returns:
-            reward (float)
+            float: dense environment reward
         """
-        # sparse completion reward
-        if self._check_success(achieved_goal, desired_goal):
-            reward = self.goal_reward
-        else:
-            reward = -1.0
-
-        # use a shaping reward
-        if self.reward_shaping:
-            reward += 1.0
-            dist = np.sqrt(np.sum((achieved_goal - desired_goal)**2))
-            reward -= dist * 0.1
-        if info["collision"]:
-            reward += self.collision_reward
-
-        # Scale reward if requested
-        if self.reward_scale is not None:
-            reward *= self.reward_scale / 1.0
-
-        return reward
+        return -0.1 * np.sqrt(np.sum((np.array(achieved_goal) - np.array(desired_goal))**2))
 
     def _check_success(
         self, achieved_goal: List[float], desired_goal: List[float]
@@ -482,28 +467,6 @@ class ReachHuman(HumanEnv):
             np.sum([(a - g) ** 2 for (a, g) in zip(achieved_goal, desired_goal)])
         )
         return dist <= self.goal_dist
-
-    def _check_done(
-        self, achieved_goal: List[float], desired_goal: List[float], info: Dict
-    ) -> bool:
-        """Compute the done flag based on the achieved goal, the desired goal, and the info dict.
-
-        This function can only be called for one sample.
-
-        Args:
-            achieved_goal (List[float]): observation of robot state that is relevant for goal
-            desired_goal (List[float]): the desired goal
-            info (Dict): dictionary containing additional information like collision
-        Returns:
-            done (bool)
-        """
-        collision = info["collision"]
-        if self.done_at_collision and collision:
-            return True
-        success = self._check_success(achieved_goal, desired_goal)
-        if self.done_at_success and success:
-            return True
-        return False
 
     def _get_achieved_goal_from_obs(
         self, observation: Union[List[float], Dict]

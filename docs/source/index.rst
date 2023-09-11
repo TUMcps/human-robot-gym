@@ -20,6 +20,7 @@ First, install the project with the :doc:`installation` section.
    demos
    training
    safety_shield
+   benchmark_envs
    define_env
    wrappers
    human_animations
