@@ -730,7 +730,7 @@ def run_training_wandb(config: TrainingConfig) -> BaseAlgorithm:
 
         model.learn(
             total_timesteps=config.run.n_steps,
-            log_interval=1,
+            log_interval=None,  # Perform logging manually in the callback
             reset_num_timesteps=config.run.load_step is None,
             callback=callback,
         )

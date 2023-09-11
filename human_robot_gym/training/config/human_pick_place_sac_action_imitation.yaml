@@ -21,6 +21,9 @@ run:
     - dist_eef_to_human_head
     - dist_eef_to_human_lh
     - dist_eef_to_human_rh
+  log_interval:
+    - 5000
+    - step
 wrappers:
   ik_position_delta:
     action_limit: 0.1
@@ -31,3 +34,5 @@ wrappers:
     iota_g: 0.1
     dataset_name: pick-place-dataset
     rsi_prob: 1
+expert:
+  seed: ${run.seed}
