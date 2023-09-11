@@ -48,6 +48,7 @@ from human_robot_gym.wrappers.state_based_expert_imitation_reward_wrapper import
 from human_robot_gym.wrappers.HER_buffer_add_monkey_patch import custom_add, _custom_sample_transitions
 from human_robot_gym.callbacks.tensorboard_callback import TensorboardCallback
 from human_robot_gym.callbacks.model_reset_callback import ModelResetCallback
+from human_robot_gym.callbacks.logging_callback import LoggingCallback
 from human_robot_gym.wrappers.dataset_collection_wrapper import DatasetCollectionWrapper
 from human_robot_gym.wrappers.dataset_wrapper import DatasetObsNormWrapper, DatasetRSIWrapper
 
@@ -138,13 +139,13 @@ def create_training_vec_env(config: TrainingConfig, evaluation_mode: bool = Fals
     return env
 
 
-def create_wrapped_env_from_config(config: TrainingConfig) -> gym.Env:
+def create_wrapped_env_from_config(config: TrainingConfig, evaluation_mode: bool = False) -> gym.Env:
     """Create a non-vectorized wrapped gym environment from a config.
 
     Args:
         config (Config): The config object containing information about the environment and optional wrappers
     """
-    kwargs = _compose_environment_kwargs(config=config, evaluation_mode=False)
+    kwargs = _compose_environment_kwargs(config=config, evaluation_mode=evaluation_mode)
 
     if config.run.expert_obs_keys is None:
         env = make_gym_env(
@@ -423,6 +424,38 @@ def get_environment_wrap_fn(config: TrainingConfig) -> Callable[[gym.Env], gym.E
     return wrap_fn
 
 
+def _get_tb_log_path(
+    config: TrainingConfig,
+    save_logs: bool,
+    run_id: Optional[str] = None,
+) -> Optional[str]:
+    """Get the path at which to save tensorboard logs.
+
+    Args:
+        config (TrainingConfig): The config object containing information about the run
+        save_logs (bool): Whether to save logs to tensorboard (or WandB)
+        run_id (str | None): Can be set to override the run id specified in the run sub-config,
+            as this value is usually set to `None` in training runs and generated at runtime.
+
+    Returns:
+        Optional[str]: The path at which to save tensorboard logs. Returns `None` if `save_logs` is `False`.
+    """
+    if save_logs:
+        if config.run.type == "wandb" or (config.run.type == "tensorboard" and all(
+            [config.wandb_run.project, config.wandb_run.group, config.wandb_run.name]
+        )):
+            return os.path.join(
+                "runs",
+                config.wandb_run.project,
+                config.wandb_run.group,
+                config.wandb_run.name,
+            )
+        else:
+            return f"runs/{run_id}"
+    else:
+        return None
+
+
 def _compose_algorithm_kwargs(
     config: TrainingConfig,
     env: Optional[VecEnv] = None,
@@ -448,7 +481,13 @@ def _compose_algorithm_kwargs(
     del kwargs["name"]
 
     kwargs["env"] = env
-    kwargs["tensorboard_log"] = f"runs/{run_id}" if save_logs else None
+    log_path = _get_tb_log_path(config=config, save_logs=save_logs, run_id=run_id)
+    if log_path is not None:
+        try:
+            os.makedirs(log_path, exist_ok=False)
+        except OSError:
+            print(f"Tensorboard log directory {log_path} already exists!")
+    kwargs["tensorboard_log"] = log_path
 
     # Stable-baselines3 throws an error if train_freq is a list (expects tuple or int)
     if "train_freq" in kwargs and isinstance(kwargs["train_freq"], list):
@@ -559,7 +598,13 @@ def load_model(
         model.set_env(env)
 
     if isinstance(model, OffPolicyAlgorithm):
-        model.load_replay_buffer(f"models/{run_id}/replay_buffer.pkl")
+        if os.path.exists(f"models/{run_id}/replay_buffer"):
+            if config.run.verbose:
+                print(f"Loading replay buffer from run {run_id} at episode {load_step}")
+            model.load_replay_buffer(f"models/{run_id}/replay_buffer.pkl")
+        else:
+            if config.run.verbose:
+                print(f"Replay buffer not found for run {run_id} at episode {load_step}")
 
     return model
 
@@ -668,11 +713,29 @@ def create_callback(
                 log_interval=config.run.log_interval,
             )
         )
+    elif config.run.type == "tensorboard":
+        model_path = (
+            f"models/{config.wandb_run.project}/{config.wandb_run.group}/{config.wandb_run.name}"
+            if all([config.wandb_run.project, config.wandb_run.group, config.wandb_run.name])
+            else f"models/{run_id}"
+        )
+
+        callbacks.append(
+            LoggingCallback(
+                verbose=2,
+                save_freq=config.run.save_freq,
+                model_path=model_path,
+                start_episode=model._episode_num,
+                additional_log_info_keys=config.run.log_info_keys,
+                log_interval=config.run.log_interval,
+            )
+        )
 
     if config.run.resetting_interval is not None:
         callbacks.append(
             ModelResetCallback(
                 n_steps_between_resets=config.run.resetting_interval,
+                total_training_timesteps=config.run.n_steps,
                 reset_fn=None,
                 verbose=config.run.verbose,
             )
@@ -681,18 +744,24 @@ def create_callback(
     return CallbackList(callbacks)
 
 
-def _run_training_with_id(config: TrainingConfig, run_id: int) -> BaseAlgorithm:
+def _run_training_with_id(config: TrainingConfig, run_id: Optional[int]) -> BaseAlgorithm:
     """Run a training with a given run id.
 
     Args:
         config (TrainingConfig): The config object containing information about the model
-        run_id (int): The run id to use for this training run
+        run_id (int | None): The run id to use for this training run
+            If `None`, create a debug run with id ~~debug~~
 
     Returns:
         BaseAlgorithm: The trained model
     """
+    debug_run_id = "~~debug~~"
+
+    if run_id is None:
+        run_id = debug_run_id
+
     env = create_training_vec_env(config=config, evaluation_mode=False)
-    model = create_model(config=config, env=env, run_id=run_id, save_logs=True)
+    model = create_model(config=config, env=env, run_id=run_id, save_logs=run_id != debug_run_id)
     callback = create_callback(config=config, model=model, env=env, run_id=run_id)
 
     model.learn(
@@ -718,14 +787,16 @@ def run_debug_training(config: TrainingConfig) -> BaseAlgorithm:
     Returns:
         BaseAlgorithm: The trained model
     """
-    return _run_training_with_id(config=config, run_id="~~debug~~")
+    return _run_training_with_id(config=config, run_id=None)
 
 
 def run_training_tensorboard(config: TrainingConfig) -> BaseAlgorithm:
     """Run a training and store the logs to tensorboard.
 
     This avoids using WandB and stores logs only locally. Only stores the final model.
-    Stores the model and the config in `models/{run_id}`.
+    Stores the model and the config in `models/{run_id}` per default.
+    If the config provides a `wandb_run` sub-config, the model and config are stored in
+    `models/{wandb_run.project}/{wandb_run.group}/{wandb_run.name}` instead.
 
     Args:
         config (TrainingConfig): The config object containing information about the model
@@ -735,13 +806,19 @@ def run_training_tensorboard(config: TrainingConfig) -> BaseAlgorithm:
     """
     run_id = "%05i" % np.random.randint(100_000) if config.run.id is None else config.run.id
 
-    os.makedirs(f"models/{run_id}", exist_ok=True)
-    with open(f"models/{run_id}/config.yaml", "w") as f:
+    use_wandb_run_folders = all([config.wandb_run.project, config.wandb_run.group, config.wandb_run.name])
+
+    model_path = f"models/{run_id}"
+    if use_wandb_run_folders:
+        model_path = f"models/{config.wandb_run.project}/{config.wandb_run.group}/{config.wandb_run.name}"
+
+    os.makedirs(model_path, exist_ok=True)
+    with open(f"{model_path}/config.yaml", "w") as f:
         f.write(OmegaConf.to_yaml(config, resolve=True))
 
-    model = _run_training_with_id(config=config, run_id=run_id, callbacks=[])
+    model = _run_training_with_id(config=config, run_id=run_id)
 
-    model.save(path=f"models/{run_id}/model_final")
+    model.save(f"{model_path}/model_final")
 
     return model
 
@@ -769,7 +846,11 @@ def run_training_wandb(config: TrainingConfig) -> BaseAlgorithm:
 
         model = _run_training_with_id(config=config, run_id=run.id)
 
-        model.save(f"models/{run.id}/model_final")
+        model_folder = f"models/{config.wandb_run.project}/{config.wandb_run.group}/{config.wandb_run.name}"
+        if not os.path.exists(model_folder):
+            os.makedirs(model_folder)
+
+        model.save(f"{model_folder}/model_final")
 
         return model
 
