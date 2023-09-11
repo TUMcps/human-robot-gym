@@ -25,8 +25,10 @@ from wandb.integration.sb3 import WandbCallback
 from typing import Any, Dict, List, Tuple, Union
 
 
-class TensorboardCallback(WandbCallback):
+class CustomWandbCallback(WandbCallback):
     """Custom callback for plotting additional values in tensorboard.
+    Additionally, this callback can be used to save the model and replay buffer periodically.
+    Performs an evaluation at the end of training and uploads the results to wandb.
 
     Args:
         eval_env: The evaluation environment.
@@ -66,7 +68,7 @@ class TensorboardCallback(WandbCallback):
         log_interval: Union[int, Tuple[int, str]] = (1000, "step"),
         # log_path: Optional[str] = None,
     ):  # noqa: D107
-        super(TensorboardCallback, self).__init__(
+        super(CustomWandbCallback, self).__init__(
             verbose, model_save_path, model_save_freq, gradient_save_freq
         )
         self.save_freq = save_freq

@@ -46,7 +46,7 @@ from human_robot_gym.wrappers.state_based_expert_imitation_reward_wrapper import
     PickPlaceHumanCartStateBasedExpertImitationRewardWrapper,
 )
 from human_robot_gym.wrappers.HER_buffer_add_monkey_patch import custom_add, _custom_sample_transitions
-from human_robot_gym.callbacks.tensorboard_callback import TensorboardCallback
+from human_robot_gym.callbacks.custom_wandb_callback import CustomWandbCallback
 from human_robot_gym.callbacks.model_reset_callback import ModelResetCallback
 from human_robot_gym.callbacks.logging_callback import LoggingCallback
 from human_robot_gym.wrappers.dataset_collection_wrapper import DatasetCollectionWrapper
@@ -699,7 +699,7 @@ def create_callback(
 
     if config.run.type == "wandb":
         callbacks.append(
-            TensorboardCallback(
+            CustomWandbCallback(
                 eval_env=env,
                 gradient_save_freq=100,
                 model_save_path=f"models/{run_id}",
@@ -923,7 +923,7 @@ def evaluate_model_wandb(config: TrainingConfig, model: BaseAlgorithm, eval_env:
     with init_wandb(config=config):
         model.set_env(env=eval_env)
 
-        callback = TensorboardCallback(
+        callback = CustomWandbCallback(
             eval_env=eval_env,
             verbose=2,
             additional_log_info_keys=config.run.log_info_keys,

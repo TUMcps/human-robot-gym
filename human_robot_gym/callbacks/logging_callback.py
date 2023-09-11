@@ -1,14 +1,14 @@
-"""This file defines the logging functionality via tensorboard for wandb.
+"""This file defines the logging functionality via tensorboard.
 
 Further defines model saving and loading.
 
-Owner:
-    Jakob Thumm (JT)
+Author:
+    Felix Trost (FT)
 
 Contributors:
 
 Changelog:
-    2.5.22 JT Formatted docstrings
+    11.09.23 FT File created
 """
 
 from stable_baselines3.common.utils import safe_mean
@@ -19,7 +19,8 @@ from typing import Any, Dict, List, Tuple, Union
 
 
 class LoggingCallback(BaseCallback):
-    """Custom callback for plotting additional values in tensorboard.
+    """Custom callback for plotting metrics in tensorboard.
+    Additionally, this callback can be used to save the model and replay buffer periodically.
 
     Args:
         verbose: Extra terminal outputs.
@@ -36,7 +37,6 @@ class LoggingCallback(BaseCallback):
                 interval is a multiple of the number of environments, otherwise the
                 data will be logged in irregular intervals.
     """
-
     def __init__(
         self,
         verbose: int = 0,
@@ -78,6 +78,7 @@ class LoggingCallback(BaseCallback):
             self._eval_info_buffer[key] = []
 
     def _on_step(self) -> bool:
+        """Save metrics every `self.log_interval` steps/episodes."""
         for i in range(len(self.locals["dones"])):
             if self.locals["dones"][i]:
                 self.episode_counter += 1
@@ -111,6 +112,7 @@ class LoggingCallback(BaseCallback):
         return True
 
     def _log_info(self):
+        """Record metrics to tensorboard."""
         for key in self._info_buffer:
             self.logger.record(
                 "rollout/{}".format(key), safe_mean(self._info_buffer[key])
