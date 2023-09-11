@@ -129,13 +129,15 @@ class TensorboardCallback(WandbCallback):
         # Store models every `self.save_freq` timesteps
         # With parallel envs, `self.num_timesteps` is incremented by `n_envs` at each step
         # Thus, We save the model at the first step that crosses the next threshold
-        if (n_stored_models := self.num_timesteps // self.save_freq) > self._n_stored_models:
+        if (n_stored_models := self.num_timesteps // self.save_freq + 1) > self._n_stored_models:
             self._n_stored_models = n_stored_models
+            save_timestep = self.save_freq * (self._n_stored_models - 1)
+
             if self.verbose > 0:
-                print(f"Saving model at {self.save_freq * self._n_stored_models} timesteps")
+                print(f"Saving model at {save_timestep} timesteps")
 
             self.model.save(
-                f"{self.model_file}/model_{self.save_freq * self._n_stored_models:_}"  # File format: model_100_000.zip
+                f"{self.model_file}/model_{save_timestep:_}"  # File format: model_100_000.zip
             )
             if hasattr(self.model, 'save_replay_buffer'):
                 self.model.save_replay_buffer(f"{self.model_file}/replay_buffer")
