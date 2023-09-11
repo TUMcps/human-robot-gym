@@ -7,19 +7,19 @@ Owner:
 
 Contributors:
     Julian Balletshofer (JB)
+    Felix Trost (FT)
 
 Changelog:
     2.5.22 JT Formatted docstrings
     13.7.22 JB adjusted observation space (sensors) to relative distances eef and L_hand, R_hand, and Head
+    05.09.23 FT new reward function interface
 """
 from typing import Any, Dict, Union, List, Optional, Tuple
 from dataclasses import dataclass
 from enum import IntFlag
 import math
-import json
 
 import numpy as np
-import pickle
 from scipy.spatial.transform import Rotation
 
 import pinocchio as pin
@@ -42,6 +42,7 @@ from robosuite.models.objects import PrimitiveObject
 from human_robot_gym.models.objects.human.human import HumanObject
 from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat, quat_to_rot
 from human_robot_gym.utils.pairing import cantor_pairing
+from human_robot_gym.utils.animation_utils import load_human_animation_data
 from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import (
     PinocchioManipulatorModel,
 )
@@ -146,6 +147,20 @@ class HumanEnv(SingleArmEnv):
         use_camera_obs (bool): if `True`, every observation includes rendered image(s)
 
         use_object_obs (bool): if `True`, include object information in the observation.
+
+        reward_scale (float | None): Scales the normalized reward function by the amount specified.
+            If `None`, environment reward remains unnormalized
+
+        reward_shaping (bool): if `True`, augment environment reward with dense guidance reward.
+            Otherwise: use sparse rewards.
+
+        collision_reward (float): Reward to be given in the case of a collision.
+
+        task_reward (float): Reward to be given in the case of completing a task.
+
+        done_at_collision (bool): If `True`, the episode is terminated when a collision occurs
+
+        done_at_success (bool): If `True`, the episode is terminated when the goal is reached
 
         human_placement_initializer (ObjectPositionSampler): if provided, will
             be used to place the human on every reset, else a `UniformRandomSampler`
@@ -258,6 +273,12 @@ class HumanEnv(SingleArmEnv):
         initialization_noise: Union[str, List[str], List[Dict[str, Any]]] = "default",
         use_camera_obs: bool = True,
         use_object_obs: bool = True,
+        reward_scale: Optional[float] = 1.0,
+        reward_shaping: bool = False,
+        collision_reward: float = -10,
+        task_reward: float = 1,
+        done_at_collision: bool = False,
+        done_at_success: bool = False,
         has_renderer: bool = False,
         has_offscreen_renderer: bool = True,
         render_camera: str = "frontview",
@@ -338,7 +359,7 @@ class HumanEnv(SingleArmEnv):
         # Human animation definition
         self.human_animation_names = human_animation_names
 
-        self.human_animation_data = self._load_human_animation_data(
+        self.human_animation_data = load_human_animation_data(
             human_animation_names=human_animation_names,
             verbose=verbose,
         )
@@ -370,6 +391,16 @@ class HumanEnv(SingleArmEnv):
         # Collision with these objects yields CollsiionType.ALLOWED
         # Set up in self._setup_collision_info()
         self.whitelisted_collision_geoms = None
+
+        # Reward function parameters
+        self.reward_scale = reward_scale
+        self.reward_shaping = reward_shaping
+        self.collision_reward = collision_reward
+        self.task_reward = task_reward
+        self.simulation_crash_reward = -10
+
+        self.done_at_collision = done_at_collision
+        self.done_at_success = done_at_success
 
         super().__init__(
             robots=robots,
@@ -491,7 +522,7 @@ class HumanEnv(SingleArmEnv):
                 info=info
                 )
             # Add a penalty for breaking the simulation
-            reward -= 10
+            reward += self.simulation_crash_reward
             done = True
             return observations, reward, done, info
         if (
@@ -576,6 +607,114 @@ class HumanEnv(SingleArmEnv):
                     return True
         return False
 
+    def reward(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict[str, Any],
+    ) -> float:
+        """Compute the reward based on the achieved goal, the desired goal, and the info dict.
+
+        If `self.reward_shaping`, we use a dense reward, otherwise a sparse reward.
+        The sparse reward yields
+            - `self.task_reward` if the target is reached
+            - `self.object_gripped_reward` if the object is gripped but the target is not reached
+            - `-1` otherwise
+
+        Args:
+            achieved_goal (List[float]): observation of robot state that is relevant for the goal
+            desired_goal (List[float]): the desired goal
+            info (Dict[str, Any]): dictionary containing additional information like collisions
+        Returns:
+            float: reward
+        """
+        reward = self._sparse_reward(achieved_goal=achieved_goal, desired_goal=desired_goal, info=info)
+
+        if self.reward_shaping:
+            reward += 1 + self._dense_reward(achieved_goal=achieved_goal, desired_goal=desired_goal, info=info)
+
+        # Add a penalty for self-collisions and collisions with the human
+        collision_reward = self._collision_reward(achieved_goal=achieved_goal, desired_goal=desired_goal, info=info)
+
+        reward = reward + collision_reward
+
+        # Scale reward if requested
+        if self.reward_scale is not None:
+            reward *= self.reward_scale
+
+        return reward
+
+    def _sparse_reward(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict[str, Any],
+    ) -> float:
+        """Compute a sparse reward based on the achieved goal, the desired goal, and the info dict.
+
+        The sparse reward function yields
+            - `self.task_reward` if the target is reached,
+            - `-1` otherwise.
+
+        This method may be overridden by subclasses to add subgoal rewards.
+
+        Args:
+            achieved_goal (List[float]): observation of robot state that is relevant for the goal
+            desired_goal (List[float]): the desired goal
+            info (Dict[str, Any]): dictionary containing additional information like collisions
+
+        Returns:
+            float: sparse environment reward
+        """
+        if self.goal_reached:
+            return self.task_reward
+        else:
+            return -1
+
+    def _dense_reward(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict[str, Any],
+    ) -> float:
+        """Compute a dense guidance reward based on the achieved goal, the desired goal, and the info dict.
+
+        This method may be overridden to add environment-specific dense rewards.
+
+        Args:
+            achieved_goal (List[float]): observation of robot state that is relevant for the goal
+            desired_goal (List[float]): the desired goal
+            info (Dict[str, Any]): dictionary containing additional information like collisions
+
+        Returns:
+            float: dense environment reward
+        """
+        return 0.0
+
+    def _collision_reward(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict[str, Any],
+    ) -> float:
+        """Compute a penalty for self-collisions, collisions with the static environment,
+        and critical collisions with the human.
+
+        Collisions that are not critical, or that involve white-listed objects are not penalized
+
+        Args:
+            achieved_goal (List[float]): observation of robot state that is relevant for the goal
+            desired_goal (List[float]): the desired goal
+            info (Dict[str, Any]): dictionary containing additional information like collisions
+
+        Returns:
+            float: collision penalty
+        """
+        if self._check_illegal_collision(COLLISION_TYPE(info["collision_type"])):
+            return self.collision_reward
+        else:
+            return 0.0
+
     def _get_info(self) -> Dict:
         """Return the info dictionary of this step.
 
@@ -659,13 +798,31 @@ class HumanEnv(SingleArmEnv):
                 for (a_g, d_g, i) in zip(achieved_goal, desired_goal, info)
             ]
 
+    def _check_success(
+        self, achieved_goal: List[float], desired_goal: List[float]
+    ) -> bool:
+        """Check if the desired goal was reached.
+
+        Should be overridden by subclasses to specify task success conditions.
+
+        Args:
+            achieved_goal: observation of robot state that is relevant for goal
+            desired_goal: the desired goal
+        Returns:
+            True if success
+        """
+        return False
+
     def _check_done(
         self, achieved_goal: List[float], desired_goal: List[float], info: Dict
     ) -> bool:
         """Compute the done flag based on the achieved goal, the desired goal, and the info dict.
 
         This function can only be called for one sample.
-        If the robot is in an illegal collision, this function returns done=True.
+
+        Returns `done=True` if either
+            - the desired goal was reached and `self.done_at_success=True`
+            - a collision occurred and `self.done_at_collision=True`
 
         Args:
             achieved_goal: observation of robot state that is relevant for goal
@@ -674,7 +831,32 @@ class HumanEnv(SingleArmEnv):
         Returns:
             done
         """
-        return info["collision_type"] not in (COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED)
+        if self.done_at_collision and self._check_illegal_collision(COLLISION_TYPE(info["collision_type"])):
+            return True
+
+        if self.done_at_success and self._check_success(achieved_goal, desired_goal):
+            return True
+        return False
+
+    def _check_illegal_collision(collision_type: COLLISION_TYPE) -> bool:
+        """Check whether an collision type contains information about an illegal collisions.
+
+        Legal collisions are:
+            - white-listed collisions
+            - collisions with the human below a velocity of `safe_vel`
+
+        Illegal collisions are:
+            - collisions with static environment
+            - self-collisions
+            - collisions with the human above a velocity of `safe_vel`
+
+        Args:
+            collision_type (COLLISION_TYPE): The collision type to check
+
+        Returns:
+            bool: True if the collision is illegal, False otherwise
+        """
+        return collision_type in (COLLISION_TYPE.STATIC | COLLISION_TYPE.ROBOT | COLLISION_TYPE.HUMAN_CRIT)
 
     def _get_achieved_goal_from_obs(
         self, observation: Union[List[float], Dict]
@@ -1455,55 +1637,6 @@ class HumanEnv(SingleArmEnv):
                 trans[0:3, 3] = robot.base_pos
                 robot.robot_model.set_base_placement(trans)
 
-    @staticmethod
-    def _load_human_animation_data(
-        human_animation_names: List[str],
-        verbose: bool = False,
-    ) -> List[Tuple[Dict[str, Any], Dict[str, Any]]]:
-        """Load the human animation data from pickled files and the accompanying info json files.
-
-        Gives a list of tuples of the form (animation_data, animation_info).
-        If an animation info file is missing, the animation will be played back without transformation
-        (i.e. no scaling, no position offset, no orientation offset).
-
-        Args:
-            human_animation_names (List[str]): List of human animation names to load.
-            verbose (bool): Whether to print out debug information. Defaults to False.
-
-        Returns:
-            List[Tuple[Dict[str, Any], Dict[str, Any]]]: List of tuples of the form (animation_data, animation_info).
-        """
-        animation_data = []
-
-        for animation_name in human_animation_names:
-            try:
-                with open(
-                    xml_path_completion(f"human/animations/human-robot-animations/{animation_name}.pkl"),
-                    "rb",
-                ) as pkl_file:
-                    animation = pickle.load(pkl_file)
-            except Exception as e:
-                print(f"Error while loading human animation {pkl_file}: {e}")
-
-            try:
-                with open(
-                    xml_path_completion(f"human/animations/human-robot-animations/{animation_name}_info.json"),
-                    "r",
-                ) as info_file:
-                    info = json.load(info_file)
-            except FileNotFoundError:
-                if verbose:
-                    print(f"Animation info file not found: {animation_name}_info")
-                info = {
-                    "position_offset": [0.0, 0.0, 0.0],
-                    "orientation_quat": [0.0, 0.0, 0.0, 1.0],
-                    "scale": 1.0,
-                }
-
-            animation_data.append((animation, info))
-
-        return animation_data
-
     def _compute_animation_time(self, control_time: float) -> float:
         """Compute the animation time from the control time and the animation start time.
 
@@ -1523,13 +1656,13 @@ class HumanEnv(SingleArmEnv):
         Args:
             animation_start_time (int): Current control time. Used to set the animation start time.
         """
-        self._human_animation_ids_index = self._human_animation_ids_index = (
+        self._human_animation_ids_index = (
             (self._human_animation_ids_index + 1) % self._n_animations_to_sample_at_resets
         )
         self.animation_time = 0
         self.animation_start_time = animation_start_time
 
-    def _control_human(self, force_update: bool = False):
+    def _control_human(self, force_update: bool = True):
         """Set the human joint positions according to the human animation files.
 
         Args:

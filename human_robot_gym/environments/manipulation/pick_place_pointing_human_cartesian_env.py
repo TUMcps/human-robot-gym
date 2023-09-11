@@ -329,7 +329,30 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
 
     @property
     def target_pos(self) -> np.ndarray:
-        return self._get_current_target_pos()
+        """Evaluate the current position of the target.
+
+        Returns a position on the table where the human is pointing at. The position is evaluated by
+        extrapolating the vector from the human's elbow to the human's hand to the table.
+
+        Returns:
+            np.ndarray: The current target position.
+        """
+
+        if self.human_animation_data[self.human_animation_id][1]["pointing_hand"] == "right":
+            pf = "Human_R"
+        elif self.human_animation_data[self.human_animation_id][1]["pointing_hand"] == "left":
+            pf = "Human_L"
+
+        hand_pos = self.sim.data.get_site_xpos(pf + "_Hand")
+        dir = hand_pos - self.sim.data.get_site_xpos(pf + "_Elbow")
+
+        if dir[2] == 0:
+            dir[2] += 1e-6
+
+        scaling = (hand_pos[2] - self.table_offset[2]) / dir[2]
+        target_pos = hand_pos - scaling * dir
+
+        return target_pos
 
     def _setup_arena(self):
         """Setup the mujoco arena.
@@ -377,32 +400,6 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
             objects=self.obstacles,
         )
 
-    def _get_current_target_pos(self) -> np.ndarray:
-        """Evaluate the current position of the target.
-
-        Returns a position on the table where the human is pointing at. The position is evaluated by
-        extrapolating the vector from the human's elbow to the human's hand to the table.
-
-        Returns:
-            np.ndarray: The current target position.
-        """
-
-        if self.human_animation_data[self.human_animation_id][1]["pointing_hand"] == "right":
-            pf = "Human_R"
-        elif self.human_animation_data[self.human_animation_id][1]["pointing_hand"] == "left":
-            pf = "Human_L"
-
-        hand_pos = self.sim.data.get_site_xpos(pf + "_Hand")
-        dir = hand_pos - self.sim.data.get_site_xpos(pf + "_Elbow")
-
-        if dir[2] == 0:
-            dir[2] += 1e-6
-
-        scaling = (hand_pos[2] - self.table_offset[2]) / dir[2]
-        target_pos = hand_pos - scaling * dir
-
-        return target_pos
-
     def _sample_target_pos(self) -> np.ndarray:
         """Override the parent function to return the current target position.
 
@@ -412,7 +409,7 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
         Returns:
             np.ndarray: The current target position.
         """
-        return self._get_current_target_pos()
+        return self.target_pos
 
     def _get_default_object_bin_boundaries(self) -> Tuple[float, float, float, float]:
         """Get the x and y boundaries of the object sampling space.
