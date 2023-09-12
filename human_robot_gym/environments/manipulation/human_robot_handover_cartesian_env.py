@@ -38,7 +38,6 @@ from robosuite.models.objects.composite import HammerObject
 from robosuite.utils.placement_samplers import ObjectPositionSampler
 import robosuite.utils.transform_utils as T
 
-from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE
 from human_robot_gym.environments.manipulation.pick_place_human_cartesian_env import (
     PickPlaceHumanCart, PickPlaceHumanCartEnvState
 )
@@ -83,13 +82,13 @@ class HumanRobotHandoverCartEnvState(PickPlaceHumanCartEnvState):
             iterated over and the corresponding target_position is used.
         target_positions_index (int): Index of the current target position in the list of target_position.
         task_phase_value (int): Value corresponding to the current task phase.
-        n_delayed_timesteps (List[int]): Number of timesteps the current animation is delayed
+        n_delayed_timesteps (Tuple[int, int]): Number of timesteps the current animation is delayed
             because of the loop phases. Contains two values: delays for the present and wait phase.
         animation_loop_properties (List[Dict[str, Tuple[float, float]]]): Loop amplitudes and speed modifiers
             for all layered sines for all human animations sampled for the current episode.
     """
     task_phase_value: int
-    n_delayed_timesteps: List[int]
+    n_delayed_timesteps: Tuple[int, int]
     animation_loop_properties: List[Dict[str, Tuple[List[float], List[float]]]]
 
 
@@ -337,7 +336,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         camera_segmentations: Optional[Union[str, List[str], List[List[str]]]] = None,
         renderer: str = "mujoco",
         renderer_config: Dict[str, Any] = None,
-        shield_type: str = "SSM",
+        shield_type: str = "PFL",
         visualize_failsafe_controller: bool = False,
         visualize_pinocchio: bool = False,
         control_sample_time: float = 0.004,
@@ -350,9 +349,12 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             "HumanRobotHandover/5",
             "HumanRobotHandover/6",
             "HumanRobotHandover/7",
+            "HumanRobotHandover/advanced_0",
+            "HumanRobotHandover/advanced_1",
+            "HumanRobotHandover/advanced_2",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
-        human_animation_freq: float = 30,
+        human_animation_freq: float = 100,
         human_rand: List[float] = [0.0, 0.0, 0.0],
         n_animations_sampled_per_100_steps: int = 2,
         safe_vel: float = 0.001,
@@ -371,6 +373,8 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
 
         self._manipulation_object_weld_eq_id = None
         self._mocap_body_name = "mocap_object"
+
+        self._n_object_handed_over = None
 
         super().__init__(
             robots=robots,
@@ -461,6 +465,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         if self.task_phase == HumanRobotHandoverPhase.PRESENT and obs["object_gripped"]:
             self._human_drop_object()
             self.task_phase = HumanRobotHandoverPhase.WAIT
+            self._n_object_handed_over += 1
         elif self.task_phase == HumanRobotHandoverPhase.WAIT and self._check_object_in_target_zone(
             achieved_goal=self._get_achieved_goal_from_obs(obs),
             desired_goal=self._get_desired_goal_from_obs(obs),
@@ -477,59 +482,45 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         """
         return self.task_phase == HumanRobotHandoverPhase.COMPLETE
 
-    def reward(
+    def _get_info(self) -> Dict[str, Any]:
+        info = super()._get_info()
+
+        info["n_object_handed_over"] = self._n_object_handed_over
+
+        return info
+
+    def _sparse_reward(
         self,
         achieved_goal: List[float],
         desired_goal: List[float],
         info: Dict[str, Any],
     ) -> float:
-        r"""Override super method to modify the sparse reward function.
+        """Override super method to add the subobjective rewards of the robot-to-human handover task.
 
-        Compute the reward based on achieved and desired goals and the info dict.
-
-        If `self.reward_shaping` is `True`, the reward is the same as in the pick-place task:
-            r = (eef_to_object * 0.2 + object_to_target) * 0.1
-        Otherwise, we use a sparse reward function:
-            - `self.task_reward` if the task is completed (i.e. the animation is finished)
-            - `self._object_at_target_reward` if the object was successfully placed at the target
-            - `self._object_gripped_reward` if the object is gripped by the robot
+        The sparse reward function yilds
+            - `self.task_reward` when the animation is complete
+            - `self.object_at_target_reward` when the object is at the target location
+            - `self.object_gripped_reward` when the object is gripped
             - `-1` otherwise
-
-        If a self-collision or a collision with the human occurs, `self.collision_reward` is added (a negative amount).
-        If `self.reward_scale` is not `None`, the reward is scaled by this amount.
 
         Args:
             achieved_goal (List[float]): Part of the robot state observation relevant for the goal.
             desired_goal (List[float]): The desired goal.
             info (Dict[str, Any]): The info dict.
+
         Returns:
-            float: The reward.
+            float: The sparse reward.
         """
-        if self.reward_shaping:
-            # Dense reward function is the same as in the pick-place task.
-            return super().reward(
-                achieved_goal=achieved_goal,
-                desired_goal=desired_goal,
-            )
-
-        reward = -1
-
         object_gripped = bool(achieved_goal[6])
 
         if self._check_success(achieved_goal=achieved_goal, desired_goal=desired_goal):
-            reward = self.task_reward
+            return self.task_reward
         elif self._check_object_in_target_zone(achieved_goal=achieved_goal, desired_goal=desired_goal):
-            reward = self.object_at_target_reward
+            return self.object_at_target_reward
         elif object_gripped:
-            reward = self.object_gripped_reward
-
-        if COLLISION_TYPE(info["collision_type"]) not in (COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED):
-            reward += self.collision_reward
-
-        if self.reward_scale is not None:
-            reward *= self.reward_scale
-
-        return reward
+            return self.object_gripped_reward
+        else:
+            return -1
 
     def _compute_animation_time(self, control_time: int) -> int:
         """Compute the current animation time.
@@ -562,7 +553,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             self.task_phase = HumanRobotHandoverPhase.PRESENT
 
         # Within the present phase loop back and forth between the two keyframes enclosing it
-        if (
+        elif (
             animation_time > keyframes[0] + (keyframes[1] - keyframes[0]) / 2 and
             self.task_phase == HumanRobotHandoverPhase.PRESENT
         ):
@@ -575,23 +566,25 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
                 )
             )
 
-            self._n_delayed_timesteps[0] = classic_animation_time - animation_time
+            self._n_delayed_timesteps = (classic_animation_time - animation_time, 0)
 
         # In the wait phase loop around the second keyframe
-        if self.task_phase == HumanRobotHandoverPhase.WAIT:
-            animation_time = int(
-                layered_sin_modulations(
-                    classic_animation_time=animation_time - self._n_delayed_timesteps[0],
-                    modulation_start_time=keyframes[1],
-                    amplitudes=self.wait_animation_loop_amplitudes,
-                    speeds=self.wait_animation_loop_speeds,
+        elif self.task_phase == HumanRobotHandoverPhase.WAIT:
+            animation_time = classic_animation_time - self._n_delayed_timesteps[0]
+            if animation_time >= keyframes[1]:
+                animation_time = int(
+                    layered_sin_modulations(
+                        classic_animation_time=animation_time,
+                        modulation_start_time=keyframes[1],
+                        amplitudes=self.wait_animation_loop_amplitudes,
+                        speeds=self.wait_animation_loop_speeds,
+                    )
                 )
-            )
 
-            self._n_delayed_timesteps[1] = classic_animation_time - animation_time
+            self._n_delayed_timesteps = (self._n_delayed_timesteps[0], classic_animation_time - animation_time)
 
         # In the retreat phase run the animation linearly until it is finished
-        if self.task_phase == HumanRobotHandoverPhase.RETREAT:
+        elif self.task_phase == HumanRobotHandoverPhase.RETREAT:
             animation_time -= self._n_delayed_timesteps[1]
 
         # Once the animation is complete, freeze the animation time at the last frame
@@ -621,9 +614,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
 
         hand_rot = quat_to_rot(self.sim.data.get_body_xquat(hand_body_name))
 
-        pos_offset_towards_thumb = hand_rot.apply(np.array([0, 0, 1])) * 0.03
-
-        if self.object_holding_hand == "left":
+        if self.object_holding_hand == "right":
             hand_rot *= Rotation.from_euler("y", -np.pi / 2)
         else:
             hand_rot *= Rotation.from_euler("y", np.pi / 2)
@@ -632,7 +623,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
 
         self.sim.data.set_mocap_pos(
             self._mocap_body_name,
-            self.sim.data.get_site_xpos(hand_body_name) + pos_offset_towards_thumb
+            self.sim.data.get_site_xpos(hand_body_name)
         )
 
         self.sim.data.set_mocap_quat(
@@ -645,6 +636,8 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         super()._reset_internal()
         self._reset_animation()
         self._control_human()
+
+        self._n_object_handed_over = 0
 
         self._animation_loop_properties = [
             sample_animation_loop_properties(
@@ -681,7 +674,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
     def _reset_animation(self):
         """Reset animation-dependent internal variables"""
         self.task_phase = HumanRobotHandoverPhase.APPROACH
-        self._n_delayed_timesteps = [0, 0]
+        self._n_delayed_timesteps = (0, 0)
 
         self._human_pickup_object()
 
@@ -881,9 +874,10 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         equality = ET.Element(
             "weld",
             name="manipulation_object_weld",
-            body2=self._mocap_body_name,
             body1=self.manipulation_object.root_body,
-            relpose="0 0.045 0.15 1 0 0 0",
+            body2=self._mocap_body_name,
+            # relpose="0 0.045 0.15 1 0 0 0",
+            relpose="0 0.045 -0.10 1 0 0 0",
             # solref="-700 -100",
         )
 
