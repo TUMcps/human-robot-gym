@@ -49,6 +49,9 @@ from human_robot_gym.wrappers.tensorboard_callback import TensorboardCallback
 from human_robot_gym.wrappers.dataset_collection_wrapper import DatasetCollectionWrapper
 from human_robot_gym.wrappers.dataset_wrapper import DatasetObsNormWrapper, DatasetRSIWrapper
 
+import human_robot_gym.robots  # noqa: F401
+
+
 SB3_ALGORITHMS = {
     "SAC": SAC,
     "PPO": PPO,
@@ -727,7 +730,7 @@ def run_training_wandb(config: TrainingConfig) -> BaseAlgorithm:
 
         model.learn(
             total_timesteps=config.run.n_steps,
-            log_interval=1,
+            log_interval=None,  # Perform logging manually in the callback
             reset_num_timesteps=config.run.load_step is None,
             callback=callback,
         )

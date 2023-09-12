@@ -124,7 +124,6 @@ if __name__ == "__main__":
         horizon=1000,
         done_at_success=True,
         controller_configs=controller_configs,
-        use_failsafe_controller=True,
         visualize_failsafe_controller=False,
         visualize_pinocchio=False,
         base_human_pos_offset=[0.0, 0.0, 0.0],

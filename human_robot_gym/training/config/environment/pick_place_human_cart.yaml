@@ -11,7 +11,7 @@ use_object_obs: true
 collision_reward: 0
 has_offscreen_renderer: false
 render_camera: null
-horizon: 500
+horizon: 1000
 hard_reset: false
 done_at_collision: false
 done_at_success: false
@@ -19,3 +19,4 @@ target_placement_initializer: null
 n_object_placements_sampled_per_100_steps: 3
 n_targets_sampled_per_100_steps: 3
 object_placement_initializer: null
+object_gripped_reward: -0.25

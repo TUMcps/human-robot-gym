@@ -34,8 +34,10 @@ def load_human_animation_data(
                 "rb",
             ) as pkl_file:
                 animation = pickle.load(pkl_file)
-        except Exception as e:
-            print(f"Error while loading human animation {pkl_file}: {e}")
+        except FileNotFoundError as e:
+            if verbose:
+                print(f"Animation file not found: {animation_name}")
+            raise e
 
         try:
             with open(
