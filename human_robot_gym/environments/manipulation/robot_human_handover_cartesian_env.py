@@ -37,7 +37,6 @@ from robosuite.models.objects.composite import HammerObject
 from robosuite.utils.placement_samplers import ObjectPositionSampler
 import robosuite.utils.transform_utils as T
 
-from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE
 from human_robot_gym.environments.manipulation.pick_place_human_cartesian_env import (
     PickPlaceHumanCart, PickPlaceHumanCartEnvState
 )
@@ -332,7 +331,7 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         camera_segmentations: Optional[Union[str, List[str], List[List[str]]]] = None,
         renderer: str = "mujoco",
         renderer_config: Dict[str, Any] = None,
-        shield_type: str = "SSM",
+        shield_type: str = "PFL",
         visualize_failsafe_controller: bool = False,
         visualize_pinocchio: bool = False,
         control_sample_time: float = 0.004,
@@ -349,9 +348,12 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
             "RobotHumanHandover/advanced_0",
             "RobotHumanHandover/advanced_1",
             "RobotHumanHandover/advanced_2",
+            "RobotHumanHandover/advanced_3",
+            "RobotHumanHandover/advanced_4",
+            "RobotHumanHandover/advanced_5",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
-        human_animation_freq: float = 30,
+        human_animation_freq: float = 190,
         human_rand: List[float] = [0.0, 0.0, 0.0],
         n_animations_sampled_per_100_steps: int = 2,
         safe_vel: float = 0.001,
@@ -513,59 +515,38 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         """
         return self.task_phase == RobotHumanHandoverPhase.COMPLETE
 
-    def reward(
+    def _sparse_reward(
         self,
         achieved_goal: List[float],
         desired_goal: List[float],
         info: Dict[str, Any],
     ) -> float:
-        r"""Override super method to modify the sparse reward function.
+        """Override super method to add the subobjective rewards of the robot-to-human handover task.
 
-        Compute the reward based on achieved and desired goals and the info dict.
-
-        If `self.reward_shaping` is `True`, the reward is the same as in the pick-place task:
-            r = (eef_to_object * 0.2 + object_to_target) * 0.1
-        Otherwise, we use a sparse reward function:
-            - `self.task_reward` if the task is completed (i.e. the animation is finished)
-            - `self._object_in_human_hand_reward` if the object was successfully passed to the human
-            - `self._object_gripped_reward` if the object is gripped
+        The sparse reward function yilds
+            - `self.task_reward` when the animation is complete
+            - `self.object_in_human_hand_reward` when the human holds the object
+            - `self.object_gripped_reward` when the object is gripped
             - `-1` otherwise
-
-        If a self-collision or a collision with the human occurs, `self.collision_reward` is added (a negative amount).
-        If `self.reward_scale` is not `None`, the reward is scaled by this amount.
 
         Args:
             achieved_goal (List[float]): Part of the robot state observation relevant for the goal.
             desired_goal (List[float]): The desired goal.
             info (Dict[str, Any]): The info dict.
+
         Returns:
-            float: The reward.
+            float: The sparse reward.
         """
-        if self.reward_shaping:
-            # Dense reward function is the same as in the pick-place task.
-            return super().reward(
-                achieved_goal=achieved_goal,
-                desired_goal=desired_goal,
-            )
-
-        reward = -1
-
         object_gripped = bool(achieved_goal[6])
 
         if self._check_success(achieved_goal=achieved_goal, desired_goal=desired_goal):
-            reward = self.task_reward
-        elif self._check_object_in_target_zone(achieved_goal=achieved_goal, desired_goal=desired_goal):
-            reward = self.object_in_human_hand_reward
+            return self.task_reward
+        elif self.task_phase == RobotHumanHandoverPhase.RETREAT:
+            return self.object_in_human_hand_reward
         elif object_gripped:
-            reward = self.object_gripped_reward
-
-        if COLLISION_TYPE(info["collision_type"]) not in (COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED):
-            reward += self.collision_reward
-
-        if self.reward_scale is not None:
-            reward *= self.reward_scale
-
-        return reward
+            return self.object_gripped_reward
+        else:
+            return -1.0
 
     def _compute_animation_time(self, control_time: int) -> int:
         """Compute the current animation time.
@@ -832,7 +813,7 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
             name="manipulation_object",
             handle_length=(0.25, 0.3),
             handle_density=10,  # Reduced weight to make it easier to lift
-            handle_radius=0.022
+            handle_radius=0.021
         )
 
         self.objects = [
