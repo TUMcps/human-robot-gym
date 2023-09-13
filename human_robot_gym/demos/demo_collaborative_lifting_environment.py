@@ -99,7 +99,7 @@ if __name__ == "__main__":
         has_renderer=True,  # make sure we can render to the screen
         render_camera=None,
         render_collision_mesh=False,
-        control_freq=5,  # control should happen fast enough so that simulation looks smooth
+        control_freq=10,  # control should happen fast enough so that simulation looks smooth
         hard_reset=False,
         horizon=1000,
         done_at_success=False,
@@ -110,6 +110,7 @@ if __name__ == "__main__":
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_rand=[0, 0.0, 0.0],
         verbose=True,
+        human_animation_freq=20,
     )
 
     env = ExpertObsWrapper(
@@ -123,6 +124,7 @@ if __name__ == "__main__":
             "vec_eef_to_human_lh",
             "vec_eef_to_human_rh",
             "board_quat",
+            "board_gripped",
         ]
     )
     env = CollisionPreventionWrapper(
