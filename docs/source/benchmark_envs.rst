@@ -343,10 +343,10 @@ where :math:`\hat{r}^{\,env,task,CL}`, :math:`\hat{r}^{\,env,failure,CL,imbalanc
 The dense reward :math:`\hat{r}^{\,env,dense,CL}` incorporates the angle between the board and the horizontal plane and is given by
 
 .. math::
-    \hat{r}^{\,env,dense,CL}(s, a) = \frac{2}{\pi} \cdot \frac{sin^{-1}(\vec{n}^{board} \circ \vec{n}^{world}) - \phi^{min}}{\frac{\pi}{2} - \phi^{min}}\,,
+    \hat{r}^{\,env,dense,CL}(s, a) = \frac{2}{\pi} \cdot \frac{sin^{-1}(\vec{n}^{board} \circ \vec{n}^{world}) - \phi^{min}}{\frac{\pi}{2} - \phi^{min}} - 2\,,
 
 where :math:`\vec{n}^{board}` is the normal vector of the board, :math:`\vec{n}^{world}` is the normal vector of the horizontal plane, and :math:`\phi^{min}` is a minimum angle between the board and the horizontal plane.
-In the code, :math:`sin(\phi^{min}`) can be controlled as ``min_balance``.
+In the code, :math:`sin(\phi^{min}`) can be controlled as ``min_balance``. We subtract :math:`2` from the reward to compensate for the default reward of :math:`1` (as opposed to :math:`-1` in the other environments).
 
 CollaborativeHammering
 ^^^^^^^^^^^^^^^^^^^^^^
