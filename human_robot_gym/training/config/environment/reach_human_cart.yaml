@@ -15,7 +15,7 @@ use_object_obs: true
 collision_reward: 0
 has_offscreen_renderer: false
 render_camera: null
-control_freq: 5
+control_freq: 10
 horizon: 100
 ignore_done: true
 hard_reset: false

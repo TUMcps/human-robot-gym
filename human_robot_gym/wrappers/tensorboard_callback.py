@@ -22,7 +22,7 @@ from stable_baselines3.common.vec_env import (
 
 from wandb.integration.sb3 import WandbCallback
 
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Tuple, Union
 
 
 class TensorboardCallback(WandbCallback):
@@ -40,7 +40,14 @@ class TensorboardCallback(WandbCallback):
         additional_log_info_keys: Additionally log these keys from the info dict.
         n_eval_episodes: Number of evaluation episodes.
         deterministic: No noise on action.
-        log_interval: Log every n-th episode.
+        log_interval: How frequently to log additional info to tensorboard.
+            Can be set to a single integer or a (int, str) tuple
+            If an integer: log each `log_interval` timesteps.
+            If a tuple (int, str): tuple of frequency and unit, e.g. (100, "step").
+                Valid units are "step" and "episode".
+            If the unit is "step" and multiple environments are used, make sure the
+                interval is a multiple of the number of environments, otherwise the
+                data will be logged in irregular intervals.
     """
 
     def __init__(
@@ -56,7 +63,7 @@ class TensorboardCallback(WandbCallback):
         additional_log_info_keys: List[str] = ["goal_reached"],
         n_eval_episodes: int = 0,
         deterministic: bool = True,
-        log_interval: int = 4,
+        log_interval: Union[int, Tuple[int, str]] = (1000, "step"),
         # log_path: Optional[str] = None,
     ):  # noqa: D107
         super(TensorboardCallback, self).__init__(
@@ -72,6 +79,14 @@ class TensorboardCallback(WandbCallback):
         self._info_buffer = dict()
         for key in additional_log_info_keys:
             self._info_buffer[key] = []
+        self._n_logged_infos = 0
+
+        if isinstance(log_interval, int):
+            log_interval = (log_interval, "step")
+
+        if isinstance(log_interval[0], str) and isinstance(log_interval[1], int):
+            log_interval = (log_interval[1], log_interval[0])
+
         self.log_interval = log_interval
         # if log_path is not None:
         #     log_path = os.path.join(log_path, "evaluations")
@@ -103,12 +118,13 @@ class TensorboardCallback(WandbCallback):
                 for key in self.additional_log_info_keys:
                     if key in self.locals["infos"][i]:
                         self._info_buffer[key].append(self.locals["infos"][i][key])
-                if (self.episode_counter + 1) % self.log_interval == 0:
-                    for key in self._info_buffer:
-                        self.logger.record(
-                            "rollout/{}".format(key), safe_mean(self._info_buffer[key])
-                        )
-                        self._info_buffer[key] = []
+                if self.log_interval[1] == "episode" and (self.episode_counter + 1) % self.log_interval[0] == 0:
+                    self._log_info()
+        if self.log_interval[1] == "step" and (
+            n_logged_infos := self.num_timesteps // self.log_interval[0]
+        ) > self._n_logged_infos:
+            self._n_logged_infos = n_logged_infos
+            self._log_info()
 
         # Store models every `self.save_freq` timesteps
         # With parallel envs, `self.num_timesteps` is incremented by `n_envs` at each step
@@ -125,6 +141,14 @@ class TensorboardCallback(WandbCallback):
                 self.model.save_replay_buffer(f"{self.model_file}/replay_buffer")
 
         return True
+
+    def _log_info(self):
+        for key in self._info_buffer:
+            self.logger.record(
+                "rollout/{}".format(key), safe_mean(self._info_buffer[key])
+            )
+            self._info_buffer[key] = []
+        self.model._dump_logs()
 
     def _log_success_callback(
         self, locals_: Dict[str, Any], globals_: Dict[str, Any]

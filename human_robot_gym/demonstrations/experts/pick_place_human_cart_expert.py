@@ -13,7 +13,6 @@ Changelog:
 from typing import Any, Dict, Optional
 from dataclasses import dataclass
 import numpy as np
-import time
 
 from gym.spaces import Box
 
@@ -53,7 +52,10 @@ class PickPlaceHumanCartExpert(Expert):
         - Close gripper
         - Move above target
         - Move to target
-        - Open gripper and move above object
+        - If `release_when_delivered` is True:
+            - Open gripper and move above object
+        - Else:
+            - Remain at target with gripper closed around object
 
     Noise can be added to the motion parameters. We draw from an Ornstein-Uhlenbeck (OU) process
     with asymptotic mean 0 and variance of half the motion action limit as described in the action space.
@@ -78,6 +80,8 @@ class PickPlaceHumanCartExpert(Expert):
             and low enough to ensure the object can be gripped. Depends on the gripper type
         gripper_fully_opened_threshold (float): minimum difference of both gripper joint positions
             at which the gripper is considered to be fully opened. Depends on the gripper type
+        release_when_delivered (bool): whether the expert should release the object when it is delivered to the target
+            This option is `True` per default. Setting it to `False` makes sense for example if the target is in the air
         delta_time (float): approximate time between two calls of the expert policy. Only used to step the OU process
         seed (int): random seed for the noise signal
     """
@@ -92,6 +96,7 @@ class PickPlaceHumanCartExpert(Expert):
         vertical_epsilon: float = 0.015,
         goal_dist: float = 0.08,
         gripper_fully_opened_threshold: float = 0.02,
+        release_when_delivered: bool = True,
         delta_time: float = 0.01,
         seed: Optional[int] = None,
     ):
@@ -112,7 +117,7 @@ class PickPlaceHumanCartExpert(Expert):
         self._tan_theta = tan_theta
         self._hover_dist = hover_dist
         self._signal_to_noise_ratio = signal_to_noise_ratio
-        self._time = time.time()
+        self._release_when_delivered = release_when_delivered
         self._delta_time = delta_time
         self._motion_noise = ReparameterizedOrnsteinUhlenbeckProcess(
             size=3,
@@ -189,8 +194,13 @@ class PickPlaceHumanCartExpert(Expert):
         Select the action to close the gripper if the object is gripped or can be gripped
         but was not yet delivered to the target.
         Otherwise (object not yet gripped, dropped or successfully delivered), select the action to open the gripper.
+
+        If `self._release_when_delivered` is `False`,
+        the gripper not is opened when the object is delivered to the target.
         """
-        if (obs.object_gripped or self._at_object(obs)) and not self._object_delivered(obs):
+        if self._object_delivered(obs) and self._release_when_delivered:
+            return self._open_gripper()
+        elif obs.object_gripped or self._at_object(obs):
             return self._close_gripper()
         else:
             return self._open_gripper()

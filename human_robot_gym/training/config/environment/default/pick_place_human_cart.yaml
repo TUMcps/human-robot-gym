@@ -11,14 +11,8 @@ table_friction:
   - 1.0
   - 5e-3
   - 1e-4
-reward_scale: 1.0
-reward_shaping: false
 goal_dist: 0.1
-n_object_placements_sampled_per_100_steps: 3
-n_targets_sampled_per_100_steps: 3
-collision_reward: -10
-task_reward: 1
-object_placement_initializer: null
+object_gripped_reward: -1.0
 obstacle_placement_initializer: null
 human_animation_names: 
   - CMU/62_01
@@ -34,5 +28,3 @@ human_animation_names:
   - CMU/62_16
   - CMU/62_18
   - CMU/62_19
-done_at_collision: false
-done_at_success: false

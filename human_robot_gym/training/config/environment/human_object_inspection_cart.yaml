@@ -11,7 +11,7 @@ use_object_obs: true
 collision_reward: 0
 has_offscreen_renderer: false
 render_camera: null
-horizon: 500
+horizon: 1000
 hard_reset: false
 done_at_collision: false
 done_at_success: false
