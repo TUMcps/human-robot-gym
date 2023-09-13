@@ -255,7 +255,9 @@ class CollaborativeLiftingCart(HumanEnv):
             "CollaborativeLifting/2",
             "CollaborativeLifting/3",
             "CollaborativeLifting/4",
+            "CollaborativeLifting/5",
             "CollaborativeLifting/6",
+            "CollaborativeLifting/7",
             "CollaborativeLifting/8",
             "CollaborativeLifting/9",
             "CollaborativeLifting/10",
@@ -275,12 +277,8 @@ class CollaborativeLiftingCart(HumanEnv):
         self.table_friction = table_friction
         self.board_full_size = board_full_size
 
-        self.table_offset = np.array([1.0, 0.0, 0.85])
+        self.table_offset = np.array([1.0, 0.0, 0.8])
 
-        self.reward_scale = reward_scale
-        self.reward_shaping = reward_shaping
-        self.collision_reward = collision_reward
-        self.task_reward = task_reward
         self.imbalance_failure_reward = imbalance_failure_reward
         self.min_balance = min_balance
         self.board_released_reward = board_released_reward
@@ -317,6 +315,10 @@ class CollaborativeLiftingCart(HumanEnv):
             initialization_noise=initialization_noise,
             use_camera_obs=use_camera_obs,
             use_object_obs=use_object_obs,
+            reward_scale=reward_scale,
+            reward_shaping=reward_shaping,
+            collision_reward=collision_reward,
+            task_reward=task_reward,
             has_renderer=has_renderer,
             has_offscreen_renderer=has_offscreen_renderer,
             render_camera=render_camera,
@@ -436,61 +438,68 @@ class CollaborativeLiftingCart(HumanEnv):
         """
         return self._animation_complete
 
-    def reward(
+    def sparse_reward(
         self,
         achieved_goal: List[float],
         desired_goal: List[float],
         info: Dict[str, Any],
     ) -> float:
-        """Compute the reward from achieved goal, desired goal, and info dict.
+        """Compute the sparse reward based on the achieved goal, the desired goal, and the info dict.
 
-        If `self.reward_shaping` is `True`, the reward is given by the normalized balance of the board,
-        i.e. the dot product between the board's normal and the up vector rescaled from the interval
-        [`self.min_balance`, 1] to [0, 1]
-
-        Otherwise, we give a constant reward of -1 for  each step.
-
-        In either case, a task reward is added when an animation is finished (`self.task_reward`), and a negative reward
-        is added in case the episode is terminated due to the board being unbalanced (`self.imbalance_failure_reward`).
-
-        If the robot does not have the board in the gripper anymore, we give a penalty of `self.board_released_reward`.
-
-        If an illegal collision occurs, a penalty is added (`self.collision_reward`).
-
-        Supports scaling the final reward by a factor (`self.reward_scale`).
+        The sparse reward function yields
+            - `self.task_reward` if the target is reached,
+            - `self.imbalance_failure_reward` if the board is too far off balance (`balance < min_balance`),
+            - `self.board_released_reward` if the robot lost grip of the board, and
+            - `1` otherwise.
 
         Args:
-            achieved_goal (List[float]): The achieved goal.
-            desired_goal (List[float]): The desired goal.
-            info (Dict[str, Any]): The info dict.
+            achieved_goal (List[float]): observation of robot state that is relevant for the goal
+            desired_goal (List[float]): the desired goal
+            info (Dict[str, Any]): dictionary containing additional information like collisions
 
         Returns:
-            float: The reward.
+            float: sparse environment reward
         """
-        reward = -1.0
         balance = achieved_goal[0]
         board_gripped = achieved_goal[1]
 
-        if self.reward_shaping:
-            normed_balance = (balance - self.min_balance) / (1 - self.min_balance)
-            reward = normed_balance
-
-        if self._check_success(achieved_goal=achieved_goal, desired_goal=desired_goal):
-            reward = self.task_reward
+        if self.goal_reached:
+            return self.task_reward
         elif balance < self.min_balance:
-            reward = self.imbalance_failure_reward
+            return self.imbalance_failure_reward
+        elif not board_gripped:
+            return self.board_released_reward
+        else:
+            return 1.0
 
-        if not board_gripped:
-            reward += self.board_released_reward
+    def dense_reward(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict[str, Any],
+    ) -> float:
+        """Compute a dense guidance reward based on the achieved goal, the desired goal, and the info dict.
 
-        # Add a penalty for self-collisions and collisions with the human
-        if COLLISION_TYPE(info["collision_type"]) not in (COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED):
-            reward += self.collision_reward
+        The dense reward uses the angle between board normal and the horizontal plane, normalized to [0,1],
+        where 0 is the minimum angle represented by `arcsin(self.min_balance) and 1 is given if the board is
+        perfectly balanced.
 
-        if self.reward_scale is not None:
-            reward *= self.reward_scale
+        Args:
+            achieved_goal (List[float]): observation of robot state that is relevant for the goal
+            desired_goal (List[float]): the desired goal
+            info (Dict[str, Any]): dictionary containing additional information like collisions
 
-        return reward
+        Returns:
+            float: dense environment reward
+        """
+        balance = achieved_goal[0]
+        balance_angle = np.arcsin(balance) * 2 / np.pi
+        min_balance_angle = np.arcsin(self.min_balance) * 2 / np.pi
+
+        norm_balance_angle = (balance_angle - min_balance_angle) / (1 - min_balance_angle)
+
+        # Subtract 2 as the sparse reward yields a base reward of 1 instead of -1 as in the other environments
+        return norm_balance_angle - 2.0
 
     def _check_done(
         self,
@@ -528,9 +537,12 @@ class CollaborativeLiftingCart(HumanEnv):
                 print("Episode terminated due to board being unbalanced.")
             return True
 
-        if self._n_steps_without_gripped_board > 2:
+        if self._n_steps_without_gripped_board > 5:
             if self.verbose:
-                print("Episode terminated due to board not being gripped.")
+                print(
+                    "Episode terminated due to board not being gripped."
+                    f"animation name: {self.human_animation_names[self.human_animation_id]}"
+                )
             return True
 
         if self.done_at_collision and COLLISION_TYPE(info["collision_type"]) not in (
@@ -568,8 +580,9 @@ class CollaborativeLiftingCart(HumanEnv):
     def _control_human(self, force_update: bool = True):
         """Augment super class method to keep the mocap object at the positions of the human's hands."""
         super()._control_human(force_update=True)
-        self.sim.step()
+        self.sim.forward()
         self._update_mocap_body_transforms()
+        self.sim.forward()
 
     def _update_mocap_body_transforms(self):
         """Update the mocap body transforms to match the human's hand positions."""
@@ -672,14 +685,20 @@ class CollaborativeLiftingCart(HumanEnv):
 
         Returns:
             OrderedDict[str, Any]: The initial observation."""
+        self.human_drop_board()
+        self.sim.forward()
         obs = super().reset()
 
         # Important for resetting from xml strings, otherwise might get stuck in an infinite reset loop
         if self.deterministic_reset:
+            self.human_pickup_board()
+            self.sim.forward()
             return obs
 
         # Try 2 steps to grasp the board, reset again if unsuccessful
-        for i in range(2):
+        for i in range(5):
+            self._reset_animation()
+            self.sim.step()
             obs, _, done, _ = self.step(np.concatenate(
                 [
                     [0 for _ in range(self.action_dim - 1)],
@@ -689,17 +708,26 @@ class CollaborativeLiftingCart(HumanEnv):
 
             if done:
                 if self.verbose:
-                    print(f"Episode done after {i} steps. Animation id: {self.human_animation_id}")
+                    print(
+                        "Resetting failed: episode done after {i} steps. Animation name: "
+                        f"{self.human_animation_names[self.human_animation_id]}"
+                    )
                 return self.reset()
 
             if self._check_grasp(
                 gripper=self.robots[0].gripper,
                 object_geoms=self.board,
             ):
+                # Only pick up the board if the robot has already grasped it
+                self.human_pickup_board()
+                self.sim.forward()
                 return obs
 
         if self.verbose:
-            print(f"Episode terminated due to unsuccessful grasp. Animation id: {self.human_animation_id}")
+            print(
+                "Resetting again due to unsuccessful grasp. "
+                f"Animation name: {self.human_animation_names[self.human_animation_id]}"
+            )
 
         return self.reset()
 
@@ -903,7 +931,7 @@ class CollaborativeLiftingCart(HumanEnv):
             body1=self._lh_grip_body_name,
             body2=self._lh_mocap_body_name,
             anchor="0 0 0",
-            active="true",
+            active="false",
             # solimp="-100 -100"  # Adds a mass-spring-damper to the equality
         )
 
@@ -913,7 +941,7 @@ class CollaborativeLiftingCart(HumanEnv):
             body1=self._rh_grip_body_name,
             body2=self._rh_mocap_body_name,
             anchor="0 0 0",
-            active="true",
+            active="false",
             # solimp="-100 -100"  # Adds a mass-spring-damper to the equality
         )
 

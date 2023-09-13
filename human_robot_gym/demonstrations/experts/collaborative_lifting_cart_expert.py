@@ -2,7 +2,7 @@
 
 The policy regards the point in the center between the human's hands. The end effector should
 be at the same height as this point.
-The horizontal motion is calculated from the board's orientation and size and this point.
+The horizontal motion should maintain a fixed distance between the end effector and that point.
 
 The observation values required are contained in the `CollaborativeLiftingCartExpertObservation` dataclass.
 
@@ -20,7 +20,6 @@ import numpy as np
 from gym.spaces import Box
 
 from human_robot_gym.demonstrations.experts import Expert
-from human_robot_gym.utils.mjcf_utils import quat_to_rot
 from human_robot_gym.utils.ou_process import ReparameterizedOrnsteinUhlenbeckProcess
 
 
@@ -32,10 +31,12 @@ class CollaborativeLiftingCartExpertObservation:
         vec_eef_to_human_lh: Vector from the end effector to the human's left hand.
         vec_eef_to_human_rh: Vector from the end effector to the human's right hand.
         board_quat: Quaternion representing the board's orientation.
+        board_gripped: Boolean indicating whether the board is gripped by the robot.
     """
     vec_eef_to_human_lh: np.ndarray
     vec_eef_to_human_rh: np.ndarray
     board_quat: np.ndarray
+    board_gripped: bool
 
 
 class CollaborativeLiftingCartExpert(Expert):
@@ -43,7 +44,7 @@ class CollaborativeLiftingCartExpert(Expert):
 
     The policy regards the point in the center between the human's hands. The end effector should
     be at the same height as this point.
-    The horizontal motion is calculated from the board's orientation and size and this point.
+    The horizontal motion should maintain a fixed distance between the end effector and that point.
 
     The observation values required are contained in the `CollaborativeLiftingCartExpertObservation` dataclass.
 
@@ -108,7 +109,7 @@ class CollaborativeLiftingCartExpert(Expert):
         vec_eef_to_human = (obs.vec_eef_to_human_lh + obs.vec_eef_to_human_rh) / 2
 
         height = vec_eef_to_human[2]
-        flat_vec = quat_to_rot(obs.board_quat).apply(np.array([-1, 0, 0]))[:2]
+        flat_vec = vec_eef_to_human[:2] / np.linalg.norm(vec_eef_to_human)
         # Offset to account for the human not gripping the board at the corners
         human_robot_xy_vec = (self._board_size[0] - self._human_grip_offset) * flat_vec
 
@@ -133,4 +134,5 @@ class CollaborativeLiftingCartExpert(Expert):
             vec_eef_to_human_lh=obs_dict["vec_eef_to_human_lh"],
             vec_eef_to_human_rh=obs_dict["vec_eef_to_human_rh"],
             board_quat=obs_dict["board_quat"],
+            board_gripped=obs_dict["board_gripped"],
         )
