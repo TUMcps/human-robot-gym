@@ -8,3 +8,4 @@ obs_keys:
   - vec_eef_to_human_lh
   - vec_eef_to_human_rh
   - board_quat
+  - board_gripped
