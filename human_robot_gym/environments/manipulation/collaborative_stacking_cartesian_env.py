@@ -723,9 +723,9 @@ class CollaborativeStackingCart(HumanEnv):
         if self._check_stack_toppled():
             return self.stack_toppled_reward
 
-        if self._check_second_manipulation_object_in_target_zone(achieved_goal, desired_goal):
+        if self._check_second_manipulation_object_in_target_zone():
             reward = self.fourth_cube_at_target_reward
-        elif self._check_first_manipulation_object_in_target_zone(achieved_goal, desired_goal):
+        elif self._check_first_manipulation_object_in_target_zone():
             reward = self.second_cube_at_target_reward
         else:
             reward = -1
@@ -1438,7 +1438,7 @@ class CollaborativeStackingCart(HumanEnv):
                 return np.zeros(12)
 
         # Vector from the robot's EEF to the object that the robot should add to the stack next
-        @sensor(modality=goal_mod)
+        @sensor(modality=obj_mod)
         def vec_eef_to_object(obs_cache: Dict[str, Any]) -> np.ndarray:
             if set(
                 ["vec_eef_to_object_a", "vec_eef_to_object_b"]

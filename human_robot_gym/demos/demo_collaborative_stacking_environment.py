@@ -1,4 +1,4 @@
-"""Demo script for the human-robot handover environment using a failsafe controller.
+"""Demo script for the collaborative stacking environment using a failsafe controller.
 Uses a scripted expert to demonstrate the environment functionality.
 
 Pressing 'o' switches between scripted policy and keyboard control.
@@ -27,35 +27,56 @@ Available observations (possible GymWrapper keys):
         (x,y,z) vector from end effector to human right hand
     dist_eef_to_human_rh
         euclidean distance between human right hand and end effector
-    target_pos
-        (x,y,z) absolute position of the target
-    object_pos
-        (x,y,z) absolute position of the object
-    object_quat
-        (x,y,z,w) quaternion of the object
+    next_target_pos
+        (x,y,z) absolute coordinates of the next target position.
+        If there is currently no next target, the current eef position is returned.
+    object_a_pos
+        (x,y,z) absolute coordinates of manipulation object A of the robot
+    object_b_pos
+        (x,y,z) absolute coordinates of manipulation object B of the robot
+    object_l_pos
+        (x,y,z) absolute coordinates of the cube from the human's left hand
+    object_r_pos
+        (x,y,z) absolute coordinates of the cube from the human's right hand
+    all_object_pos
+        12-tuple: absolute coordinates of all objects to stack: concatenation of
+            - object_a_pos
+            - object_b_pos
+            - object_l_pos
+            - object_r_pos
+    vec_eef_to_object_a
+        (x,y,z) vector from end effector to object A (object_a_pos - robot0_eef_pos)
+    vec_eef_to_object_b
+        (x,y,z) vector from end effector to object B (object_b_pos - robot0_eef_pos)
+    vec_eef_to_object_l
+        (x,y,z) vector from end effector to object L (object_l_pos - robot0_eef_pos)
+    vec_eef_to_object_r
+        (x,y,z) vector from end effector to object R (object_r_pos - robot0_eef_pos)
+    vec_eef_to_all_objects
+        12-tuple: vectors between end effector and all objects to stack: concatenation of
+            - vec_eef_to_object_a
+            - vec_eef_to_object_b
+            - vec_eef_to_object_l
+            - vec_eef_to_object_r
+    vec_eef_to_object
+        (x,y,z) vector from end effector to the object the robot should add to the stack next
+    vec_eef_to_target
+        (x,y,z) vector from end effector to the next target position
     object_gripped
         (True/False) whether the object has contact to both fingerpads
-    vec_eef_to_object
-        (x,y,z) vector from end effector to object (object_pos - robot0_eef_pos)
-    vec_object_to_target
-        (x,y,z) vector from object to target (target_pos - object_pos)
-    vec_eef_to_target
-        (x,y,z) vector from end effector to target (target_pos - robot0_eef_pos)
     vec_eef_to_next_objective
         (x,y,z)
-            if the object is gripped (object_gripped):
-                vector from end effector to target (vec_eef_to_target)
+            if an object is gripped (object_gripped):
+                vector from end effector to the next target (vec_eef_to_target)
             otherwise:
-                vector from end effector to object (vec_eef_to_object)
-    quat_eef_to_object
-        (x,y,z,w) relative quaternion from end effector to object
+                vector from end effector to the next object to stack (vec_eef_to_object)
     robot0_proprio-state
         (7-tuple) concatenation of
             - robot0_eef_pos (robot0_proprio-state[0:3])
             - robot0_gripper_qpos (robot0_proprio-state[3:5])
             - robot0_gripper_qvel (robot0_proprio-state[5:7])
     object-state
-        (28-tuple) concatenation of
+        (41-tuple) concatenation of
             - gripper_aperture (object-state[0])
             - vec_eef_to_human_lh (object-state[1:4])
             - dist_eef_to_human_lh (object-state[4])
@@ -63,23 +84,29 @@ Available observations (possible GymWrapper keys):
             - dist_eef_to_human_rh (object-state[8])
             - vec_eef_to_human_head (object-state[9:12])
             - dist_eef_to_human_head (object-state[12])
-            - object_pos (object-state[13:16])
-            - vec_eef_to_object (object-state[16-19])
-            - object_gripped (object-state[19])
-            - object_quat (object-state[20:24])
-            - quat_eef_to_object (object-state[20:24])
+            - object_a_pos (object-state[13:16])
+            - object_b_pos (object-state[16:19])
+            - object_l_pos (object-state[19:22])
+            - object_r_pos (object-state[22:25])
+            - all_object_pos (object-state[13:25])
+            - vec_eef_to_object_a (object-state[25:28])
+            - vec_eef_to_object_b (object-state[28:31])
+            - vec_eef_to_object_l (object-state[31:34])
+            - vec_eef_to_object_r (object-state[34:37])
+            - vec_eef_to_all_objects (object-state[25:37])
+            - vec_eef_to_object (object-state[37:40])
+            - object_gripped (object-state[40])
     goal-state
-        (12-tuple) concatenation of
-            - target_pos (object-state[0:3])
-            - vec_object_to_target (object-state[3:6])
-            - vec_eef_to_target (object-state[6:9])
-            - vec_eef_to_next_objective (object-state[9:12])
+        (9-tuple) concatenation of
+            - next_target_pos (object-state[0:3])
+            - vec_eef_to_target (object-state[3:6])
+            - vec_eef_to_next_objective (object-state[6:9])
 
 Author:
     Felix Trost
 
 Changelog:
-    02.05.2023 FT File creation
+    14.09.2023 FT File creation
 """
 import robosuite as suite
 import time
@@ -152,7 +179,7 @@ if __name__ == "__main__":
         expert_keys=[
             "object_gripped",
             "vec_eef_to_object",
-            "vec_eef_to_next_target",
+            "vec_eef_to_target",
             "robot0_gripper_qpos",
         ]
     )
@@ -201,7 +228,6 @@ if __name__ == "__main__":
         while True:
             t += 1
             expert_observation = expert_obs_wrapper.current_expert_observation
-            expert_observation["vec_eef_to_target"] = expert_observation["vec_eef_to_next_target"]
 
             action = kb_agent() if use_kb_agent else sc_agent(expert_observation)
 
