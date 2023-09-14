@@ -10,12 +10,11 @@ Contributors:
 Changelog:
     11.09.23 FT File created
 """
-
 from stable_baselines3.common.utils import safe_mean
 
 from stable_baselines3.common.callbacks import BaseCallback
 
-from typing import Any, Dict, List, Tuple, Union
+from typing import List, Tuple, Union
 
 
 class LoggingCallback(BaseCallback):
@@ -119,22 +118,3 @@ class LoggingCallback(BaseCallback):
             )
             self._info_buffer[key] = []
         self.model._dump_logs()
-
-    def _log_success_callback(
-        self, locals_: Dict[str, Any], globals_: Dict[str, Any]
-    ) -> None:
-        """Pass this callback to the  ``evaluate_policy`` function in order to log the success rate.
-
-        This is used when applicable, for instance when using HER.
-
-        Args:
-            locals_:
-            globals_:
-        """
-        info = locals_["info"]
-
-        if locals_["done"]:
-            for key in self._eval_info_buffer.keys():
-                maybe_is_key = info.get(key)
-                if maybe_is_key is not None:
-                    self._eval_info_buffer[key].append(maybe_is_key)
