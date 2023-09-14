@@ -22,7 +22,7 @@ stack_toppled_reward: -10
 task_reward: 1
 second_cube_at_target_reward: -1
 fourth_cube_at_target_reward: -1
-object_gripped_reward: -1
+object_gripped_reward: 0
 goal_dist: 0.025
 obstacle_placement_initializer: null
 human_animation_names: 

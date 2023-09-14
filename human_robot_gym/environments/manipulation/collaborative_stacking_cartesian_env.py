@@ -1,6 +1,6 @@
 """This file defines a collaborative stacking task for a single robot arm in a human environment.
 
-The objective of this task is to build a stack of cubes in collaboration with a human partner.
+The objective of this task is to build a stack of four cubes in collaboration with a human partner.
 The human partner will place the first cube on the table, from there on robot and human will alternate placing cubes.
 The task is divided into 6 phases:
     1. Approach: The human approaches the table.
@@ -44,7 +44,6 @@ from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import ObjectPositionSampler
 
-from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE
 from human_robot_gym.environments.manipulation.human_env import HumanEnv, HumanEnvState
 from human_robot_gym.utils.mjcf_utils import quat_to_rot, rot_to_quat, xml_path_completion
 from human_robot_gym.utils.animation_utils import layered_sin_modulations, sample_animation_loop_properties
@@ -88,6 +87,7 @@ class CollaborativeStackingEnvState(HumanEnvState):
             because of the loop phases. Contains two values: delays for the present and wait phase.
         animation_loop_properties (List[Dict[str, Tuple[float, float]]]): Loop amplitudes and speed modifiers
             for all layered sines for all human animations sampled for the current episode.
+        object_stack_body_ids (List[int]): List of body ids of the objects in the stack (bottom to top).
     """
     object_placements_list: List[List[Tuple[str, np.ndarray]]]
     object_placements_list_index: int
@@ -332,7 +332,7 @@ class CollaborativeStackingCart(HumanEnv):
         task_reward: float = 1,
         second_cube_at_target_reward: float = -1,
         fourth_cube_at_target_reward: float = -1,
-        object_gripped_reward: float = -1,
+        object_gripped_reward: float = 0,
         object_placement_initializer: Optional[ObjectPositionSampler] = None,
         obstacle_placement_initializer: Optional[ObjectPositionSampler] = None,
         has_renderer: bool = False,
@@ -402,10 +402,6 @@ class CollaborativeStackingCart(HumanEnv):
         self.object_placement_initializer = object_placement_initializer
         self.obstacle_placement_initializer = obstacle_placement_initializer
 
-        # if run should stop at collision
-        self.done_at_collision = done_at_collision
-        self.done_at_success = done_at_success
-
         self.task_phase: CollaborativeStackingPhase = CollaborativeStackingPhase.COMPLETE
         self._n_delayed_timesteps = None
 
@@ -442,6 +438,8 @@ class CollaborativeStackingCart(HumanEnv):
             reward_shaping=reward_shaping,
             collision_reward=collision_reward,
             task_reward=task_reward,
+            done_at_collision=done_at_collision,
+            done_at_success=done_at_success,
             has_renderer=has_renderer,
             has_offscreen_renderer=has_offscreen_renderer,
             render_camera=render_camera,
@@ -560,11 +558,11 @@ class CollaborativeStackingCart(HumanEnv):
             self.task_phase = CollaborativeStackingPhase.WAIT_FOR_SECOND
         elif (
             self.task_phase == CollaborativeStackingPhase.WAIT_FOR_SECOND and
-            (body_id := self._id_of_cube_at_target()) is not None and
+            (body_id := self._check_first_manipulation_object_in_target_zone()) is not None and
             not object_gripped
         ):
             self.task_phase = CollaborativeStackingPhase.PLACE_THIRD
-            self._object_stack_body_ids.append((body_id))
+            self._object_stack_body_ids.append(body_id)
         elif (
             self.task_phase == CollaborativeStackingPhase.PLACE_THIRD and
             self.animation_time > self.keyframes[3]
@@ -573,25 +571,34 @@ class CollaborativeStackingCart(HumanEnv):
             self.task_phase = CollaborativeStackingPhase.WAIT_FOR_FOURTH
         elif (
             self.task_phase == CollaborativeStackingPhase.WAIT_FOR_FOURTH and
-            self._id_of_cube_at_target() is not None and
+            (body_id := self._check_second_manipulation_object_in_target_zone()) is not None and
             not object_gripped
         ):
             self.task_phase = CollaborativeStackingPhase.RETREAT
+            self._object_stack_body_ids.append(body_id)
 
         self._max_stack_height = max(self._max_stack_height, len(self._object_stack_body_ids))
 
         return obs, rew, done, info
 
-    def _id_of_cube_at_target(
-        self,
-    ) -> Optional[int]:
+    def _id_of_cube_at_target(self) -> Optional[int]:
+        """If a cube that is not yet part of the stack is within the current target zone, return its body id.
+        Otherwise, return `None`.
+
+        Returns:
+            Optional[int]: Body id of the cube at the target zone. `None` if no cube is at the target zone.
+        """
         target = self.next_target_position
 
+        # No target available if the human should place the next cube
         if target is None:
             return None
 
         for body_id in self._manipulation_objects_body_ids:
-            if self._object_to_target_dist(target, self.sim.data.body_xpos[body_id]) < self.goal_dist:
+            if (
+                self._object_to_target_dist(target, self.sim.data.body_xpos[body_id]) < self.goal_dist and
+                body_id not in self._object_stack_body_ids
+            ):
                 return body_id
 
         return None
@@ -601,65 +608,52 @@ class CollaborativeStackingCart(HumanEnv):
         target: np.ndarray,
         object_pos: np.ndarray,
     ) -> float:
-        """Distance between object and target. We use a cube distance metric."""
+        """Distance between object and target. The L1 norm is used due to the cube shape of the objects to stack."""
         return np.max(np.abs(target - object_pos))
 
-    def _check_first_manipulation_object_in_target_zone(
-        self,
-        achieved_goal: List[float],
-        desired_goal: List[float]
-    ) -> Optional[int]:
-        object_a_pos = achieved_goal[1:4]
-        object_b_pos = achieved_goal[4:7]
+    def _check_first_manipulation_object_in_target_zone(self) -> Optional[int]:
+        """Determine whether the robot has managed to add at least one cube to the stack.
+        If yes, return the body id of that cube. Otherwise, return `None`.
 
+        Returns:
+            Optional[int]: Body id of the cube at the target zone. `None` if no cube is at the target zone.
+        """
+        # Human has yet to place the first cube
         if len(self._object_stack_body_ids) < 1:
-            return False
-
-        bottom_object_pos = self.sim.data.body_xpos[self._object_stack_body_ids[0]]
-        second_object_target_pos = bottom_object_pos + np.array([0, 0, self.object_full_size[2]])
-
-        if len(self._object_stack_body_ids) < 2:
-            # Both manipulation objects may be placed first
-            if np.max(np.abs(second_object_target_pos - object_a_pos)) < self.goal_dist:
-                return self._manipulation_objects_body_ids[0]
-            elif np.max(np.abs(second_object_target_pos - object_b_pos)) < self.goal_dist:
-                return self._manipulation_objects_body_ids[1]
-            else:
-                return None
-
-        if np.max(np.abs(
-            second_object_target_pos - self.sim.data.body_xpos[self._object_stack_body_ids[1]]
-        )) < self.goal_dist:
+            return None
+        # Robot has already placed at least one cube onto the stack
+        if len(self._object_stack_body_ids) > 1:
             return self._object_stack_body_ids[1]
-        else:
-            return None
 
-    def _check_second_manipulation_object_in_target_zone(
-        self,
-        achieved_goal: List[float],
-        desired_goal: List[float]
-    ) -> Optional[int]:
+        # If it is the robot's turn to place its first cube onto the stack,
+        # check whether a cube is within the target zone
+        return self._id_of_cube_at_target()
+
+    def _check_second_manipulation_object_in_target_zone(self) -> Optional[int]:
+        """Determine whether the robot has managed to add both cubes to the stack.
+        If yes return the body id of the second cube. Otherwise, return `None`.
+
+        Returns:
+            Optional[int]: Body id of the cube at the target zone. `None` if no cube is at the target zone.
+        """
+        # Robot may not place its second cube onto the stack yet.
         if len(self._object_stack_body_ids) < 3:
-            return False
-
-        fourth_object_target_pos = self.sim.data.body_xpos[
-            self._object_stack_body_ids[2]
-        ] + np.array([0, 0, self.object_full_size[2]])
-
-        manipulation_object_body_id = (
-            self._manipulation_objects_body_ids[0]
-            if self._object_stack_body_ids[2] == self._manipulation_objects_body_ids[1]
-            else self._manipulation_objects_body_ids[1]
-        )
-
-        manipulation_object_pos = self.sim.data.body_xpos[manipulation_object_body_id]
-
-        if np.max(np.abs(fourth_object_target_pos - manipulation_object_pos)) < self.goal_dist:
-            return manipulation_object_body_id
-        else:
             return None
+        # Robot has already placed both cubes onto the stack
+        if len(self._object_stack_body_ids) > 3:
+            return self._object_stack_body_ids[3]
+
+        # If it is the robot's turn to place its second cube onto the stack,
+        # check whether a cube is within the target zone
+        return self._id_of_cube_at_target()
 
     def _check_stack_toppled(self) -> bool:
+        """Determine whether the stack has toppled over. This is the case if the center of any cube in the stack
+        is below the top of the bottom-most cube.
+
+        Returns:
+            bool: whether the stack has toppled over
+        """
         if len(self._object_stack_body_ids) < 2:
             return False
         else:
@@ -671,48 +665,29 @@ class CollaborativeStackingCart(HumanEnv):
             ])
 
     def _get_info(self) -> Dict[str, Any]:
+        """Track the maximum stack height achieved in the episode."""
         info = super()._get_info()
 
         info["max_stack_height"] = self._max_stack_height
 
         return info
 
-    def reward(
+    def _dense_reward(
         self,
         achieved_goal: List[float],
         desired_goal: List[float],
         info: Dict[str, Any],
     ) -> float:
-        if self.reward_shaping:
-            reward = self._shaped_reward(
-                achieved_goal=achieved_goal,
-                desired_goal=desired_goal,
-                info=info,
-            )
-        else:
-            reward = self._sparse_reward(
-                achieved_goal=achieved_goal,
-                desired_goal=desired_goal,
-                info=info,
-            )
+        """Compute the dense reward based on the achieved goal, the desired goal, and the info dict.
 
-        if COLLISION_TYPE(info["collision_type"]) not in (COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED):
-            reward += self.collision_reward
+        Args:
+            achieved_goal (List[float]): observation of robot state that is relevant for the goal
+            desired_goal (List[float]): the desired goal
+            info (Dict[str, Any]): dictionary containing additional information like collisions
 
-        if self._check_stack_toppled():
-            reward += self.stack_toppled_reward
-
-        if self.reward_scale is not None:
-            reward *= self.reward_scale
-
-        return reward
-
-    def _shaped_reward(
-        self,
-        achieved_goal: List[float],
-        desired_goal: List[float],
-        info: Dict[str, Any],
-    ) -> float:
+        Returns:
+            float: dense environment reward
+        """
         # TODO
         return 0
 
@@ -722,15 +697,38 @@ class CollaborativeStackingCart(HumanEnv):
         desired_goal: List[float],
         info: Dict[str, Any],
     ) -> float:
+        """Compute the sparse reward based on the achieved goal, the desired goal, and the info dict.
+
+        The sparse reward function yields
+            - `self.task_reward` if the target is reached,
+            - `self.stack_toppled_reward` if the stack is toppled over
+
+        If none of these is the case, the reward is
+            - `self.second_cube_at_target_reward` if the first cube of the robot is within `goal_dist` of its target,
+            - `self.fourth_cube_at_target_reward` if both cubes of the robot are within `goal_dist` of their targets,
+            - `-1` otherwise,
+        with a bonus of
+            - `self.object_gripped_reward` if an object is within the gripper
+
+        Args:
+            achieved_goal (List[float]): observation of robot state that is relevant for the goal
+            desired_goal (List[float]): the desired goal
+            info (Dict[str, Any]): dictionary containing additional information like collisions
+
+        Returns:
+            float: sparse environment reward
+        """
         if self._check_success(achieved_goal, desired_goal):
             return self.task_reward
-
-        reward = -1
+        if self._check_stack_toppled():
+            return self.stack_toppled_reward
 
         if self._check_second_manipulation_object_in_target_zone(achieved_goal, desired_goal):
             reward = self.fourth_cube_at_target_reward
         elif self._check_first_manipulation_object_in_target_zone(achieved_goal, desired_goal):
             reward = self.second_cube_at_target_reward
+        else:
+            reward = -1
 
         object_gripped = achieved_goal[0]
 
@@ -768,23 +766,28 @@ class CollaborativeStackingCart(HumanEnv):
         Returns:
             bool: done flag
         """
-        if self.done_at_collision and COLLISION_TYPE(info["collision_type"]) not in (
-            COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED
-        ):
-            return True
-
         if self._check_stack_toppled():
             return True
 
-        if self.done_at_success and self._check_success(achieved_goal, desired_goal):
-            return True
-
-        return False
+        return super()._check_done(achieved_goal=achieved_goal, desired_goal=desired_goal, info=info)
 
     def _get_achieved_goal_from_obs(
         self,
         observation: OrderedDict[str, Any],
     ) -> List[float]:
+        """Extract the achieved goal from the observation.
+
+        The achieved goal includes
+            - the end effector position,
+            - all object positions, and
+            - whether the object is gripped.
+
+        Args:
+            observation (OrderedDict[str, Any]): The observation after the action is executed
+
+        Returns:
+            List[float]: The achieved goal
+        """
         return np.concatenate(
             [
                 [observation["object_gripped"]],
@@ -797,6 +800,16 @@ class CollaborativeStackingCart(HumanEnv):
         self,
         observation: OrderedDict[str, Any],
     ) -> List[float]:
+        """Extract the desired goal from the observation.
+
+        The desired goal is the target position for the next object the robot should place.
+
+        Args:
+            observation (OrderedDict[str, Any]): The observation after the action is executed
+
+        Returns:
+            List[float]: The desired goal
+        """
         return np.concatenate(
             [
                 observation["next_target_pos"]
@@ -804,14 +817,33 @@ class CollaborativeStackingCart(HumanEnv):
         ).tolist()
 
     def _compute_animation_time(self, control_time: int) -> int:
+        """Compute the current animation time.
+
+        The human should perform idle animations when it is the robot's turn to place an object.
+        To achieve this, we use multiple layered sine funtions to loop some frames around the first keyframe
+        back and forth. The frequency and amplitudes of the sine functions are set according to the animation info
+        json files with some randomization (see `sample_animation_loop_properties`).
+
+        The numbers of frames the animation is delayed because of the loop phases
+        are stored in the two entries of `self._n_delayed_timesteps`.
+        These values are used to achieve a smooth transition after waiting phases.
+
+        Args:
+            control_time (float): The current control time.
+        Returns:
+            float: The current animation time.
+        """
         animation_time = super()._compute_animation_time(control_time=control_time)
         classic_animation_time = animation_time
 
         animation_length = self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
 
-        if animation_time > self.keyframes[0] and self.task_phase == CollaborativeStackingPhase.APPROACH:
+        # Enter the `PLACE_FIRST` phase when passing the first keyframe
+        if self.task_phase == CollaborativeStackingPhase.APPROACH and animation_time > self.keyframes[0]:
             self.task_phase = CollaborativeStackingPhase.PLACE_FIRST
 
+        # When the robot should place its first cube (second cube on the stack),
+        # loop the animation until the robot has placed its cube
         elif self.task_phase == CollaborativeStackingPhase.WAIT_FOR_SECOND:
             modulation_start_time = self.keyframes[2]
 
@@ -827,9 +859,12 @@ class CollaborativeStackingCart(HumanEnv):
 
             self._n_delayed_timesteps = (classic_animation_time - animation_time, 0)
 
+        # Subtract the delay from the first waiting phase from the animation time
         elif self.task_phase == CollaborativeStackingPhase.PLACE_THIRD:
             animation_time = classic_animation_time - self._n_delayed_timesteps[0]
 
+        # When the robot should place its second cube (fourth cube on the stack),
+        # loop the animation until the robot has placed its cube
         elif self.task_phase == CollaborativeStackingPhase.WAIT_FOR_FOURTH:
             modulation_start_time = self.keyframes[4]
             animation_time = classic_animation_time - self._n_delayed_timesteps[0]
@@ -846,9 +881,11 @@ class CollaborativeStackingCart(HumanEnv):
 
             self._n_delayed_timesteps = (self._n_delayed_timesteps[0], classic_animation_time - animation_time)
 
+        # Subtract the delay from boh waiting phases from the animation time
         elif self.task_phase == CollaborativeStackingPhase.RETREAT:
             animation_time = classic_animation_time - self._n_delayed_timesteps[1]
 
+        # Once the animation is complete, freeze the animation time at the last frame
         if animation_time >= animation_length - 1:
             self.task_phase = CollaborativeStackingPhase.COMPLETE
             animation_time = animation_length - 1
@@ -858,7 +895,7 @@ class CollaborativeStackingCart(HumanEnv):
     def _control_human(self, force_update: bool = True):
         """Augment super class method to keep the mocap object's position at the human's hand."""
         super()._control_human(force_update=True)
-        self.sim.step()
+        self.sim.forward()
         self._update_mocap_body_transforms()
 
     def _update_mocap_body_transforms(self):
@@ -957,9 +994,11 @@ class CollaborativeStackingCart(HumanEnv):
         self._human_pickup_objects()
 
     def _set_equality_status(self, equality_id: int, status: bool):
+        """Activate/deactivate an equality constraint."""
         self.sim.model.eq_active[equality_id] = int(status)
 
     def _human_place_first_object(self):
+        """Release the first object to place on the stack from the human's hand."""
         if self.first_placing_hand == "left":
             self._object_stack_body_ids.append(self._l_cube_body_id)
             self._human_drop_left_object()
@@ -968,6 +1007,9 @@ class CollaborativeStackingCart(HumanEnv):
             self._human_drop_right_object()
 
     def _human_place_third_object(self):
+        """Release the second object the human places onto the stack (third cube on the stack) from the human's hand
+        and move it directly above the second cube on the stack.
+        """
         cube = None
 
         if self.first_placing_hand == "left":
@@ -997,15 +1039,15 @@ class CollaborativeStackingCart(HumanEnv):
         self._object_stack_body_ids.append(self.sim.model.body_name2id(cube.root_body))
 
     def _human_drop_left_object(self):
-        """Drop the left object."""
+        """Release the cube from the human's left hand."""
         self._set_equality_status(self._l_weld_eq_id, False)
 
     def _human_drop_right_object(self):
-        """Drop the right object."""
+        """Release the cube from the human's right hand."""
         self._set_equality_status(self._r_weld_eq_id, False)
 
     def _human_pickup_objects(self):
-        """Pick up both objects."""
+        """Activate both constraints that connect the cubes to the human's hands."""
         self._set_equality_status(self._l_weld_eq_id, True)
         self._set_equality_status(self._r_weld_eq_id, True)
 
@@ -1027,6 +1069,7 @@ class CollaborativeStackingCart(HumanEnv):
         )
 
     def _visualize_next_target_location(self):
+        """Draw a box to display the target location for the next cube to place."""
         if (pos := self.next_target_position) is not None:
             self.viewer.viewer.add_marker(
                 pos=pos,
@@ -1048,6 +1091,7 @@ class CollaborativeStackingCart(HumanEnv):
         )
 
     def _visualize(self):
+        """Visualize the object sample space and the next target location"""
         self._visualize_object_sample_space()
         self._visualize_next_target_location()
 
@@ -1158,18 +1202,18 @@ class CollaborativeStackingCart(HumanEnv):
         """Extend super class method to add additional elements to the model before creating the sim object."""
         super()._postprocess_model()
 
-        # Object at the human hand (position and rotation), handover object may be welded to it
+        # Objects at the human's hands (position and rotation), cubes may be welded to it
         self._add_mocap_bodies_to_model()
 
-        # Connection between a motion capture object at the human's hand and the root body of the object.
-        # Can be activated to simulate the human grasping the object.
+        # Connection between the motion capture objects at the human's hands and the root bodies of the cubes.
+        # Can be activated to simulate the human holding the cubes.
         self._add_weld_equalities_to_model()
 
     def _add_mocap_bodies_to_model(self, visualize: bool = False) -> Tuple[ET.Element, ET.Element]:
-        """Add a mocap body to the model.
+        """Add mocap body to the model at the positions of both hands.
 
-        This body is a direct child of the world body and has no joints.
-        Its position and rotation can be controlled by calling `self.sim.data.set_mocap_pos` and
+        These bodies are direct children of the world body and have no joints.
+        Their positions and rotations can be controlled by calling `self.sim.data.set_mocap_pos` and
         `self.sim.data.set_mocap_quat`.
 
         Args:
@@ -1205,9 +1249,9 @@ class CollaborativeStackingCart(HumanEnv):
         return mocap_objects
 
     def _add_weld_equalities_to_model(self) -> Tuple[ET.Element, ET.Element]:
-        """Add a weld equality to the model between the mocap object and the manipulation object.
+        """Add weld equalities to the model between the mocap objects and the cubes.
 
-        This equality can be deactivated to simulate the human letting go of the object.
+        These equalities can be deactivated to simulate the human releasing the cubes.
 
         Returns:
             ET.Element: The created weld equality xml tree element.
@@ -1305,23 +1349,27 @@ class CollaborativeStackingCart(HumanEnv):
             else:
                 return np.zeros(3)
 
-        # Absolute coordinates of object position
+        # Absolute coordinates of manipulation object A of the robot
         @sensor(modality=obj_mod)
         def object_a_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
             return self.sim.data.body_xpos[self._manipulation_objects_body_ids[0]]
 
+        # Absolute coordinates of manipulation object B of the robot
         @sensor(modality=obj_mod)
         def object_b_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
             return self.sim.data.body_xpos[self._manipulation_objects_body_ids[1]]
 
+        # Absolute coordinates of the cube from the human's left hand
         @sensor(modality=obj_mod)
         def object_l_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
             return self.sim.data.body_xpos[self._l_cube_body_id]
 
+        # Absolute coordinates of the cube from the human's right hand
         @sensor(modality=obj_mod)
         def object_r_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
             return self.sim.data.body_xpos[self._r_cube_body_id]
 
+        # Absolute coordinates of all objects to stack
         @sensor(modality=obj_mod)
         def all_objects_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
             if set(["object_a_pos", "object_b_pos", "object_l_pos", "object_r_pos"]).issubset(obs_cache.keys()):
@@ -1336,6 +1384,7 @@ class CollaborativeStackingCart(HumanEnv):
             else:
                 return np.zeros(12)
 
+        # Vector from the robot's EEF to manipulation object A
         @sensor(modality=obj_mod)
         def vec_eef_to_object_a(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
@@ -1344,6 +1393,7 @@ class CollaborativeStackingCart(HumanEnv):
                 else np.zeros(3)
             )
 
+        # Vector from the robot's EEF to manipulation object B
         @sensor(modality=obj_mod)
         def vec_eef_to_object_b(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
@@ -1352,6 +1402,7 @@ class CollaborativeStackingCart(HumanEnv):
                 else np.zeros(3)
             )
 
+        # Vector from the robot's EEF to the cube from the human's left hand
         @sensor(modality=obj_mod)
         def vec_eef_to_object_l(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
@@ -1360,6 +1411,7 @@ class CollaborativeStackingCart(HumanEnv):
                 else np.zeros(3)
             )
 
+        # Vector from the robot's EEF to the cube from the human's right hand
         @sensor(modality=obj_mod)
         def vec_eef_to_object_r(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
@@ -1368,6 +1420,7 @@ class CollaborativeStackingCart(HumanEnv):
                 else np.zeros(3)
             )
 
+        # Vector from the robot's EEF to all objects to stack
         @sensor(modality=obj_mod)
         def vec_eef_to_all_objects(obs_cache: Dict[str, Any]) -> np.ndarray:
             if set(
@@ -1384,6 +1437,7 @@ class CollaborativeStackingCart(HumanEnv):
             else:
                 return np.zeros(12)
 
+        # Vector from the robot's EEF to the object that the robot should add to the stack next
         @sensor(modality=goal_mod)
         def vec_eef_to_object(obs_cache: Dict[str, Any]) -> np.ndarray:
             if set(
@@ -1396,6 +1450,7 @@ class CollaborativeStackingCart(HumanEnv):
             else:
                 return np.zeros(3)
 
+        # Vector from the robot's EEF to the next target position
         @sensor(modality=goal_mod)
         def vec_eef_to_target(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
@@ -1420,6 +1475,7 @@ class CollaborativeStackingCart(HumanEnv):
 
             return obj_gripped
 
+        # Vector from the robot's EEF to the next objective (object to stack or target position)
         @sensor(modality=goal_mod)
         def vec_eef_to_next_objective(obs_cache: Dict[str, Any]) -> np.ndarray:
             if all(

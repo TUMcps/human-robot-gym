@@ -417,8 +417,13 @@ Additionally, a failure reward is given **if the stack falls over**.
 As such, the sparse reward is defined as
 
 .. math::
-    \hat{r}^{\,env,sparse,CS}(s, a) = \begin{cases} \hat{r}^{\,env,task,CS}\, & \text{if task complete} \\ \hat{r}^{\,env,failure,CS,toppled}\,, & \text{else if stack was toppled} \\ \hat{r}^{\,env,subgoal,CS,A}\,, & \text{else if robot added one cube to the stack} \\ \hat{r}^{\,env,subgoal,CS,B}\,, & \text{else if robot added two cubes to the stack} \\ -1\,, & \text{else} \end{cases}\,,
+    \hat{r}^{\,env,sparse,CS}(s, a) = \begin{cases} \hat{r}^{\,env,task,CS}\, & \text{if task complete} \\ \hat{r}^{\,env,failure,CS,toppled}\,, & \text{else if stack was toppled} \\ \hat{r}^{\,env,subgoal,CS}(s, a)\,, & \text{else} \end{cases}\,,
 
-where :math:`\hat{r}^{\,env,task,CS}`, :math:`\hat{r}^{\,env,failure,CS,toppled}`, :math:`r^{\,env,subgoal,CS,A}`, and :math:`r^{\,env,subgoal,CS,B}` are constant rewards that are referred to as ``task_reward``, ``stack_toppled_reward``, ``second_cube_at_target_reward``, and ``fourth_cube_at_target_reward`` in the code, respectively.
+where
+
+.. math::
+    \hat{r}^{\,env,subgoal,CS}(s, a) = \begin{cases} \hat{r}^{\,env,subgoal,CS,A}\,, & \text{if robot added one cube to the stack} \\ \hat{r}^{\,env,subgoal,CS,B}\,, & \text{if robot added two cubes to the stack} \\ -1\,, & \text{else} \end{cases} \quad + \\ \begin{cases} \hat{r}^{\,env,subgoal,CS,grasp}\,, & \text{if object grasped by robot} \\ 0\,, & \text{else} \end{cases}\,,
+
+and :math:`\hat{r}^{\,env,task,CS}`, :math:`\hat{r}^{\,env,failure,CS,toppled}`, :math:`r^{\,env,subgoal,CS,A}`, :math:`r^{\,env,subgoal,CS,B}`, and :math:`r^{\,env,subgoal,CS,grasp}` are constant rewards that are referred to as ``task_reward``, ``stack_toppled_reward``, ``second_cube_at_target_reward``, ``fourth_cube_at_target_reward``, and ``object_gripped_reward`` in the code, respectively.
 
 The collaborative stacking environment does not yet provide a dense reward function.
