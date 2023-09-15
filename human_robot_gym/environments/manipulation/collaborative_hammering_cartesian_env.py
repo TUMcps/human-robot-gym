@@ -38,7 +38,7 @@ from robosuite.utils.placement_samplers import ObjectPositionSampler
 import robosuite.utils.transform_utils as T
 from robosuite.utils.mjcf_utils import find_elements
 
-from human_robot_gym.environments.manipulation.human_env import COLLISION_TYPE, HumanEnv, HumanEnvState
+from human_robot_gym.environments.manipulation.human_env import HumanEnv, HumanEnvState
 from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat, quat_to_rot
 from human_robot_gym.utils.animation_utils import (
     sample_animation_loop_properties, layered_sin_modulations
