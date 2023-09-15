@@ -562,7 +562,7 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
     ) -> float:
         """Override super method to add the subobjective rewards of the object inspection task.
 
-        The sparse reward function yilds
+        The sparse reward function yields
             - `self.task_reward` when the animation is complete
             - `self.object_at_target_reward` when the object is in the target zone
             - `self.object_gripped_reward` when the object is gripped

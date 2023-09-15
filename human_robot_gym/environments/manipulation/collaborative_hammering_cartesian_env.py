@@ -1,10 +1,23 @@
-"""This file describes a collaborative hammering task where the robot should hammer a nail into a board.
+"""This file describes a collaborative hammering task for a single robot arm in a human environment.
+
+The objective of this task is to hammer a nail into a board held by the human,
+It is divided into three phases:
+    1. Approach: The human approaches the robot holding the board.
+    2. Present: The human presents the board to the robot. The robot should hammer the nail into the board.
+    3. Retreat: Once the nail is hammered in, the human moves back to their starting position.
+
+When setting `done_at_success` to `True`, the episode is terminated when animation of the human is finished.
+Otherwise, these four phases are looped.
+
+Reward is given once the task is completed, i.e., the animation is finished,
+Optionally, this sparse reward can be augmented by a step step reward for having the nail driven sufficiently far
+into the board.
 
 Author
     Felix Trost (FT)
 
 Changelog:
-    16.05.23 FT File creation
+    15.09.23 FT File creation
 """
 from enum import Enum
 from dataclasses import asdict, dataclass
@@ -33,6 +46,7 @@ from human_robot_gym.utils.animation_utils import (
 
 
 class CollaborativeHammeringPhase(Enum):
+    """Enum for the different phases of the collaborative hammering task."""
     APPROACH = 0
     PRESENT = 1
     RETREAT = 3
@@ -61,9 +75,12 @@ class CollaborativeHammeringEnvState(HumanEnvState):
             During the episode this list is iterated over and the corresponding object joint position is used.
         object_placements_list_index (int): Index of the current object joint position in the list of object joint
             positions.
+        nail_placements (List[np.ndarray]): List of sampled positions for the nail in the board.
+            During the episode this list is iterated over and the corresponding nail position is used.
+        nail_placements_index (int): Index of the current nail position in the list of nail positions.
         task_phase_value (int): Value corresponding to the current task phase.
-        n_delayed_timesteps (List[int]): Number of timesteps the current animation is delayed
-            because of the loop phases. Contains two values: delays for the present and wait phase.
+        n_delayed_timesteps (int): Number of timesteps the current animation is delayed
+            because of the presenting loop phases.
         animation_loop_properties (List[Dict[str, Tuple[float, float]]]): Loop amplitudes and speed modifiers
             for all layered sines for all human animations sampled for the current episode.
     """
@@ -75,8 +92,20 @@ class CollaborativeHammeringEnvState(HumanEnvState):
 
 
 class CollaborativeHammeringCart(HumanEnv):
-    """This class corresponds to the pick place task for a single robot arm in a human environment
+    """This class corresponds to a collaborative manufacturing task for a single robot arm in a human environment
     where the robot should hammer a nail into a board.
+
+    It is divided into three phases:
+        1. Approach: The human approaches the robot holding the board.
+        2. Present: The human presents the board to the robot. The robot should hammer the nail into the board.
+        3. Retreat: Once the nail is hammered in, the human moves back to their starting position.
+
+    When setting `done_at_success` to `True`, the episode is terminated when animation of the human is finished.
+    Otherwise, these four phases are looped.
+
+    Reward is given once the task is completed, i.e., the animation is finished,
+    Optionally, this sparse reward can be augmented by a step step reward for having the nail driven sufficiently far
+    into the board.
 
     Args:
         robots (str | List[str]): Specification for specific robot arm(s) to be instantiated within this env
@@ -140,7 +169,7 @@ class CollaborativeHammeringCart(HumanEnv):
 
         collision_reward (float): Reward to be given in the case of a collision.
 
-        hammer_gripped_reward (float): Additional reward for having the hammer gripped.
+        hammer_gripped_reward_bonus (float): Additional reward for having the hammer gripped.
 
         nail_hammered_in_reward (float): Additional reward for having the nail hammered in.
 
@@ -274,7 +303,7 @@ class CollaborativeHammeringCart(HumanEnv):
         n_nail_placements_sampled_per_100_steps: int = 3,
         goal_tolerance: float = 0.05,
         collision_reward: float = -10,
-        hammer_gripped_reward: float = -1,
+        hammer_gripped_reward_bonus: float = 0,
         nail_hammered_in_reward: float = -1,
         task_reward: float = 1,
         obstacle_placement_initializer: Optional[ObjectPositionSampler] = None,
@@ -304,7 +333,7 @@ class CollaborativeHammeringCart(HumanEnv):
             "CollaborativeHammering/CHammer 2",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
-        human_animation_freq: float = 60,
+        human_animation_freq: float = 100,
         human_rand: List[float] = [0.0, 0.0, 0.0],
         n_animations_sampled_per_100_steps: int = 3,
         safe_vel: float = 0.001,
@@ -321,7 +350,8 @@ class CollaborativeHammeringCart(HumanEnv):
 
         self.table_offset = np.array([0.0, 0.0, 0.82])
 
-        self.hammer_gripped_reward = hammer_gripped_reward
+        self.hammer_gripped_reward_bonus = hammer_gripped_reward_bonus
+        self.nail_hammered_in_reward = nail_hammered_in_reward
 
         self.goal_tolerance = goal_tolerance
 
@@ -337,9 +367,6 @@ class CollaborativeHammeringCart(HumanEnv):
         self.board_body_id = None
         self.hammer = None
         self.hammer_body_id = None
-
-        self.done_at_collision = done_at_collision
-        self.done_at_success = done_at_success
 
         self.task_phase: CollaborativeHammeringPhase = CollaborativeHammeringPhase.COMPLETE
         self._n_delayed_timesteps = None
@@ -372,6 +399,8 @@ class CollaborativeHammeringCart(HumanEnv):
             initialization_noise=initialization_noise,
             use_camera_obs=use_camera_obs,
             use_object_obs=use_object_obs,
+            done_at_collision=done_at_collision,
+            done_at_success=done_at_success,
             reward_scale=reward_scale,
             reward_shaping=reward_shaping,
             collision_reward=collision_reward,
@@ -410,25 +439,38 @@ class CollaborativeHammeringCart(HumanEnv):
 
     @property
     def animation_loop_amplitudes(self) -> List[float]:
+        """Loop amplitudes for all layered sines for the current human animation."""
         return self._animation_loop_properties[self._human_animation_ids_index][0]
 
     @property
     def animation_loop_speeds(self) -> List[float]:
+        """Loop speed modifiers for all layered sines for the current human animation."""
         return self._animation_loop_properties[self._human_animation_ids_index][1]
 
     @property
     def keyframes(self) -> List[int]:
+        """Keyframes for the current human animation."""
         return self.human_animation_data[self.human_animation_id][1]["keyframes"]
 
     @property
     def animation_length(self) -> int:
+        """Length of the current human animation."""
         return self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
 
     @property
     def nail_placement(self) -> np.ndarray:
+        """Current nail placement."""
         return self._nail_placements[self._nail_placements_index]
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
+        """Override super `step` method to enter the `RETREAT` phase once the nail is hammered in.
+
+        Args:
+            action (np.ndarray): Action to be executed by the environment.
+
+        Returns:
+            Tuple[np.ndarray, float, bool, Dict[str, Any]]: The observation, reward, done, info
+        """
         if not self.gripper_controllable:
             action[-1] = 1  # Always close the gripper
 
@@ -455,65 +497,102 @@ class CollaborativeHammeringCart(HumanEnv):
         achieved_goal: List[float],
         desired_goal: List[float],
     ) -> bool:
+        """Check if the nail is driven sufficiently far into the board. Threshold: `self.goal_tolerance`.
+
+        Args:
+            achieved_goal (List[float]): Achieved goal.
+            desired_goal (List[float]): Desired goal.
+
+        Returns:
+            bool: whether the nail is driven sufficiently far into the board.
+        """
         nail_hammering_progress = achieved_goal[1]
         return 1 - nail_hammering_progress < self.goal_tolerance
 
-    def reward(
+    def _sparse_reward(
         self,
         achieved_goal: List[float],
         desired_goal: List[float],
         info: Dict[str, Any],
     ) -> float:
-        reward = -1.0
+        """Override super method to add the subobjective reward of the collaborative hammering task.
 
-        object_gripped = bool(achieved_goal[0])
+        The sparse reward function yields
+            - `self.task_reward` when the animation is complete
+            - `self.nail_hammered_in_reward` when the nail is driven sufficiently far into the board
+            - `-1` otherwise
+        with a bonus of
+            - `self.hammer_gripped_reward` for having the hammer gripped.
 
+        Args:
+            achieved_goal (List[float]): Part of the robot state observation relevant for the goal.
+            desired_goal (List[float]): The desired goal.
+            info (Dict[str, Any]): The info dict.
+
+        Returns:
+            float: The sparse reward.
+        """
         if self._check_success(achieved_goal=achieved_goal, desired_goal=desired_goal):
-            reward = self.task_reward
-        elif object_gripped:
-            reward = self.hammer_gripped_reward
+            return self.task_reward
 
-        # Add a penalty for self-collisions and collisions with the human
-        if COLLISION_TYPE(info["collision_type"]) not in (COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED):
-            reward += self.collision_reward
+        if self._check_nail_hammered_in(achieved_goal=achieved_goal, desired_goal=desired_goal):
+            reward = self.nail_hammered_in_reward
+        else:
+            reward = -1.0
 
-        if self.reward_scale is not None:
-            reward *= self.reward_scale
+        hammer_gripped = bool(achieved_goal[0])
+
+        if hammer_gripped:
+            reward += self.hammer_gripped_reward_bonus
 
         return reward
+
+    def _dense_reward(
+        self,
+        achieved_goal: List[float],
+        desired_goal: List[float],
+        info: Dict[str, Any],
+    ) -> float:
+        """Compute the dense reward based on the achieved goal, the desired goal, and the info dict.
+
+        Args:
+            achieved_goal (List[float]): observation of robot state that is relevant for the goal
+            desired_goal (List[float]): the desired goal
+            info (Dict[str, Any]): dictionary containing additional information like collisions
+
+        Returns:
+            float: dense environment reward
+        """
+        return 0  # TODO
 
     def _check_success(
         self,
         achieved_goal: List[float],
         desired_goal: List[float]
     ) -> bool:
+        """Override the super class success condition to check if the animation is complete.
+
+        If the robot does not manage to hammer the nail into the board,
+        the animation does not exceed the `PRESENT` phase.
+        """
         return self.task_phase == CollaborativeHammeringPhase.COMPLETE
-
-    def _check_done(
-        self,
-        achieved_goal: List[float],
-        desired_goal: List[float],
-        info: Dict[str, Any],
-    ) -> bool:
-        if self.done_at_collision and COLLISION_TYPE(info["collision_type"]) not in (
-            COLLISION_TYPE.NULL | COLLISION_TYPE.ALLOWED
-        ):
-            return True
-
-        success = self._check_success(
-            achieved_goal=achieved_goal,
-            desired_goal=desired_goal,
-        )
-
-        if self.done_at_success and success:
-            return True
-
-        return False
 
     def _get_achieved_goal_from_obs(
         self,
         observation: OrderedDict[str, Any],
     ) -> List[float]:
+        """Extract the achieved goal from the observation.
+
+        The achieved goal includes
+            - Whether the hammer is gripped.
+            - How far the nail is hammered into the board.
+
+        Args:
+            observation (OrderedDict[str, Any]): The observation after the action is executed
+
+        Returns:
+            List[float]: The achieved goal
+        """
         # TODO
         return np.concatenate(
             [
@@ -526,26 +605,51 @@ class CollaborativeHammeringCart(HumanEnv):
         self,
         observation: OrderedDict[str, Any],
     ) -> List[float]:
-        robot_prefix = self.robots[0].robot_model.naming_prefix
+        """Extract the desired goal from the observation.
 
+        The desired goal contains:
+            - the position of the nail.
+
+        Args:
+            observation (OrderedDict[str, Any]): The observation after the action is executed
+
+        Returns:
+            List[float]: The desired goal
+        """
         return np.concatenate(
             [
-                [observation[f"{robot_prefix}eef_pos"]],
+                [observation["nail_pos"]],
             ]
         ).tolist()
 
     def _compute_animation_time(self, control_time: int) -> int:
+        """Compute the current animation time.
+
+        The human should perform an idle animation when waiting for the robot to hammer the nail into the board.
+        To achieve this, we use multiple layered sine funtions to loop some frames around the first keyframe
+        back and forth. The frequency and amplitudes of the sine functions are set according to the animation info
+        json files with some randomization (see `sample_animation_loop_properties`).
+
+        The number of frames the animation is delayed because of the loop phase
+        is stored in `self._n_delayed_timesteps`.
+        This value is used after the beginning of the object inspection to achieve a smooth transition.
+
+        Args:
+            control_time (float): The current control time.
+        Returns:
+            float: The current animation time.
+        """
         animation_time = super()._compute_animation_time(control_time)
         classic_animation_time = animation_time
 
-        # Progress to present phase automatically depending on the animation
-        if animation_time > self.keyframes[0] and self.task_phase == CollaborativeHammeringPhase.APPROACH:
+        # Progress to the `PRESENT` phase automatically depending on the animation
+        if self.task_phase == CollaborativeHammeringPhase.APPROACH and animation_time > self.keyframes[0]:
             self.task_phase = CollaborativeHammeringPhase.PRESENT
             self._human_drop_board_onto_table()
-
-        if (
-            animation_time > (self.keyframes[0] + self.keyframes[1]) / 2 and
-            self.task_phase == CollaborativeHammeringPhase.PRESENT
+        # When in the `PRESENT` phase, loop the animation until the nail is hammered into the board
+        elif (
+            self.task_phase == CollaborativeHammeringPhase.PRESENT and
+            animation_time > (self.keyframes[0] + self.keyframes[1]) / 2
         ):
             animation_time = int(
                 layered_sin_modulations(
@@ -557,10 +661,11 @@ class CollaborativeHammeringCart(HumanEnv):
             )
 
             self._n_delayed_timesteps = classic_animation_time - animation_time
-
-        if self.task_phase == CollaborativeHammeringPhase.RETREAT:
+        # Subtract the delay from the present phase
+        elif self.task_phase == CollaborativeHammeringPhase.RETREAT:
             animation_time -= self._n_delayed_timesteps
 
+        # Once the animation is complete, freeze the animation time at the last frame
         if animation_time >= self.animation_length - 1:
             self.task_phase = CollaborativeHammeringPhase.COMPLETE
             animation_time = self.animation_length - 1

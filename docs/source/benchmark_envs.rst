@@ -377,10 +377,15 @@ The sparse reward :math:`\hat{r}^{\,env,sparse,CH}` in the **CollaborativeHammer
 As a result, it is formulated as
 
 .. math::
-    \hat{r}^{\,env,sparse,CH}(s, a) = \begin{cases} \hat{r}^{\,env,task,CH}\, & \text{if task complete} \\ \hat{r}^{\,env,subgoal,CH,nail}\,, & \text{else if nail is in board} \\ -1\,, & \text{else} \end{cases}\,,
+    \hat{r}^{\,env,sparse,CH}(s, a) = \begin{cases} \hat{r}^{\,env,task,CH}\, & \text{if task complete} \\ \hat{r}^{\,env,subgoal,CH}(s, a)\,, & \text{else} \end{cases}\,,
 
-where :math:`\hat{r}^{\,env,task,CH}` and :math:`r^{\,env,subgoal,CH,nail}` are constant rewards that are referred to as ``task_reward`` and ``nail_hammered_in_reward`` in the code, respectively.
-By default, the subgoal reward is deactivated (``nail_hammered_in_reward = -1``).
+where
+
+.. math::
+    \hat{r}^{\,env,subgoal,CH}(s, a) = \begin{cases} \hat{r}^{\,env,subgoal,CH,nail}\,, & \text{if nail is hammered in} \\ -1\,, & \text{else} \end{cases} \quad + \\ \begin{cases} \hat{r}^{\,env,subgoal,CH,grasp}\,, & \text{if hammer grasped by robot} \\ 0\,, & \text{else} \end{cases}\,,
+
+and :math:`\hat{r}^{\,env,task,CH}`, :math:`r^{\,env,subgoal,CH,nail}`, and :math:`r^{\,env,subgoal,CS,grasp}` are constant rewards that are referred to as ``task_reward``, ``nail_hammered_in_reward``, and ``hammer_gripped_reward_bonus`` in the code, respectively.
+By default, subgoal rewards are deactivated (``nail_hammered_in_reward = -1`` and ``hammer_gripped_reward_bonus = 0``).
 
 
 CollaborativeStacking

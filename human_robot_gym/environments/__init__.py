@@ -17,5 +17,8 @@ from human_robot_gym.environments.manipulation.pick_place_pointing_human_cartesi
 from human_robot_gym.environments.manipulation.human_object_inspection_cartesian_env import (  # noqa: F401
     HumanObjectInspectionCart
 )
+from human_robot_gym.environments.manipulation.collaborative_hammering_cartesian_env import (  # noqa: F401
+    CollaborativeHammeringCart
+)
 
 ALL_ENVIRONMENTS = REGISTERED_ENVS.keys()
