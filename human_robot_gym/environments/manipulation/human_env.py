@@ -838,7 +838,7 @@ class HumanEnv(SingleArmEnv):
             return True
         return False
 
-    def _check_illegal_collision(collision_type: COLLISION_TYPE) -> bool:
+    def _check_illegal_collision(self, collision_type: COLLISION_TYPE) -> bool:
         """Check whether an collision type contains information about an illegal collisions.
 
         Legal collisions are:

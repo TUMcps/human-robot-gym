@@ -330,7 +330,7 @@ class CollaborativeHammeringCart(HumanEnv):
         control_sample_time: float = 0.004,
         human_animation_names: List[str] = [
             # "CollaborativeHammering/HammeringPlus 12",
-            "CollaborativeHammering/CHammer 2",
+            "CollaborativeHammering/CHammer 0",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 100,
@@ -673,11 +673,13 @@ class CollaborativeHammeringCart(HumanEnv):
         return animation_time
 
     def _control_human(self, force_update: bool = True):
+        """Override super method to update the position of the mocap objects."""
         super()._control_human(force_update=True)
-        self.sim.step()
+        self.sim.forward()
         self._update_mocap_body_transforms()
 
     def _update_mocap_body_transforms(self):
+        """Adjust position and rotation of the mocap objects to be at the human's hands."""
         lh_rot = quat_to_rot(self.sim.data.get_body_xquat(self.human.left_hand))
         rh_rot = quat_to_rot(self.sim.data.get_body_xquat(self.human.right_hand))
 
@@ -705,6 +707,7 @@ class CollaborativeHammeringCart(HumanEnv):
         )
 
     def _reset_internal(self):
+        """Reset the internal configuration of the environment."""
         # Set the desired new initial joint angles before resetting the robot.
         self.robots[0].init_qpos = np.array([0, 0.0, -np.pi / 2, 0, -np.pi / 2, np.pi / 4])
 
@@ -731,29 +734,39 @@ class CollaborativeHammeringCart(HumanEnv):
         self._reset_nail()
 
     def _on_goal_reached(self):
-        if not self.done_at_success:
-            self._nail_placements_index = (
-                (self._nail_placements_index + 1) % self._n_nail_placements_to_sample_at_resets
-            )
+        """Callback function that is called when the goal is reached.
 
-            self._reset_board()
-            self._reset_nail()
+        If episodes are not terminated on task completion,
+        select a new placement for the nail and prepare a new task instance.
+        """
+        if self.done_at_success:
+            return
 
-            self._progress_to_next_animation(
-                animation_start_time=int(self.low_level_time / self.human_animation_step_length)
-            )
+        self._nail_placements_index = (
+            (self._nail_placements_index + 1) % self._n_nail_placements_to_sample_at_resets
+        )
+
+        self._reset_board()
+        self._reset_nail()
+
+        self._progress_to_next_animation(
+            animation_start_time=int(self.low_level_time / self.human_animation_step_length)
+        )
 
     def _progress_to_next_animation(self, animation_start_time: float):
+        """Extend super method to reset animation-specific internal variables."""
         super()._progress_to_next_animation(animation_start_time=animation_start_time)
         self._control_human()
         self._reset_animation()
 
     def _reset_animation(self):
+        """Reset the task phase and the animation_specific internal variables."""
         self.task_phase = CollaborativeHammeringPhase.APPROACH
         self._n_delayed_timesteps = 0
         self._human_take_board_from_table()
 
     def _reset_board(self):
+        """Return the board to its initial position."""
         self.sim.data.set_joint_qpos(
             self.board.joints[0],
             np.concatenate(
@@ -765,6 +778,7 @@ class CollaborativeHammeringCart(HumanEnv):
         )
 
     def _reset_nail(self):
+        """Move the nail to the placement position and pull it out of the board."""
         self.sim.model.body_pos[self.sim.model.body_name2id("nail_base")] = self.nail_placement
         self.sim.data.set_joint_qpos(
             "nail_head_joint0",
@@ -772,7 +786,9 @@ class CollaborativeHammeringCart(HumanEnv):
         )
 
     def _put_hammer_into_gripper(self):
+        """Securely grasp the hammer with the robot gripper."""
         rotation_quat = rot_to_quat(Rotation.from_euler("y", np.pi / 2))
+        sim_time = self.sim.data.time
 
         for _ in range(100):
             self.sim.data.set_joint_qpos(
@@ -791,19 +807,24 @@ class CollaborativeHammeringCart(HumanEnv):
             self.robots[0].grip_action(gripper=self.robots[0].gripper, gripper_action=[1])
             self.sim.step()
 
+        # Reset time value
+        self.sim.data.time = sim_time
+
     def _human_drop_board_onto_table(self):
+        """Make the human release the board with one hand so it lays flat on the table"""
         self.sim.model.eq_active[self.lh_eq_id] = 0
         self.sim.model.eq_active[self.rh_eq_id] = 0
         self.sim.model.eq_active[self.rh_connect_eq_id] = 1
         self.sim.forward()
 
     def _human_take_board_from_table(self):
+        """Make the human pick up the board with the second hand."""
         self.sim.model.eq_active[self.lh_eq_id] = 1
         self.sim.model.eq_active[self.rh_eq_id] = 1
         self.sim.model.eq_active[self.rh_connect_eq_id] = 0
 
     def _get_default_nail_sample_space_boundaries(self) -> Tuple[float, float, float, float]:
-        """Get the x and y boundaries of the object sampling space.
+        """Get the x and y boundaries of the nail sampling space.
 
         Returns:
             Tuple[float, float, float, float]:
@@ -824,6 +845,7 @@ class CollaborativeHammeringCart(HumanEnv):
         self._visualize_nail_sample_space()
 
     def _visualize_nail_sample_space(self):
+        """Draw a red box to indicate the sampling space of nail placements on the board."""
         boundaries = self._get_default_nail_sample_space_boundaries()
 
         offset = quat_to_rot(self.sim.data.body_xquat[self.board_body_id]).apply(
@@ -923,6 +945,7 @@ class CollaborativeHammeringCart(HumanEnv):
         )
 
     def _postprocess_model(self):
+        """Add the mocap bodies, nail, and equalities to the model before the sim is created."""
         super()._postprocess_model()
 
         r_anchor = "-0.5 -0.2 0"
@@ -1061,6 +1084,7 @@ class CollaborativeHammeringCart(HumanEnv):
         return l_grip, r_grip
 
     def _add_nail_to_board(self) -> ET.Element:
+        """Add the nail to the model from an xml file."""
         board_elem = find_elements(
             root=self.model.root,
             tags="body",
@@ -1075,13 +1099,21 @@ class CollaborativeHammeringCart(HumanEnv):
         return nail
 
     def _add_equalities_to_model(self) -> Tuple[ET.Element, ET.Element, ET.Element]:
+        """Add the equality constraints to the model that should connect the mocap bodies at the human's hands
+        with the grip bodies at the board.
+
+        Adds three equalities:
+            - A connect equality for the left hand that is deactivated once the human lays the board onto the table
+            - A weld equality for the right hand that is replaced by a
+            - connect equality for the right hand when the human lays the board onto the table
+        """
         equalities = [
             ET.Element(
                 "connect",
                 name=self._lh_eq_name,
                 body1=self._lh_grip_body_name,
                 body2=self._lh_mocap_body_name,
-                anchor="0 0 0",  # 1 0 0 0",
+                anchor="0 0 0",
                 active="true",
                 # solref="0.01 1",
             ),
@@ -1099,7 +1131,7 @@ class CollaborativeHammeringCart(HumanEnv):
                 name=self._rh_connect_eq_name,
                 body1=self._rh_grip_body_name,
                 body2=self._rh_mocap_body_name,
-                anchor="0 0 0",  # 1 0 0 0",
+                anchor="0 0 0",
                 active="false",
                 # solref="0.01 1",
             ),
@@ -1110,6 +1142,7 @@ class CollaborativeHammeringCart(HumanEnv):
         return tuple(equalities)
 
     def _setup_references(self):
+        """Add references to task-specific objects."""
         super()._setup_references()
 
         self.sim.model.opt.noslip_iterations = 20
@@ -1133,6 +1166,7 @@ class CollaborativeHammeringCart(HumanEnv):
         assert self.rh_connect_eq_id != -1
 
     def _setup_observables(self) -> OrderedDict[str, Observable]:
+        """Setup environment-specific observation values."""
         observables = super()._setup_observables()
 
         robot_prefix = self.robots[0].robot_model.naming_prefix
@@ -1161,10 +1195,12 @@ class CollaborativeHammeringCart(HumanEnv):
         goal_mod = "goal"
         obj_mod = "object"
 
+        # Absolute position of the nail in Cartesian space
         @sensor(modality=goal_mod)
         def nail_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
             return self.sim.data.get_body_xpos("nail_head")
 
+        # Vector from end-effector to the nail
         @sensor(modality=goal_mod)
         def vec_eef_to_nail(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
@@ -1173,14 +1209,17 @@ class CollaborativeHammeringCart(HumanEnv):
                 else np.zeros(3)
             )
 
+        # Absolute position of the hammer in Cartesian space
         @sensor(modality=obj_mod)
         def hammer_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
             return self.sim.data.body_xpos[self.hammer_body_id]
 
+        # Rotation quaternion of the hammer
         @sensor(modality=obj_mod)
         def hammer_quat(obs_cache: Dict[str, Any]) -> np.ndarray:
             return self.sim.data.body_xquat[self.hammer_body_id]
 
+        # Vector from the end-effector to the hammer
         @sensor(modality=obj_mod)
         def vec_eef_to_hammer(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
@@ -1189,6 +1228,7 @@ class CollaborativeHammeringCart(HumanEnv):
                 else np.zeros(3)
             )
 
+        # Rotation quaternion to represent the rotation difference of end-effector and hammer
         @sensor(modality=obj_mod)
         def quat_eef_to_hammer(obs_cache: Dict[str, Any]) -> np.ndarray:
             if "robot0_eef_quat" not in obs_cache or "object_quat" not in obs_cache:
@@ -1199,14 +1239,17 @@ class CollaborativeHammeringCart(HumanEnv):
             )
             return T.convert_quat(np.array(quat), "xyzw")
 
+        # Absolute position of the board in Cartesian space
         @sensor(modality=obj_mod)
         def board_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
             return np.array(self.sim.data.body_xpos[self.board_body_id])
 
+        # Rotation quaternion of the board
         @sensor(modality=obj_mod)
         def board_quat(obs_cache: Dict[str, Any]) -> np.ndarray:
             return T.convert_quat(self.sim.data.body_xquat[self.board_body_id], to="xyzw")
 
+        # Vector from end-effector to board
         @sensor(modality=obj_mod)
         def vec_eef_to_board(obs_cache: Dict[str, Any]) -> np.ndarray:
             return (
@@ -1215,6 +1258,7 @@ class CollaborativeHammeringCart(HumanEnv):
                 else np.zeros(3)
             )
 
+        # Rotation quaternion to represent the rotation difference of end-effector and board
         @sensor(modality=obj_mod)
         def quat_eef_to_board(obs_cache: Dict[str, Any]) -> np.ndarray:
             if "robot0_eef_quat" not in obs_cache or "object_quat" not in obs_cache:
@@ -1225,6 +1269,7 @@ class CollaborativeHammeringCart(HumanEnv):
             )
             return T.convert_quat(np.array(quat), "xyzw")
 
+        # Boolean value reflecting whether the hammer is within the gripper
         @sensor(modality=obj_mod)
         def hammer_gripped(obs_cache: Dict[str, Any]) -> np.ndarray:
             return self._check_grasp(
@@ -1232,6 +1277,7 @@ class CollaborativeHammeringCart(HumanEnv):
                 object_geoms=self.hammer,
             )
 
+        # Scalar value reflecting how far the nail is driven into the board. Normalized to [0,1]
         @sensor(modality=goal_mod)
         def nail_hammering_progress(obs_cache: Dict[str, Any]) -> np.ndarray:
             jointpos = self.sim.data.get_joint_qpos("nail_head_joint0")
@@ -1272,6 +1318,9 @@ class CollaborativeHammeringCart(HumanEnv):
         return observables
 
     def _setup_collision_info(self):
+        """Extend the super method by white-listing the hammer for collision detection.
+        Note that the board is not white-listed.
+        """
         super()._setup_collision_info()
         self.whitelisted_collision_geoms = self.whitelisted_collision_geoms.union(
             {

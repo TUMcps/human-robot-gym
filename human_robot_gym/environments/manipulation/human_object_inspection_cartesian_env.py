@@ -649,7 +649,7 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         super()._control_human(force_update=True)
 
     def _reset_animation(self):
-        """Reset the inspection phase and the animation-specific internal variables."""
+        """Reset the task phase and the animation-specific internal variables."""
         self.task_phase = ObjectInspectionPhase.APPROACH
         self._n_delayed_timesteps = 0
 
