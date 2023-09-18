@@ -1,7 +1,7 @@
 """This file implements an expert policy for the `PickPlaceHumanCart` environment.
 
 The policy does not take the human into consideration,
-but only the values defined in the `PickPlaceExpertObservation` data class.
+but only the values defined in the `PickPlaceHumanCartExpertObservation` dataclass.
 
 Author:
     Felix Trost (FT)
@@ -44,7 +44,7 @@ class PickPlaceHumanCartExpert(Expert):
     """Expert policy for the `PickPlaceHumanCart` environment.
 
     Does not take the human into account.
-    Relevant observation data encapsulated in the `PickPlaceExpertObservation` data class.
+    The relevant observation data is encapsulated in the `PickPlaceExpertObservation` data class.
     Behavior:
 
         - Move above object and open gripper
@@ -82,7 +82,7 @@ class PickPlaceHumanCartExpert(Expert):
             at which the gripper is considered to be fully opened. Depends on the gripper type
         release_when_delivered (bool): whether the expert should release the object when it is delivered to the target
             This option is `True` per default. Setting it to `False` makes sense for example if the target is in the air
-        delta_time (float): approximate time between two calls of the expert policy. Only used to step the OU process
+        delta_time (float): time between two calls of the expert policy. Only used to step the OU process
         seed (int): random seed for the noise signal
     """
     def __init__(
@@ -158,7 +158,7 @@ class PickPlaceHumanCartExpert(Expert):
 
     @staticmethod
     def expert_observation_from_dict(obs_dict: Dict[str, Any]) -> PickPlaceHumanCartExpertObservation:
-        """Convert observation dictionary to PickPlaceExpertObservation data object."""
+        """Convert observation dictionary to `PickPlaceHumanCartExpertObservation` data object."""
         return PickPlaceHumanCartExpertObservation(
             object_gripped=obs_dict["object_gripped"],
             vec_eef_to_object=obs_dict["vec_eef_to_object"],
