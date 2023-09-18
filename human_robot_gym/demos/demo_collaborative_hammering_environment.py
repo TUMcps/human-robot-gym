@@ -103,6 +103,7 @@ from human_robot_gym.wrappers.collision_prevention_wrapper import (
     CollisionPreventionWrapper,
 )
 from human_robot_gym.wrappers.ik_position_delta_wrapper import IKPositionDeltaWrapper
+from human_robot_gym.demonstrations.experts import CollaborativeHammeringCartExpert
 
 if __name__ == "__main__":
     pybullet_urdf_file = file_path_completion(
@@ -159,6 +160,13 @@ if __name__ == "__main__":
     action_limits = np.array([[-0.1, -0.1, -0.1], [0.1, 0.1, 0.1]])
     env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file, action_limits=action_limits)
     kb_agent = KeyboardControllerAgentCart(env=env)
+    expert = CollaborativeHammeringCartExpert(
+        observation_space=env.observation_space,
+        action_space=env.action_space,
+        signal_to_noise_ratio=1,
+        delta_time=0.1,
+        seed=0,
+    )
 
     use_kb_agent = False
 
@@ -166,20 +174,7 @@ if __name__ == "__main__":
         global use_kb_agent
         use_kb_agent = not use_kb_agent
 
-    def toggle_board():
-        eq_l_id = mujoco_py.functions.mj_name2id(
-            rsenv.sim.model, mujoco_py.const.OBJ_EQUALITY, "lh_mocap_object_connect",
-        )
-
-        eq_r_id = mujoco_py.functions.mj_name2id(
-            rsenv.sim.model, mujoco_py.const.OBJ_EQUALITY, "rh_mocap_object_weld",
-        )
-
-        rsenv.sim.model.eq_active[eq_l_id] = not rsenv.sim.model.eq_active[eq_l_id]
-        rsenv.sim.model.eq_active[eq_r_id] = not rsenv.sim.model.eq_active[eq_r_id]
-
     kb_agent.add_keypress_callback(glfw.KEY_O, lambda *_: switch_agent())
-    kb_agent.add_keypress_callback(glfw.KEY_B, lambda *_: toggle_board())
 
     expert_obs_wrapper = ExpertObsWrapper.get_from_wrapped_env(env)
 
@@ -198,10 +193,11 @@ if __name__ == "__main__":
                     *np.clip(
                         expert_observation["vec_eef_to_nail"] + np.array([-0.14, -0.01, np.sin(t * 0.1) * 0.1]),
                         -0.1,
-                        0.1
-                    ) * 1, 1.0
+                        0.1,
+                    ), 1.0
                 ]
             )
+            action = kb_agent() if use_kb_agent else expert(obs_dict=expert_observation)
 
             if not in_present_phase:
                 action *= 0
