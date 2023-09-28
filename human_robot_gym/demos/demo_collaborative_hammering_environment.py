@@ -90,8 +90,6 @@ import time
 import numpy as np
 import glfw
 
-import mujoco_py
-
 from robosuite.controllers import load_controller_config
 
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
