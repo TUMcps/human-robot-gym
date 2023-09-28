@@ -17,5 +17,8 @@ from human_robot_gym.environments.manipulation.human_robot_handover_cartesian_en
 from human_robot_gym.environments.manipulation.collaborative_lifting_cartesian_env import (  # noqa: F401
     CollaborativeLiftingCart
 )
+from human_robot_gym.environments.manipulation.collaborative_stacking_cartesian_env import (  # noqa: F401
+    CollaborativeStackingCart
+)
 
 ALL_ENVIRONMENTS = REGISTERED_ENVS.keys()

@@ -622,7 +622,6 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
             self.task_phase = ObjectInspectionPhase.READY
 
         # When in the `READY` phase, loop the animation until the object enters the target zone
-        # When in the `READY` phase, loop the animation until the object enters the target zone
         if self.task_phase == ObjectInspectionPhase.READY:
             animation_time = int(
                 layered_sin_modulations(

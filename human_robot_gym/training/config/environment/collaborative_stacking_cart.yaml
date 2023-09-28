@@ -1,0 +1,25 @@
+defaults:
+  - default/collaborative_stacking_cart@_here_
+  - _self_
+
+robot_base_offset:
+  - 0.0
+  - 0.0
+  - 0.0
+use_camera_obs: false
+use_object_obs: true
+has_offscreen_renderer: false
+render_camera: null
+horizon: 3000
+hard_reset: false
+done_at_collision: false
+done_at_success: true
+task_reward: 2.0
+object_gripped_reward: 0.75
+second_cube_at_target_reward: 0.0
+fourth_cube_at_target_reward: 1.0
+collision_reward: 0.0
+human_rand:
+  - 0.02 # Forward-backward
+  - 0.1  # Left-right
+  - 0.1  # Rotational angle
