@@ -38,9 +38,6 @@ def load_human_animation_data(
             if verbose:
                 print(f"Animation file not found: {animation_name}")
             raise e
-        except Exception as e:
-            print(f"Error while loading human animation {pkl_file}: {e}")
-            raise e
 
         try:
             with open(

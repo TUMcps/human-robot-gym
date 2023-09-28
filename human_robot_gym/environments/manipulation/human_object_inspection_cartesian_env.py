@@ -76,8 +76,6 @@ class HumanObjectInspectionCartEnvState(PickPlaceHumanCartEnvState):
         target_positions_index (int): Index of the current target position in the list of target_position.
         task_phase (int): Value corresponding to the current task phase.
         n_delayed_timesteps (int): Number of timesteps the current animation is delayed because of the loop phase.
-        animation_loop_amplitudes (List[float]): Amplitudes of the sine functions used to loop the animation.
-            Length of the list is equal to the length of `self.human_animation_ids`.
         animation_loop_properties (List[Tuple[float, float]]):  Loop amplitudes and speed modifiers
             for all layered sines for all human animations sampled for the current episode.
     """
@@ -345,6 +343,12 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         human_animation_names: List[str] = [
             "ObjectInspection/0",
             "ObjectInspection/1",
+            "ObjectInspection/2",
+            "ObjectInspection/3",
+            "ObjectInspection/4",
+            "ObjectInspection/5",
+            "ObjectInspection/6",
+            "ObjectInspection/7",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 30,
@@ -666,26 +670,13 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         """Extend super method to reset internal variables concerning task and animation."""
         super()._reset_internal()
         self._reset_animation()
+
         self._animation_loop_properties = [
             sample_animation_loop_properties(
                 animation_info=self.human_animation_data[human_animation_id][1],
             )
             for human_animation_id in self._human_animation_ids
         ]
-
-    def _get_current_target_pos(self) -> np.ndarray:
-        """Evaluate the current position of the target.
-
-        Returns a position specified in the info json file of the current animation.
-
-        Returns:
-            np.ndarray: The current target position.
-        """
-        target_pos = np.array(self.human_animation_data[self.human_animation_id][1]["target_pos"])
-
-        target_pos += self.human_pos_offset
-
-        return target_pos
 
     def _sample_target_pos(self) -> np.ndarray:
         """Override the parent function to return the current target position.
@@ -748,6 +739,3 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         self.task_phase = ObjectInspectionPhase(state.task_phase_value)
         self._n_delayed_timesteps = state.n_delayed_timesteps
         self._animation_loop_properties = state.animation_loop_properties
-
-        if self.has_renderer:
-            self._visualize()
