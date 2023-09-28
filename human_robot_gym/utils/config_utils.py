@@ -12,6 +12,8 @@ Changelog:
 from typing import Any, List, Optional
 from dataclasses import dataclass
 
+from omegaconf import OmegaConf
+
 from hydra.core.config_store import ConfigStore
 
 
@@ -184,3 +186,6 @@ class DataCollectionConfig(TrainingConfig):
 # Register config class
 cs = ConfigStore.instance()
 cs.store(name="base", node=TrainingConfig)
+
+# Allows performing arithmetic operations in value interpolation
+OmegaConf.register_resolver("eval", eval)

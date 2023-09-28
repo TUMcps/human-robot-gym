@@ -1,0 +1,11 @@
+id: CollaborativeLiftingCart
+signal_to_noise_ratio: 1
+board_size: ${environment.board_full_size}
+human_grip_offset: 0.1
+delta_time: 0.01
+seed: null
+obs_keys:
+  - vec_eef_to_human_lh
+  - vec_eef_to_human_rh
+  - board_quat
+  - board_gripped

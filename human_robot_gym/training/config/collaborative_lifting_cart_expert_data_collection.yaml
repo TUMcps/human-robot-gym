@@ -1,0 +1,31 @@
+defaults:
+  - robot: schunk
+  - environment: collaborative_lifting_cart
+  - wrappers: safe_ik
+  - expert: collaborative_lifting_cart
+  - run: expert_imitation_training
+  - consistent_seeding
+  - _self_
+  - eval
+
+environment:
+  verbose: true
+  done_at_success: true
+run:
+  obs_keys:
+    - board_quat
+    - dist_eef_to_human_head
+    - vec_eef_to_human_lh
+    - vec_eef_to_human_rh
+wrappers:
+  ik_position_delta:
+    action_limit: 0.1
+expert:
+  signal_to_noise_ratio: 0.98
+
+
+dataset_name: collaborative-lifting-dataset
+start_episode_index: 0
+n_episodes: 200
+n_threads: 1
+load_episode_index: null
