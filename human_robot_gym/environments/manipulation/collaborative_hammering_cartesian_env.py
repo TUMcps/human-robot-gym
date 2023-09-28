@@ -329,8 +329,15 @@ class CollaborativeHammeringCart(HumanEnv):
         visualize_pinocchio: bool = False,
         control_sample_time: float = 0.004,
         human_animation_names: List[str] = [
-            # "CollaborativeHammering/HammeringPlus 12",
-            "CollaborativeHammering/CHammer 0",
+            "CollaborativeHammering/0",
+            "CollaborativeHammering/1",
+            "CollaborativeHammering/2",
+            "CollaborativeHammering/3",
+            "CollaborativeHammering/4",
+            "CollaborativeHammering/5",
+            "CollaborativeHammering/6",
+            "CollaborativeHammering/7",
+            "CollaborativeHammering/8",
         ],
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 100,
@@ -645,7 +652,7 @@ class CollaborativeHammeringCart(HumanEnv):
         # Progress to the `PRESENT` phase automatically depending on the animation
         if self.task_phase == CollaborativeHammeringPhase.APPROACH and animation_time > self.keyframes[0]:
             self.task_phase = CollaborativeHammeringPhase.PRESENT
-            self._human_drop_board_onto_table()
+            # self._human_drop_board_onto_table()
         # When in the `PRESENT` phase, loop the animation until the nail is hammered into the board
         elif (
             self.task_phase == CollaborativeHammeringPhase.PRESENT and
@@ -688,12 +695,12 @@ class CollaborativeHammeringCart(HumanEnv):
 
         self.sim.data.set_mocap_pos(
             self._lh_mocap_body_name,
-            self.sim.data.get_site_xpos(self.human.left_hand) + np.array([0, 0, -0.3])
+            self.sim.data.get_site_xpos(self.human.left_hand)  # + np.array([0, 0, -0.2])
         )
 
         self.sim.data.set_mocap_pos(
             self._rh_mocap_body_name,
-            self.sim.data.get_site_xpos(self.human.right_hand) + np.array([0, -0.05, 0]),
+            self.sim.data.get_site_xpos(self.human.right_hand)  # + np.array([0, -0.05, 0]),
         )
 
         self.sim.data.set_mocap_quat(
