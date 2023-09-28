@@ -38,6 +38,7 @@ class RunConfig:
     vec_env_kwargs: dict
     monitor_kwargs: dict
     verbose: bool
+    resetting_interval: Optional[int]
 
 
 @dataclass
