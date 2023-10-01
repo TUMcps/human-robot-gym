@@ -614,7 +614,6 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         animation_time = super()._compute_animation_time(control_time)
         classic_animation_time = animation_time
 
-        animation_length = self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
         keyframes = self.human_animation_data[self.human_animation_id][1]["keyframes"]
 
         # Enter the `READY` phase when past the first keyframe
@@ -641,9 +640,9 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
             self.task_phase = ObjectInspectionPhase.RETREAT
 
         # Once the animation is complete, freeze the animation time at the last frame
-        if animation_time >= animation_length - 1:
+        if animation_time >= self.human_animation_length - 1:
             self.task_phase = ObjectInspectionPhase.COMPLETE
-            animation_time = animation_length - 1
+            animation_time = self.human_animation_length - 1
 
         return animation_time
 

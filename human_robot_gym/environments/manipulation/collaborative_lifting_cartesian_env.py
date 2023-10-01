@@ -569,11 +569,9 @@ class CollaborativeLiftingCart(HumanEnv):
         """
         animation_time = super()._compute_animation_time(control_time)
 
-        animation_length = self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
-
-        if animation_time >= animation_length - 1:
+        if animation_time >= self.human_animation_length - 1:
             self._animation_complete = True
-            animation_time = animation_length - 1
+            animation_time = self._human_animation_length - 1
 
         return animation_time
 

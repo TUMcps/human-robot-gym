@@ -447,6 +447,11 @@ class HumanEnv(SingleArmEnv):
         """Get the current human animation id in the random list of human animation ids."""
         return self._human_animation_ids[self._human_animation_ids_index]
 
+    @property
+    def human_animation_length(self) -> int:
+        """Get the length of the current human animation."""
+        return self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
+
     def step(self, action):
         """Override base step function.
 
@@ -1682,7 +1687,7 @@ class HumanEnv(SingleArmEnv):
 
         self.animation_time = updated_animation_time
         # Check if current animation is finished
-        if (self.animation_time > self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]-1):
+        if self.animation_time > self.human_animation_length - 1:
             self._progress_to_next_animation(animation_start_time=control_time)
 
         human_animation, human_animation_info = self.human_animation_data[self.human_animation_id]
