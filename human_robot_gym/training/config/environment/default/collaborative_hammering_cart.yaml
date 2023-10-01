@@ -1,0 +1,34 @@
+defaults:
+  - human_env
+  - _self_
+
+env_id: CollaborativeHammeringCart
+table_full_size:
+  - 1.5
+  - 2.0
+  - 0.05
+table_friction:
+  - 1.0
+  - 5e-3
+  - 1e-4
+board_full_size:
+  - 1.0
+  - 0.4
+  - 0.03
+nail_hammered_in_reward: -1.0
+hammer_gripped_reward_bonus: 0.0
+goal_tolerance: 0.05
+n_nail_placements_sampled_per_100_steps: 1
+gripper_controllable: false
+human_animation_names:
+  - CollaborativeHammering/0
+  - CollaborativeHammering/1
+  - CollaborativeHammering/2
+  - CollaborativeHammering/3
+  - CollaborativeHammering/4
+  - CollaborativeHammering/5
+  - CollaborativeHammering/6
+  - CollaborativeHammering/7
+  - CollaborativeHammering/8
+obstacle_placement_initializer: null
+human_animation_freq: 100

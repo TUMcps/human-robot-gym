@@ -566,7 +566,7 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
     ) -> float:
         """Override super method to add the subobjective rewards of the object inspection task.
 
-        The sparse reward function yilds
+        The sparse reward function yields
             - `self.task_reward` when the animation is complete
             - `self.object_at_target_reward` when the object is in the target zone
             - `self.object_gripped_reward` when the object is gripped
@@ -652,7 +652,7 @@ class HumanObjectInspectionCart(PickPlaceHumanCart):
         super()._control_human(force_update=True)
 
     def _reset_animation(self):
-        """Reset the inspection phase and the animation-specific internal variables."""
+        """Reset the task phase and the animation-specific internal variables."""
         self.task_phase = ObjectInspectionPhase.APPROACH
         self._n_delayed_timesteps = 0
 

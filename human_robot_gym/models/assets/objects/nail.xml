@@ -1,0 +1,9 @@
+<body name='nail_base' pos="0 0 0.021">
+    <geom name='nail_base_g0_vis' type='cylinder' pos="0 0 -0.01" size="0.01 0.01" contype="0" conaffinity="0" group="1" rgba="0.7 0.7 0.7 1"/>
+    <body name='nail_head' pos="0 0 0.06">
+        <geom name='nail_head_g0_vis' type='cylinder' pos="0 0 0.001" size="0.02 0.002" contype="0" conaffinity="0" group="1" rgba="0.7 0.7 0.7 1"/>
+        <geom name='nail_head_g0' type='cylinder' pos="0 0 0.001" size="0.02 0.002"/>
+        <geom name='nail_head_g1_vis' type='cylinder' size="0.002 0.03" pos="0 0 -0.03" contype="0" conaffinity="0" group="1" rgba="0.7 0.7 0.7 1"/>
+        <joint name='nail_head_joint0' type='slide' pos="0 0 0" axis="0 0 -1" limited="true" range="0 0.06" ref="0.0" solreffriction="-100 -100" frictionloss="10000" group="1"/>
+    </body>
+</body>
