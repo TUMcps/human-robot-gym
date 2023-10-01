@@ -12,13 +12,13 @@ def gaussian_similarity_fn(delta: float, iota: float) -> float:
     Link to paper: https://arxiv.org/abs/1804.02717
 
     Exponential form:
-    $s_G(\delta) = exp{-0.5 \cdot (\delta \cdot \frac{\nu}{\iota})^2}$
+    $sim_G(\delta) = exp{-0.5 \cdot (\delta \cdot \frac{\nu}{\iota})^2}$
 
     where:
         \nu = sqrt{2 \cdot ln(2)}
 
     Simplifies to:
-    s_G(\delta) = 2^{-(\frac{\delta}{\iota})^2}
+    sim_G(\delta) = 2^{-(\frac{\delta}{\iota})^2}
 
     Args:
         delta (float): distance metric between agent and expert
@@ -37,7 +37,7 @@ def tanh_similarity_fn(delta: float, iota: float) -> float:
     Rescaled tanh function that returns a similarity value in $(0, 1]$ based on a non-negative distance metric
     $\delta$ between the agent and expert.
 
-    Function: $s_T(\delta) = -tanh(tan(0.5) \cdot \frac{\delta}{\iota}) + 1$
+    Function: $sim_T(\delta) = -tanh(tan(0.5) \cdot \frac{\delta}{\iota}) + 1$
 
     Args:
         delta (float): distance metric between agent and expert

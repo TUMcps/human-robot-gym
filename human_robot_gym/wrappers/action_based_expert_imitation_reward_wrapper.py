@@ -188,14 +188,14 @@ class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewa
     Where:
         $r_{env}$: reward from wrapped environment
         $r_i = r_{motion} * \beta + r_{gripper} * (1 - \beta)$
-        $r_{motion} = s(||a_m^a - a_m^e||, \iota_m)$
-        $r_{gripper} = s(|a_g^a - a_g^e|, \iota_g)$
+        $r_{motion} = sim_{motion}(||a_m^a - a_m^e||, \iota_m)$
+        $r_{gripper} = sim_{gripper}(|a_g^a - a_g^e|, \iota_g)$
 
         $a_m^a$: motion action parameters of agent
         $a_m^e$: motion action parameters of expert
         $a_g^a$: gripper actuation action parameter of agent
         $a_g^e$: gripper actuation action parameter of expert
-        $s$: a similarity function, either s_G or s_T
+        $sim_{motion}$ and $sim_{gripper}: similarity functions, either sim_G or sim_T
             For more details, see `human_robot_gym.utils.expert_imitation_reward_utils`
 
     Args:

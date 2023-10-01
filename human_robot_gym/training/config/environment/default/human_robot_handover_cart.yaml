@@ -1,0 +1,27 @@
+defaults:
+  - pick_place_human_cart
+  - _self_
+
+env_id: HumanRobotHandoverCart
+human_animation_names:
+  - HumanRobotHandover/0
+  - HumanRobotHandover/1
+  - HumanRobotHandover/2
+  - HumanRobotHandover/3
+  - HumanRobotHandover/4
+  - HumanRobotHandover/5
+  - HumanRobotHandover/6
+  - HumanRobotHandover/7
+  - HumanRobotHandover/advanced_0
+  - HumanRobotHandover/advanced_1
+  - HumanRobotHandover/advanced_2
+human_animation_freq: 100
+n_animations_sampled_per_100_steps: 2
+shield_type: PFL
+n_targets_sampled_per_100_steps: 2
+target_placement_initializer: null
+object_at_target_reward: -1.0
+table_full_size:
+  - 1.0
+  - 2.0
+  - 0.05

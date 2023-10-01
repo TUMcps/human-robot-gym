@@ -30,6 +30,7 @@ from gym.spaces import Box
 
 from human_robot_gym.demonstrations.experts import ReachHumanCartExpert
 from human_robot_gym.demonstrations.experts import PickPlaceHumanCartExpert
+from human_robot_gym.demonstrations.experts import CollaborativeLiftingCartExpert
 from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
 from human_robot_gym.wrappers.dataset_wrapper import DatasetRSIWrapper
 from human_robot_gym.utils.expert_imitation_reward_utils import similarity_fn
@@ -296,14 +297,15 @@ class ReachHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertImita
 
     Where:
         $r_{env}$: reward from wrapped environment
-        $r_i = s(||obsdiff||, \iota_m)$
+        $r_i = sim(||obsdiff||, \iota_m)$
 
         $obsdiff$: difference between demonstration and training state end effector position
-        $s$: similarity function, either $s_G$ or $s_T$.
+        $sim$: similarity function, either $sim_G$ or $sim_T$.
             For more details, see `human_robot_gym.utils.expert_imitation_reward_utils`
 
     Args:
         env (Env): gym environment to wrap
+        dataset_name (str): name of the expert dataset
         alpha (float): weight of imitation reward in combined reward:
             alpha = 0: only environment reward
             alpha = 1: only imitation reward
@@ -412,13 +414,10 @@ class ReachHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertImita
 class PickPlaceHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertImitationRewardWrapper):
     r"""State-based expert imitation reward gym wrapper for the `PickPlaceHumanCart` environment.
 
-    Can be used with any environment that can be solved the `PickPlaceHumanCartExpert` expert policy.
+    Can be used with any environment that can be solved using the `PickPlaceHumanCartExpert` expert policy.
 
     The expert observation dicts should contain all keys necessary
     to be stored as `PickPlaceHumanCartExpertObservation` objects.
-
-    Adds the possibility of using reference state initialization (RSI)
-    to initialize the environment using a random amount of expert actions.
 
     Adds the possibility of using reference state initialization (RSI)
     to initialize the environment at a random state from the demonstration episode.
@@ -433,18 +432,18 @@ class PickPlaceHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertI
             otherwise:
                 $r_{motion} * \beta + r_{gripper} * (1 - \beta)$
 
-        $r_{motion} = s(||motiondiff||, \iota_m)$
-        $r_{gripper} = s(|gripperdiff|, \iota_g)$
+        $r_{motion} = sim_{motion}(||motiondiff||, \iota_m)$
+        $r_{gripper} = sim_{motion}(|gripperdiff|, \iota_g)$
 
         $motiondiff$: difference in end effector position between demonstration state and training state
         $gripperdiff$: difference in gripper joint position (joint angles of both fingers added together)
             between demonstration state and training state
-        $s$: a similarity function, either $s_G$ or $s_T$
+        $sim_{motion}$ and $sim_{gripper}: similarity functions, either $sim_G$ or $sim_T$
             For more details, see `human_robot_gym.utils.expert_imitation_reward_utils`
 
     Args:
         env (Env): gym environment to wrap
-        expert (PickPlaceExpert): scripted policy for the pick place environment; expert to imitate
+        dataset_name (str): name of the expert dataset
         alpha (float): weight of imitation reward in combined reward:
             alpha = 0: only environment reward
             alpha = 1: only imitation reward
@@ -616,3 +615,143 @@ class PickPlaceHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertI
             demonstration_obs.object_gripped and not policy_obs.object_gripped and
             motion_imitation_error_dist > self._et_dist * 0.1 * self._iota_m
         ) or motion_imitation_error_dist > self._et_dist * self._iota_m
+
+
+class CollaborativeLiftingCartStateBasedExpertImitationRewardWrapper(
+    ReachHumanCartStateBasedExpertImitationRewardWrapper
+):
+    r"""State-based expert imitation reward gym wrapper for the `CollaborativeLiftingCart` environment.
+
+    Can be used with any environment that can be solved using the `CollaborativeLiftingCartExpert` expert policy.
+
+    The expert observation dicts should contain all keys necessary
+    to be stored as `CollaborativeLiftingCartExpertObservation` objects.
+
+    Adds the possibility of using reference state initialization (RSI)
+    to initialize the environment at a random state from the demonstration episode.
+
+    The reward is given by this formula:
+        $r = r_i * \alpha + r_{env} * (1 - \alpha)$
+
+    Where:
+        $r_{env}$: reward from wrapped environment
+        $r_i = sim(||obsdiff||, \iota_m)$
+
+        $obsdiff$: difference between demonstration and training state end effector position
+        $sim$: similarity function, either $sim_G$ or $sim_T$.
+            For more details, see `human_robot_gym.utils.expert_imitation_reward_utils`
+
+    Args:
+        env (Env): gym environment to wrap
+        dataset_name (str): name of the expert dataset
+        alpha (float): weight of imitation reward in combined reward:
+            alpha = 0: only environment reward
+            alpha = 1: only imitation reward
+        iota (float): tolerance parameter for imitation reward:
+            if the distance between demonstration and training state end effector position is smaller than `iota`,
+            r_i is greater than 0.5 (1 at maximum, i.e. perfect imitation)
+        sim_fn (str): similarity function to use for imitation reward. Can be either `"gaussian"` or `"tanh"`.
+        observe_time (bool): whether to add a time parameter to the observation space
+            normalized to the range [0, 1], where
+            0: start of episode (after reset and one zero action)
+            1: end of demonstration episode
+            This value is clipped to one: if the training pass lasts longer than the demonstration pass,
+            the time parameter is set to 1 for the rest of the episode.
+            Thus, this value reflects the progress in the demonstration episode used for comparison.
+        rsi_prob (float): probability of using reference state initialization (RSI)
+            to initialize the environment at each reset
+        use_et (bool): whether to use early termination (ET) to terminate the episode early.
+            The criteria for ET are defined in subclasses.
+        et_dist (float): distance threshold for early termination. Episode terminated early if `use_et` is `True`
+            and the distance between the end effector positions from the expert state and the agent state
+            is larger than `et_dist * iota`
+        verbose (bool): whether to print debug information
+    """
+    def __init__(
+        self,
+        env: Env,
+        dataset_name: str,
+        alpha: float = 0,
+        beta: float = 0,
+        iota: float = 0.1,
+        sim_fn: str = "gaussian",
+        observe_time: bool = True,
+        rsi_prob: float = 0.0,
+        use_et: bool = False,
+        et_dist: float = 2,
+        verbose: bool = False,
+    ):
+        super().__init__(
+            env=env,
+            dataset_name=dataset_name,
+            alpha=alpha,
+            iota=iota,
+            sim_fn=sim_fn,
+            observe_time=observe_time,
+            rsi_prob=rsi_prob,
+            use_et=use_et,
+            et_dist=et_dist,
+            verbose=verbose,
+        )
+
+    def _get_imitation_reward(
+        self,
+        demonstration_obs_dict: dict,
+        policy_obs_dict: dict,
+    ):
+        """Determine the imitation reward by comparing the agent and expert states.
+
+        Args:
+            demonstration_obs_dict (dict): expert observation dict
+                of the compared state from the demonstration trajectory
+            policy_obs_dict (dict): expert observation dict
+                of the current state in the training episode
+
+        Returns:
+            float: imitation reward
+        """
+        demonstration_obs = CollaborativeLiftingCartExpert.expert_observation_from_dict(demonstration_obs_dict)
+        policy_obs = CollaborativeLiftingCartExpert.expert_observation_from_dict(policy_obs_dict)
+
+        if demonstration_obs.board_gripped and not policy_obs.board_gripped:
+            return 0
+
+        imitation_error = demonstration_obs.vec_eef_to_human_lh - policy_obs.vec_eef_to_human_lh
+
+        imitation_reward = similarity_fn(
+            name=self._sim_fn,
+            delta=np.linalg.norm(imitation_error),
+            iota=self._iota,
+        )
+
+        return imitation_reward
+
+    def _should_terminate_early(
+        self,
+        demonstration_obs_dict: dict,
+        policy_obs_dict: dict,
+    ) -> bool:
+        """Decide whether the training episode should be terminated early,
+        based on the similarity between the current state reached by the agent
+        and the corresponding state in the demonstration episode.
+
+        Args:
+            demonstration_obs_dict (dict): expert observation dict
+                of the compared state from the demonstration trajectory
+            policy_obs_dict (dict): expert observation dict
+                of the current state in the training episode
+
+        Returns:
+            bool: whether the training episode should be terminated early
+        """
+        demonstration_obs = CollaborativeLiftingCartExpert.expert_observation_from_dict(demonstration_obs_dict)
+        policy_obs = CollaborativeLiftingCartExpert.expert_observation_from_dict(policy_obs_dict)
+
+        imitation_error_dist = np.linalg.norm(
+            demonstration_obs.vec_eef_to_human_lh - policy_obs.vec_eef_to_human_lh
+        )
+
+        return (
+            demonstration_obs.board_gripped and not policy_obs.board_gripped or
+            imitation_error_dist > self._et_dist * self._iota
+        )
