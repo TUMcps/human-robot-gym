@@ -300,7 +300,7 @@ class ReachHuman(HumanEnv):
         safe_vel: float = 0.001,
         randomize_initial_pos=False,
         self_collision_safety: float = 0.01,
-        collision_debounce_delay: float = 0.1,
+        collision_debounce_delay: float = 0.01,
         seed: int = 0,
         verbose: bool = False,
         done_at_collision: bool = False,

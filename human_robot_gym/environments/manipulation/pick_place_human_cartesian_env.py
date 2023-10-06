@@ -320,7 +320,7 @@ class PickPlaceHumanCart(HumanEnv):
         n_animations_sampled_per_100_steps: int = 5,
         safe_vel: float = 0.001,
         self_collision_safety: float = 0.01,
-        collision_debounce_delay: float = 0.1,
+        collision_debounce_delay: float = 0.01,
         seed: int = 0,
         verbose: bool = False,
         done_at_collision: bool = False,
