@@ -1,4 +1,4 @@
-"""Demo script for the robot-human handover environment using a failsafe controller.
+"""Demo script for the human-robot handover environment using a failsafe controller.
 Uses a scripted expert to demonstrate the environment functionality.
 
 Pressing 'o' switches between scripted policy and keyboard control.
@@ -117,7 +117,7 @@ if __name__ == "__main__":
     controller_configs = [controller_config]
 
     rsenv = suite.make(
-        "RobotHumanHandoverCart",
+        "HumanRobotHandoverCart",
         robots="Schunk",  # use Schunk robot
         use_camera_obs=False,  # do not use pixel observations
         has_offscreen_renderer=False,  # not needed since not using pixel obs
@@ -127,7 +127,7 @@ if __name__ == "__main__":
         reward_shaping=False,  # use dense rewards
         control_freq=5,  # control should happen fast enough so that simulation looks smooth
         hard_reset=False,
-        horizon=1000,
+        horizon=5000,
         done_at_success=False,
         controller_configs=controller_configs,
         shield_type="PFL",
@@ -135,8 +135,9 @@ if __name__ == "__main__":
         visualize_pinocchio=False,
         base_human_pos_offset=[0.0, 0.0, 0.0],
         verbose=True,
-        goal_dist=0.03,
-        human_animation_freq=80,
+        object_gripped_reward=-0.5,
+        object_at_target_reward=0,
+        human_animation_freq=100,
     )
 
     env = ExpertObsWrapper(
@@ -170,7 +171,7 @@ if __name__ == "__main__":
     env = CartActionBasedExpertImitationRewardWrapper(
         env=env,
         expert=expert,
-        alpha=0.1,
+        alpha=0.,
         beta=0.95,
         iota_m=0.01,
         iota_g=0.01,
@@ -188,17 +189,14 @@ if __name__ == "__main__":
         global use_kb_agent
         use_kb_agent = not use_kb_agent
 
-    def break_pnt():
-        print("Break!")
-
-    def toggle_grip():
+    def toggle_object_in_hand():
         rsenv.sim.model.eq_active[
             rsenv._manipulation_object_weld_eq_id
         ] = not rsenv.sim.model.eq_active[rsenv._manipulation_object_weld_eq_id]
 
     kb_agent.add_keypress_callback(glfw.KEY_O, lambda *_: switch_agent())
-    kb_agent.add_keypress_callback(glfw.KEY_B, lambda *_: break_pnt())
-    kb_agent.add_keypress_callback(glfw.KEY_L, lambda *_: toggle_grip())
+
+    kb_agent.add_keypress_callback(glfw.KEY_M, lambda *_: toggle_object_in_hand())
 
     expert_obs_wrapper = ExpertObsWrapper.get_from_wrapped_env(env)
 
@@ -213,6 +211,7 @@ if __name__ == "__main__":
             action = kb_agent() if use_kb_agent else sc_agent(expert_observation)
 
             observation, reward, done, info = env.step(action)
+
             if done:
                 print("Episode finished after {} timesteps".format(t + 1))
                 break

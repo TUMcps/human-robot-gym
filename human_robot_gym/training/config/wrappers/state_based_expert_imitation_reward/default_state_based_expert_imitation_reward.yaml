@@ -1,4 +1,4 @@
-dataset_name: dataset
+dataset_name: ${run.dataset_name}
 alpha: 0
 observe_time: true
 rsi_prob: null

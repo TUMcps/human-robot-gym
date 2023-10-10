@@ -343,10 +343,10 @@ where :math:`\hat{r}^{\,env,task,CL}`, :math:`\hat{r}^{\,env,failure,CL,imbalanc
 The dense reward :math:`\hat{r}^{\,env,dense,CL}` incorporates the angle between the board and the horizontal plane and is given by
 
 .. math::
-    \hat{r}^{\,env,dense,CL}(s, a) = \frac{2}{\pi} \cdot \frac{sin^{-1}(\vec{n}^{board} \circ \vec{n}^{world}) - \phi^{min}}{\frac{\pi}{2} - \phi^{min}}\,,
+    \hat{r}^{\,env,dense,CL}(s, a) = \frac{2}{\pi} \cdot \frac{sin^{-1}(\vec{n}^{board} \circ \vec{n}^{world}) - \phi^{min}}{\frac{\pi}{2} - \phi^{min}} - 2\,,
 
 where :math:`\vec{n}^{board}` is the normal vector of the board, :math:`\vec{n}^{world}` is the normal vector of the horizontal plane, and :math:`\phi^{min}` is a minimum angle between the board and the horizontal plane.
-In the code, :math:`sin(\phi^{min}`) can be controlled as ``min_balance``.
+In the code, :math:`sin(\phi^{min}`) can be controlled as ``min_balance``. We subtract :math:`2` from the reward to compensate for the default reward of :math:`1` (as opposed to :math:`-1` in the other environments).
 
 CollaborativeHammering
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -377,10 +377,15 @@ The sparse reward :math:`\hat{r}^{\,env,sparse,CH}` in the **CollaborativeHammer
 As a result, it is formulated as
 
 .. math::
-    \hat{r}^{\,env,sparse,CH}(s, a) = \begin{cases} \hat{r}^{\,env,task,CH}\, & \text{if task complete} \\ \hat{r}^{\,env,subgoal,CH,nail}\,, & \text{else if nail is in board} \\ -1\,, & \text{else} \end{cases}\,,
+    \hat{r}^{\,env,sparse,CH}(s, a) = \begin{cases} \hat{r}^{\,env,task,CH}\, & \text{if task complete} \\ \hat{r}^{\,env,subgoal,CH}(s, a)\,, & \text{else} \end{cases}\,,
 
-where :math:`\hat{r}^{\,env,task,CH}` and :math:`r^{\,env,subgoal,CH,nail}` are constant rewards that are referred to as ``task_reward`` and ``nail_hammered_in_reward`` in the code, respectively.
-By default, the subgoal reward is deactivated (``nail_hammered_in_reward = -1``).
+where
+
+.. math::
+    \hat{r}^{\,env,subgoal,CH}(s, a) = \begin{cases} \hat{r}^{\,env,subgoal,CH,nail}\,, & \text{if nail is hammered in} \\ -1\,, & \text{else} \end{cases} \quad + \\ \begin{cases} \hat{r}^{\,env,subgoal,CH,grasp}\,, & \text{if hammer grasped by robot} \\ 0\,, & \text{else} \end{cases}\,,
+
+and :math:`\hat{r}^{\,env,task,CH}`, :math:`r^{\,env,subgoal,CH,nail}`, and :math:`r^{\,env,subgoal,CS,grasp}` are constant rewards that are referred to as ``task_reward``, ``nail_hammered_in_reward``, and ``hammer_gripped_reward_bonus`` in the code, respectively.
+By default, subgoal rewards are deactivated (``nail_hammered_in_reward = -1`` and ``hammer_gripped_reward_bonus = 0``).
 
 
 CollaborativeStacking
@@ -417,8 +422,13 @@ Additionally, a failure reward is given **if the stack falls over**.
 As such, the sparse reward is defined as
 
 .. math::
-    \hat{r}^{\,env,sparse,CS}(s, a) = \begin{cases} \hat{r}^{\,env,task,CS}\, & \text{if task complete} \\ \hat{r}^{\,env,failure,CS,toppled}\,, & \text{else if stack was toppled} \\ \hat{r}^{\,env,subgoal,CS,A}\,, & \text{else if robot added one cube to the stack} \\ \hat{r}^{\,env,subgoal,CS,B}\,, & \text{else if robot added two cubes to the stack} \\ -1\,, & \text{else} \end{cases}\,,
+    \hat{r}^{\,env,sparse,CS}(s, a) = \begin{cases} \hat{r}^{\,env,task,CS}\, & \text{if task complete} \\ \hat{r}^{\,env,failure,CS,toppled}\,, & \text{else if stack was toppled} \\ \hat{r}^{\,env,subgoal,CS}(s, a)\,, & \text{else} \end{cases}\,,
 
-where :math:`\hat{r}^{\,env,task,CS}`, :math:`\hat{r}^{\,env,failure,CS,toppled}`, :math:`r^{\,env,subgoal,CS,A}`, and :math:`r^{\,env,subgoal,CS,B}` are constant rewards that are referred to as ``task_reward``, ``stack_toppled_reward``, ``second_cube_at_target_reward``, and ``fourth_cube_at_target_reward`` in the code, respectively.
+where
+
+.. math::
+    \hat{r}^{\,env,subgoal,CS}(s, a) = \begin{cases} \hat{r}^{\,env,subgoal,CS,A}\,, & \text{if robot added one cube to the stack} \\ \hat{r}^{\,env,subgoal,CS,B}\,, & \text{if robot added two cubes to the stack} \\ -1\,, & \text{else} \end{cases} \quad + \\ \begin{cases} \hat{r}^{\,env,subgoal,CS,grasp}\,, & \text{if object grasped by robot} \\ 0\,, & \text{else} \end{cases}\,,
+
+and :math:`\hat{r}^{\,env,task,CS}`, :math:`\hat{r}^{\,env,failure,CS,toppled}`, :math:`r^{\,env,subgoal,CS,A}`, :math:`r^{\,env,subgoal,CS,B}`, and :math:`r^{\,env,subgoal,CS,grasp}` are constant rewards that are referred to as ``task_reward``, ``stack_toppled_reward``, ``second_cube_at_target_reward``, ``fourth_cube_at_target_reward``, and ``object_gripped_reward`` in the code, respectively.
 
 The collaborative stacking environment does not yet provide a dense reward function.
