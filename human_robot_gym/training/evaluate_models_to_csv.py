@@ -1,4 +1,4 @@
-"""This file implemets an evaluation script for evaluating stable-baselines3 agents and experts
+"""This file implements an evaluation script for evaluating stable-baselines3 agents and experts
 in human-robot-gym environments.
 
 We use hydra configuration files. These are located in the `human_robot_gym/training/config` folder.
@@ -466,7 +466,13 @@ def evaluate_to_csv(config: TrainingConfig, max_parallel_runs: Optional[int] = N
 
 @hydra.main(version_base=None, config_path="config", config_name=None)
 def main(config: TrainingConfig):
-    max_parallel_runs = 50
+    if config.run.verbose:
+        print(OmegaConf.to_yaml(cfg=config, resolve=True))
+
+    max_parallel_runs = 50  # By default, evaluate 50 models in parallel
+    if hasattr(config.run, "max_parallel_runs") and config.run.max_parallel_runs is not None:
+        max_parallel_runs = config.run.max_parallel_runs
+
     evaluate_to_csv(config, max_parallel_runs=max_parallel_runs)
 
 
