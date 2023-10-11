@@ -61,7 +61,7 @@ environment:
   n_animations_sampled_per_100_steps: 5
   safe_vel: 0.001
   self_collision_safety: 0.01
-  seed: 0
+  seed: ${run.seed}
   verbose: false
   table_full_size:
   - 1.5
@@ -160,7 +160,7 @@ algorithm:
     - 64
     - 64
   verbose: 0
-  seed: 0
+  seed: ${run.seed}
   device: auto
   _init_setup_model: true
   action_noise: null
@@ -175,7 +175,7 @@ expert:
   gripper_fully_opened_threshold: 0.02
   release_when_delivered: true
   delta_time: 0.01
-  seed: 0
+  seed: ${run.seed}
   obs_keys:
   - object_gripped
   - vec_eef_to_object
@@ -192,7 +192,7 @@ run:
   log_interval:
   - 8000
   - step
-  seed: 0
+  seed: null
   eval_seed: null
   start_index: 0
   n_test_episodes: 20
@@ -242,5 +242,5 @@ wandb_run:
   project: thesis
   entity: null
   group: sac_no_rsi
-  name: sac_0
+  name: sac_${run.seed}
   tags: null

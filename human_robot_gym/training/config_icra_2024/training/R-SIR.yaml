@@ -61,7 +61,7 @@ environment:
   n_animations_sampled_per_100_steps: 5
   safe_vel: 0.01
   self_collision_safety: 0.012
-  seed: 3
+  seed: ${run.seed}
   verbose: false
   table_full_size:
   - 1.5
@@ -142,7 +142,7 @@ algorithm:
     - 64
     - 64
   verbose: 0
-  seed: 3
+  seed: ${run.seed}
   device: auto
   _init_setup_model: true
   action_noise: null
@@ -150,7 +150,7 @@ expert:
   id: ReachHuman
   signal_to_noise_ratio: 0.98
   delta_time: 0.01
-  seed: 3
+  seed: ${run.seed}
   obs_keys:
   - goal_difference
 run:
@@ -164,7 +164,7 @@ run:
   log_interval:
   - 800
   - step
-  seed: 3
+  seed: null
   eval_seed: null
   start_index: 0
   n_test_episodes: 20
@@ -205,5 +205,5 @@ wandb_run:
   project: thesis
   entity: null
   group: reach_sir_final
-  name: sir_3
+  name: sir_${run.seed}
   tags: null
