@@ -129,7 +129,9 @@ class StateBasedExpertImitationRewardWrapperConfig:
 @dataclass
 class DatasetObsNormWrapperConfig:
     """Dataset observation normalization wrapper configuration."""
-    dataset_name: str
+    dataset_name: Optional[str]
+    mean: Optional[List[float]]
+    std: Optional[List[float]]
     squash_factor: Optional[float]
 
 
