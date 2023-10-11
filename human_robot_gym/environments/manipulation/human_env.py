@@ -447,6 +447,11 @@ class HumanEnv(SingleArmEnv):
         """Get the current human animation id in the random list of human animation ids."""
         return self._human_animation_ids[self._human_animation_ids_index]
 
+    @property
+    def human_animation_length(self) -> int:
+        """Get the length of the current human animation."""
+        return self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
+
     def step(self, action):
         """Override base step function.
 
@@ -1682,7 +1687,7 @@ class HumanEnv(SingleArmEnv):
 
         self.animation_time = updated_animation_time
         # Check if current animation is finished
-        if (self.animation_time > self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]-1):
+        if self.animation_time > self.human_animation_length - 1:
             self._progress_to_next_animation(animation_start_time=control_time)
 
         human_animation, human_animation_info = self.human_animation_data[self.human_animation_id]
@@ -1829,6 +1834,8 @@ class HumanEnv(SingleArmEnv):
         """
         self.sim.reset()
         self.sim.set_state_from_flattened(state.sim_state)
+        self.sim.data.time = 0
+
         self._human_animation_ids = state.human_animation_ids
         self._human_animation_ids_index = state.human_animation_ids_index
         self.animation_start_time = state.animation_start_time
@@ -1838,4 +1845,23 @@ class HumanEnv(SingleArmEnv):
         self.human_rot_offset = state.human_rot_offset
         self._control_human(force_update=True)
         self.sim.forward()
+
+        for robot in self.robots:
+            robot_qpos = np.array(self.sim.data.qpos[robot.controller.qpos_index])
+            clamp_diff = np.clip(
+                robot_qpos,
+                robot.controller.position_limits[0],
+                robot.controller.position_limits[1]
+            ) - robot_qpos
+            if np.sum(np.abs(clamp_diff)) > 1e-6:
+                if self.verbose:
+                    print("Warning: Robot joint limits violated in loaded state!")
+                    print("Clamping to joint limits")
+
+                self.init_qpos = robot_qpos + clamp_diff + np.sign(clamp_diff) * 1e-6
+                self.sim.data.qpos[robot.controller.qpos_index] = self.init_qpos
+                self.sim.forward()
+            else:
+                self.init_qpos = robot_qpos
+
         self._reset_controller()
