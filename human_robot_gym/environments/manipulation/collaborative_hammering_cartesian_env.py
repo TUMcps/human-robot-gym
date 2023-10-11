@@ -678,9 +678,9 @@ class CollaborativeHammeringCart(HumanEnv):
             animation_time -= self._n_delayed_timesteps
 
         # Once the animation is complete, freeze the animation time at the last frame
-        if animation_time >= self.animation_length - 1:
+        if animation_time >= self.human_animation_length - 1:
             self.task_phase = CollaborativeHammeringPhase.COMPLETE
-            animation_time = self.animation_length - 1
+            animation_time = self.human_animation_length - 1
 
         return animation_time
 

@@ -550,7 +550,6 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         animation_time = super()._compute_animation_time(control_time)
         classic_animation_time = animation_time
 
-        animation_length = self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
         keyframes = self.human_animation_data[self.human_animation_id][1]["keyframes"]
 
         # Progress to present phase automatically depending on the animation
@@ -593,9 +592,9 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             animation_time -= self._n_delayed_timesteps[1]
 
         # Once the animation is complete, freeze the animation time at the last frame
-        if animation_time >= animation_length - 1:
+        if animation_time >= self.human_animation_length - 1:
             self.task_phase = HumanRobotHandoverPhase.COMPLETE
-            animation_time = animation_length - 1
+            animation_time = self.human_animation_length - 1
 
         return animation_time
 
