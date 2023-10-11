@@ -91,7 +91,7 @@ wrappers:
     residual_threshold: 0.001
     max_iter: 50
   action_based_expert_imitation_reward:
-    dataset_name: robot-human-handover-no-quat
+    dataset_name: ${run.dataset_name}
     alpha: 0.25
     rsi_prob: 0.5
     beta: 0.7
@@ -100,7 +100,7 @@ wrappers:
     m_sim_fn: gaussian
     g_sim_fn: gaussian
   dataset_obs_norm:
-    dataset_name: robot-human-handover-no-quat
+    dataset_name: ${run.dataset_name}
     squash_factor: null
     allow_different_observation_shapes: false
     mean:
@@ -232,7 +232,7 @@ run:
   monitor_kwargs: null
   verbose: true
   resetting_interval: null
-  dataset_name: robot-human-handover-no-quat
+  dataset_name: robot-human-handover
 wandb_run:
   project: thesis
   entity: null
