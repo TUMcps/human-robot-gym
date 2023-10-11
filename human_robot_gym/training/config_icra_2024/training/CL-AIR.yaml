@@ -232,5 +232,5 @@ wandb_run:
   project: thesis
   entity: null
   group: cl_air
-  name: sac_${run.seed}
+  name: air_${run.seed}
   tags: null

@@ -236,6 +236,6 @@ run:
 wandb_run:
   project: thesis
   entity: null
-  group: hrh_air_final
+  group: hrh_air
   name: air_${run.seed}
   tags: null

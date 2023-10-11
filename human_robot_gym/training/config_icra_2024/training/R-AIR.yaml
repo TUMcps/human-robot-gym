@@ -203,6 +203,6 @@ run:
 wandb_run:
   project: thesis
   entity: null
-  group: reach_air_now_really_final
+  group: r_air
   name: air_${run.seed}
   tags: null

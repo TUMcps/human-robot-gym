@@ -204,6 +204,6 @@ run:
 wandb_run:
   project: thesis
   entity: null
-  group: reach_sir_final
+  group: r_sir
   name: sir_${run.seed}
   tags: null

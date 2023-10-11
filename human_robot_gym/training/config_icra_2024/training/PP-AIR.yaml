@@ -240,6 +240,6 @@ run:
 wandb_run:
   project: thesis
   entity: null
-  group: action_baseline_fixed
-  name: action_${run.seed}
+  group: pp_air
+  name: air_${run.seed}
   tags: null

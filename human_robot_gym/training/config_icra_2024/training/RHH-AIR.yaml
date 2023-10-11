@@ -236,6 +236,6 @@ run:
 wandb_run:
   project: thesis
   entity: null
-  group: action_rhhandover_no_quat
-  name: action_${run.seed}
+  group: rhh_air
+  name: air_${run.seed}
   tags: null

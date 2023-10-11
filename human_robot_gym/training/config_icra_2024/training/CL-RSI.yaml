@@ -229,6 +229,6 @@ run:
 wandb_run:
   project: thesis
   entity: null
-  group: sac_rsi_cl
-  name: sac_${run.seed}
+  group: cl_rsi
+  name: rsi_${run.seed}
   tags: null

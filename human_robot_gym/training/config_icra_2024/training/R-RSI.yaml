@@ -203,6 +203,6 @@ run:
 wandb_run:
   project: thesis
   entity: null
-  group: reach_sac_rsi
-  name: sac_rsi_${run.seed}
+  group: r_rsi
+  name: rsi_${run.seed}
   tags: null

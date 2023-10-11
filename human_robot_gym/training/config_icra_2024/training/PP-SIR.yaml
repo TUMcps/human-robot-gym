@@ -246,6 +246,6 @@ run:
 wandb_run:
   project: thesis
   entity: null
-  group: state_baseline
-  name: state_${run.seed}
+  group: pp_sir
+  name: sir_${run.seed}
   tags: null
