@@ -256,6 +256,9 @@ class HumanEnv(SingleArmEnv):
 
         self_collision_safety (float): Safe distance for self collision detection
 
+        collision_debounce_delay (float): Time in seconds after a human collision before new collisions may be detected.
+            This is done to ensure no critical collisions are detected erraneously.
+
         seed (int): Random seed for `np.random`
 
         verbose (bool): If `True`, print out debug information
@@ -322,6 +325,7 @@ class HumanEnv(SingleArmEnv):
         n_animations_sampled_per_100_steps: int = 5,
         safe_vel: float = 0.001,
         self_collision_safety: float = 0.01,
+        collision_debounce_delay: float = 0.01,
         seed: int = 0,
         verbose: bool = False,
     ):  # noqa: D107
@@ -402,6 +406,9 @@ class HumanEnv(SingleArmEnv):
         self.done_at_collision = done_at_collision
         self.done_at_success = done_at_success
 
+        self.collision_debounce_timer = 0
+        self.collision_debounce_delay = collision_debounce_delay
+
         super().__init__(
             robots=robots,
             env_configuration=env_configuration,
@@ -448,6 +455,13 @@ class HumanEnv(SingleArmEnv):
         return self._human_animation_ids[self._human_animation_ids_index]
 
     @property
+    def human_measurement(self) -> List[np.ndarray]:
+        return [
+            self.sim.data.get_site_xpos("Human_" + joint_element)
+            for joint_element in self.human.joint_elements
+        ]
+
+    @property
     def human_animation_length(self) -> int:
         """Get the length of the current human animation."""
         return self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
@@ -487,14 +501,13 @@ class HumanEnv(SingleArmEnv):
             # (as defined by the control frequency specified at the environment level)
             for i in range(int(self.control_timestep / self.control_sample_time)):
                 self.sim.forward()
-                self._human_measurement()
                 self._set_human_measurement(self.human_measurement, self.sim.data.time)
                 # The first step i=0 is a policy step, the rest not.
                 # Only in a policy step, set_goal of controller will be called.
                 self._pre_action(action, policy_step)
                 if self.use_failsafe_controller and not failsafe_intervention:
-                    for i in range(len(self.robots)):
-                        if self.robots[i].controller.get_safety() is False:
+                    for robot in self.robots:
+                        if robot.controller.get_safety() is False:
                             failsafe_intervention = True
                             self.failsafe_interventions += 1
                 # Step the simulation n times
@@ -964,6 +977,10 @@ class HumanEnv(SingleArmEnv):
 
     def _on_human_collision_detected(self, robot_contact_geom: int, human_contact_geom: int):
         """Perform bookkeeping when a human-robot collision is detected."""
+        if self.collision_debounce_timer > 0:
+            return
+        self.collision_debounce_timer = self.collision_debounce_delay
+
         if self.verbose:
             print(
                 "Human-robot collision detected between ",
@@ -1069,6 +1086,8 @@ class HumanEnv(SingleArmEnv):
         """
         current_robot_collisions = dict()
 
+        self.collision_debounce_timer = max(0, self.collision_debounce_timer - self.model_timestep)
+
         # Note that the contact array has more than `ncon` entries,
         # so be careful to only read the valid entries.
         for contact in self.sim.data.contact[:self.sim.data.ncon]:
@@ -1124,7 +1143,7 @@ class HumanEnv(SingleArmEnv):
                 return False
         return True
 
-    def _check_vel_safe(self, v_arr, threshold):
+    def _check_vel_safe_element_wise(self, v_arr, threshold):
         """Check if all absolute elements of the velocity vector are below the given threshold.
 
         Args:
@@ -1136,6 +1155,20 @@ class HumanEnv(SingleArmEnv):
             False: velocity higher than threshold
         """
         return np.all(np.abs(v_arr[0:3]) <= threshold)
+
+    def _check_vel_safe(self, v_arr, threshold):
+        """Check if the velocity is below the given threshold.
+
+        Args:
+            v_arr (array like): First three entries must be [v_x, v_y, v_z]
+            threshold (double): Velocity limit
+
+        Returns:
+            True: velocity lower or equal than threshold
+            False: velocity higher than threshold
+        """
+        print(np.linalg.norm(v_arr[0:3]))
+        return np.linalg.norm(v_arr[0:3]) <= threshold
 
     def _setup_arena(self):
         """Set up the mujoco arena.
@@ -1594,6 +1627,8 @@ class HumanEnv(SingleArmEnv):
         self.n_collisions_critical = 0
         self.n_goal_reached = 0
 
+        self.collision_debounce_timer = 0
+
         self._human_animation_ids = np.random.randint(
             0, len(self.human_animation_data), size=self._n_animations_to_sample_at_resets
         )
@@ -1725,13 +1760,6 @@ class HumanEnv(SingleArmEnv):
         # Set rotation of all other joints
         all_joint_pos = [human_animation[key][self.animation_time] for key in self.human_joint_names]
         self.sim.data.qpos[self.human_joint_addr] = all_joint_pos
-
-    def _human_measurement(self):
-        """Retrieve the human measurements and save them to self.human_measurement."""
-        self.human_measurement = [
-            self.sim.data.get_site_xpos("Human_" + joint_element)
-            for joint_element in self.human.joint_elements
-        ]
 
     def _visualize_reachable_sets(self):
         """Visualize the robot and human reachable set."""
