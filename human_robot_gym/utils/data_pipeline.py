@@ -145,49 +145,6 @@ def scp_if_remote_folder(runs_folder: str, run_id: str, dest_folder: str = "./ru
     return runs_folder
 
 
-def _tb_log_to_df(tb_folder_path: str, tags: Optional[List[str]]) -> pd.DataFrame:
-    """Extract a pandas dataframe from tensorboard log files.
-
-    Args:
-        tb_folder_path: The path to the folder containing the tensorboard log files.
-        tags: The scalar metrics from the tensorboard log to include in the dataframe.
-            If `None`, all tags will be included.
-
-    Returns:
-        A pandas dataframe containing the data from the tensorboard log files.
-    """
-    summary_iterator = EventAccumulator(tb_folder_path).Reload()
-
-    if tags is None:
-        tags = summary_iterator.Tags()["scalars"]
-
-    dataframe = pd.DataFrame({
-        "step": pd.DataFrame.from_records(
-            summary_iterator.Scalars(tags[0]),
-            columns=summary_iterator.Scalars(tags[0])[0]._fields,
-        )["step"].values,
-        "wall_time": pd.DataFrame.from_records(
-            summary_iterator.Scalars(tags[0]),
-            columns=summary_iterator.Scalars(tags[0])[0]._fields,
-        )["wall_time"].values,
-    })
-
-    n_steps = len(summary_iterator.Scalars(tags[0]))
-
-    for tag in tags:
-        scalar_data = pd.DataFrame.from_records(
-            summary_iterator.Scalars(tag),
-            columns=summary_iterator.Scalars(tag)[0]._fields,
-        )["value"].values
-
-        if len(scalar_data) != n_steps:
-            print(f"Skipping {tag} because it has {len(scalar_data)} entries instead of {n_steps}.")
-        else:
-            dataframe[tag] = scalar_data
-
-    return dataframe
-
-
 def tb_log_to_df(tb_folder_path: str, tags: Optional[List[str]]) -> pd.DataFrame:
     """Extract a pandas dataframe from tensorboard log files.
 
