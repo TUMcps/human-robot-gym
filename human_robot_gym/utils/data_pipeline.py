@@ -57,11 +57,20 @@ from tensorboard.backend.event_processing.event_accumulator import EventAccumula
 from human_robot_gym import human_robot_gym_root
 
 
-def save_df_to_csv(df: pd.DataFrame, output_path: str, override_automatically: bool = False):
+def save_df_to_csv(df: pd.DataFrame, output_path: str, overwrite_automatically: bool = False):
+    """Save a pandas dataframe to a csv file.
+
+    If the output file already exists, the user is asked whether it should be overwritten.
+
+    Args:
+        df: The pandas dataframe to save.
+        output_path: The path to the output file.
+        override_automatically: If True, the file will be overwritten without asking for confirmation.
+    """
     if os.path.exists(output_path):
         print(f"Output file {output_path} already exists!")
         print("Do you want to overwrite it? y/[n]")
-        if override_automatically or input() == "y":
+        if overwrite_automatically or input() == "y":
             print("Overwriting...")
             os.system(f"rm {output_path}")
         else:
@@ -72,18 +81,56 @@ def save_df_to_csv(df: pd.DataFrame, output_path: str, override_automatically: b
 
 
 def get_tb_folder_path(runs_folder: str, run_id: str, run_index: int = 1) -> str:
+    """Get the path to the folder containing the tensorboard log files.
+
+    The paths to the tb logs are expected to be of the form
+    <runs_folder>/<run_id>/<algorithm_name>_<run_index>/events.out.tfevents.*
+
+    Here, <algorithm_name> is the name of the algorithm used for training, e.g. PPO, SAC, etc.
+    The rest of the parameters are given as arguments.
+
+    Args:
+        runs_folder: The path to the runs folder. Here the tensorboard log files are stored in subfolders named after
+            the run id.
+        run_id: The id of the run. The run id is the name of the folder containing the tensorboard files.
+        run_index: The index of the run. If there are multiple runs with the same id,
+            the run index differentiates between them.
+
+    Returns:
+        The path to the folder containing the tensorboard log files.
+
+    Raises:
+        AssertionError: If the run folder does not contain a unique matching subfolder.
+    """
     run_folder = os.path.join(runs_folder, run_id)
     run_subfolders = [f.path for f in os.scandir(run_folder) if f.is_dir()]
 
     run_subfolders = [f for f in run_subfolders if f.endswith(f"_{run_index}")]
-    assert len(run_subfolders) == 1, f"Run folder {run_folder} does not contain a single matching subfolder."
+    assert len(run_subfolders) == 1, f"Run folder {run_folder} does not contain a unique matching subfolder."
     return run_subfolders[0]
 
 
-def scp_if_remote_folder(runs_folder: str, run_id: str) -> str:
+def scp_if_remote_folder(runs_folder: str, run_id: str, dest_folder: str = "./runs") -> str:
+    """If the runs folder specifies a remote folder,
+    copy the files to a local folder and return the path to that folder.
+
+    Otherwise, return the original path.
+
+    If the destination folder already exists, it will be deleted and recreated.
+
+    Please note that this function may require entering a password and only works on Linux systems.
+
+    Args:
+        runs_folder: The path to the runs folder.
+        run_id: The id of the run. The run id is the name of the folder containing the tensorboard files.
+        dest_folder: The path to the destination folder. If the runs folder specifies a remote folder,
+            the files will be copied to this folder.
+
+    Returns:
+        The path to the runs folder.
+    """
     is_ssh_path = os.path.normpath(runs_folder).split(os.sep)[0].endswith(":")
     if is_ssh_path:
-        dest_folder = "./runs"
         if os.path.exists(os.path.join(dest_folder, run_id)):
             shutil.rmtree(os.path.join(dest_folder, run_id))
         os.makedirs(dest_folder, exist_ok=True)
@@ -97,33 +144,17 @@ def scp_if_remote_folder(runs_folder: str, run_id: str) -> str:
     return runs_folder
 
 
-def tb_tag_to_df(tb_folder_path: str, tag: str) -> pd.DataFrame:
-    summary_iterator = EventAccumulator(tb_folder_path).Reload()
+def tb_log_to_df(tb_folder_path: str, tags: Optional[List[str]]) -> pd.DataFrame:
+    """Extract a pandas dataframe from tensorboard log files.
 
-    if tag not in summary_iterator.Tags()["scalars"]:
-        raise ValueError(
-            f"Tag {tag} not found in tensorboard files. Available tags are: {summary_iterator.Tags()['scalars']}"
-        )
+    Args:
+        tb_folder_path: The path to the folder containing the tensorboard log files.
+        tags: The scalar metrics from the tensorboard log to include in the dataframe.
+            If `None`, all tags will be included.
 
-    dataframe = pd.DataFrame({
-        "step": pd.DataFrame.from_records(
-            summary_iterator.Scalars(tag),
-            columns=summary_iterator.Scalars(tag)[0]._fields,
-        )["step"].values,
-        "wall_time": pd.DataFrame.from_records(
-            summary_iterator.Scalars(tag),
-            columns=summary_iterator.Scalars(tag)[0]._fields,
-        )["wall_time"].values,
-        tag: pd.DataFrame.from_records(
-            summary_iterator.Scalars(tag),
-            columns=summary_iterator.Scalars(tag)[0]._fields,
-        )["value"].values,
-    })
-
-    return dataframe
-
-
-def tb_to_merged_df(tb_folder_path: str, tags: Optional[List[str]]) -> pd.DataFrame:
+    Returns:
+        A pandas dataframe containing the data from the tensorboard log files.
+    """
     summary_iterator = EventAccumulator(tb_folder_path).Reload()
 
     dataframe = pd.DataFrame()
@@ -163,9 +194,23 @@ def scrape_run(
     run_id: str,
     output_folder: str,
     tags: Optional[List[str]] = None,
-    override_automatically: bool = False,
+    overwrite_automatically: bool = False,
     run_index: int = 1,
 ):
+    """Scrape the tensorboard log files of a single run and save them to a csv file.
+
+    Args:
+        runs_folder: The path to the runs folder. Here the tensorboard log files are stored in subfolders named after
+            the run id.
+        run_id: The id of the run. The run id is the name of the folder containing the tensorboard files.
+        output_folder: The path to the output folder. The csv file will be saved in this folder.
+            If the folder does not exist, it will be created.
+        tags: The scalar metrics from the tensorboard log to include in the dataframe.
+            If `None`, all tags will be included.
+        overwrite_automatically: If True, an existing file will be overwritten without asking for confirmation.
+        run_index: The index of the run. If there are multiple runs with the same id,
+            the run index differentiates between them.
+    """
     if not os.path.exists(output_folder):
         print(f"Creating output folder {output_folder}...")
         os.makedirs(output_folder)
@@ -178,11 +223,11 @@ def scrape_run(
         run_index=run_index,
     )
 
-    df = tb_to_merged_df(tb_folder_path=tb_folder_path, tags=tags)
+    df = tb_log_to_df(tb_folder_path=tb_folder_path, tags=tags)
     save_df_to_csv(
         df,
         output_path=os.path.join(output_folder, f"{run_id}.csv"),
-        override_automatically=override_automatically
+        overwrite_automatically=overwrite_automatically
     )
 
 
@@ -191,9 +236,23 @@ def scrape_runs(
     run_ids: List[str],
     output_folder: str,
     tags: Optional[List[str]] = None,
-    override_automatically: bool = False,
+    overwrite_automatically: bool = False,
     run_index: int = 1,
 ):
+    """Scrape the tensorboard log files of multiple runs and save them to separate csv files.
+
+    Args:
+        runs_folder: The path to the runs folder. Here the tensorboard log files are stored in subfolders named after
+            the run id.
+        run_ids: The ids of the runs. The run id is the name of the folder containing the tensorboard files.
+        output_folder: The path to the output folder. The csv files will be saved in this folder.
+            If the folder does not exist, it will be created.
+        tags: The scalar metrics from the tensorboard log to include in the dataframe.
+            If `None`, all tags will be included.
+        overwrite_automatically: If True, existing files will be overwritten without asking for confirmation.
+        run_index: The index of the run. If there are multiple runs with the same id,
+            the run index differentiates between them.
+    """
     for run_id in run_ids:
         try:
             scrape_run(
@@ -201,7 +260,7 @@ def scrape_runs(
                 run_id=run_id,
                 output_folder=output_folder,
                 tags=tags,
-                override_automatically=override_automatically,
+                overwrite_automatically=overwrite_automatically,
                 run_index=run_index,
             )
         except Exception as e:
@@ -210,9 +269,20 @@ def scrape_runs(
 
 def raster_data_frame(
     df_in: pd.DataFrame,
-    granularity: int = 8000,
+    granularity: int,
     n_steps: Optional[int] = None,
 ) -> pd.DataFrame:
+    """Average all datapoints in a given step interval. The resulting dataframe will have the same columns as the
+    input dataframe, but the values in the `step` column will be equidistant.
+
+    Args:
+        df_in: The input dataframe.
+        granularity: The size of the step intervals in which the data is averaged.
+        n_steps: The step at which to stop rastering. If `None`, the last step of the training will be used.
+
+    Returns:
+        A pandas dataframe containing the rastered data.
+    """
     steps = df_in.step.values
 
     if n_steps is None:
@@ -247,6 +317,21 @@ def raster_csv(
     n_steps: Optional[int] = None,
     override_automatically: bool = False,
 ):
+    """Average all datapoints in a given step interval. The resulting csv file will have the same columns as the
+    input file, but the values in the `step` column will be equidistant.
+
+    Args:
+        input_folder: The path to the folder containing the input csv file.
+        output_folder: The path to the output folder. The csv file will be saved in this folder.
+            If the folder does not exist, it will be created.
+        run_id: The id of the run. The run id is the name of the folder containing the tensorboard files.
+        granularity: The size of the step intervals in which the data is averaged.
+        n_steps: The step at which to stop rastering. If `None`, the last step of the training will be used.
+        override_automatically: If `True`, an existing file will be overwritten without asking for confirmation.
+
+    Raises:
+        AssertionError: If the input folder does not exist.
+    """
     assert os.path.exists(input_folder), f"Input folder {input_folder} does not exist."
 
     if not os.path.exists(output_folder):
@@ -259,7 +344,7 @@ def raster_csv(
 
     output_file = os.path.join(output_folder, f"{run_id}.csv")
 
-    save_df_to_csv(df=out_df, output_path=output_file, override_automatically=override_automatically)
+    save_df_to_csv(df=out_df, output_path=output_file, overwrite_automatically=override_automatically)
 
 
 def raster_csvs(
@@ -269,6 +354,21 @@ def raster_csvs(
     granularity: int = 5000,
     n_steps: Optional[int] = None,
 ):
+    """For all csv files in a folder, average all datapoints in a given step interval.
+    The resulting csv files will have the same columns as the
+    input files, but the values in the `step` column will be equidistant.
+
+    Args:
+        input_folder: The path to the folder containing the input csv files.
+        output_folder: The path to the output folder. The csv files will be saved in this folder.
+            If the folder does not exist, it will be created.
+        filenames: The names of the input files. If `None`, all csv files in the input folder will be rastered.
+        granularity: The size of the step intervals in which the data is averaged.
+        n_steps: The step at which to stop rastering. If `None`, the last step of the training will be used.
+
+    Raises:
+        AssertionError: If the input folder does not exist.
+    """
     if filenames is None or len(filenames) == 0:
         filenames = [f[:-4] for f in os.listdir(input_folder) if f.endswith(".csv")]
 
@@ -287,12 +387,36 @@ def smooth_stats_data_frame(
     window_size: int = 9,
     bootstrap_samples: int = 10000,
 ) -> pd.DataFrame:
+    """Determine statistics (running mean, std and bootstrapped 95% confidence intervals) for a list of dataframes.
+    Requires the step columns in all input data frames to be equidistant and all dataframes to have the same columns.
+
+    Args:
+        dfs_in: The input dataframes.
+        window_size: The window size for the moving average filter. Required to be an odd number.
+            The statistics are determined from a moving window of `window_size * len(dfs_in)` datapoints.
+        bootstrap_samples: The number of bootstrap samples for determining the 95% confidence intervals.
+
+    Returns:
+        pd.DataFrame: A pandas dataframe containing the statistics. The columns are named prefixed with the tag name
+            and suffixed with the statistic name. For example, the mean of the tag "rollout/ep_env_rew_mean" will be
+            named "rollout/ep_env_rew_mean_mean". The `step` and `wall_time` columns
+            are included via their running mean.
+
+    Raises:
+        AssertionError: If the step columns in all input data frames are not equidistant.
+        AssertionError: if the window size is not odd.
+        AssertionError: If the dataframes do not have the same columns.
+    """
     for df_in in dfs_in:
         assert np.all(df_in.step % (df_in.step[1] - df_in.step[0]) == 0), "Steps must be equidistant!"
 
     assert window_size % 2 == 1, "Window size must be odd!"
+    assert np.all([set(dfs_in[0].columns) == set(df_in.columns) for df_in in dfs_in]), \
+        "All dataframes must have the same columns!"
 
     half_window_size = (window_size - 1) // 2
+
+    wall_time = np.stack([df_in.wall_time.values for df_in in dfs_in], axis=0)
 
     out_df = pd.DataFrame({
         "step": [
@@ -300,7 +424,7 @@ def smooth_stats_data_frame(
             for i in range(half_window_size, dfs_in[0].shape[0] - half_window_size)
         ],
         "wall_time": [
-            dfs_in[0].wall_time[i]
+            np.mean(wall_time[:, i - half_window_size:i + half_window_size])
             for i in range(half_window_size, dfs_in[0].shape[0] - half_window_size)
         ]
     })
@@ -344,6 +468,22 @@ def smooth_stats_csvs(
     window_size: int = 9,
     bootstrap_samples: int = 10000,
 ):
+    """Determine statistics (running mean, std and bootstrapped 95% confidence intervals) for a list of csv files.
+    Requires the step columns in all input csv files to be equidistant and to have the same columns in every file.
+
+    Args:
+        input_folder: The path to the folder containing the input csv files. The statistics are determined from
+            all csv files in this folder.
+        output_folder: The path to the output folder. The statistics csv file will be saved in this folder.
+            If the folder does not exist, it will be created.
+        window_size: The window size for the moving average filter. Required to be an odd number.
+            The statistics are determined from a moving window of `window_size * n_files` datapoints,
+            where `n_files` is the number of csv files in the directory specified by `input_folder`.
+        bootstrap_samples: The number of bootstrap samples for determining the 95% confidence intervals.
+
+    Raises:
+        AssertionError: If the input folder does not exist.
+    """
     assert os.path.exists(input_folder), f"Input folder {input_folder} does not exist."
 
     if not os.path.exists(output_folder):
@@ -374,8 +514,29 @@ def main(
     n_steps=3_000_000,
     window_size=9,
     bootstrap_samples=10000,
-    override_automatically: bool = False,
+    overwrite_automatically: bool = False,
 ):
+    """Run the data pipeline.
+
+    Extracts the data from the tensorboard log files, rasteres it and determines statistics.
+    The output folder will contain the following subfolders:
+        - raw: Contains the raw data from tensorboard
+        - rastered: Contains the rastered data
+        - stats: Contains the statistics
+
+    Args:
+        run_ids: The ids of the runs. The run id is the name of the folder containing the tensorboard files.
+        input_folder: The path to the folder containing the tensorboard log files.
+        output_folder: The path to output folder. The csv files will be saved in this folder.
+        tags: The scalar metrics from the tensorboard log to include in the dataframe.
+            If `None`, all tags will be included.
+        raster_granularity: The size of the step intervals in which the data is averaged.
+        n_steps: The step at which to stop rastering. If `None`, the last step of the training will be used.
+        window_size: The window size for the moving average filter. Required to be an odd number.
+            The statistics are determined from a moving window of `window_size * len(run_ids)` datapoints.
+        bootstrap_samples: The number of bootstrap samples for determining the 95% confidence intervals.
+        overwrite_automatically: If `True`, existing files will be overwritten without asking for confirmation.
+    """
     raw_folder = f"{output_folder}/raw"
     rastered_folder = f"{output_folder}/rastered"
     stats_folder = f"{output_folder}/stats"
@@ -383,7 +544,7 @@ def main(
     if os.path.exists(output_folder):
         print(f"Output folder {output_folder} already exists.")
         print("Do you want to overwrite it? y/[n]")
-        if override_automatically or input() == "y":
+        if overwrite_automatically or input() == "y":
             print("Overwriting...")
             os.system(f"rm -r {output_folder}")
         else:
@@ -395,7 +556,7 @@ def main(
         run_ids=run_ids,
         output_folder=raw_folder,
         tags=tags,
-        override_automatically=override_automatically,
+        overwrite_automatically=overwrite_automatically,
         run_index=1,
     )
 
@@ -477,7 +638,7 @@ if __name__ == '__main__':
         help="Number of bootstrap samples.",
     )
     parser.add_argument(
-        "--override-automatically",
+        "--ovewrite-automatically",
         "-y",
         action="store_true",
         help="If specified, the script will not ask for confirmation before overwriting existing files.",
@@ -493,5 +654,5 @@ if __name__ == '__main__':
         n_steps=args.n_steps,
         window_size=args.window_size,
         bootstrap_samples=args.bootstrap_samples,
-        override_automatically=args.override_automatically,
+        overwrite_automatically=args.overwrite_automatically,
     )
