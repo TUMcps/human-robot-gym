@@ -25,6 +25,7 @@ The arguments are:
         tensorboard files.
     - -y (optional): If specified, the script will not ask for confirmation before overwriting existing files.
     - -i <tb_log_folder>: Folder in which the tensorboard log files are located.
+        May also be a remote folder in which case the files will be first copied to a local folder.
     - -o <output_folder>: Path to output folder. The csv files will be saved in this folder.
     - -t <tag_1> ... <tag_m>: List of metrics to include in the csv file.
         If not specified, the following tags will be included:
@@ -144,7 +145,7 @@ def scp_if_remote_folder(runs_folder: str, run_id: str, dest_folder: str = "./ru
     return runs_folder
 
 
-def tb_log_to_df(tb_folder_path: str, tags: Optional[List[str]]) -> pd.DataFrame:
+def _tb_log_to_df(tb_folder_path: str, tags: Optional[List[str]]) -> pd.DataFrame:
     """Extract a pandas dataframe from tensorboard log files.
 
     Args:
@@ -156,8 +157,6 @@ def tb_log_to_df(tb_folder_path: str, tags: Optional[List[str]]) -> pd.DataFrame
         A pandas dataframe containing the data from the tensorboard log files.
     """
     summary_iterator = EventAccumulator(tb_folder_path).Reload()
-
-    dataframe = pd.DataFrame()
 
     if tags is None:
         tags = summary_iterator.Tags()["scalars"]
@@ -176,17 +175,74 @@ def tb_log_to_df(tb_folder_path: str, tags: Optional[List[str]]) -> pd.DataFrame
     n_steps = len(summary_iterator.Scalars(tags[0]))
 
     for tag in tags:
-        scalar_dataframe = pd.DataFrame.from_records(
+        scalar_data = pd.DataFrame.from_records(
             summary_iterator.Scalars(tag),
             columns=summary_iterator.Scalars(tag)[0]._fields,
         )["value"].values
 
-        if len(scalar_dataframe) != n_steps:
-            print(f"Skipping {tag} because it has {len(scalar_dataframe)} entries instead of {n_steps}.")
+        if len(scalar_data) != n_steps:
+            print(f"Skipping {tag} because it has {len(scalar_data)} entries instead of {n_steps}.")
         else:
-            dataframe[tag] = scalar_dataframe
+            dataframe[tag] = scalar_data
 
     return dataframe
+
+
+def tb_log_to_df(tb_folder_path: str, tags: Optional[List[str]]) -> pd.DataFrame:
+    """Extract a pandas dataframe from tensorboard log files.
+
+    Args:
+        tb_folder_path: The path to the folder containing the tensorboard log files.
+        tags: The scalar metrics from the tensorboard log to include in the dataframe.
+            If `None`, all tags will be included.
+
+    Returns:
+        A pandas dataframe containing the data from the tensorboard log files.
+    """
+    summary_iterator = EventAccumulator(tb_folder_path).Reload()
+
+    data_frame = pd.DataFrame()
+
+    if tags is None:
+        tags = summary_iterator.Tags()["scalars"]
+
+    # Get a set of all steps. Different metrics may be logged with different intervals.
+    # However, we would like to include all data with the correct step.
+    # Data with missing steps will be filled with NaNs.
+    # The data can later be rastered to average over all measurements in a given step interval.
+    steps = sorted(list(set(np.concatenate([
+        pd.DataFrame.from_records(
+            summary_iterator.Scalars(tag),
+            columns=summary_iterator.Scalars(tag)[0]._fields
+        )["step"].values for tag in tags
+    ]).tolist())))
+
+    data_frame["step"] = steps
+
+    data = {
+        tag: pd.DataFrame.from_records(summary_iterator.Scalars(tag), columns=summary_iterator.Scalars(tag)[0]._fields)
+        for tag in tags
+    }
+
+    # Average time from all measurements at the same step. Maybe a bit overkill
+    data_frame["wall_time"] = [
+        np.nanmean([
+            tag_data[tag_data.step == step].wall_time.values.squeeze()
+            if step in tag_data.step.values else np.nan
+            for tag_data in data.values()
+        ])
+        for step in steps
+    ]
+
+    for tag, tag_data in data.items():
+        # Add the data at the correct steps. Missing values will be filled with NaNs.
+        # Missing data e.g. occurs if the metrics are collected at different intervals.
+        data_frame[tag] = [
+            tag_data[tag_data.step == step].value.values.squeeze() if step in tag_data.step.values else np.nan
+            for step in steps
+        ]
+
+    return data_frame
 
 
 def scrape_run(
@@ -254,17 +310,14 @@ def scrape_runs(
             the run index differentiates between them.
     """
     for run_id in run_ids:
-        try:
-            scrape_run(
-                runs_folder=runs_folder,
-                run_id=run_id,
-                output_folder=output_folder,
-                tags=tags,
-                overwrite_automatically=overwrite_automatically,
-                run_index=run_index,
-            )
-        except Exception as e:
-            print(f"Error while scraping {run_id}: {e.with_traceback()}")
+        scrape_run(
+            runs_folder=runs_folder,
+            run_id=run_id,
+            output_folder=output_folder,
+            tags=tags,
+            overwrite_automatically=overwrite_automatically,
+            run_index=run_index,
+        )
 
 
 def raster_data_frame(
@@ -293,6 +346,7 @@ def raster_data_frame(
         i * granularity
         for i in range(n_steps // granularity)
     ]
+
     for bin in bins:
         df_in_bin = df_in[steps >= bin]
         df_in_bin = df_in_bin[df_in_bin.step < bin + granularity]
@@ -304,7 +358,7 @@ def raster_data_frame(
             ignore_index=True,
         )
 
-    df_out.step = [bin + granularity for bin in bins]
+    df_out["step"] = [bin + granularity for bin in bins]
 
     return df_out
 
@@ -370,15 +424,20 @@ def raster_csvs(
         AssertionError: If the input folder does not exist.
     """
     if filenames is None or len(filenames) == 0:
-        filenames = [f[:-4] for f in os.listdir(input_folder) if f.endswith(".csv")]
+        filenames = [
+            f for f in os.listdir(input_folder)
+            if os.path.isfile(f"{input_folder}/{f}") and f.endswith(".csv")
+        ]
 
-    for run_id in filenames:
+    run_ids = [f.replace(".csv", "") for f in filenames]
+
+    for run_id in run_ids:
         raster_csv(
             input_folder=input_folder,
             output_folder=output_folder,
             run_id=run_id,
             granularity=granularity,
-            n_steps=n_steps
+            n_steps=n_steps,
         )
 
 
@@ -465,6 +524,7 @@ def smooth_stats_data_frame(
 def smooth_stats_csvs(
     input_folder: str,
     output_folder: str,
+    filenames: Optional[List[str]],
     window_size: int = 9,
     bootstrap_samples: int = 10000,
 ):
@@ -476,6 +536,7 @@ def smooth_stats_csvs(
             all csv files in this folder.
         output_folder: The path to the output folder. The statistics csv file will be saved in this folder.
             If the folder does not exist, it will be created.
+        filenames: The names of the input files. If `None`, all csv files in the input folder will be rastered.
         window_size: The window size for the moving average filter. Required to be an odd number.
             The statistics are determined from a moving window of `window_size * n_files` datapoints,
             where `n_files` is the number of csv files in the directory specified by `input_folder`.
@@ -490,11 +551,13 @@ def smooth_stats_csvs(
         print(f"Creating output folder {output_folder}...")
         os.makedirs(output_folder)
 
-    dfs_in = [
-        pd.read_csv(f"{input_folder}/{f}", comment="#")
-        for f in os.listdir(input_folder)
-        if os.path.isfile(f) and f.endswith(".csv")
-    ]
+    if filenames is None or len(filenames) == 0:
+        filenames = [
+            f for f in os.listdir(input_folder)
+            if os.path.isfile(f"{input_folder}/{f}") and f.endswith(".csv")
+        ]
+
+    dfs_in = [pd.read_csv(f"{input_folder}/{f}", comment="#") for f in filenames]
 
     out_df = smooth_stats_data_frame(
         dfs_in=dfs_in,
@@ -571,7 +634,7 @@ def main(
     smooth_stats_csvs(
         input_folder=raw_folder,
         output_folder=stats_folder,
-        tags=tags,
+        filenames=None,
         window_size=window_size,
         bootstrap_samples=bootstrap_samples,
     )
@@ -638,7 +701,7 @@ if __name__ == '__main__':
         help="Number of bootstrap samples.",
     )
     parser.add_argument(
-        "--ovewrite-automatically",
+        "--overwrite-automatically",
         "-y",
         action="store_true",
         help="If specified, the script will not ask for confirmation before overwriting existing files.",
