@@ -235,8 +235,8 @@ run:
   resetting_interval: null
   dataset_name: robot-human-handover
 wandb_run:
-  project: thesis
+  project: icra_2024
   entity: null
-  group: rhh_air
-  name: air_${run.seed}
+  group: RHH_AIR
+  name: run_${run.seed}
   tags: null

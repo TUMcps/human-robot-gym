@@ -239,8 +239,8 @@ run:
   verbose: true
   dataset_name: pick-place
 wandb_run:
-  project: thesis
+  project: icra_2024
   entity: null
-  group: pp_air
-  name: air_${run.seed}
+  group: PP_AIR
+  name: run_${run.seed}
   tags: null

@@ -234,8 +234,8 @@ run:
   resetting_interval: null
   dataset_name: collaborative-lifting
 wandb_run:
-  project: thesis
+  project: icra_2024
   entity: null
-  group: cl_sir
-  name: sir_${run.seed}
+  group: CL_SIR
+  name: run_${run.seed}
   tags: null

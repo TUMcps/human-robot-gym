@@ -245,8 +245,8 @@ run:
   dataset_name: pick-place
   run_type: wandb
 wandb_run:
-  project: thesis
+  project: icra_2024
   entity: null
-  group: pp_sir
-  name: sir_${run.seed}
+  group: PP_SIR
+  name: run_${run.seed}
   tags: null

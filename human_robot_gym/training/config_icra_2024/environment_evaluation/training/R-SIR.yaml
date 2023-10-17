@@ -203,8 +203,8 @@ run:
   resetting_interval: null
   dataset_name: human-reach
 wandb_run:
-  project: thesis
+  project: icra_2024
   entity: null
-  group: r_sir
-  name: sir_${run.seed}
+  group: R_SIR
+  name: run_${run.seed}
   tags: null

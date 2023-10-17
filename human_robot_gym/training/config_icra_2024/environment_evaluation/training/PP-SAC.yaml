@@ -240,8 +240,8 @@ run:
   resetting_interval: null
   dataset_name: pick-place
 wandb_run:
-  project: thesis
+  project: icra_2024
   entity: null
-  group: pp_sac
-  name: sac_${run.seed}
+  group: PP_SAC
+  name: run_${run.seed}
   tags: null

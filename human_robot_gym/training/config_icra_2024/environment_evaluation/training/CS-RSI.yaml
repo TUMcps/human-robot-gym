@@ -250,8 +250,8 @@ run:
   resetting_interval: null
   dataset_name: collaborative-stacking
 wandb_run:
-  project: thesis
+  project: icra_2024
   entity: null
-  group: cs_rsi
-  name: rsi_${run.seed}
+  group: CS_RSI
+  name: run_${run.seed}
   tags: null
