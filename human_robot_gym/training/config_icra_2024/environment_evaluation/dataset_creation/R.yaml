@@ -77,7 +77,7 @@ environment:
   goal_dist: 0.1
   n_goals_sampled_per_100_steps: 20
   collision_reward: 0
-  goal_reward: 1
+  task_reward: 1
   object_placement_initializer: null
   obstacle_placement_initializer: null
   done_at_collision: false

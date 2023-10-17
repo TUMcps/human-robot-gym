@@ -150,7 +150,7 @@ run:
   dataset_name: ${dataset_name}
 algorithm:
   seed: 1000
-dataset_name: collaborative-lifting-new-expert-obs
+dataset_name: collaborative-lifting
 start_episode_index: 0
 n_episodes: 100
 n_threads: 1
