@@ -39,7 +39,8 @@ from human_robot_gym.wrappers.collision_prevention_wrapper import CollisionPreve
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.ik_position_delta_wrapper import IKPositionDeltaWrapper
 from human_robot_gym.wrappers.action_based_expert_imitation_reward_wrapper import (
-    CartActionBasedExpertImitationRewardWrapper
+    CartActionBasedExpertImitationRewardWrapper,
+    JointActionBasedExpertImitationRewardWrapper,
 )
 from human_robot_gym.wrappers.state_based_expert_imitation_reward_wrapper import (
     ReachHumanCartStateBasedExpertImitationRewardWrapper,
@@ -362,8 +363,10 @@ def action_based_expert_imitation_reward_wrap_fn(
             **kwargs,
         )
     else:
-        raise NotImplementedError(
-            "Action based expert imitation reward wrapper not implemented for joint action space!"
+        env = JointActionBasedExpertImitationRewardWrapper(
+            env=env,
+            expert=expert,
+            **kwargs,
         )
 
     return env
