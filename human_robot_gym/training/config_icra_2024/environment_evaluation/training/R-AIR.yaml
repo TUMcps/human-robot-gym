@@ -96,6 +96,7 @@ wrappers:
     iota_g: 0.5
     m_sim_fn: gaussian
     g_sim_fn: gaussian
+    normalize_joint_actions: false
   dataset_obs_norm:
     dataset_name: ${run.dataset_name}
     squash_factor: null
