@@ -13,7 +13,12 @@ or refer to the human-robot-gym documentation: https://cps-rl.pages.gitlab.lrz.d
 
 This script can be used to evaluate multiple models at different load steps in parallel.
 A common use case is to evaluate multiple models trained with different seeds and calculate statistics over all.
-To do this, pass a list of strings to `config.run.id`.
+To do this, pass a list of strings to `config.run.id`:
+
+```
+python human_robot_gym/training/evaluate_models_to_csv.py --config-name human_reach_ppo_parallel \
+    config.run.id=[run_id_0,run_id_1,run_id_2]
+```
 
 If `config.run.id` is `None`, the expert policy specified in the config is evaluated
 instead of stable-baselines3 agents.
