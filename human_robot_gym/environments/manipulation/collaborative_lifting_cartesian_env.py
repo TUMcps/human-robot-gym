@@ -576,7 +576,7 @@ class CollaborativeLiftingCart(HumanEnv):
 
         if animation_time >= self.human_animation_length - 1:
             self._animation_complete = True
-            animation_time = self._human_animation_length - 1
+            animation_time = self.human_animation_length - 1
 
         return animation_time
 
