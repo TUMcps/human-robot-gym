@@ -475,8 +475,8 @@ def main(config: TrainingConfig):
         print(OmegaConf.to_yaml(cfg=config, resolve=True))
 
     max_parallel_runs = 50  # By default, evaluate 50 models in parallel
-    if hasattr(config.run, "max_parallel_runs") and config.run.max_parallel_runs is not None:
-        max_parallel_runs = config.run.max_parallel_runs
+    if hasattr(config, "max_parallel_runs") and config.max_parallel_runs is not None:
+        max_parallel_runs = config.max_parallel_runs
 
     evaluate_to_csv(config, max_parallel_runs=max_parallel_runs)
 
