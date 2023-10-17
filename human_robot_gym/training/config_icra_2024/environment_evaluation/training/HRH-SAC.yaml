@@ -1,3 +1,4 @@
+# Human-robot handover training with soft actor-critic.
 robot:
   name: Schunk
   controller_config_path: controllers/failsafe_controller/config/failsafe.json

@@ -1,3 +1,4 @@
+# Pick-and-place training with soft actor-critic, reference state initialization, and state-based imitation reward.
 robot:
   name: Schunk
   controller_config_path: controllers/failsafe_controller/config/failsafe.json
