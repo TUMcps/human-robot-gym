@@ -1,0 +1,9 @@
+alpha: 0
+beta: 0
+iota_m: 0.1
+iota_g: 0.25
+m_sim_fn: "gaussian"
+g_sim_fn: "gaussian"
+rsi_prob: null
+dataset_name: dataset
+normalize_joint_actions: false
