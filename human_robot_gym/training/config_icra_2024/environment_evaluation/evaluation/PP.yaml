@@ -156,3 +156,4 @@ run:
 algorithm:
   name: SAC
 group_name: null
+max_parallel_runs: null
