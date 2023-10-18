@@ -297,14 +297,14 @@ def state_based_expert_imitation_reward_wrap_fn(
 
 
 def _compose_action_based_expert_imitation_reward_wrapper_kwargs(config: TrainingConfig) -> Dict[str, Any]:
-    """Compose a dictionary of all configured keyword arguments for the `CartActionBasedExpertImitationRewardWrapper`.
+    """Compose a dictionary of all configured keyword arguments for the `ActionBasedExpertImitationRewardWrapper`.
 
     Args:
         config (Config): The config object containing information about the wrapper
 
     Returns:
         Dict[str, Any]: A dictionary of all configured keyword arguments
-            for the `CartActionBasedExpertImitationRewardWrapper`.
+            for the `ActionBasedExpertImitationRewardWrapper`.
     """
     kwargs = OmegaConf.to_container(
         cfg=deepcopy(config.wrappers.action_based_expert_imitation_reward),
@@ -322,7 +322,7 @@ def action_based_expert_imitation_reward_wrap_fn(
     config: TrainingConfig,
     env: gym.Env,
 ) -> gym.Env:
-    """Wrap the environment in an `CartActionBasedExpertImitationRewardWrapper`.
+    """Wrap the environment in an `ActionBasedExpertImitationRewardWrapper`.
 
     If the config specifies a `rsi_prob` > 0, the environment is also wrapped in a `DatasetRSIWrapper`.
     This step is omitted if the config specifies a state-based expert imitation reward wrapper,
@@ -372,6 +372,28 @@ def action_based_expert_imitation_reward_wrap_fn(
     return env
 
 
+def _compose_dataset_obs_norm_wrapper_kwargs(config: TrainingConfig) -> Dict[str, Any]:
+    """Compose a dictionary of all configured keyword arguments for the `DatasetObsNormWrapper`.
+
+    Args:
+        config (Config): The config object containing information about the wrapper
+
+    Returns:
+        Dict[str, Any]: A dictionary of all configured keyword arguments
+            for the `DatasetObsNormWrapper`.
+    """
+    kwargs = OmegaConf.to_container(
+        cfg=deepcopy(config.wrappers.dataset_obs_norm),
+        resolve=True,
+        throw_on_missing=True,
+    )
+
+    kwargs["mean"] = np.array(kwargs["mean"]) if kwargs["mean"] is not None else None
+    kwargs["std"] = np.array(kwargs["std"]) if kwargs["std"] is not None else None
+
+    return kwargs
+
+
 def get_environment_wrap_fn(config: TrainingConfig) -> Callable[[gym.Env], gym.Env]:
     """Create a function that wraps the environment as specified in the config.
 
@@ -415,7 +437,7 @@ def get_environment_wrap_fn(config: TrainingConfig) -> Callable[[gym.Env], gym.E
         if hasattr(config.wrappers, "dataset_obs_norm") and config.wrappers.dataset_obs_norm is not None:
             env = DatasetObsNormWrapper(
                 env=env,
-                **config.wrappers.dataset_obs_norm,
+                **_compose_dataset_obs_norm_wrapper_kwargs(config),
             )
 
         # Visualization wrapper
@@ -734,7 +756,7 @@ def create_callback(
             )
         )
 
-    if config.run.resetting_interval is not None:
+    if hasattr(config.run, "resetting_interval") and config.run.resetting_interval is not None:
         callbacks.append(
             ModelResetCallback(
                 n_steps_between_resets=config.run.resetting_interval,
