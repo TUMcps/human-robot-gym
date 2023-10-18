@@ -208,10 +208,11 @@ def eval_to_csv(
     """
     df = evaluate_to_df(config=config, evaluate_expert=evaluate_expert, run_id=run_id, load_step=load_step)
 
-    os.makedirs(os.path.join("csv", "evaluation", "raw"), exist_ok=True)
+    raw_csv_folder_path = os.path.join("csv", "evaluation", config.group_name, "raw")
+    os.makedirs(raw_csv_folder_path, exist_ok=True)
 
     if evaluate_expert:
-        csv_path = os.path.join("csv", "evaluation", "raw", f"expert_{config.expert.id}.csv")
+        csv_path = os.path.join(raw_csv_folder_path, f"expert_{config.expert.id}.csv")
     else:
         if run_id is None:
             run_id = config.run.id
@@ -219,9 +220,9 @@ def eval_to_csv(
             load_step = config.run.load_step
 
         if isinstance(load_step, int):
-            csv_path = os.path.join("csv", "evaluation", "raw", f"{run_id}_{load_step:_}.csv")
+            csv_path = os.path.join(raw_csv_folder_path, f"{run_id}_{load_step:_}.csv")
         else:
-            csv_path = os.path.join("csv", "evaluation", "raw", f"{run_id}_{load_step}.csv")
+            csv_path = os.path.join(raw_csv_folder_path, f"{run_id}_{load_step}.csv")
         os.makedirs(os.path.dirname(csv_path), exist_ok=True)
 
     df.to_csv(csv_path, index=False)
@@ -408,7 +409,7 @@ def evaluate_to_stats_df(
 
     print("Got data, now obtaining stats")
 
-    dfs = [combine_to_stats_df(config=config, run_ids=run_ids, csv_paths=paths) for paths in csv_paths]
+    dfs = [combine_to_stats_df(config=config, csv_paths=paths) for paths in csv_paths]
     if len(dfs) > 1:  # Multiple load steps
         df = pd.concat(dfs)
         df["step"] = load_steps
@@ -455,10 +456,10 @@ def evaluate_to_csv(config: TrainingConfig, max_parallel_runs: Optional[int] = N
     Returns:
         str: The path to the csv file containing the evaluation results.
     """
+    assert hasattr(config, "group_name") and config.group_name is not None
     df = evaluate_to_stats_df(config=config, max_parallel_runs=max_parallel_runs)
 
-    assert hasattr(config, "group_name") and config.group_name is not None
-    stats_csv_folder = os.path.join("csv", "evaluation", "stats", config.group_name)
+    stats_csv_folder = os.path.join("csv", "evaluation", config.group_name, "stats")
     if os.path.exists(stats_csv_folder):
         print(f"Stats csv folder {stats_csv_folder} already exists! Overwriting...")
         shutil.rmtree(stats_csv_folder)
