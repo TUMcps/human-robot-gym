@@ -101,20 +101,8 @@ wrappers:
     dataset_name: ${run.dataset_name}
     squash_factor: null
     allow_different_observation_shapes: true
-    mean:
-    - -0.0049488772256473
-    - -0.007043835753331773
-    - -0.025671608013726
-    - -0.025081991981095186
-    - 0.009857072988358292
-    - -0.07344407149281813
-    std:
-    - 0.8511062984161044
-    - 0.42419868487673956
-    - 0.7287817287014537
-    - 0.8867290361978235
-    - 0.5171704145616722
-    - 0.9419710223814134
+    mean: null
+    std: null
 algorithm:
   name: SAC
   policy: MlpPolicy
