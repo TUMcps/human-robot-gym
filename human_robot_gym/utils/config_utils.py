@@ -190,4 +190,4 @@ cs = ConfigStore.instance()
 cs.store(name="base", node=TrainingConfig)
 
 # Allows performing arithmetic operations in value interpolation
-OmegaConf.register_resolver("eval", eval)
+OmegaConf.register_new_resolver("eval", eval)

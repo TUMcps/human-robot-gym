@@ -7,7 +7,7 @@
 #   - csv/training/<env_long> for the training data
 #   - csv/evaluation/<env_long> for the evaluation data
 # The script can be run with the following command:
-# ./environment_evaluation.sh <env> <env_long> <n_dataset_episodes> <n_training_steps>
+# ./environment_evaluation.sh <env> <env_long> <n_dataset_episodes> <n_training_steps> <horizon> <n_envs> <log_interval>
 # where:
 # <env> is the acronym of the environment:
 #   R for HumanReach
@@ -19,14 +19,18 @@
 # <env_long> is a readable name of the environment, e.g. PickPlaceHuman
 # <n_dataset_episodes> is the number of episodes in the expert dataset
 # <n_training_steps> is the number of training steps for each model
+# <horizon> is the maximum episode length
+# <n_envs> is the number of parallel environments
+# <log_interval> is the stride between tensorboard log entries
 env=$1
 env_long=$2
-n_dataset_episodes=$3
-n_steps=$4
+n_dataset_episodes=${3}
+n_steps=${4}
+horizon=${5}
+n_envs=${6}  # Parallel environments for training
+log_interval=${7}
 n_test_episodes=20
 model_save_interval=50000  # Model saving interval
-n_envs=8  # Parallel environments for training
-log_interval=$((${n_envs}*1000))  # Logging interval for training
 granularity=$((${log_interval}*3))  # Logged data is averaged over this many steps
 window_size=9  # Window size for the moving average
 max_eval_threads=50  # Maximum number of parallel evaluation threads
@@ -78,7 +82,7 @@ cleanup_existing_data
 print_green "Generating dataset..."
 
 # Generate a dataset
-python human_robot_gym/training/create_expert_dataset.py -cp config_icra_2024/environment_evaluation/dataset_creation -cn ${env} dataset_name=${env_long} n_episodes=${n_dataset_episodes}
+python human_robot_gym/training/create_expert_dataset.py -cp config_icra_2024/environment_evaluation/dataset_creation -cn ${env} dataset_name=${env_long} n_episodes=${n_dataset_episodes} environment.horizon=${horizon}
 # Store the expert statistics on the dataset
 mkdir -p "${training_data_csv_folder}/expert"
 cp "datasets/${env_long}/stats.csv" "${training_data_csv_folder}/expert.csv"
@@ -88,7 +92,7 @@ print_green "Dataset created, proceeding with training..."
 train () {
     local method=$1
     local group=${2:-${method}}
-    python human_robot_gym/training/train_SB3.py --multirun -cp config_icra_2024/environment_evaluation/training -cn ${env}-${method} hydra/launcher=ray run.type=tensorboard run.n_steps=${n_steps} wandb_run.project=${project_name} wandb_run.group=${group} "run.seed=0,1,2,3,4" run.n_envs=${n_envs} run.dataset_name=${env_long} "run.log_interval=[${log_interval},'step']" run.save_freq=${model_save_interval}
+    python human_robot_gym/training/train_SB3.py --multirun -cp config_icra_2024/environment_evaluation/training -cn ${env}-${method} hydra/launcher=ray run.type=tensorboard run.n_steps=${n_steps} wandb_run.project=${project_name} wandb_run.group=${group} "run.seed=0,1,2,3,4" run.n_envs=${n_envs} run.dataset_name=${env_long} "run.log_interval=[${log_interval},'step']" run.save_freq=${model_save_interval} environment.horizon=${horizon}
 }
 
 # Train the models
@@ -131,7 +135,7 @@ evaluate () {
         echo ${project_name}/${group}/run_${run_index}
     }
     local evaluation_run_ids="[$(assemble_evaluation_run_id 0),$(assemble_evaluation_run_id 1),$(assemble_evaluation_run_id 2),$(assemble_evaluation_run_id 3),$(assemble_evaluation_run_id 4)]"
-    python human_robot_gym/training/evaluate_models_to_csv.py -cp config_icra_2024/environment_evaluation/evaluation -cn ${env} "run.id=${evaluation_run_ids}" group_name=${project_name}/${group} wrappers.dataset_obs_norm.dataset_name=${env_long} run.load_step=all run.n_test_episodes=${n_test_episodes} max_parallel_runs=${max_eval_threads} run.n_steps=${n_steps} run.save_freq=${model_save_interval}
+    python human_robot_gym/training/evaluate_models_to_csv.py -cp config_icra_2024/environment_evaluation/evaluation -cn ${env} "run.id=${evaluation_run_ids}" group_name=${project_name}/${group} wrappers.dataset_obs_norm.dataset_name=${env_long} run.load_step=all run.n_test_episodes=${n_test_episodes} max_parallel_runs=${max_eval_threads} run.n_steps=${n_steps} run.save_freq=${model_save_interval} environment.horizon=${horizon}
 }
 
 # Evaluate the models
@@ -142,7 +146,7 @@ evaluate SAC
 
 
 # Evaluate the expert
-python human_robot_gym/training/evaluate_models_to_csv.py -cp config_icra_2024/environment_evaluation/evaluation -cn ${env} "run.id=null" group_name=${project_name}/expert wrappers.dataset_obs_norm.dataset_name=${env_long} run.load_step=final run.n_test_episodes=${n_test_episodes} & 
+python human_robot_gym/training/evaluate_models_to_csv.py -cp config_icra_2024/environment_evaluation/evaluation -cn ${env} "run.id=null" group_name=${project_name}/expert wrappers.dataset_obs_norm.dataset_name=${env_long} run.load_step=final run.n_test_episodes=${n_test_episodes} environment.horizon=${horizon} 
 
 wait
 
