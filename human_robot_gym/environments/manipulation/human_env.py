@@ -373,8 +373,9 @@ class HumanEnv(SingleArmEnv):
         self.human_base_quat = Rotation.from_quat([0.5, 0.5, 0.5, 0.5])
         self.human_animation_freq = human_animation_freq
         self.low_level_time = int(0)
-        self._n_animations_to_sample_at_resets = int(
-            horizon * n_animations_sampled_per_100_steps / 100
+        self._n_animations_to_sample_at_resets = max(
+            int(horizon * n_animations_sampled_per_100_steps / 100),
+            1,
         )
         self._human_animation_ids = None
         self._human_animation_ids_index = 0

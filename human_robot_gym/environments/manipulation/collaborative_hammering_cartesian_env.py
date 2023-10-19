@@ -370,8 +370,9 @@ class CollaborativeHammeringCart(HumanEnv):
         self.nail_placement_initializer = None
         self._nail_placements = None
         self._nail_placements_index = 0
-        self._n_nail_placements_to_sample_at_resets = int(
-            horizon * n_nail_placements_sampled_per_100_steps / 100
+        self._n_nail_placements_to_sample_at_resets = max(
+            int(horizon * n_nail_placements_sampled_per_100_steps / 100),
+            1,
         )
         self.obstacle_placement_initializer = obstacle_placement_initializer
         self.board = None

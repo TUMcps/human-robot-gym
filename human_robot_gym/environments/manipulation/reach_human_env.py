@@ -315,8 +315,9 @@ class ReachHuman(HumanEnv):
         self.goal_dist = goal_dist
         self._desired_goals = None
         self._desired_goals_index = 0
-        self._n_goals_to_sample_at_resets = int(
-            horizon * n_goals_sampled_per_100_steps / 100
+        self._n_goals_to_sample_at_resets = max(
+            int(horizon * n_goals_sampled_per_100_steps / 100),
+            1,
         )
 
         self.goal_marker_trans = None
