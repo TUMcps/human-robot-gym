@@ -122,12 +122,12 @@ class CustomWandbCallback(WandbCallback):
                     if key in self.locals["infos"][i]:
                         self._info_buffer[key].append(self.locals["infos"][i][key])
                 if self.log_interval[1] == "episode" and (self.episode_counter + 1) % self.log_interval[0] == 0:
-                    self._log_info()
+                    self.log_info()
         if self.log_interval[1] == "step" and (
             n_logged_infos := self.num_timesteps // self.log_interval[0]
         ) > self._n_logged_infos:
             self._n_logged_infos = n_logged_infos
-            self._log_info()
+            self.log_info()
 
         # Store models every `self.save_freq` timesteps
         # With parallel envs, `self.num_timesteps` is incremented by `n_envs` at each step

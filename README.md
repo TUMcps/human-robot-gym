@@ -78,12 +78,16 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/nvidia
 
 # Test a demo
 ```
-python human_robot_gym/demos/demo_gym_functionality_Schunk.py
+python human_robot_gym/demos/demo_reach_human_environment.py
 ```
 
 # Run a RL training
 ```
-python human_robot_gym/training/train_human_reach_SAC_HER.py
+python human_robot_gym/training/train_SB3.py -cn human_reach_ppo_parallel
+```
+You can activate weights and biases with
+```
+python human_robot_gym/training/train_SB3.py -cn human_reach_ppo_parallel run.type=wandb
 ```
 
 # Known issues

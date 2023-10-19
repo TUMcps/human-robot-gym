@@ -1,5 +1,5 @@
 project: safe_human_robot_rl
 entity: null
-group: null
-name: null
+group: hrgym
+name: hrgym_${run.seed}
 tags: null

@@ -23,7 +23,8 @@ from omegaconf import OmegaConf
 import robosuite  # noqa: F401
 
 from human_robot_gym.utils.config_utils import TrainingConfig
-from human_robot_gym.utils.training_utils import train_and_evaluate
+from human_robot_gym.utils.training_utils_SB3 import train_and_evaluate
+import human_robot_gym.robots  # noqa: F401
 
 
 @hydra.main(version_base=None, config_path="config", config_name=None)
