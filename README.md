@@ -85,6 +85,10 @@ python human_robot_gym/demos/demo_reach_human_environment.py
 ```
 python human_robot_gym/training/train_SB3.py -cn human_reach_ppo_parallel
 ```
+You can activate weights and biases with
+```
+python human_robot_gym/training/train_SB3.py -cn human_reach_ppo_parallel run.type=wandb
+```
 
 # Known issues
 ### `GLIBCXX_3.4.29' not found
