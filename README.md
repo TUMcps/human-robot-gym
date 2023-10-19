@@ -79,12 +79,12 @@ export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so
 
 # Test a demo
 ```
-python human_robot_gym/demos/demo_gym_functionality_Schunk.py
+python human_robot_gym/demos/demo_reach_human_environment.py
 ```
 
 # Run a RL training
 ```
-python human_robot_gym/training/train_human_reach_SAC_HER.py
+python human_robot_gym/training/train_SB3.py
 ```
 
 # Known issues
