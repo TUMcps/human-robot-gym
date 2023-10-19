@@ -674,7 +674,6 @@ class CollaborativeLiftingCartStateBasedExpertImitationRewardWrapper(
         env: Env,
         dataset_name: str,
         alpha: float = 0,
-        beta: float = 0,
         iota: float = 0.1,
         sim_fn: str = "gaussian",
         observe_time: bool = True,
