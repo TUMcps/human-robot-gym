@@ -43,8 +43,9 @@ from human_robot_gym.wrappers.action_based_expert_imitation_reward_wrapper impor
     JointActionBasedExpertImitationRewardWrapper,
 )
 from human_robot_gym.wrappers.state_based_expert_imitation_reward_wrapper import (
-    ReachHumanCartStateBasedExpertImitationRewardWrapper,
+    ReachHumanStateBasedExpertImitationRewardWrapper,
     PickPlaceHumanCartStateBasedExpertImitationRewardWrapper,
+    CollaborativeLiftingCartStateBasedExpertImitationRewardWrapper,
 )
 from human_robot_gym.wrappers.HER_buffer_add_monkey_patch import custom_add, _custom_sample_transitions
 from human_robot_gym.callbacks.custom_wandb_callback import CustomWandbCallback
@@ -280,13 +281,18 @@ def state_based_expert_imitation_reward_wrap_fn(
     """
     assert hasattr(config, "expert") and config.expert is not None, "No expert specified in config!"
 
-    if config.expert.id == "ReachHumanCart":
-        return ReachHumanCartStateBasedExpertImitationRewardWrapper(
+    if config.expert.id in ["ReachHuman", "ReachHumanCart"]:
+        return ReachHumanStateBasedExpertImitationRewardWrapper(
             env=env,
             **config.wrappers.state_based_expert_imitation_reward,
         )
     elif config.expert.id == "PickPlaceHumanCart":
         return PickPlaceHumanCartStateBasedExpertImitationRewardWrapper(
+            env=env,
+            **config.wrappers.state_based_expert_imitation_reward,
+        )
+    elif config.expert.id == "CollaborativeLiftingCart":
+        return CollaborativeLiftingCartStateBasedExpertImitationRewardWrapper(
             env=env,
             **config.wrappers.state_based_expert_imitation_reward,
         )
