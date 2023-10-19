@@ -411,12 +411,22 @@ def evaluate_to_stats_df(
 
     dfs = [combine_to_stats_df(config=config, csv_paths=paths) for paths in csv_paths]
     if len(dfs) > 1:  # Multiple load steps
-        df = pd.concat(dfs)
-        df["step"] = load_steps
+        df = pd.concat(
+            [
+                pd.DataFrame({"step": load_steps}),
+                pd.concat(dfs, ignore_index=True),
+            ],
+            axis=1,
+        )
         return df
     else:
-        df = dfs[0]
-        df["step"] = [load_steps[0]]
+        df = pd.concat(
+            [
+                pd.DataFrame({"step": [load_steps[0]]}),
+                dfs[0],
+            ],
+            axis=1,
+        )
         return df
 
 
@@ -459,7 +469,7 @@ def evaluate_to_csv(config: TrainingConfig, max_parallel_runs: Optional[int] = N
     assert hasattr(config, "group_name") and config.group_name is not None
     df = evaluate_to_stats_df(config=config, max_parallel_runs=max_parallel_runs)
 
-    stats_csv_folder = os.path.join("csv", "evaluation", config.group_name, "stats")
+    stats_csv_folder = os.path.join("csv", "evaluation", config.group_name)
     if os.path.exists(stats_csv_folder):
         print(f"Stats csv folder {stats_csv_folder} already exists! Overwriting...")
         shutil.rmtree(stats_csv_folder)
