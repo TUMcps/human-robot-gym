@@ -285,6 +285,9 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
 
         self_collision_safety (float): Safe distance for self collision detection
 
+        collision_debounce_delay (float): Time in seconds after a human collision before new collisions may be detected.
+            This is done to ensure no critical collisions are detected erraneously.
+
         seed (int): Random seed for `np.random`
 
         verbose (bool): If `True`, print out debug information
@@ -359,6 +362,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         n_animations_sampled_per_100_steps: int = 2,
         safe_vel: float = 0.001,
         self_collision_safety: float = 0.01,
+        collision_debounce_delay: float = 0.01,
         seed: int = 0,
         verbose: bool = False,
         done_at_collision: bool = False,
@@ -427,6 +431,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             n_animations_sampled_per_100_steps=n_animations_sampled_per_100_steps,
             safe_vel=safe_vel,
             self_collision_safety=self_collision_safety,
+            collision_debounce_delay=collision_debounce_delay,
             seed=seed,
             verbose=verbose,
             done_at_collision=done_at_collision,
@@ -545,7 +550,6 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         animation_time = super()._compute_animation_time(control_time)
         classic_animation_time = animation_time
 
-        animation_length = self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
         keyframes = self.human_animation_data[self.human_animation_id][1]["keyframes"]
 
         # Progress to present phase automatically depending on the animation
@@ -588,9 +592,9 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             animation_time -= self._n_delayed_timesteps[1]
 
         # Once the animation is complete, freeze the animation time at the last frame
-        if animation_time >= animation_length - 1:
+        if animation_time >= self.human_animation_length - 1:
             self.task_phase = HumanRobotHandoverPhase.COMPLETE
-            animation_time = animation_length - 1
+            animation_time = self.human_animation_length - 1
 
         return animation_time
 

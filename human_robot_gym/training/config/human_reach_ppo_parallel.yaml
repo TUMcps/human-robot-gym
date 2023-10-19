@@ -10,7 +10,7 @@ defaults:
 #  - eval  # uncomment to evaluate with renderer instead of training
 
 run:
-  type: wandb
+  type: tensorboard
   obs_keys:
     - object-state
     - goal_difference
