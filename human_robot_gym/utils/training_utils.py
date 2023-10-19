@@ -85,7 +85,7 @@ def _compose_environment_kwargs(config: TrainingConfig, evaluation_mode: bool) -
     return kwargs
 
 
-def create_wrapped_env_from_config(config: TrainingConfig) -> gym.Env:
+def create_wrapped_env_from_config(config: TrainingConfig, evaluation_mode: bool = False) -> gym.Env:
     """Create a non-vectorized wrapped gym environment from a config.
 
     Args:

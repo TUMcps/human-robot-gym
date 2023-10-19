@@ -83,7 +83,7 @@ python human_robot_gym/demos/demo_reach_human_environment.py
 
 # Run a RL training
 ```
-python human_robot_gym/training/train_SB3.py
+python human_robot_gym/training/train_SB3.py -cn human_reach_ppo_parallel
 ```
 
 # Known issues
