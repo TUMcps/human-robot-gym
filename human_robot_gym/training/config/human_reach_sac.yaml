@@ -1,0 +1,18 @@
+defaults:
+  - robot: schunk
+  - environment: reach_human
+  - wrappers: safe
+  - run: parallel_training
+  - algorithm: sac
+  - wandb_run: default_wandb
+  - _self_
+  - consistent_seeding
+#  - eval  # uncomment to evaluate with renderer instead of training
+
+run:
+  type: tensorboard
+  obs_keys:
+    - object-state
+    - goal_difference
+environment:
+  reward_shaping: true

@@ -5,7 +5,9 @@ test_only: false
 load_step: null
 id: null
 type: debug
-log_interval: 10
+log_interval:
+  - 1000
+  - step
 seed: 0
 eval_seed: null
 start_index: 0

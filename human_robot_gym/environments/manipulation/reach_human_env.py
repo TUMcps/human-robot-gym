@@ -223,6 +223,9 @@ class ReachHuman(HumanEnv):
 
         self_collision_safety (float): Safe distance for self collision detection
 
+        collision_debounce_delay (float): Time in seconds after a human collision before new collisions may be detected.
+            This is done to ensure no critical collisions are detected erraneously.
+
         seed (int): Random seed for `np.random`
 
         verbose (bool): If `True`, print out debug information
@@ -297,6 +300,7 @@ class ReachHuman(HumanEnv):
         safe_vel: float = 0.001,
         randomize_initial_pos=False,
         self_collision_safety: float = 0.01,
+        collision_debounce_delay: float = 0.01,
         seed: int = 0,
         verbose: bool = False,
         done_at_collision: bool = False,
@@ -365,6 +369,7 @@ class ReachHuman(HumanEnv):
             n_animations_sampled_per_100_steps=n_animations_sampled_per_100_steps,
             safe_vel=safe_vel,
             self_collision_safety=self_collision_safety,
+            collision_debounce_delay=collision_debounce_delay,
             seed=seed,
             verbose=verbose,
         )
