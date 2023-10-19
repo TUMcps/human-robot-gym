@@ -7,7 +7,7 @@ Changelog:
     16.07.23 MW moved all SB3 specific code from human_robot_gym/utils/training_utils.py to
     human_robot_gym/utils/training_utils_SB3.py
 """
-from typing import Any, Dict, Optional, Union, Optional
+from typing import Any, Dict, Optional, Union
 from copy import deepcopy
 import os
 
@@ -76,6 +76,7 @@ def create_training_vec_env(config: TrainingConfig, evaluation_mode: bool = Fals
 
     return env
 
+
 def _get_tb_log_path(
     config: TrainingConfig,
     save_logs: bool,
@@ -106,6 +107,7 @@ def _get_tb_log_path(
             return f"runs/{run_id}"
     else:
         return None
+
 
 def _compose_algorithm_kwargs(
     config: TrainingConfig,
