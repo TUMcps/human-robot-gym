@@ -1,0 +1,39 @@
+defaults:
+  - human_env
+  - _self_
+
+env_id: CollaborativeStackingCart
+table_full_size:
+  - 1.2
+  - 2.0
+  - 0.05
+table_friction:
+  - 1.0
+  - 5e-3
+  - 1e-4
+object_full_size:
+  - 0.045
+  - 0.045
+  - 0.045
+reward_scale: 1.0
+reward_shaping: false
+collision_reward: -10
+stack_toppled_reward: -10
+task_reward: 1
+second_cube_at_target_reward: -1
+fourth_cube_at_target_reward: -1
+object_gripped_reward: 0
+goal_dist: 0.025
+obstacle_placement_initializer: null
+human_animation_names: 
+  - CollaborativeStacking/0
+  - CollaborativeStacking/1
+  - CollaborativeStacking/2
+  - CollaborativeStacking/3
+  - CollaborativeStacking/4
+  - CollaborativeStacking/5
+  - CollaborativeStacking/6
+  - CollaborativeStacking/7
+done_at_collision: false
+done_at_success: false
+shield_type: SSM

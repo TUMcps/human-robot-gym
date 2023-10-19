@@ -156,17 +156,18 @@ class DatasetRSIWrapper(DatasetWrapper):
             return 0
 
 
-class DatasetObsNormWrapper(DatasetWrapper):
+class DatasetObsNormWrapper(gym.Wrapper):
     r"""Wrapper for normalizing observations based on dataset statistics.
 
     Obtains mean and std of per observation value from the dataset and normalizes observations accordingly.
+    The statistics might be provided in form of a dataset or as numpy arrays for mean and std.
+
     Additionally supports squashing observations to [-1, 1] by applying tanh with a given factor.
     This induces a fish-eye effect when using cartesian vector observations:
     It exaggerates value differences close to the mean and compresses value differences far away from it.
     Using squashing on distance metrics might not have the desired effect as short and long distances are
     compressed alike.
 
-    The used dataset is removed from memory after obtaining the statistics to save memory.
 
     Formula:
         normed_obs = (obs - \mu) / \sigma
@@ -175,7 +176,10 @@ class DatasetObsNormWrapper(DatasetWrapper):
 
     Args:
         env (gym.Env): The environment to wrap
-        dataset_name (str): The name of the dataset to use
+        mean (Optional[np.ndarray]): The mean to use for normalization.
+        std (Optional[np.ndarray]): The std to use for normalization.
+        dataset_name (Optional[str]): If `mean` or `std` are not provided,
+            the missing values can be loaded from a dataset.
         squash_factor (Optional[float]): The factor to use for squashing observations.
         allow_different_observation_shapes (bool): Whether to allow the dataset observations to have a different shape
             than the environment observations. Defaults to False.
@@ -188,16 +192,29 @@ class DatasetObsNormWrapper(DatasetWrapper):
     def __init__(
         self,
         env: gym.Env,
-        dataset_name: str,
+        dataset_name: Optional[str] = None,
+        mean: Optional[np.ndarray] = None,
+        std: Optional[np.ndarray] = None,
         squash_factor: Optional[float] = None,
         allow_different_observation_shapes: bool = False,
     ):
-        super().__init__(env=env, dataset_name=dataset_name)
+        super().__init__(env=env)
 
-        observations = np.concatenate([dic["observations"] for _, dic in self.dataset], axis=0)
-        self._obs_mean = np.mean(observations, axis=0)
-        self._obs_std = np.std(observations, axis=0)
+        self._obs_mean = mean
+        self._obs_std = std
 
+        # Fill up missing values from dataset -> only load dataset if necessary
+        if self._obs_mean is None or self._obs_std is None:
+            assert dataset_name is not None, "Dataset name must be provided if mean or std are not provided!"
+
+            dataset = DatasetWrapper.load_dataset(dataset_name=dataset_name)
+            observations = np.concatenate([dic["observations"] for _, dic in dataset], axis=0)
+            if self._obs_mean is None:
+                self._obs_mean = np.mean(observations, axis=0)
+            if self._obs_std is None:
+                self._obs_std = np.std(observations, axis=0)
+
+        # Handle different observation shapes (e.g. when using SIR with a time observation)
         if self._obs_mean.shape != self.observation_space.shape:
             assert allow_different_observation_shapes, "Environment and dataset observation space do not match!"
             assert len(self._obs_mean.shape) == len(self.observation_space.shape) == 1, \
@@ -213,10 +230,6 @@ class DatasetObsNormWrapper(DatasetWrapper):
             else:
                 self._obs_mean = self._obs_mean[: self.observation_space.shape[0]]
                 self._obs_std = self._obs_std[: self.observation_space.shape[0]]
-
-        # Remove dataset from memory to save memory
-        del self.dataset
-        del observations
 
         self._squash_factor = squash_factor
 

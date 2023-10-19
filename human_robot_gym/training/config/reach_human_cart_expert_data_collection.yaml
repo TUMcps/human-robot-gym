@@ -16,6 +16,7 @@ run:
     - goal_difference
 expert:
   signal_to_noise_ratio: 0.98
+  seed: ${run.seed}
 
 dataset_name: reach-cart-dataset
 start_episode_index: 0

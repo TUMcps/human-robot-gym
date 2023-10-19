@@ -200,6 +200,9 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
 
         self_collision_safety (float): Safe distance for self collision detection
 
+        collision_debounce_delay (float): Time in seconds after a human collision before new collisions may be detected.
+            This is done to ensure no critical collisions are detected erraneously.
+
         seed (int): Random seed for `np.random`
 
         verbose (bool): If `True`, print out debug information
@@ -265,6 +268,7 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
         n_animations_sampled_per_100_steps: int = 5,
         safe_vel: float = 0.001,
         self_collision_safety: float = 0.01,
+        collision_debounce_delay: float = 0.01,
         seed: int = 0,
         verbose: bool = False,
         done_at_collision: bool = False,
@@ -321,6 +325,7 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
             n_animations_sampled_per_100_steps=n_animations_sampled_per_100_steps,
             safe_vel=safe_vel,
             self_collision_safety=self_collision_safety,
+            collision_debounce_delay=collision_debounce_delay,
             seed=seed,
             verbose=verbose,
             done_at_collision=done_at_collision,
@@ -329,7 +334,30 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
 
     @property
     def target_pos(self) -> np.ndarray:
-        return self._get_current_target_pos()
+        """Evaluate the current position of the target.
+
+        Returns a position on the table where the human is pointing at. The position is evaluated by
+        extrapolating the vector from the human's elbow to the human's hand to the table.
+
+        Returns:
+            np.ndarray: The current target position.
+        """
+
+        if self.human_animation_data[self.human_animation_id][1]["pointing_hand"] == "right":
+            pf = "Human_R"
+        elif self.human_animation_data[self.human_animation_id][1]["pointing_hand"] == "left":
+            pf = "Human_L"
+
+        hand_pos = self.sim.data.get_site_xpos(pf + "_Hand")
+        dir = hand_pos - self.sim.data.get_site_xpos(pf + "_Elbow")
+
+        if dir[2] == 0:
+            dir[2] += 1e-6
+
+        scaling = (hand_pos[2] - self.table_offset[2]) / dir[2]
+        target_pos = hand_pos - scaling * dir
+
+        return target_pos
 
     def _setup_arena(self):
         """Setup the mujoco arena.
@@ -377,32 +405,6 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
             objects=self.obstacles,
         )
 
-    def _get_current_target_pos(self) -> np.ndarray:
-        """Evaluate the current position of the target.
-
-        Returns a position on the table where the human is pointing at. The position is evaluated by
-        extrapolating the vector from the human's elbow to the human's hand to the table.
-
-        Returns:
-            np.ndarray: The current target position.
-        """
-
-        if self.human_animation_data[self.human_animation_id][1]["pointing_hand"] == "right":
-            pf = "Human_R"
-        elif self.human_animation_data[self.human_animation_id][1]["pointing_hand"] == "left":
-            pf = "Human_L"
-
-        hand_pos = self.sim.data.get_site_xpos(pf + "_Hand")
-        dir = hand_pos - self.sim.data.get_site_xpos(pf + "_Elbow")
-
-        if dir[2] == 0:
-            dir[2] += 1e-6
-
-        scaling = (hand_pos[2] - self.table_offset[2]) / dir[2]
-        target_pos = hand_pos - scaling * dir
-
-        return target_pos
-
     def _sample_target_pos(self) -> np.ndarray:
         """Override the parent function to return the current target position.
 
@@ -412,7 +414,7 @@ class PickPlacePointingHumanCart(PickPlaceHumanCart):
         Returns:
             np.ndarray: The current target position.
         """
-        return self._get_current_target_pos()
+        return self.target_pos
 
     def _get_default_object_bin_boundaries(self) -> Tuple[float, float, float, float]:
         """Get the x and y boundaries of the object sampling space.

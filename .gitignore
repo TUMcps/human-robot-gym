@@ -13,5 +13,7 @@ MUJOCO_LOG.TXT
 .gittoken
 docs/source/autoapi/
 outputs/
+multirun/
 /datasets/
 *.out
+videos/

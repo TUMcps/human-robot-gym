@@ -29,3 +29,4 @@ monitor_dir: null
 vec_env_kwargs: null
 monitor_kwargs: null
 verbose: true
+resetting_interval: null

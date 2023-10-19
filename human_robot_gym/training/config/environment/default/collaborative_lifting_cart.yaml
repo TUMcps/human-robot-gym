@@ -1,0 +1,37 @@
+defaults:
+  - human_env
+  - _self_
+
+env_id: CollaborativeLiftingCart
+table_full_size:
+  - 0.4
+  - 1.5
+  - 0.05
+table_friction:
+  - 1.0
+  - 5e-3
+  - 1e-4
+board_full_size:
+  - 1.0
+  - 0.5
+  - 0.03
+board_released_reward: -10
+collision_reward: -10
+imbalance_failure_reward: -10
+min_balance: 0.8
+obstacle_placement_initializer: null
+horizon: 1000
+human_animation_names: 
+  - CollaborativeLifting/2
+  - CollaborativeLifting/3
+  - CollaborativeLifting/4
+  - CollaborativeLifting/5
+  - CollaborativeLifting/6
+  - CollaborativeLifting/7
+  - CollaborativeLifting/8
+  - CollaborativeLifting/9
+  - CollaborativeLifting/10
+done_at_collision: false
+done_at_success: false
+human_animation_freq: 100
+n_animations_sampled_per_100_steps: 3

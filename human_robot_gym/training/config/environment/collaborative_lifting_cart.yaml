@@ -1,0 +1,35 @@
+defaults:
+  - default/collaborative_lifting_cart@_here_
+  - _self_
+
+robot_base_offset:
+  - 0.0
+  - 0.0
+  - 0.0
+use_camera_obs: false
+use_object_obs: true
+collision_reward: 0
+has_offscreen_renderer: false
+render_camera: null
+horizon: 5000
+hard_reset: false
+done_at_collision: false
+done_at_success: true
+imbalance_failure_reward: -10
+reward_shaping: true
+n_animations_sampled_per_100_steps: 0.2
+human_animation_freq: 20
+human_animation_names: 
+  - CollaborativeLifting/2
+  - CollaborativeLifting/3
+  - CollaborativeLifting/4
+  - CollaborativeLifting/5
+  - CollaborativeLifting/6
+  # - CollaborativeLifting/7
+  # - CollaborativeLifting/8
+  - CollaborativeLifting/9
+  - CollaborativeLifting/10
+board_full_size:
+  - 1.0
+  - 0.4
+  - 0.03

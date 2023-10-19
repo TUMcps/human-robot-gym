@@ -75,3 +75,5 @@ run:
     - ep_g_im_rew_mean
     - ep_m_im_rew_mean
     - early_termination
+expert:
+  seed: ${run.seed}

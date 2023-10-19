@@ -132,6 +132,10 @@ if __name__ == "__main__":
         visualize_pinocchio=False,
         base_human_pos_offset=[0.0, 0.0, 0.0],
         verbose=True,
+        human_animation_names=[
+            "HumanRobotHandover/Handover_0"
+        ],
+        human_animation_freq=30
     )
 
     env = ExpertObsWrapper(
@@ -175,6 +179,7 @@ if __name__ == "__main__":
         observation_space=env.observation_space,
         action_space=env.action_space,
         signal_to_noise_ratio=0.98,
+        release_when_delivered=False,
     )
 
     use_kb_agent = False

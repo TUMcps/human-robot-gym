@@ -8,10 +8,28 @@ robot_base_offset:
   - 0.0
 use_camera_obs: false
 use_object_obs: true
-collision_reward: 0
 has_offscreen_renderer: false
 render_camera: null
-horizon: 500
+horizon: 1000
 hard_reset: false
 done_at_collision: false
-done_at_success: false
+done_at_success: true
+human_animation_names:
+  - RobotHumanHandover/0
+  - RobotHumanHandover/1
+  - RobotHumanHandover/2
+  - RobotHumanHandover/3
+  - RobotHumanHandover/4
+  - RobotHumanHandover/5
+  - RobotHumanHandover/6
+  - RobotHumanHandover/7
+  - RobotHumanHandover/8
+human_animation_freq: 90
+object_in_human_hand_reward: 0.0
+object_gripped_reward: -0.25
+collision_reward: -1.0
+human_rand:
+  - 0.0
+  - 0.2
+  - 0.1
+goal_dist: 0.06
