@@ -117,4 +117,9 @@ class LoggingCallback(BaseCallback):
                 "rollout/{}".format(key), safe_mean(self._info_buffer[key])
             )
             self._info_buffer[key] = []
-        self.model._dump_logs()
+        if hasattr(self.model, '_dump_logs'):
+            self.model._dump_logs()
+        elif hasattr(self.model, 'logger'):
+            self.model.logger.dump(step=self.num_timesteps)
+        else:
+            self.logger.dump(step=self.num_timesteps)
