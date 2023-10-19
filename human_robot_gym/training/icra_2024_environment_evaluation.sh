@@ -29,10 +29,10 @@ n_steps=${4}
 horizon=${5}
 n_envs=${6}  # Parallel environments for training
 log_interval=${7}
-n_test_episodes=20
-model_save_interval=50000  # Model saving interval
+n_test_episodes=2
+model_save_interval=500  # Model saving interval
 granularity=$((${log_interval}*3))  # Logged data is averaged over this many steps
-window_size=9  # Window size for the moving average
+window_size=3  # Window size for the moving average
 max_eval_threads=50  # Maximum number of parallel evaluation threads
 
 
@@ -41,7 +41,7 @@ project_name="${env_long}_environment_evaluation"
 training_data_csv_folder="csv/training/${project_name}"
 evaluation_data_csv_folder="csv/evaluation/${project_name}"
 
-delete_intermediate_data=true  # Whether to only keep the statistics and delete the raw csv data of the training and evaluation.
+delete_intermediate_data=false  # Whether to only keep the statistics and delete the raw csv data of the training and evaluation.
 
 print_green () {
     printf '%s%s%s\n' $(tput setaf 2) "$1" $(tput sgr0)
@@ -83,8 +83,9 @@ print_green "Generating dataset..."
 
 # Generate a dataset
 python human_robot_gym/training/create_expert_dataset.py -cp config_icra_2024/environment_evaluation/dataset_creation -cn ${env} dataset_name=${env_long} n_episodes=${n_dataset_episodes} environment.horizon=${horizon}
+
 # Store the expert statistics on the dataset
-mkdir -p "${training_data_csv_folder}/expert"
+mkdir -p ${training_data_csv_folder}
 cp "datasets/${env_long}/stats.csv" "${training_data_csv_folder}/expert.csv"
 
 print_green "Dataset created, proceeding with training..."
