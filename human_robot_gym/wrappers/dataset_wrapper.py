@@ -238,6 +238,9 @@ class DatasetObsNormWrapper(gym.Wrapper):
                 self._obs_mean = self._obs_mean[: self.observation_space.shape[0]]
                 self._obs_std = self._obs_std[: self.observation_space.shape[0]]
 
+        # Prevent division by zero errors
+        self._obs_std[self._obs_std == 0] = 1
+
         self._squash_factor = squash_factor
 
         # Without squashing, the observation space is not guaranteed to be bounded in [-1, 1]
