@@ -185,11 +185,7 @@ run:
   - dist_eef_to_human_head
   - dist_eef_to_human_lh
   - dist_eef_to_human_rh
-  expert_obs_keys:
-  - object_gripped
-  - vec_eef_to_object
-  - vec_eef_to_target
-  - robot0_gripper_qpos
+  expert_obs_keys: ${expert.obs_keys}
   log_info_keys:
   - n_goal_reached
   - max_stack_height

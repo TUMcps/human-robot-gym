@@ -160,8 +160,7 @@ run:
   env_type: env
   obs_keys:
   - goal_difference
-  expert_obs_keys:
-  - goal_difference
+  expert_obs_keys: ${expert.obs_keys}
   log_info_keys:
   - n_goal_reached
   - collision

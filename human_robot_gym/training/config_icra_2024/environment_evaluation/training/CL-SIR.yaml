@@ -98,11 +98,8 @@ wrappers:
     rsi_prob: 0.5
     use_et: false
     verbose: false
-    beta: 1.0
-    iota_m: 0.1
-    iota_g: 0.5
-    m_sim_fn: gaussian
-    g_sim_fn: gaussian
+    iota: 0.1
+    sim_fn: gaussian
     et_dist: 2
   dataset_obs_norm:
     dataset_name: ${run.dataset_name}
@@ -178,11 +175,7 @@ run:
   - dist_eef_to_human_head
   - vec_eef_to_human_lh
   - vec_eef_to_human_rh
-  expert_obs_keys:
-  - vec_eef_to_human_lh
-  - vec_eef_to_human_rh
-  - board_quat
-  - board_gripped
+  expert_obs_keys: ${expert.obs_keys}
   log_info_keys:
   - n_goal_reached
   - collision

@@ -152,6 +152,7 @@ expert:
   - vec_eef_to_human_lh
   - vec_eef_to_human_rh
   - board_quat
+  - board_gripped
 run:
   n_envs: 8
   n_steps: 3000001
@@ -173,10 +174,7 @@ run:
   - dist_eef_to_human_head
   - vec_eef_to_human_lh
   - vec_eef_to_human_rh
-  expert_obs_keys:
-  - vec_eef_to_human_lh
-  - vec_eef_to_human_rh
-  - board_quat
+  expert_obs_keys: ${expert.obs_keys}
   log_info_keys:
   - n_goal_reached
   - collision
