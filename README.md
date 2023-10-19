@@ -72,9 +72,8 @@ pip install -e .
 
 ### Add to your `~/.bashrc` 
 ```
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/thummj/.mujoco/mujoco210/bin
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/$USER/.mujoco/mujoco210/bin
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/nvidia
-export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so
 ```
 
 # Test a demo
@@ -100,6 +99,17 @@ sudo apt-get update
 sudo apt-get upgrade libstdc++6
 sudo apt-get dist-upgrade
 ```
+
+### libGLEW.so from LD_PRELOAD cannot be preloaded
+[The error](https://github.com/openai/mujoco-py/issues/44)
+```
+ERROR: ld.so: object '/usr/lib/x86_64-linux-gnu/libGLEW.so' from LD_PRELOAD cannot be preloaded (cannot open shared object file): ignored.
+```
+can be fixed by adding
+```
+export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so
+```
+to your bashrc.
 
 # Developer's guide
 To check your code for linting style:
