@@ -3,7 +3,7 @@ defaults:
   - environment: reach_human
   - wrappers: safe
   - run: parallel_training
-  - algorithm: ppo
+  - algorithm: sac
   - wandb_run: default_wandb
   - _self_
   - consistent_seeding

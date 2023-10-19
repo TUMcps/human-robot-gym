@@ -23,6 +23,7 @@ from stable_baselines3.common.vec_env import (
 from wandb.integration.sb3 import WandbCallback
 
 from typing import Any, Dict, List, Tuple, Union
+import time
 
 
 class CustomWandbCallback(WandbCallback):
@@ -146,13 +147,33 @@ class CustomWandbCallback(WandbCallback):
 
         return True
 
-    def _log_info(self):
+    def log_info(self):
+        """Record metrics to tensorboard."""
         for key in self._info_buffer:
             self.logger.record(
                 "rollout/{}".format(key), safe_mean(self._info_buffer[key])
             )
             self._info_buffer[key] = []
-        self.model._dump_logs()
+        if hasattr(self.model, '_dump_logs'):
+            self.model._dump_logs()
+        elif hasattr(self.model, 'logger'):
+            self.logging_on_policy()
+        else:
+            self.logger.dump(step=self.num_timesteps)
+
+    def logging_on_policy(self):
+        """Log default environment statistics for on-policy algorithms."""
+        fps = int((self.model.num_timesteps -
+                   self.model._num_timesteps_at_start) / (time.time() - self.model.start_time))
+        if len(self.model.ep_info_buffer) > 0 and len(self.model.ep_info_buffer[0]) > 0:
+            self.model.logger.record("rollout/ep_rew_mean",
+                                     safe_mean([ep_info["r"] for ep_info in self.model.ep_info_buffer]))
+            self.model.logger.record("rollout/ep_len_mean",
+                                     safe_mean([ep_info["l"] for ep_info in self.model.ep_info_buffer]))
+        self.model.logger.record("time/fps", fps)
+        self.model.logger.record("time/time_elapsed", int(time.time() - self.model.start_time), exclude="tensorboard")
+        self.model.logger.record("time/total_timesteps", self.model.num_timesteps, exclude="tensorboard")
+        self.model.logger.dump(step=self.num_timesteps)
 
     def _log_success_callback(
         self, locals_: Dict[str, Any], globals_: Dict[str, Any]
