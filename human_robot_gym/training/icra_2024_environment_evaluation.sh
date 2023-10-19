@@ -120,9 +120,8 @@ if $delete_intermediate_data
 then
     for method in AIR SIR RSI SAC
     do
-        rm -r ${training_data_csv_folder}/${method}/raw ${training_data_csv_folder}/${method}/rastered
         mv ${training_data_csv_folder}/${method}/stats/stats.csv ${training_data_csv_folder}/${method}.csv
-        rm -r ${training_data_csv_folder}/${method}/stats
+        rm -r ${training_data_csv_folder}/${method}
     done
 fi
 
