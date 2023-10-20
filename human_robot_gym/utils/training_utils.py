@@ -42,6 +42,8 @@ from human_robot_gym.wrappers.state_based_expert_imitation_reward_wrapper import
 from human_robot_gym.wrappers.dataset_collection_wrapper import DatasetCollectionWrapper
 from human_robot_gym.wrappers.dataset_wrapper import DatasetObsNormWrapper, DatasetRSIWrapper
 
+import human_robot_gym.robots  # noqa: F401
+
 
 def get_controller_configs(config: TrainingConfig) -> List[Dict[str, Any]]:
     """Obtain the controller config for the robot from the paths specified in the config.
