@@ -143,7 +143,7 @@ evaluate () {
         echo ${project_name}/${group}/run_${run_index}
     }
     local evaluation_run_ids="[$(assemble_evaluation_run_id 0),$(assemble_evaluation_run_id 1),$(assemble_evaluation_run_id 2),$(assemble_evaluation_run_id 3),$(assemble_evaluation_run_id 4)]"
-    python human_robot_gym/training/evaluate_models_to_csv.py -cp config_icra_2024/environment_evaluation/evaluation -cn ${env} "run.id=${evaluation_run_ids}" group_name=${project_name}/${group} wrappers.dataset_obs_norm.dataset_name=${env_long} run.load_step=all run.n_test_episodes=${n_test_episodes} max_parallel_runs=${max_eval_threads} run.n_steps=${n_steps} run.save_freq=${model_save_interval} environment.horizon=${horizon}
+    python human_robot_gym/training/evaluate_models_to_csv_SB3.py -cp config_icra_2024/environment_evaluation/evaluation -cn ${env} "run.id=${evaluation_run_ids}" group_name=${project_name}/${group} wrappers.dataset_obs_norm.dataset_name=${env_long} run.load_step=all run.n_test_episodes=${n_test_episodes} max_parallel_runs=${max_eval_threads} run.n_steps=${n_steps} run.save_freq=${model_save_interval} environment.horizon=${horizon}
 }
 
 # Evaluate the expert policy on the test episodes and store statistics into a .csv file
