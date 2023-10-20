@@ -7,7 +7,7 @@
 #   - csv/training/<env_long> for the training data
 #   - csv/evaluation/<env_long> for the evaluation data
 # The script can be run with the following command:
-# ./environment_evaluation.sh <env> <env_long> <n_dataset_episodes> <n_training_steps> <horizon> <n_envs> <log_interval>
+# ./environment_evaluation.sh <env> <env_long> <n_dataset_episodes> <n_training_steps> <horizon> <n_envs> <log_interval> <run_type>
 # where:
 # <env> is the acronym of the environment:
 #   R for HumanReach
@@ -22,6 +22,11 @@
 # <horizon> is the maximum episode length
 # <n_envs> is the number of parallel environments
 # <log_interval> is the stride between tensorboard log entries
+# <run_type> defines whether training logging should be either done
+#   - in wandb (run_type='wandb'),
+#   - in tensorboard only (run_type='tensorboard'), or
+#   - not at all (run_type='debug')
+#   Default: 'tensorboard'
 env=$1
 env_long=$2
 n_dataset_episodes=${3}
@@ -29,25 +34,37 @@ n_steps=${4}
 horizon=${5}
 n_envs=${6}  # Parallel environments for training
 log_interval=${7}
-n_test_episodes=2
-model_save_interval=500  # Model saving interval
+run_type=${8:-"tensorboard"}
+n_test_episodes=20
+model_save_interval=50000  # Model saving interval
 granularity=$((${log_interval}*3))  # Logged data is averaged over this many steps
-window_size=3  # Window size for the moving average
+window_size=9  # Window size for the moving average
 max_eval_threads=50  # Maximum number of parallel evaluation threads
-
 
 project_name="${env_long}_environment_evaluation"
 
 training_data_csv_folder="csv/training/${project_name}"
 evaluation_data_csv_folder="csv/evaluation/${project_name}"
 
-delete_intermediate_data=false  # Whether to only keep the statistics and delete the raw csv data of the training and evaluation.
+delete_intermediate_data=true  # Whether to only keep the statistics and delete the raw csv data of the training and evaluation.
 
+
+# =============================================================================
+# ======================== Function Definitions ===============================
+# =============================================================================
+
+# Print a line in green color to the console
+# Usage:
+#   print_green <msg>
+# Args:
+#   <msg>: string to print
 print_green () {
     printf '%s%s%s\n' $(tput setaf 2) "$1" $(tput sgr0)
 }
 
 # Cleanup any existing data to avoid issues
+# Usage:
+#   cleanup_existing_data
 cleanup_existing_data () {
     if [ -d "datasets/${env_long}" ]; then
         echo "Overwriting existing dataset"
@@ -75,42 +92,116 @@ cleanup_existing_data () {
     fi
 }
 
-# Comment if you do not want to override any data
-cleanup_existing_data
+# Generate a expert dataset
+# Usage:
+#   generate_dataset
+generate_dataset () {
+    python human_robot_gym/training/create_expert_dataset.py -cp config_icra_2024/environment_evaluation/dataset_creation -cn ${env} dataset_name=${env_long} n_episodes=${n_dataset_episodes} environment.horizon=${horizon}
+}
 
-
-print_green "Generating dataset..."
-
-# Generate a dataset
-python human_robot_gym/training/create_expert_dataset.py -cp config_icra_2024/environment_evaluation/dataset_creation -cn ${env} dataset_name=${env_long} n_episodes=${n_dataset_episodes} environment.horizon=${horizon}
-
-# Store the expert statistics on the dataset
-mkdir -p ${training_data_csv_folder}
-cp "datasets/${env_long}/stats.csv" "${training_data_csv_folder}/expert.csv"
-
-print_green "Dataset created, proceeding with training..."
-
+# Execute a training run
+# Usage:
+#   train <method> (<group>)
+# Args:
+#   <method>: name of the method, either
+#       - AIR for action-based expert imitation reward
+#       - SIR for state-based expert imitation reward
+#       - RSI for reference state initialization
+#       - SAC for vanilla soft actor-critic
+#   <group>: name of the run group, name of the subfolders in which the runs and models are stored, run group for wandb. Defaults to <method>.
 train () {
     local method=$1
     local group=${2:-${method}}
-    python human_robot_gym/training/train_SB3.py --multirun -cp config_icra_2024/environment_evaluation/training -cn ${env}-${method} hydra/launcher=ray run.type=tensorboard run.n_steps=${n_steps} wandb_run.project=${project_name} wandb_run.group=${group} "run.seed=0,1,2,3,4" run.n_envs=${n_envs} run.dataset_name=${env_long} "run.log_interval=[${log_interval},'step']" run.save_freq=${model_save_interval} environment.horizon=${horizon}
+    python human_robot_gym/training/train_SB3.py --multirun -cp config_icra_2024/environment_evaluation/training -cn ${env}-${method} hydra/launcher=ray run.type=tensorboard run.n_steps=${n_steps} wandb_run.project=${project_name} wandb_run.group=${group} "run.seed=0,1,2,3,4" run.n_envs=${n_envs} run.dataset_name=${env_long} "run.log_interval=[${log_interval},'step']" run.save_freq=${model_save_interval} environment.horizon=${horizon} run.type=${run_type}
 }
 
-# Train the models
-train AIR  # Soft actor-critic with reference state initialization and action-based expert imitation reward
-train SIR  # Soft actor-critic with reference state initialization and state-based expert imitation reward
-train RSI  # Soft actor-critic with reference state initialization
-train SAC  # Soft-actor critic
-
-print_green "Training done, obtaining data statistics..."
-
+# Pipeline for extracting data logged during training from tensorboard log files and store statistics into .csv files
+# Usage:
+#   training_data_pipeline <method> (<group>)
+# Args:
+#   <method>: name of the method, either
+#       - AIR for action-based expert imitation reward
+#       - SIR for state-based expert imitation reward
+#       - RSI for reference state initialization
+#       - SAC for vanilla soft actor-critic
+#   <group>: name of the run group, name of the subfolders in which the runs and csv files are stored, run group for wandb. Defaults to <method>.
 training_data_pipeline () {
     local method=$1
     local group=${2:-${method}}
     python human_robot_gym/utils/data_pipeline.py run_0 run_1 run_2 run_3 run_4 -i runs/${project_name}/${group} -o csv/training/${project_name}/${group} -n ${n_steps} -g ${granularity} -w ${window_size} -y
 }
 
-# Obtain the training statistics
+# Evaluate models from snapshots during training and store statistics into .csv files
+# Usage:
+#   evaluate <group>
+# Args:
+#   <group>: name of the run group, name of the subfolders in which the models and csv files are stored.
+evaluate () {
+    local group=$1
+    assemble_evaluation_run_id () {
+        local run_index=$1
+        echo ${project_name}/${group}/run_${run_index}
+    }
+    local evaluation_run_ids="[$(assemble_evaluation_run_id 0),$(assemble_evaluation_run_id 1),$(assemble_evaluation_run_id 2),$(assemble_evaluation_run_id 3),$(assemble_evaluation_run_id 4)]"
+    python human_robot_gym/training/evaluate_models_to_csv.py -cp config_icra_2024/environment_evaluation/evaluation -cn ${env} "run.id=${evaluation_run_ids}" group_name=${project_name}/${group} wrappers.dataset_obs_norm.dataset_name=${env_long} run.load_step=all run.n_test_episodes=${n_test_episodes} max_parallel_runs=${max_eval_threads} run.n_steps=${n_steps} run.save_freq=${model_save_interval} environment.horizon=${horizon}
+}
+
+# Evaluate the expert policy on the test episodes and store statistics into a .csv file
+# Usage:
+#   evaluate_expert
+evaluate_expert () {
+    python human_robot_gym/training/evaluate_models_to_csv.py -cp config_icra_2024/environment_evaluation/evaluation -cn ${env} "run.id=null" group_name=${project_name}/expert wrappers.dataset_obs_norm.dataset_name=${env_long} run.load_step=final run.n_test_episodes=${n_test_episodes} environment.horizon=${horizon} 
+}
+
+
+# =============================================================================
+# ======================== Cleanup of Existing Data ===========================
+# =============================================================================
+
+# Comment if you do not want to override any data
+cleanup_existing_data
+
+
+# =============================================================================
+# ======================== Generate an Expert Dataset =========================
+# =============================================================================
+
+print_green "Generating dataset..."
+generate_dataset
+
+# Store the expert statistics into the training data csv folder
+if [ ${run_type} != debug]
+then
+    mkdir -p ${training_data_csv_folder}
+    cp "datasets/${env_long}/stats.csv" "${training_data_csv_folder}/expert.csv"
+fi
+
+
+# =============================================================================
+# ======================== Run Training =======================================
+# =============================================================================
+
+print_green "Dataset created, proceeding with training..."
+
+train AIR  # Soft actor-critic with reference state initialization and action-based expert imitation reward
+train SIR  # Soft actor-critic with reference state initialization and state-based expert imitation reward
+train RSI  # Soft actor-critic with reference state initialization
+train SAC  # Soft-actor critic
+
+if [ ${run_type} == debug ]
+then
+    print_green "Debug training done."
+    # Terminate early, no log data or models to evaluate stored
+    exit 0
+fi
+
+
+# =============================================================================
+# ======================== Obtain Training Statistics =========================
+# =============================================================================
+
+print_green "Training done, obtaining data statistics..."
+
 training_data_pipeline AIR
 training_data_pipeline SIR
 training_data_pipeline RSI
@@ -126,29 +217,19 @@ then
     done
 fi
 
+
+# =============================================================================
+# ======================== Evaluate Model Snapshots ===========================
+# =============================================================================
+
 print_green "Data statistics obtained, proceeding with evaluation..."
 
-evaluate () {
-    local group=$1
-    assemble_evaluation_run_id () {
-        local run_index=$1
-        echo ${project_name}/${group}/run_${run_index}
-    }
-    local evaluation_run_ids="[$(assemble_evaluation_run_id 0),$(assemble_evaluation_run_id 1),$(assemble_evaluation_run_id 2),$(assemble_evaluation_run_id 3),$(assemble_evaluation_run_id 4)]"
-    python human_robot_gym/training/evaluate_models_to_csv.py -cp config_icra_2024/environment_evaluation/evaluation -cn ${env} "run.id=${evaluation_run_ids}" group_name=${project_name}/${group} wrappers.dataset_obs_norm.dataset_name=${env_long} run.load_step=all run.n_test_episodes=${n_test_episodes} max_parallel_runs=${max_eval_threads} run.n_steps=${n_steps} run.save_freq=${model_save_interval} environment.horizon=${horizon}
-}
-
-# Evaluate the models
 evaluate AIR
 evaluate SIR
 evaluate RSI
 evaluate SAC
 
-
-# Evaluate the expert
-python human_robot_gym/training/evaluate_models_to_csv.py -cp config_icra_2024/environment_evaluation/evaluation -cn ${env} "run.id=null" group_name=${project_name}/expert wrappers.dataset_obs_norm.dataset_name=${env_long} run.load_step=final run.n_test_episodes=${n_test_episodes} environment.horizon=${horizon} 
-
-wait
+evaluate_expert
 
 # Cleanup the evaluation data
 mkdir -p ${evaluation_data_csv_folder}
@@ -165,7 +246,7 @@ fi
 
 print_green "Done."
 
-echo "Training results saved at ${training_data_csv_folder}"
-echo "Evaluation data saved at ${evaluation_data_csv_folder}"
 echo "Models saved at models/${project_name}"
 echo "Tensorboard log files saved at runs/${project_name}"
+echo "Training results saved at ${training_data_csv_folder}"
+echo "Evaluation data saved at ${evaluation_data_csv_folder}"
