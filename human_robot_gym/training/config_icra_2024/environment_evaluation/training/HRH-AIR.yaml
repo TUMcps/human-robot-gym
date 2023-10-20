@@ -103,30 +103,8 @@ wrappers:
     dataset_name: ${run.dataset_name}
     squash_factor: null
     allow_different_observation_shapes: false
-    mean:
-    - 0.22805890583409938
-    - 0.0700194632175477
-    - 0.0039237117520853
-    - -0.14452073916927613
-    - -0.17719477688506552
-    - -0.004690729679819663
-    - -0.1983324326789246
-    - 0.8612880398982996
-    - 0.959761647664182
-    - 0.7391955878005217
-    - 0.7470474987275036
-    std:
-    - 0.4195807923430553
-    - 0.2763237978742647
-    - 0.09368784310480421
-    - 0.25965615613038195
-    - 0.11129195867406236
-    - 0.2276651710118677
-    - 0.15950826051214007
-    - 0.26152875551295224
-    - 0.2067867679409673
-    - 0.5093182608765296
-    - 0.48114433986522215
+    mean: null
+    std: null
 algorithm:
   name: SAC
   policy: MlpPolicy
@@ -183,7 +161,7 @@ run:
   test_only: false
   load_step: null
   id: null
-  type: wandb
+  type: tensorboard
   log_interval:
   - 8000
   - step
@@ -200,11 +178,7 @@ run:
   - dist_eef_to_human_head
   - dist_eef_to_human_lh
   - dist_eef_to_human_rh
-  expert_obs_keys:
-  - object_gripped
-  - vec_eef_to_object
-  - vec_eef_to_target
-  - robot0_gripper_qpos
+  expert_obs_keys: ${expert.obs_keys}
   log_info_keys:
   - n_goal_reached
   - n_object_handed_over
@@ -235,8 +209,8 @@ run:
   resetting_interval: null
   dataset_name: human-robot-handover
 wandb_run:
-  project: thesis
+  project: icra_2024
   entity: null
-  group: hrh_air
-  name: air_${run.seed}
+  group: HRH_AIR
+  name: run_${run.seed}
   tags: null

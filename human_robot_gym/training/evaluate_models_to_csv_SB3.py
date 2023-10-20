@@ -61,7 +61,8 @@ from omegaconf import OmegaConf
 import robosuite  # noqa: F401
 
 from human_robot_gym.utils.config_utils import TrainingConfig
-from human_robot_gym.utils.training_utils import create_training_vec_env, load_model, create_expert
+from human_robot_gym.utils.training_utils import create_expert, create_wrapped_env_from_config
+from human_robot_gym.utils.training_utils_SB3 import load_model
 from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
 import ray
 
@@ -89,7 +90,7 @@ def evaluate_to_df(
     Returns:
         pd.DataFrame: A dataframe with the evaluation results.
     """
-    env = create_training_vec_env(config=config, evaluation_mode=True)
+    env = create_wrapped_env_from_config(config=config, evaluation_mode=True)
 
     if run_id is None:
         run_id = config.run.id
@@ -98,7 +99,7 @@ def evaluate_to_df(
 
     if evaluate_expert:
         model = create_expert(config=config, env=env)
-        expert_obs_wrapper = ExpertObsWrapper.get_from_wrapped_env(env=env.envs[0])
+        expert_obs_wrapper = ExpertObsWrapper.get_from_wrapped_env(env=env)
     else:
         try:
             model = load_model(
@@ -153,20 +154,20 @@ def evaluate_to_df(
         while not done:
             if different_obs:
                 time_value = min(step_index / mean_ep_len, 1)
-                obs = np.concatenate([obs, time_value * np.ones((1, 1))], axis=1)
+                obs = np.append(obs, time_value)
 
             if evaluate_expert:
-                action = np.array([model(expert_obs_wrapper.current_expert_observation)])
+                action = np.array(model(expert_obs_wrapper.current_expert_observation))
             else:
                 action, _ = model.predict(obs, deterministic=True)
             step_index += 1
             obs, reward, done, info = env.step(action)
-            ep_return += reward[0]
+            ep_return += reward
             ep_length += 1
 
-        successes.append(1 if info[0]["n_goal_reached"] > 0 else 0)
+        successes.append(1 if info["n_goal_reached"] > 0 else 0)
         for key in config.run.log_info_keys:
-            ep_infos[key].append(info[0][key])
+            ep_infos[key].append(info[key])
 
         ep_returns.append(ep_return)
         ep_lengths.append(ep_length)
@@ -208,10 +209,11 @@ def eval_to_csv(
     """
     df = evaluate_to_df(config=config, evaluate_expert=evaluate_expert, run_id=run_id, load_step=load_step)
 
-    os.makedirs(os.path.join("csv", "evaluation", "raw"), exist_ok=True)
+    raw_csv_folder_path = os.path.join("csv", "evaluation", config.group_name, "raw")
+    os.makedirs(raw_csv_folder_path, exist_ok=True)
 
     if evaluate_expert:
-        csv_path = os.path.join("csv", "evaluation", "raw", f"expert_{config.expert.id}.csv")
+        csv_path = os.path.join(raw_csv_folder_path, f"expert_{config.expert.id}.csv")
     else:
         if run_id is None:
             run_id = config.run.id
@@ -219,9 +221,9 @@ def eval_to_csv(
             load_step = config.run.load_step
 
         if isinstance(load_step, int):
-            csv_path = os.path.join("csv", "evaluation", "raw", f"{run_id}_{load_step:_}.csv")
+            csv_path = os.path.join(raw_csv_folder_path, f"{run_id}_{load_step:_}.csv")
         else:
-            csv_path = os.path.join("csv", "evaluation", "raw", f"{run_id}_{load_step}.csv")
+            csv_path = os.path.join(raw_csv_folder_path, f"{run_id}_{load_step}.csv")
         os.makedirs(os.path.dirname(csv_path), exist_ok=True)
 
     df.to_csv(csv_path, index=False)
@@ -408,14 +410,24 @@ def evaluate_to_stats_df(
 
     print("Got data, now obtaining stats")
 
-    dfs = [combine_to_stats_df(config=config, run_ids=run_ids, csv_paths=paths) for paths in csv_paths]
+    dfs = [combine_to_stats_df(config=config, csv_paths=paths) for paths in csv_paths]
     if len(dfs) > 1:  # Multiple load steps
-        df = pd.concat(dfs)
-        df["step"] = load_steps
+        df = pd.concat(
+            [
+                pd.DataFrame({"step": load_steps}),
+                pd.concat(dfs, ignore_index=True),
+            ],
+            axis=1,
+        )
         return df
     else:
-        df = dfs[0]
-        df["step"] = [load_steps[0]]
+        df = pd.concat(
+            [
+                pd.DataFrame({"step": [load_steps[0]]}),
+                dfs[0],
+            ],
+            axis=1,
+        )
         return df
 
 
@@ -455,10 +467,10 @@ def evaluate_to_csv(config: TrainingConfig, max_parallel_runs: Optional[int] = N
     Returns:
         str: The path to the csv file containing the evaluation results.
     """
+    assert hasattr(config, "group_name") and config.group_name is not None
     df = evaluate_to_stats_df(config=config, max_parallel_runs=max_parallel_runs)
 
-    assert hasattr(config, "group_name") and config.group_name is not None
-    stats_csv_folder = os.path.join("csv", "evaluation", "stats", config.group_name)
+    stats_csv_folder = os.path.join("csv", "evaluation", config.group_name)
     if os.path.exists(stats_csv_folder):
         print(f"Stats csv folder {stats_csv_folder} already exists! Overwriting...")
         shutil.rmtree(stats_csv_folder)
@@ -475,8 +487,8 @@ def main(config: TrainingConfig):
         print(OmegaConf.to_yaml(cfg=config, resolve=True))
 
     max_parallel_runs = 50  # By default, evaluate 50 models in parallel
-    if hasattr(config.run, "max_parallel_runs") and config.run.max_parallel_runs is not None:
-        max_parallel_runs = config.run.max_parallel_runs
+    if hasattr(config, "max_parallel_runs") and config.max_parallel_runs is not None:
+        max_parallel_runs = config.max_parallel_runs
 
     evaluate_to_csv(config, max_parallel_runs=max_parallel_runs)
 

@@ -17,3 +17,5 @@ multirun/
 /datasets/
 *.out
 videos/
+csv/
+my_models/

@@ -420,15 +420,24 @@ def smooth_stats_data_frame(
 
     Raises:
         AssertionError: If the step columns in all input data frames are not equidistant.
-        AssertionError: if the window size is not odd.
         AssertionError: If the dataframes do not have the same columns.
+        AssertionError: If the dataframes do not cover the exact same set of steps.
+            This should be guaranteed by rastering
+        AssertionError: if the window size is not odd.
+        AssertionError: If the window size is too large for the number of rows in the dataframe
     """
     for df_in in dfs_in:
         assert np.all(df_in.step % (df_in.step[1] - df_in.step[0]) == 0), "Steps must be equidistant!"
 
-    assert window_size % 2 == 1, "Window size must be odd!"
     assert np.all([set(dfs_in[0].columns) == set(df_in.columns) for df_in in dfs_in]), \
         "All dataframes must have the same columns!"
+    assert np.all(
+        [dfs_in[0].step[0] == df_in.step[0] for df_in in dfs_in]
+    ) and np.all(
+        [dfs_in[0].step.iat[-1] == df_in.step.iat[-1] for df_in in dfs_in]
+    ), "All dataframes have to cover the exact same set of steps! Rastering should account for that."
+    assert window_size % 2 == 1, "Window size must be odd!"
+    assert window_size <= len(dfs_in[0])
 
     half_window_size = (window_size - 1) // 2
 
@@ -589,7 +598,7 @@ def main(
     )
 
     smooth_stats_csvs(
-        input_folder=raw_folder,
+        input_folder=rastered_folder,
         output_folder=stats_folder,
         filenames=None,
         window_size=window_size,
