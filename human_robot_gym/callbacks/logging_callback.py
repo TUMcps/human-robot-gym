@@ -15,6 +15,7 @@ from stable_baselines3.common.utils import safe_mean
 from stable_baselines3.common.callbacks import BaseCallback
 
 from typing import List, Tuple, Union
+import time
 
 
 class LoggingCallback(BaseCallback):
@@ -85,12 +86,12 @@ class LoggingCallback(BaseCallback):
                     if key in self.locals["infos"][i]:
                         self._info_buffer[key].append(self.locals["infos"][i][key])
                 if self.log_interval[1] == "episode" and (self.episode_counter + 1) % self.log_interval[0] == 0:
-                    self._log_info()
+                    self.log_info()
         if self.log_interval[1] == "step" and (
             n_logged_infos := self.num_timesteps // self.log_interval[0]
         ) > self._n_logged_infos:
             self._n_logged_infos = n_logged_infos
-            self._log_info()
+            self.log_info()
 
         # Store models every `self.save_freq` timesteps
         # With parallel envs, `self.num_timesteps` is incremented by `n_envs` at each step
@@ -110,11 +111,30 @@ class LoggingCallback(BaseCallback):
 
         return True
 
-    def _log_info(self):
+    def log_info(self):
         """Record metrics to tensorboard."""
         for key in self._info_buffer:
             self.logger.record(
                 "rollout/{}".format(key), safe_mean(self._info_buffer[key])
             )
             self._info_buffer[key] = []
-        self.model._dump_logs()
+        if hasattr(self.model, '_dump_logs'):
+            self.model._dump_logs()
+        elif hasattr(self.model, 'logger'):
+            self.logging_on_policy()
+        else:
+            self.logger.dump(step=self.num_timesteps)
+
+    def logging_on_policy(self):
+        """Log default environment statistics for on-policy algorithms."""
+        fps = int((self.model.num_timesteps -
+                   self.model._num_timesteps_at_start) / (time.time() - self.model.start_time))
+        if len(self.model.ep_info_buffer) > 0 and len(self.model.ep_info_buffer[0]) > 0:
+            self.model.logger.record("rollout/ep_rew_mean",
+                                     safe_mean([ep_info["r"] for ep_info in self.model.ep_info_buffer]))
+            self.model.logger.record("rollout/ep_len_mean",
+                                     safe_mean([ep_info["l"] for ep_info in self.model.ep_info_buffer]))
+        self.model.logger.record("time/fps", fps)
+        self.model.logger.record("time/time_elapsed", int(time.time() - self.model.start_time), exclude="tensorboard")
+        self.model.logger.record("time/total_timesteps", self.model.num_timesteps, exclude="tensorboard")
+        self.model.logger.dump(step=self.num_timesteps)
