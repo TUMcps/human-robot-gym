@@ -159,7 +159,7 @@ def evaluate_to_df(
             if evaluate_expert:
                 action = np.array(model(expert_obs_wrapper.current_expert_observation))
             else:
-                action, = model.predict(obs, deterministic=True)
+                action, _ = model.predict(obs, deterministic=True)
             step_index += 1
             obs, reward, done, info = env.step(action)
             ep_return += reward

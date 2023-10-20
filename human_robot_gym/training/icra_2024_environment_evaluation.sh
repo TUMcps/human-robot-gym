@@ -150,7 +150,7 @@ evaluate () {
 # Usage:
 #   evaluate_expert
 evaluate_expert () {
-    python human_robot_gym/training/evaluate_models_to_csv.py -cp config_icra_2024/environment_evaluation/evaluation -cn ${env} "run.id=null" group_name=${project_name}/expert wrappers.dataset_obs_norm.dataset_name=${env_long} run.load_step=final run.n_test_episodes=${n_test_episodes} environment.horizon=${horizon} 
+    python human_robot_gym/training/evaluate_models_to_csv_SB3.py -cp config_icra_2024/environment_evaluation/evaluation -cn ${env} "run.id=null" group_name=${project_name}/expert wrappers.dataset_obs_norm.dataset_name=${env_long} run.load_step=final run.n_test_episodes=${n_test_episodes} environment.horizon=${horizon} 
 }
 
 
@@ -170,7 +170,7 @@ print_green "Generating dataset..."
 generate_dataset
 
 # Store the expert statistics into the training data csv folder
-if [ ${run_type} != debug]
+if [ ${run_type} != debug ]
 then
     mkdir -p ${training_data_csv_folder}
     cp "datasets/${env_long}/stats.csv" "${training_data_csv_folder}/expert.csv"
