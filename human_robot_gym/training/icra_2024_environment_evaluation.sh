@@ -188,7 +188,7 @@ train SIR  # Soft actor-critic with reference state initialization and state-bas
 train RSI  # Soft actor-critic with reference state initialization
 train SAC  # Soft-actor critic
 
-if [ ${run_type} == debug ]
+if [ ${run_type} = debug ]
 then
     print_green "Debug training done."
     # Terminate early, no log data or models to evaluate stored

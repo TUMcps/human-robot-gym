@@ -133,4 +133,5 @@ RUN export EIGEN3_INCLUDE_DIR="/eigen-3.4.0" && \
 WORKDIR $HOME_PATH
 SHELL ["/bin/bash", "-c"]
 
-ENTRYPOINT cd human-robot-gym; conda run --no-capture-output -n hrgym pip install -e .; /bin/bash
+ENTRYPOINT ["/bin/bash", "-c"]
+CMD ["cd human-robot-gym; conda run --no-capture-output -n hrgym pip install -e .; /bin/bash"]
