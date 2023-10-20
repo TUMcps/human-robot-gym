@@ -61,7 +61,8 @@ from omegaconf import OmegaConf
 import robosuite  # noqa: F401
 
 from human_robot_gym.utils.config_utils import TrainingConfig
-from human_robot_gym.utils.training_utils import create_training_vec_env, load_model, create_expert
+from human_robot_gym.utils.training_utils import create_expert, create_wrapped_env_from_config
+from human_robot_gym.utils.training_utils_SB3 import load_model
 from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
 import ray
 
@@ -89,7 +90,7 @@ def evaluate_to_df(
     Returns:
         pd.DataFrame: A dataframe with the evaluation results.
     """
-    env = create_training_vec_env(config=config, evaluation_mode=True)
+    env = create_wrapped_env_from_config(config=config, evaluation_mode=True)
 
     if run_id is None:
         run_id = config.run.id
@@ -98,7 +99,7 @@ def evaluate_to_df(
 
     if evaluate_expert:
         model = create_expert(config=config, env=env)
-        expert_obs_wrapper = ExpertObsWrapper.get_from_wrapped_env(env=env.envs[0])
+        expert_obs_wrapper = ExpertObsWrapper.get_from_wrapped_env(env=env)
     else:
         try:
             model = load_model(
@@ -153,20 +154,20 @@ def evaluate_to_df(
         while not done:
             if different_obs:
                 time_value = min(step_index / mean_ep_len, 1)
-                obs = np.concatenate([obs, time_value * np.ones((1, 1))], axis=1)
+                obs = np.append(obs, time_value)
 
             if evaluate_expert:
-                action = np.array([model(expert_obs_wrapper.current_expert_observation)])
+                action = np.array(model(expert_obs_wrapper.current_expert_observation))
             else:
-                action, _ = model.predict(obs, deterministic=True)
+                action, = model.predict(obs, deterministic=True)
             step_index += 1
             obs, reward, done, info = env.step(action)
-            ep_return += reward[0]
+            ep_return += reward
             ep_length += 1
 
-        successes.append(1 if info[0]["n_goal_reached"] > 0 else 0)
+        successes.append(1 if info["n_goal_reached"] > 0 else 0)
         for key in config.run.log_info_keys:
-            ep_infos[key].append(info[0][key])
+            ep_infos[key].append(info[key])
 
         ep_returns.append(ep_return)
         ep_lengths.append(ep_length)
