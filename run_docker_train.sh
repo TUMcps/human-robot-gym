@@ -7,9 +7,12 @@
 user=${1:-user}
 bash_command="/bin/bash"
 
+docker_command="docker run -it"
+
 if [ $2 ]
 then
     bash_command="/bin/bash -c ${2}"
+    docker_command="docker run"
 fi
 
 command="cd human-robot-gym; conda run --no-capture-output -n hrgym pip install -e .; conda run --no-capture-output -n hrgym ${bash_command}"
@@ -17,15 +20,17 @@ command="cd human-robot-gym; conda run --no-capture-output -n hrgym pip install 
 echo "Chosen mode: $user"
 if [ "$user" = "root" ]
 then
-    docker run -it \
+    ${docker_command} \
     --net=host \
     --volume="$(pwd)/:/root/human-robot-gym/" \
+    --shm-size=10.24gb \
     human-robot-gym-train/root:v2 "${command}"
 elif [ "$user" = "user" ]
 then
-    docker run -it \
+    ${docker_command} \
         --net=host \
         --volume="$(pwd)/:/home/$USER/human-robot-gym/" \
+        --shm-size=10.24gb \
         human-robot-gym-train/$USER:v2 "${command}"
 else
     echo "User mode unknown. Please choose user, root, or leave out for default user"
