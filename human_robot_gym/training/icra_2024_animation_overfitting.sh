@@ -40,7 +40,7 @@ n_dataset_episodes=${4:-"100"}
 n_training_steps=${5:-"1000000"}
 horizon=${6:-"5000"}
 n_training_envs=${7:-"8"}
-training_log_interval=${8:"10000"}
+training_log_interval=${8:-"10000"}
 run_type=${9:-"tensorboard"}
 n_test_episodes=${10:-"20"}
 model_save_interval=50000
@@ -96,10 +96,13 @@ print_green () {
 # Usage:
 #   cleanup_existing_data
 cleanup_existing_data () {
-    if [ -d "datasets/${env_long}" ]; then
-        echo "Overwriting existing dataset"
-        rm -r datasets/${env_long}
-    fi
+    for dataset_name in ${dataset_name_0} ${dataset_name_1} ${dataset_name_2} ${dataset_name_3} ${dataset_name_4}
+    do
+        if [ -d "datasets/${dataset_name}" ]; then
+            echo "Overwriting existing dataset"
+            rm -r datasets/${dataset_name}
+        fi
+    done
 
     if [ -d ${evaluation_data_csv_folder} ]; then
         echo "Overwriting existing evaluation csv data at ${evaluation_data_csv_folder}"
@@ -130,7 +133,7 @@ generate_dataset () {
         -cp config_icra_2024/environment_evaluation/dataset_creation \
         -cn ${env} \
         dataset_name=${dataset_name} n_episodes=${n_dataset_episodes} \
-        environment.horizon=${horizon} environment.human_animations=${human_animations}
+        environment.horizon=${horizon} environment.human_animation_names=${human_animations} environment.verbose=False
 }
 
 # Execute a training run
@@ -143,30 +146,32 @@ generate_dataset () {
 #       Defaults to <dataset_name>
 train () {
     local dataset_name=$1
-    local human_animations=$3
+    local human_animations=$2
     local group=${3:-"${dataset_name}"}
     python human_robot_gym/training/train_SB3.py --multirun \
         -cp config_icra_2024/environment_evaluation/training \
         -cn ${env}-${method} \
         hydra/launcher=ray \
-        run.type=tensorboard run.n_steps=${n_steps} \
+        run.type=tensorboard run.n_steps=${n_training_steps} \
         wandb_run.project=${project_name} wandb_run.group=${group} \
-        "run.seed=0,1,2,3,4" run.n_envs=${n_envs} run.dataset_name=${dataset_name} "run.log_interval=[${log_interval},'step']" \
+        "run.seed=0,1,2,3,4" run.n_envs=${n_training_envs} run.dataset_name=${dataset_name} "run.log_interval=[${training_log_interval},'step']" \
         run.type=${run_type} run.save_freq=${model_save_interval} \
-        environment.horizon=${horizon} environment.human_animations=${human_animations}
+        environment.horizon=${horizon} environment.human_animation_names=${human_animations} environment.verbose=False
 }
 
 # Evaluate models from snapshots during training and store statistics into .csv files
 # Usage:
-#   evaluate <training_group> <evaluation_group> <human_animations>
+#   evaluate <training_dataset_name> <training_group> <evaluation_group> <human_animations>
 # Args:
+#   <training_dataset_name>: name of the dataset that was used for training, name of the subfolder in which the dataset is stored
 #   <training_group>: name of the training run group, name of the subfolders in which the models are stored.
 #   <evaluation_group>: name of the evaluation run group, name of the subfolders in which the evaluation csv files should be stored.
 #   <human_animations>: names of the human animation files
 evaluate () {
-    local training_group=$1
-    local evaluation_group=$2
-    local human_animations=$3
+    local training_dataset_name=$1
+    local training_group=$2
+    local evaluation_group=$3
+    local human_animations=$4
     assemble_evaluation_run_id () {
         local run_index=$1
         echo ${project_name}/${training_group}/run_${run_index}
@@ -176,29 +181,31 @@ evaluate () {
         -cp config_icra_2024/environment_evaluation/evaluation \
         -cn ${env} \
         group_name=${project_name}/${evaluation_group} max_parallel_runs=${max_eval_threads} \
-        run.n_steps=${n_steps} run.save_freq=${model_save_interval} "run.id=${evaluation_run_ids}" \
-        run.load_step=all run.n_test_episodes=${n_test_episodes} \
-        environment.horizon=${horizon} environment.human_animations=${human_animations} \
-        wrappers.dataset_obs_norm.dataset_name=${env_long}
+        run.n_steps=${n_training_steps} run.save_freq=${model_save_interval} "run.id=${evaluation_run_ids}" \
+        run.load_step=final run.n_test_episodes=${n_test_episodes} \
+        environment.horizon=${horizon} environment.human_animation_names=${human_animations} \
+        wrappers.dataset_obs_norm.dataset_name=${training_dataset_name} environment.verbose=False
 }
 
 # Evaluate the expert policy on the test episodes and store statistics into a .csv file
 # Usage:
-#   evaluate_expert <group_name> <human_animations>
+#   evaluate_expert <training_dataset_name> <group_name> <human_animations>
 # Args:
+#   <training_dataset_name>: name of the dataset that was used for training, name of the subfolder in which the dataset is stored
 #   <group_name>: name of the run group, name of the subfolders in which the models and csv files are stored.
 #   <human_animations>: names of the human animation files
 evaluate_expert () {
-    local group_name=$1
-    local human_animations=$2
+    local training_dataset_name=$1
+    local group_name=$2
+    local human_animations=$3
     python human_robot_gym/training/evaluate_models_to_csv_SB3.py \
         -cp config_icra_2024/environment_evaluation/evaluation \
         -cn ${env} \
         "run.id=null" \
-        group_name=${project_name}/expert \
+        group_name=${project_name}/${group_name} \
         run.load_step=final run.n_test_episodes=${n_test_episodes} \
-        environment.horizon=${horizon} environment.human_animations=${human_animations} \
-        wrappers.dataset_obs_norm.dataset_name=${env_long}
+        environment.horizon=${horizon} environment.human_animation_names=${human_animations} \
+        wrappers.dataset_obs_norm.dataset_name=${training_dataset_name} environment.verbose=False
 }
 
 
@@ -252,33 +259,35 @@ fi
 
 print_green "Training done, proceeding with evaluation..."
 
+mkdir -p ${evaluation_data_csv_folder}
+
 # Evaluate models on training episodes
-evaluate ${dataset_name_0} ${dataset_name_0}-${method}-on-training-set ${train_0}
-evaluate ${dataset_name_1} ${dataset_name_1}-${method}-on-training-set ${train_1}
-evaluate ${dataset_name_2} ${dataset_name_2}-${method}-on-training-set ${train_2}
-evaluate ${dataset_name_3} ${dataset_name_3}-${method}-on-training-set ${train_3}
-evaluate ${dataset_name_4} ${dataset_name_4}-${method}-on-training-set ${train_4}
+evaluate ${dataset_name_0} ${dataset_name_0} ${dataset_name_0}-${method}-on-training-set ${train_0}
+evaluate ${dataset_name_1} ${dataset_name_1} ${dataset_name_1}-${method}-on-training-set ${train_1}
+evaluate ${dataset_name_2} ${dataset_name_2} ${dataset_name_2}-${method}-on-training-set ${train_2}
+evaluate ${dataset_name_3} ${dataset_name_3} ${dataset_name_3}-${method}-on-training-set ${train_3}
+evaluate ${dataset_name_4} ${dataset_name_4} ${dataset_name_4}-${method}-on-training-set ${train_4}
 
 # Evaluate models on test episodes
-evaluate ${dataset_name_0} ${dataset_name_0}-${method}-on-test-set ${test_0}
-evaluate ${dataset_name_1} ${dataset_name_1}-${method}-on-test-set ${test_1}
-evaluate ${dataset_name_2} ${dataset_name_2}-${method}-on-test-set ${test_2}
-evaluate ${dataset_name_3} ${dataset_name_3}-${method}-on-test-set ${test_3}
-evaluate ${dataset_name_4} ${dataset_name_4}-${method}-on-test-set ${test_4}
+evaluate ${dataset_name_0} ${dataset_name_0} ${dataset_name_0}-${method}-on-test-set ${test_0}
+evaluate ${dataset_name_1} ${dataset_name_1} ${dataset_name_1}-${method}-on-test-set ${test_1}
+evaluate ${dataset_name_2} ${dataset_name_2} ${dataset_name_2}-${method}-on-test-set ${test_2}
+evaluate ${dataset_name_3} ${dataset_name_3} ${dataset_name_3}-${method}-on-test-set ${test_3}
+evaluate ${dataset_name_4} ${dataset_name_4} ${dataset_name_4}-${method}-on-test-set ${test_4}
 
 # Evaluate expert policy on training episodes
-evaluate_expert ${dataset_name_0}-expert-on-training-set ${train_0}
-evaluate_expert ${dataset_name_1}-expert-on-training-set ${train_1}
-evaluate_expert ${dataset_name_2}-expert-on-training-set ${train_2}
-evaluate_expert ${dataset_name_3}-expert-on-training-set ${train_3}
-evaluate_expert ${dataset_name_4}-expert-on-training-set ${train_4}
+evaluate_expert ${dataset_name_0} ${dataset_name_0}-expert-on-training-set ${train_0}
+evaluate_expert ${dataset_name_1} ${dataset_name_1}-expert-on-training-set ${train_1}
+evaluate_expert ${dataset_name_2} ${dataset_name_2}-expert-on-training-set ${train_2}
+evaluate_expert ${dataset_name_3} ${dataset_name_3}-expert-on-training-set ${train_3}
+evaluate_expert ${dataset_name_4} ${dataset_name_4}-expert-on-training-set ${train_4}
 
 # Evaluate expert policy on test episodes
-evaluate_expert ${dataset_name_0}-expert-on-test-set ${test_0}
-evaluate_expert ${dataset_name_1}-expert-on-test-set ${test_1}
-evaluate_expert ${dataset_name_2}-expert-on-test-set ${test_2}
-evaluate_expert ${dataset_name_3}-expert-on-test-set ${test_3}
-evaluate_expert ${dataset_name_4}-expert-on-test-set ${test_4}
+evaluate_expert ${dataset_name_0} ${dataset_name_0}-expert-on-test-set ${test_0}
+evaluate_expert ${dataset_name_1} ${dataset_name_1}-expert-on-test-set ${test_1}
+evaluate_expert ${dataset_name_2} ${dataset_name_2}-expert-on-test-set ${test_2}
+evaluate_expert ${dataset_name_3} ${dataset_name_3}-expert-on-test-set ${test_3}
+evaluate_expert ${dataset_name_4} ${dataset_name_4}-expert-on-test-set ${test_4}
 
 print_green "Done."
 
