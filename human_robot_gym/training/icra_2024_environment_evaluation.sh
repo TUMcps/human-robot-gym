@@ -96,7 +96,11 @@ cleanup_existing_data () {
 # Usage:
 #   generate_dataset
 generate_dataset () {
-    python human_robot_gym/training/create_expert_dataset.py -cp config_icra_2024/environment_evaluation/dataset_creation -cn ${env} dataset_name=${env_long} n_episodes=${n_dataset_episodes} environment.horizon=${horizon}
+    python human_robot_gym/training/create_expert_dataset.py \
+        -cp config_icra_2024/environment_evaluation/dataset_creation \
+        -cn ${env} \
+        dataset_name=${env_long} n_episodes=${n_dataset_episodes} \
+        environment.horizon=${horizon} environment.verbose=False
 }
 
 # Execute a training run
@@ -112,7 +116,14 @@ generate_dataset () {
 train () {
     local method=$1
     local group=${2:-${method}}
-    python human_robot_gym/training/train_SB3.py --multirun -cp config_icra_2024/environment_evaluation/training -cn ${env}-${method} hydra/launcher=ray run.type=tensorboard run.n_steps=${n_steps} wandb_run.project=${project_name} wandb_run.group=${group} "run.seed=0,1,2,3,4" run.n_envs=${n_envs} run.dataset_name=${env_long} "run.log_interval=[${log_interval},'step']" run.save_freq=${model_save_interval} environment.horizon=${horizon} run.type=${run_type}
+    python human_robot_gym/training/train_SB3.py --multirun \
+        -cp config_icra_2024/environment_evaluation/training \
+        -cn ${env}-${method} \
+        hydra/launcher=ray \
+        wandb_run.project=${project_name} wandb_run.group=${group} \
+        run.type=tensorboard run.n_steps=${n_steps} "run.seed=0,1,2,3,4" run.n_envs=${n_envs} \
+        run.dataset_name=${env_long} "run.log_interval=[${log_interval},'step']" run.save_freq=${model_save_interval} \
+        environment.horizon=${horizon} run.type=${run_type} environment.verbose=False
 }
 
 # Pipeline for extracting data logged during training from tensorboard log files and store statistics into .csv files
@@ -128,7 +139,11 @@ train () {
 training_data_pipeline () {
     local method=$1
     local group=${2:-${method}}
-    python human_robot_gym/utils/data_pipeline.py run_0 run_1 run_2 run_3 run_4 -i runs/${project_name}/${group} -o csv/training/${project_name}/${group} -n ${n_steps} -g ${granularity} -w ${window_size} -y
+    python human_robot_gym/utils/data_pipeline.py \
+        run_0 run_1 run_2 run_3 run_4 \
+        -i runs/${project_name}/${group} \
+        -o csv/training/${project_name}/${group} \
+        -n ${n_steps} -g ${granularity} -w ${window_size} -y
 }
 
 # Evaluate models from snapshots during training and store statistics into .csv files
@@ -143,14 +158,26 @@ evaluate () {
         echo ${project_name}/${group}/run_${run_index}
     }
     local evaluation_run_ids="[$(assemble_evaluation_run_id 0),$(assemble_evaluation_run_id 1),$(assemble_evaluation_run_id 2),$(assemble_evaluation_run_id 3),$(assemble_evaluation_run_id 4)]"
-    python human_robot_gym/training/evaluate_models_to_csv_SB3.py -cp config_icra_2024/environment_evaluation/evaluation -cn ${env} "run.id=${evaluation_run_ids}" group_name=${project_name}/${group} wrappers.dataset_obs_norm.dataset_name=${env_long} run.load_step=all run.n_test_episodes=${n_test_episodes} max_parallel_runs=${max_eval_threads} run.n_steps=${n_steps} run.save_freq=${model_save_interval} environment.horizon=${horizon}
+    python human_robot_gym/training/evaluate_models_to_csv_SB3.py \
+        -cp config_icra_2024/environment_evaluation/evaluation \
+        -cn ${env} "run.id=${evaluation_run_ids}" \
+        group_name=${project_name}/${group} max_parallel_runs=${max_eval_threads} \
+        run.load_step=all run.n_test_episodes=${n_test_episodes} run.n_steps=${n_steps} run.save_freq=${model_save_interval} \
+        environment.horizon=${horizon} environment.verbose=False \
+        wrappers.dataset_obs_norm.dataset_name=${env_long}
 }
 
 # Evaluate the expert policy on the test episodes and store statistics into a .csv file
 # Usage:
 #   evaluate_expert
 evaluate_expert () {
-    python human_robot_gym/training/evaluate_models_to_csv_SB3.py -cp config_icra_2024/environment_evaluation/evaluation -cn ${env} "run.id=null" group_name=${project_name}/expert wrappers.dataset_obs_norm.dataset_name=${env_long} run.load_step=final run.n_test_episodes=${n_test_episodes} environment.horizon=${horizon} 
+    python human_robot_gym/training/evaluate_models_to_csv_SB3.py \
+        -cp config_icra_2024/environment_evaluation/evaluation \
+        -cn ${env} \
+        group_name=${project_name}/expert \
+        run.id=null run.load_step=final run.n_test_episodes=${n_test_episodes} \
+        environment.horizon=${horizon} environment.verbose=False \
+        wrappers.dataset_obs_norm.dataset_name=${env_long}
 }
 
 
