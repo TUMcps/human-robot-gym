@@ -1,0 +1,19 @@
+defaults:
+  - default/pick_place_human_cart@_here_
+  - _self_
+
+robot_base_offset:
+  - 0.0
+  - 0.0
+  - 0.0
+use_camera_obs: false
+use_object_obs: true
+collision_reward: 0
+has_offscreen_renderer: false
+render_camera: null
+horizon: 1000
+hard_reset: false
+done_at_collision: false
+done_at_success: false
+nail_hammered_in_reward: 0.0
+hammer_gripped_reward_bonus: 0.0

@@ -7,7 +7,9 @@ The training is done in two steps:
     - Define the the training parameters in the config files.
     - Run the training.
 
-Defining training parameters
+Some training methods require an intermediate step of collecting a dataset of expert demonstrations.
+
+Defining Training Parameters
 ----------------------------
 
 We use the `hydra <https://hydra.cc/>`_ library for defining configuration files for the training.
@@ -24,7 +26,9 @@ It contains several subfolders defining different aspects of the training:
     - `wrappers`: used to add different wrappers to the environment to enable different features:
 
         - `action_based_expert_imitation_reward`: augments the reward function by adding an expert behavioral cloning term. Requires an expert to be configured.
-        - `dataset_obs_norm`: normalizes the observations using the mean and standard deviation of a dataset. Requires a stored dataset.
+        - `state_based_expert_imitation_reward`: adopt the method presented in `DeepMimic (Peng et al., 2018) <https://dl.acm.org/doi/10.1145/3197517.3201311>`_. Augments the reward function by adding an expert imitation term based on the similarity to reference states in a dataset. Requires a stored expert dataset.
+        - `dataset_obs_norm`: normalizes the observations using the mean and standard deviation of a dataset. Requires a stored expert dataset.
+        - `dataset_rsi`: adopts reference state initialization (RSI), a method presented in `DeepMimic (Peng et al., 2018) <https://dl.acm.org/doi/10.1145/3197517.3201311>`_. Initializes episodes from expert dataset states. Requires a stored expert dataset.
         - `collision_prevention`: Enables action replacement using the SaRA safety shield.
         - `ik_position_delta`: Changes the action space from joint space to Cartesian space. As such, actions are interpreted as intended cartesian movement of the robot end effector and joint torques are computed using inverse kinematics.
         - `visualization`: render the environment at every step
@@ -32,7 +36,26 @@ It contains several subfolders defining different aspects of the training:
 To examine how a complete configuration file looks like, you can take a look at `human_robot_gym/training/config/human_reach_ppo_parallel.yaml`.
 A basic structure of the config files can be examined in `human-robot-gym/utils/config_utils.py`.
 
-Running the training
+
+Creating an Expert Dataset
+--------------------------
+
+Training with state-based expert imitation reward (SIR), RSI, or dataset observation normalization requires a dataset of expert demonstrations.
+The dataset can be created by running the `human_robot_gym/training/create_expert_dataset.py` script.
+The script requires a config file to be specified using the ``--config-name`` flag (or ``-cn`` for short):
+
+.. code-block:: bash
+
+    python human_robot_gym/training/create_expert_dataset.py --config-name pick_place_human_dataset_creation
+
+The number of episodes in the dataset can be controlled by setting the ``n_episodes`` parameter, the name of the dataset via ``dataset_name``:
+
+.. code-block:: bash
+
+    python human_robot_gym/training/create_expert_dataset.py --config-name pick_place_human_dataset_creation n_episodes=100 dataset_name=my_dataset
+
+
+Running the Training
 --------------------
 
 Training `stable-baselines3` RL agents can be done using the `human_robot_gym/training/train_SB3.py` script.

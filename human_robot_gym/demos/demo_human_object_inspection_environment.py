@@ -124,11 +124,10 @@ if __name__ == "__main__":
         horizon=1000,
         done_at_success=True,
         controller_configs=controller_configs,
-        use_failsafe_controller=True,
         visualize_failsafe_controller=False,
         visualize_pinocchio=False,
         base_human_pos_offset=[0.0, 0.0, 0.0],
-        human_rand=[0, 0.5, 0.0],
+        human_rand=[0, 0.0, 0.0],
         verbose=True,
         object_gripped_reward=-0.5,
         object_at_target_reward=0,
@@ -159,6 +158,7 @@ if __name__ == "__main__":
         observation_space=env.observation_space,
         action_space=env.action_space,
         signal_to_noise_ratio=0.99,
+        release_when_delivered=False,
     )
 
     env = CartActionBasedExpertImitationRewardWrapper(
@@ -174,6 +174,7 @@ if __name__ == "__main__":
         observation_space=env.observation_space,
         action_space=env.action_space,
         signal_to_noise_ratio=0.98,
+        release_when_delivered=False,
     )
 
     use_kb_agent = False

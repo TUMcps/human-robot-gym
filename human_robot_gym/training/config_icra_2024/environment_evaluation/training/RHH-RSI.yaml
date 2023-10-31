@@ -1,0 +1,216 @@
+# Robot-human handover training with soft actor-critic and reference state initialization.
+robot:
+  name: Schunk
+  controller_config_path: controllers/failsafe_controller/config/failsafe.json
+  robot_config_path: models/robots/config/schunk.json
+environment:
+  env_id: RobotHumanHandoverCart
+  robot_base_offset:
+  - 0.0
+  - 0.0
+  - 0.0
+  env_configuration: default
+  controller_configs: null
+  gripper_types: default
+  initialization_noise: default
+  use_camera_obs: false
+  use_object_obs: true
+  has_renderer: false
+  has_offscreen_renderer: false
+  render_camera: null
+  render_collision_mesh: false
+  render_visual_mesh: true
+  render_gpu_device_id: -1
+  control_freq: 10
+  horizon: 1000
+  ignore_done: false
+  hard_reset: false
+  camera_names: frontview
+  camera_heights: 256
+  camera_widths: 256
+  camera_depths: false
+  camera_segmentations: null
+  renderer: mujoco
+  renderer_config: null
+  shield_type: PFL
+  visualize_failsafe_controller: false
+  visualize_pinocchio: false
+  control_sample_time: 0.004
+  human_animation_names:
+  - RobotHumanHandover/0
+  - RobotHumanHandover/1
+  - RobotHumanHandover/2
+  - RobotHumanHandover/3
+  - RobotHumanHandover/4
+  - RobotHumanHandover/5
+  - RobotHumanHandover/6
+  - RobotHumanHandover/7
+  - RobotHumanHandover/8
+  base_human_pos_offset:
+  - 0.0
+  - 0.0
+  - 0.0
+  human_animation_freq: 90
+  human_rand:
+  - 0.0
+  - 0.2
+  - 0.1
+  n_animations_sampled_per_100_steps: 2
+  safe_vel: 0.001
+  self_collision_safety: 0.01
+  seed: ${run.seed}
+  verbose: false
+  table_full_size:
+  - 1.5
+  - 2.0
+  - 0.05
+  table_friction:
+  - 1.0
+  - 0.005
+  - 0.0001
+  reward_scale: 1.0
+  reward_shaping: false
+  goal_dist: 0.06
+  collision_reward: 0
+  object_gripped_reward: -0.25
+  task_reward: 1
+  obstacle_placement_initializer: null
+  done_at_collision: false
+  done_at_success: true
+  n_object_placements_sampled_per_100_steps: 3
+  object_placement_initializer: null
+  object_in_human_hand_reward: 0.0
+wrappers:
+  collision_prevention:
+    replace_type: 0
+    n_resamples: 20
+  ik_position_delta:
+    urdf_file: models/assets/robots/schunk/robot_pybullet.urdf
+    action_limit: 0.1
+    x_output_max: 1
+    x_position_limits: null
+    residual_threshold: 0.001
+    max_iter: 50
+  action_based_expert_imitation_reward:
+    dataset_name: ${run.dataset_name}
+    alpha: 0.0
+    rsi_prob: 0.5
+    beta: 0.7
+    iota_m: 0.1
+    iota_g: 0.5
+    m_sim_fn: gaussian
+    g_sim_fn: gaussian
+  dataset_obs_norm:
+    dataset_name: ${run.dataset_name}
+    squash_factor: null
+    allow_different_observation_shapes: false
+    mean: null
+    std: null
+algorithm:
+  name: SAC
+  policy: MlpPolicy
+  learning_rate: 0.0005
+  buffer_size: 1000000
+  learning_starts: 1000
+  batch_size: 128
+  tau: 0.005
+  gamma: 0.99
+  train_freq:
+  - 100
+  - step
+  gradient_steps: -1
+  replay_buffer_kwargs: null
+  optimize_memory_usage: false
+  ent_coef: auto_0.2
+  target_update_interval: 1
+  target_entropy: auto
+  use_sde: false
+  sde_sample_freq: -1
+  use_sde_at_warmup: false
+  create_eval_env: false
+  policy_kwargs:
+    net_arch:
+    - 64
+    - 64
+    - 64
+  verbose: 0
+  seed: ${run.seed}
+  device: auto
+  _init_setup_model: true
+  action_noise: null
+expert:
+  id: PickPlaceHumanCart
+  signal_to_noise_ratio: 0.98
+  hover_dist: 0.2
+  tan_theta: 0.5
+  horizontal_epsilon: 0.035
+  vertical_epsilon: 0.015
+  goal_dist: 0.08
+  gripper_fully_opened_threshold: 0.02
+  release_when_delivered: true
+  delta_time: 0.01
+  seed: ${run.seed}
+  obs_keys:
+  - object_gripped
+  - vec_eef_to_object
+  - vec_eef_to_target
+  - robot0_gripper_qpos
+run:
+  n_envs: 8
+  n_steps: 3000001
+  save_freq: 200000
+  test_only: false
+  load_step: null
+  id: null
+  type: tensorboard
+  log_interval:
+  - 8000
+  - step
+  seed: null
+  eval_seed: null
+  start_index: 0
+  n_test_episodes: 20
+  env_type: env
+  obs_keys:
+  - object_gripped
+  - vec_eef_to_object
+  - vec_eef_to_target
+  - gripper_aperture
+  - dist_eef_to_human_head
+  - dist_eef_to_human_lh
+  - dist_eef_to_human_rh
+  expert_obs_keys: ${expert.obs_keys}
+  log_info_keys:
+  - n_goal_reached
+  - collision
+  - collision_type
+  - n_collisions
+  - n_collisions_static
+  - n_collisions_robot
+  - n_collisions_human
+  - n_collisions_critical
+  - timeout
+  - failsafe_interventions
+  - action_resamples
+  - im_rew_mean
+  - env_rew_mean
+  - full_rew_mean
+  - ep_im_rew_mean
+  - ep_env_rew_mean
+  - ep_full_rew_mean
+  - g_im_rew_mean
+  - m_im_rew_mean
+  - ep_g_im_rew_mean
+  - ep_m_im_rew_mean
+  monitor_dir: null
+  vec_env_kwargs: null
+  monitor_kwargs: null
+  verbose: true
+  resetting_interval: null
+  dataset_name: robot-human-handover
+wandb_run:
+  project: icra_2024
+  entity: null
+  group: RHH_RSI
+  name: run_${run.seed}
+  tags: null

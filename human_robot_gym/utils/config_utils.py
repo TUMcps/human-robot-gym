@@ -12,6 +12,8 @@ Changelog:
 from typing import Any, List, Optional
 from dataclasses import dataclass
 
+from omegaconf import OmegaConf
+
 from hydra.core.config_store import ConfigStore
 
 
@@ -38,6 +40,7 @@ class RunConfig:
     vec_env_kwargs: dict
     monitor_kwargs: dict
     verbose: bool
+    resetting_interval: Optional[int]
 
 
 @dataclass
@@ -126,7 +129,9 @@ class StateBasedExpertImitationRewardWrapperConfig:
 @dataclass
 class DatasetObsNormWrapperConfig:
     """Dataset observation normalization wrapper configuration."""
-    dataset_name: str
+    dataset_name: Optional[str]
+    mean: Optional[List[float]]
+    std: Optional[List[float]]
     squash_factor: Optional[float]
 
 
@@ -183,3 +188,6 @@ class DataCollectionConfig(TrainingConfig):
 # Register config class
 cs = ConfigStore.instance()
 cs.store(name="base", node=TrainingConfig)
+
+# Allows performing arithmetic operations in value interpolation
+OmegaConf.register_new_resolver("eval", eval)

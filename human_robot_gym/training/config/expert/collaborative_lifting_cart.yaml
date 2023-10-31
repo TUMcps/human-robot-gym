@@ -1,0 +1,5 @@
+defaults:
+  - default/collaborative_lifting_cart@_here_
+  - _self_
+
+signal_to_noise_ratio: 0.9

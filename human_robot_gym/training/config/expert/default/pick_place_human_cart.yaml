@@ -6,6 +6,8 @@ horizontal_epsilon: 0.03
 vertical_epsilon: 0.015
 goal_dist: 0.08
 gripper_fully_opened_threshold: 0.02
+release_when_delivered: true
+delta_time: 0.01
 seed: null
 obs_keys:
   - object_gripped

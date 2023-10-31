@@ -1,0 +1,148 @@
+# Collaborative lifting agent evaluation
+robot:
+  name: Schunk
+  controller_config_path: controllers/failsafe_controller/config/failsafe.json
+  robot_config_path: models/robots/config/schunk.json
+environment:
+  env_id: CollaborativeLiftingCart
+  robot_base_offset:
+  - 0.0
+  - 0.0
+  - 0.0
+  env_configuration: default
+  controller_configs: null
+  gripper_types: default
+  initialization_noise: default
+  use_camera_obs: false
+  use_object_obs: true
+  has_renderer: false
+  has_offscreen_renderer: false
+  render_camera: null
+  render_collision_mesh: false
+  render_visual_mesh: true
+  render_gpu_device_id: -1
+  control_freq: 10
+  horizon: 5000
+  ignore_done: false
+  hard_reset: false
+  camera_names: frontview
+  camera_heights: 256
+  camera_widths: 256
+  camera_depths: false
+  camera_segmentations: null
+  renderer: mujoco
+  renderer_config: null
+  shield_type: SSM
+  visualize_failsafe_controller: false
+  visualize_pinocchio: false
+  control_sample_time: 0.004
+  human_animation_names:
+  - CollaborativeLifting/2
+  - CollaborativeLifting/3
+  - CollaborativeLifting/4
+  - CollaborativeLifting/5
+  - CollaborativeLifting/6
+  - CollaborativeLifting/9
+  - CollaborativeLifting/10
+  base_human_pos_offset:
+  - 0.0
+  - 0.0
+  - 0.0
+  human_animation_freq: 20
+  human_rand:
+  - 0.0
+  - 0.0
+  - 0.0
+  n_animations_sampled_per_100_steps: 0.2
+  safe_vel: 0.001
+  self_collision_safety: 0.01
+  seed: 0
+  verbose: false
+  table_full_size:
+  - 0.4
+  - 1.5
+  - 0.05
+  table_friction:
+  - 1.0
+  - 0.005
+  - 0.0001
+  board_full_size:
+  - 1.0
+  - 0.4
+  - 0.03
+  reward_scale: 1.0
+  reward_shaping: true
+  board_released_reward: -10
+  collision_reward: 0
+  task_reward: 1
+  imbalance_failure_reward: -10
+  min_balance: 0.8
+  obstacle_placement_initializer: null
+  done_at_collision: false
+  done_at_success: true
+expert:
+  id: CollaborativeLiftingCart
+  signal_to_noise_ratio: 1.0
+  board_size: ${environment.board_full_size}
+  human_grip_offset: 0.1
+  delta_time: 0.01
+  seed: ${run.seed}
+  obs_keys:
+  - vec_eef_to_human_lh
+  - vec_eef_to_human_rh
+  - board_quat
+  - board_gripped
+wrappers:
+  collision_prevention:
+    replace_type: 0
+    n_resamples: 20
+  ik_position_delta:
+    urdf_file: models/assets/robots/schunk/robot_pybullet.urdf
+    action_limit: 0.1
+    x_output_max: 1
+    x_position_limits: null
+    residual_threshold: 0.001
+    max_iter: 50
+  dataset_obs_norm:
+    dataset_name: collaborative-lifting
+    squash_factor: null
+    allow_different_observation_shapes: true
+    mean: null
+    std: null
+run:
+  n_envs: 1
+  n_steps: 3000000
+  save_freq: 200000
+  test_only: false
+  load_step: all
+  id: null
+  type: debug
+  log_interval: 10
+  seed: 0
+  eval_seed: 100
+  start_index: 0
+  n_test_episodes: 20
+  env_type: env
+  obs_keys:
+  - board_quat
+  - dist_eef_to_human_head
+  - vec_eef_to_human_lh
+  - vec_eef_to_human_rh
+  expert_obs_keys: ${expert.obs_keys}
+  log_info_keys:
+  - failsafe_interventions
+  - n_collisions
+  - n_collisions_human
+  - n_collisions_critical
+  - n_collisions_static
+  - n_collisions_robot
+  monitor_dir: null
+  vec_env_kwargs: null
+  monitor_kwargs: null
+  verbose: true
+  resetting_interval: null
+  dataset_name: dataset
+algorithm:
+  name: SAC
+group_name: null
+max_parallel_runs: null

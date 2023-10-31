@@ -1,0 +1,158 @@
+# Collaborative stacking agent evaluation
+robot:
+  name: Schunk
+  controller_config_path: controllers/failsafe_controller/config/failsafe.json
+  robot_config_path: models/robots/config/schunk.json
+environment:
+  env_id: CollaborativeStackingCart
+  robot_base_offset:
+  - 0.0
+  - 0.0
+  - 0.0
+  env_configuration: default
+  controller_configs: null
+  gripper_types: default
+  initialization_noise: default
+  use_camera_obs: false
+  use_object_obs: true
+  has_renderer: false
+  has_offscreen_renderer: false
+  render_camera: null
+  render_collision_mesh: false
+  render_visual_mesh: true
+  render_gpu_device_id: -1
+  control_freq: 10
+  horizon: 3000
+  ignore_done: false
+  hard_reset: false
+  camera_names: frontview
+  camera_heights: 256
+  camera_widths: 256
+  camera_depths: false
+  camera_segmentations: null
+  renderer: mujoco
+  renderer_config: null
+  shield_type: SSM
+  visualize_failsafe_controller: false
+  visualize_pinocchio: false
+  control_sample_time: 0.004
+  human_animation_names:
+  - CollaborativeStacking/0
+  - CollaborativeStacking/1
+  - CollaborativeStacking/2
+  - CollaborativeStacking/3
+  - CollaborativeStacking/4
+  - CollaborativeStacking/5
+  - CollaborativeStacking/6
+  - CollaborativeStacking/7
+  base_human_pos_offset:
+  - 0.0
+  - 0.0
+  - 0.0
+  human_animation_freq: 120
+  human_rand:
+  - 0.02
+  - 0.1
+  - 0.1
+  n_animations_sampled_per_100_steps: 5
+  safe_vel: 0.001
+  self_collision_safety: 0.01
+  seed: 0
+  verbose: false
+  table_full_size:
+  - 1.2
+  - 2.0
+  - 0.05
+  table_friction:
+  - 1.0
+  - 0.005
+  - 0.0001
+  object_full_size:
+  - 0.045
+  - 0.045
+  - 0.045
+  reward_scale: 1.0
+  reward_shaping: false
+  collision_reward: 0
+  stack_toppled_reward: -10
+  task_reward: 2.0
+  second_cube_at_target_reward: 0.0
+  fourth_cube_at_target_reward: 1.0
+  object_gripped_reward: 0.75
+  goal_dist: 0.025
+  obstacle_placement_initializer: null
+  done_at_collision: false
+  done_at_success: true
+expert:
+  id: PickPlaceHumanCart
+  signal_to_noise_ratio: 1.0
+  hover_dist: 0.2
+  tan_theta: 0.5
+  horizontal_epsilon: 0.035
+  vertical_epsilon: 0.015
+  goal_dist: 0.08
+  gripper_fully_opened_threshold: 0.02
+  release_when_delivered: true
+  delta_time: 0.01
+  seed: ${run.eval_seed}
+  obs_keys:
+  - object_gripped
+  - vec_eef_to_object
+  - vec_eef_to_target
+  - robot0_gripper_qpos
+wrappers:
+  collision_prevention:
+    replace_type: 0
+    n_resamples: 20
+  ik_position_delta:
+    urdf_file: models/assets/robots/schunk/robot_pybullet.urdf
+    action_limit: 0.1
+    x_output_max: 1
+    x_position_limits: null
+    residual_threshold: 0.001
+    max_iter: 50
+  dataset_obs_norm:
+    dataset_name: collaborative-stacking
+    squash_factor: null
+    allow_different_observation_shapes: true
+    mean: null
+    std: null
+run:
+  n_envs: 1
+  n_steps: 3000000
+  save_freq: 200000
+  test_only: false
+  load_step: all
+  id: null
+  type: debug
+  log_interval: 10
+  seed: 0
+  eval_seed: 100
+  start_index: 0
+  n_test_episodes: 20
+  env_type: env
+  obs_keys:
+  - object_gripped
+  - vec_eef_to_all_objects
+  - gripper_aperture
+  - dist_eef_to_human_head
+  - dist_eef_to_human_lh
+  - dist_eef_to_human_rh
+  expert_obs_keys: ${expert.obs_keys}
+  log_info_keys:
+  - failsafe_interventions
+  - n_collisions
+  - n_collisions_human
+  - n_collisions_critical
+  - n_collisions_static
+  - n_collisions_robot
+  monitor_dir: null
+  vec_env_kwargs: null
+  monitor_kwargs: null
+  verbose: true
+  resetting_interval: null
+  dataset_name: dataset
+algorithm:
+  name: SAC
+group_name: null
+max_parallel_runs: null
