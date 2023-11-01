@@ -43,7 +43,7 @@ if __name__ == "__main__":
             hard_reset=False,
             horizon=1000,
             controller_configs=controller_configs,
-            use_failsafe_controller=True,
+            shield_type="PFL",
             visualize_failsafe_controller=True,
             visualize_pinocchio=False,
             base_human_pos_offset=[0.9, -1.5, -0.3],
@@ -51,7 +51,7 @@ if __name__ == "__main__":
             goal_dist=0.0001,
             human_rand=[0.0, 0.0, 0.0],
             human_animation_names=["Test/test"],
-            human_animation_freq=120
+            human_animation_freq=10
         ),
         keys=[
             "object-state",
