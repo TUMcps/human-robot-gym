@@ -140,9 +140,9 @@ train () {
             -cn ${env}-${method} \
             hydra/launcher=ray \
             wandb_run.project=${project_name} wandb_run.group=${group} \
-            run.type=tensorboard run.n_steps=${n_steps} "run.seed=${run_seed_arg}" run.n_envs=${n_envs} \
+            run.type=${run_type} run.n_steps=${n_steps} "run.seed=${run_seed_arg}" run.n_envs=${n_envs} \
             run.dataset_name=${env_long} "run.log_interval=[${log_interval},'step']" run.save_freq=${model_save_interval} \
-            environment.horizon=${horizon} run.type=${run_type} environment.verbose=False
+            environment.horizon=${horizon} environment.verbose=False
     )
 }
 
