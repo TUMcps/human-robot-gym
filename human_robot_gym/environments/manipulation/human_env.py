@@ -1168,7 +1168,6 @@ class HumanEnv(SingleArmEnv):
             True: velocity lower or equal than threshold
             False: velocity higher than threshold
         """
-        print(np.linalg.norm(v_arr[0:3]))
         return np.linalg.norm(v_arr[0:3]) <= threshold
 
     def _setup_arena(self):
