@@ -375,6 +375,11 @@ class FailsafeController(JointPositionController):
         self.torques = self.clip_torques(torques=self.torques)
         # Always run superclass call for any cleanups at the end
         self.new_update = True
+        
+        if self.get_safety() == False:
+            stop = 0
+        else:
+            stop = 0
 
         return self.torques
 

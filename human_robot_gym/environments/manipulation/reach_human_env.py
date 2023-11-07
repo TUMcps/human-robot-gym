@@ -570,7 +570,7 @@ class ReachHuman(HumanEnv):
         # Objects are elements that can be moved around and manipulated.
         # Create objects
         # Box example
-        box_size = np.array([0.103, 0.103, 0.103])
+        box_size = np.array([0.206, 0.206, 0.206])
         box = BoxObject(
             name="smallBox",
             size=box_size * 0.5,
@@ -585,7 +585,7 @@ class ReachHuman(HumanEnv):
             initializer=self.object_placement_initializer,
             objects=self.objects,
             x_range=[0.6, 0.6],#[-bin_x_half, bin_x_half],
-            y_range=[0.1, 0.1],#[-bin_y_half, bin_y_half],
+            y_range=[0.3, 0.3],#[-bin_y_half, bin_y_half],
         )
         # << OBSTACLES >>
         self._setup_collision_objects(
