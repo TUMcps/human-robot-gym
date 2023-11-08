@@ -668,6 +668,7 @@ class ReachHuman(HumanEnv):
     def _visualize_goal(self):
         """Visualize the goal state."""
         # arrow (type 100)
+        return  # TODO goal_marker_trans is not set if robot does not inherit from pinocchio manipulator model
         self.viewer.viewer.add_marker(
             pos=self.goal_marker_trans,
             type=100,
