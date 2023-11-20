@@ -211,6 +211,7 @@ run:
   vec_env_kwargs: null
   monitor_kwargs: null
   verbose: true
+  resetting_interval: null
   dataset_name: pick-place
 wandb_run:
   project: icra_2024
