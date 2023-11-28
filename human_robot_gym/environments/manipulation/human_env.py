@@ -1168,7 +1168,6 @@ class HumanEnv(SingleArmEnv):
             True: velocity lower or equal than threshold
             False: velocity higher than threshold
         """
-        print(np.linalg.norm(v_arr[0:3]))
         return np.linalg.norm(v_arr[0:3]) <= threshold
 
     def _setup_arena(self):
@@ -1510,6 +1509,11 @@ class HumanEnv(SingleArmEnv):
             def gripper_aperture(obs_cache):
                 if f"{pf}gripper_qpos" in obs_cache:
                     gripper_qpos = obs_cache[f"{pf}gripper_qpos"]
+                    if not hasattr(self.robots[0].gripper, "qpos_range"):
+                        if self.verbose:
+                            print("Gripper has no qpos_range attribute. Gripper aperture observable is not normalized!")
+                        return np.mean(gripper_qpos)
+
                     gripper_qpos_range = self.robots[0].gripper.qpos_range
                     normed_qpos = (
                         (gripper_qpos - gripper_qpos_range[0]) / (gripper_qpos_range[1] - gripper_qpos_range[0])

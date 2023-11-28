@@ -178,7 +178,6 @@ if __name__ == "__main__":
 
     for i_episode in range(20):
         observation = env.reset()
-        print(observation)
         t1 = time.time()
         t = 0
         while True:
