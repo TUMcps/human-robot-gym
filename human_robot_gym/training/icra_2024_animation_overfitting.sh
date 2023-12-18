@@ -50,6 +50,7 @@ project_name=${env_long}_animation_overfitting
 
 evaluation_data_csv_folder="csv/evaluation/${project_name}"
 
+seeds=(0 1 2 3 4)
 
 dataset_name_0=${env_long}-split-0
 dataset_name_1=${env_long}-split-1
@@ -82,6 +83,18 @@ test_4="[${env_long}/4,${env_long}/9]"
 # =============================================================================
 # ======================== Function Definitions ===============================
 # =============================================================================
+
+# Join an array with a separator.
+# Usage:
+#   join_by <sep> <array>
+# Example:
+#   join_by , (a b c)
+#   -> a,b,c
+join_by () {
+    local IFS="$1"
+    shift
+    echo "$*"
+}
 
 # Print a line in green color to the console
 # Usage:
@@ -129,11 +142,14 @@ cleanup_existing_data () {
 generate_dataset () {
     local dataset_name=$1
     local human_animations=$2
-    python human_robot_gym/training/create_expert_dataset.py \
-        -cp config_icra_2024/environment_evaluation/dataset_creation \
-        -cn ${env} \
-        dataset_name=${dataset_name} n_episodes=${n_dataset_episodes} \
-        environment.horizon=${horizon} environment.human_animation_names=${human_animations} environment.verbose=False
+    (
+        set -o xtrace
+        python human_robot_gym/training/create_expert_dataset.py \
+            -cp config_icra_2024/environment_evaluation/dataset_creation \
+            -cn ${env} \
+            dataset_name=${dataset_name} n_episodes=${n_dataset_episodes} \
+            environment.horizon=${horizon} environment.human_animation_names=${human_animations} environment.verbose=False
+    )
 }
 
 # Execute a training run
@@ -148,15 +164,19 @@ train () {
     local dataset_name=$1
     local human_animations=$2
     local group=${3:-"${dataset_name}"}
-    python human_robot_gym/training/train_SB3.py --multirun \
-        -cp config_icra_2024/environment_evaluation/training \
-        -cn ${env}-${method} \
-        hydra/launcher=ray \
-        run.type=tensorboard run.n_steps=${n_training_steps} \
-        wandb_run.project=${project_name} wandb_run.group=${group} \
-        "run.seed=0,1,2,3,4" run.n_envs=${n_training_envs} run.dataset_name=${dataset_name} "run.log_interval=[${training_log_interval},'step']" \
-        run.type=${run_type} run.save_freq=${model_save_interval} \
-        environment.horizon=${horizon} environment.human_animation_names=${human_animations} environment.verbose=False
+    local run_seed_arg=$(join_by , ${seeds[@]})
+    (
+        set -o xtrace
+        python human_robot_gym/training/train_SB3.py --multirun \
+            -cp config_icra_2024/environment_evaluation/training \
+            -cn ${env}-${method} \
+            hydra/launcher=ray \
+            run.type=tensorboard run.n_steps=${n_training_steps} \
+            wandb_run.project=${project_name} wandb_run.group=${group} \
+            run.seed=${run_seed_arg} run.n_envs=${n_training_envs} run.dataset_name=${dataset_name} "run.log_interval=[${training_log_interval},'step']" \
+            run.type=${run_type} run.save_freq=${model_save_interval} \
+            environment.horizon=${horizon} environment.human_animation_names=${human_animations} environment.verbose=False
+    )
 }
 
 # Evaluate models from snapshots during training and store statistics into .csv files
@@ -172,19 +192,18 @@ evaluate () {
     local training_group=$2
     local evaluation_group=$3
     local human_animations=$4
-    assemble_evaluation_run_id () {
-        local run_index=$1
-        echo ${project_name}/${training_group}/run_${run_index}
-    }
-    local evaluation_run_ids="[$(assemble_evaluation_run_id 0),$(assemble_evaluation_run_id 1),$(assemble_evaluation_run_id 2),$(assemble_evaluation_run_id 3),$(assemble_evaluation_run_id 4)]"
-    python human_robot_gym/training/evaluate_models_to_csv_SB3.py \
-        -cp config_icra_2024/environment_evaluation/evaluation \
-        -cn ${env} \
-        group_name=${project_name}/${evaluation_group} max_parallel_runs=${max_eval_threads} \
-        run.n_steps=${n_training_steps} run.save_freq=${model_save_interval} "run.id=${evaluation_run_ids}" \
-        run.load_step=final run.n_test_episodes=${n_test_episodes} \
-        environment.horizon=${horizon} environment.human_animation_names=${human_animations} \
-        wrappers.dataset_obs_norm.dataset_name=${training_dataset_name} environment.verbose=False
+    local run_ids=[$(join_by , $(for seed in ${seeds[@]}; do echo ${project_name}/${training_group}/run_${seed}; done))]
+    (
+        set -o xtrace
+        python human_robot_gym/training/evaluate_models_to_csv_SB3.py \
+            -cp config_icra_2024/environment_evaluation/evaluation \
+            -cn ${env} \
+            group_name=${project_name}/${evaluation_group} max_parallel_runs=${max_eval_threads} \
+            run.n_steps=${n_training_steps} run.save_freq=${model_save_interval} "run.id=${run_ids}" \
+            run.load_step=final run.n_test_episodes=${n_test_episodes} \
+            environment.horizon=${horizon} environment.human_animation_names=${human_animations} \
+            wrappers.dataset_obs_norm.dataset_name=${training_dataset_name} environment.verbose=False
+    )
 }
 
 # Evaluate the expert policy on the test episodes and store statistics into a .csv file
@@ -198,14 +217,17 @@ evaluate_expert () {
     local training_dataset_name=$1
     local group_name=$2
     local human_animations=$3
-    python human_robot_gym/training/evaluate_models_to_csv_SB3.py \
-        -cp config_icra_2024/environment_evaluation/evaluation \
-        -cn ${env} \
-        "run.id=null" \
-        group_name=${project_name}/${group_name} \
-        run.load_step=final run.n_test_episodes=${n_test_episodes} \
-        environment.horizon=${horizon} environment.human_animation_names=${human_animations} \
-        wrappers.dataset_obs_norm.dataset_name=${training_dataset_name} environment.verbose=False
+    (
+        set -o xtrace
+        python human_robot_gym/training/evaluate_models_to_csv_SB3.py \
+            -cp config_icra_2024/environment_evaluation/evaluation \
+            -cn ${env} \
+            "run.id=null" \
+            group_name=${project_name}/${group_name} \
+            run.load_step=final run.n_test_episodes=${n_test_episodes} \
+            environment.horizon=${horizon} environment.human_animation_names=${human_animations} \
+            wrappers.dataset_obs_norm.dataset_name=${training_dataset_name} environment.verbose=False
+    )
 }
 
 
