@@ -147,3 +147,19 @@ if you don't need the GUI (i.e., training only).
 Our `entrypoint.sh` builds `safety_shield_py` and `human_robot_gym` when starting up the container.
 We defined the CMD as `/bin/bash`, so that you can use the interactive console after creation.
 Now, enjoy your docker container.
+
+
+# ICRA 2024 Experiment Reproduction
+
+To reproduce the results described in the [human-robot-gym paper](https://arxiv.org/pdf/2310.06208.pdf), execute
+
+```
+./icra_2024_run_experiments_in_docker.sh
+```
+
+This will
+- Create a docker image,
+- Run a container, and
+- Run all experiments within the container.
+
+Please note that due to the amount of training runs (6 environments x 4 methods x 5 random seeds), the execution of this command will take a very significant amount of time (order of magnitude: 1 month) and will run on up to 50 threads.

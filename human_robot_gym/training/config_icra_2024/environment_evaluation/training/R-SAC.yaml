@@ -100,20 +100,8 @@ wrappers:
     dataset_name: ${run.dataset_name}
     squash_factor: null
     allow_different_observation_shapes: false
-    mean:
-    - -0.0049488772256473
-    - -0.007043835753331773
-    - -0.025671608013726
-    - -0.025081991981095186
-    - 0.009857072988358292
-    - -0.07344407149281813
-    std:
-    - 0.8511062984161044
-    - 0.42419868487673956
-    - 0.7287817287014537
-    - 0.8867290361978235
-    - 0.5171704145616722
-    - 0.9419710223814134
+    mean: null
+    std: null
 algorithm:
   name: SAC
   policy: MlpPolicy
@@ -160,7 +148,7 @@ run:
   test_only: false
   load_step: null
   id: null
-  type: wandb
+  type: tensorboard
   log_interval:
   - 800
   - step
@@ -171,8 +159,7 @@ run:
   env_type: env
   obs_keys:
   - goal_difference
-  expert_obs_keys:
-  - goal_difference
+  expert_obs_keys: ${expert.obs_keys}
   log_info_keys:
   - n_goal_reached
   - collision
@@ -202,8 +189,8 @@ run:
   resetting_interval: null
   dataset_name: human-reach
 wandb_run:
-  project: thesis
+  project: icra_2024
   entity: null
-  group: r_sac
-  name: sac_${run.seed}
+  group: R_SAC
+  name: run_${run.seed}
   tags: null

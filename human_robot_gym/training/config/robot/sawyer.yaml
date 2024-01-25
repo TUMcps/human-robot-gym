@@ -1,0 +1,3 @@
+name: Sawyer
+controller_config_path: controllers/failsafe_controller/config/failsafe.json
+robot_config_path: models/robots/config/sawyer.json

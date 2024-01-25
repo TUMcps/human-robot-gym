@@ -28,7 +28,7 @@ import numpy as np
 from gym.core import Env
 from gym.spaces import Box
 
-from human_robot_gym.demonstrations.experts import ReachHumanCartExpert
+from human_robot_gym.demonstrations.experts import ReachHumanExpert
 from human_robot_gym.demonstrations.experts import PickPlaceHumanCartExpert
 from human_robot_gym.demonstrations.experts import CollaborativeLiftingCartExpert
 from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
@@ -280,8 +280,10 @@ class StateBasedExpertImitationRewardWrapper(DatasetRSIWrapper):
         )
 
 
-class ReachHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertImitationRewardWrapper):
-    r"""State-based expert imitation reward gym wrapper for the `ReachHumanCart` environment.
+class ReachHumanStateBasedExpertImitationRewardWrapper(StateBasedExpertImitationRewardWrapper):
+    r"""State-based expert imitation reward gym wrapper for the `ReachHuman` environment.
+
+    Also applicable for the `ReachHumanCart` environment as the expert observation is identical.
 
     The expert observation dicts should contain all keys necessary
     to be stored as `ReachHumanExpertObservation` objects.
@@ -372,8 +374,8 @@ class ReachHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertImita
         Returns:
             float: imitation reward
         """
-        demonstration_obs = ReachHumanCartExpert.expert_observation_from_dict(demonstration_obs_dict)
-        policy_obs = ReachHumanCartExpert.expert_observation_from_dict(policy_obs_dict)
+        demonstration_obs = ReachHumanExpert.expert_observation_from_dict(demonstration_obs_dict)
+        policy_obs = ReachHumanExpert.expert_observation_from_dict(policy_obs_dict)
 
         imitation_error = demonstration_obs.goal_difference - policy_obs.goal_difference
         imitation_reward = similarity_fn(
@@ -401,8 +403,8 @@ class ReachHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertImita
         Returns:
             bool: whether the training episode should be terminated early
         """
-        demonstration_obs = ReachHumanCartExpert.expert_observation_from_dict(demonstration_obs_dict)
-        policy_obs = ReachHumanCartExpert.expert_observation_from_dict(policy_obs_dict)
+        demonstration_obs = ReachHumanExpert.expert_observation_from_dict(demonstration_obs_dict)
+        policy_obs = ReachHumanExpert.expert_observation_from_dict(policy_obs_dict)
 
         imitation_error_dist = np.linalg.norm(
             demonstration_obs.goal_difference - policy_obs.goal_difference
@@ -618,7 +620,7 @@ class PickPlaceHumanCartStateBasedExpertImitationRewardWrapper(StateBasedExpertI
 
 
 class CollaborativeLiftingCartStateBasedExpertImitationRewardWrapper(
-    ReachHumanCartStateBasedExpertImitationRewardWrapper
+    ReachHumanStateBasedExpertImitationRewardWrapper
 ):
     r"""State-based expert imitation reward gym wrapper for the `CollaborativeLiftingCart` environment.
 
@@ -672,7 +674,6 @@ class CollaborativeLiftingCartStateBasedExpertImitationRewardWrapper(
         env: Env,
         dataset_name: str,
         alpha: float = 0,
-        beta: float = 0,
         iota: float = 0.1,
         sim_fn: str = "gaussian",
         observe_time: bool = True,

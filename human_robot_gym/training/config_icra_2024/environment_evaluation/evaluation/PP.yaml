@@ -117,6 +117,8 @@ wrappers:
     dataset_name: pick-place
     squash_factor: null
     allow_different_observation_shapes: true
+    mean: null
+    std: null
 run:
   n_envs: 1
   n_steps: 3000000
@@ -156,3 +158,4 @@ run:
 algorithm:
   name: SAC
 group_name: null
+max_parallel_runs: null

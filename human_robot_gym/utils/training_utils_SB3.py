@@ -337,7 +337,7 @@ def create_callback(
             )
         )
 
-    if config.run.resetting_interval is not None:
+    if hasattr(config.run, "resetting_interval") and config.run.resetting_interval is not None:
         callbacks.append(
             ModelResetCallback(
                 n_steps_between_resets=config.run.resetting_interval,

@@ -336,13 +336,15 @@ class PickPlaceHumanCart(HumanEnv):
         self.goal_dist = goal_dist
         self._object_placements_list = None
         self._object_placements_list_index = 0
-        self._n_objects_to_sample_at_resets = int(
-            horizon * n_object_placements_sampled_per_100_steps / 100
+        self._n_objects_to_sample_at_resets = max(
+            int(horizon * n_object_placements_sampled_per_100_steps / 100),
+            1,
         )
         self._target_positions = None
         self._target_positions_index = 0
-        self._n_targets_to_sample_at_resets = int(
-            horizon * n_targets_sampled_per_100_steps / 100
+        self._n_targets_to_sample_at_resets = max(
+            int(horizon * n_targets_sampled_per_100_steps / 100),
+            1,
         )
         # object placement initializer
         self.object_placement_initializer = object_placement_initializer

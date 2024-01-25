@@ -109,30 +109,8 @@ wrappers:
     dataset_name: ${run.dataset_name}
     squash_factor: null
     allow_different_observation_shapes: false
-    mean:
-    - 0.33229877922615353
-    - -0.005667384368362957
-    - 0.029853794144338402
-    - -0.0646852443099587
-    - -0.029833744336747178
-    - -0.537869257798204
-    - -0.11373852696012632
-    - 0.836916777113775
-    - 1.3296280017807744
-    - 1.2774827633465202
-    - 1.154513840716193
-    std:
-    - 0.47103747255514494
-    - 0.011570563904299298
-    - 0.08214238606630807
-    - 0.0933629733025799
-    - 0.06027932662101899
-    - 0.20707491939187953
-    - 0.09642748348809464
-    - 0.21231665106213948
-    - 0.4721460009918085
-    - 0.5228182632752235
-    - 0.5434593608331655
+    mean: null
+    std: null
 algorithm:
   name: SAC
   policy: MlpPolicy
@@ -189,7 +167,7 @@ run:
   test_only: false
   load_step: null
   id: null
-  type: wandb
+  type: tensorboard
   log_interval:
   - 8000
   - step
@@ -206,11 +184,7 @@ run:
   - dist_eef_to_human_head
   - dist_eef_to_human_lh
   - dist_eef_to_human_rh
-  expert_obs_keys:
-  - object_gripped
-  - vec_eef_to_object
-  - vec_eef_to_target
-  - robot0_gripper_qpos
+  expert_obs_keys: ${expert.obs_keys}
   log_info_keys:
   - n_goal_reached
   - collision
@@ -237,10 +211,11 @@ run:
   vec_env_kwargs: null
   monitor_kwargs: null
   verbose: true
+  resetting_interval: null
   dataset_name: pick-place
 wandb_run:
-  project: thesis
+  project: icra_2024
   entity: null
-  group: pp_air
-  name: air_${run.seed}
+  group: PP_AIR
+  name: run_${run.seed}
   tags: null
