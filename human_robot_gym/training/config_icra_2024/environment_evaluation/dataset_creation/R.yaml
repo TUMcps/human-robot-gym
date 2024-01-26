@@ -21,7 +21,7 @@ environment:
   render_collision_mesh: false
   render_visual_mesh: true
   render_gpu_device_id: -1
-  control_freq: 5
+  control_freq: 10
   horizon: 100
   ignore_done: true
   hard_reset: false

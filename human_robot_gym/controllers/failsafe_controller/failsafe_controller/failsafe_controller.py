@@ -117,6 +117,7 @@ class FailsafeController(JointPositionController):
         joint_indexes,
         actuator_range,
         init_qpos,
+        robot_name,
         base_pos=[0.0, 0.0, 0.0],
         base_orientation=[0.0, 0.0, 0.0, 1.0],
         shield_type="SSM",
@@ -166,15 +167,17 @@ class FailsafeController(JointPositionController):
             ]
         )
         rpy = rot.as_euler("XYZ")
+
+        robot_name = robot_name.lower()
         # Unfortunately, all other native python enum functions seem to fail.
         self.shield_type = eval("ShieldType." + shield_type)
 
         self.safety_shield = SafetyShield(
             sample_time=control_sample_time,
-            trajectory_config_file=dir_path
-            + "/../sara-shield/safety_shield/config/trajectory_parameters_schunk.yaml",
-            robot_config_file=dir_path
-            + "/../sara-shield/safety_shield/config/robot_parameters_schunk.yaml",
+            trajectory_config_file=(
+                f"{dir_path}/../sara-shield/safety_shield/config/trajectory_parameters_{robot_name}.yaml"
+            ),
+            robot_config_file=f"{dir_path}/../sara-shield/safety_shield/config/robot_parameters_{robot_name}.yaml",
             mocap_config_file=dir_path + "/../sara-shield/safety_shield/config/mujoco_mocap.yaml",
             init_x=base_pos[0],
             init_y=base_pos[1],

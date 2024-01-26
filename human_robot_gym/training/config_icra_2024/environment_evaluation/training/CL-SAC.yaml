@@ -104,30 +104,8 @@ wrappers:
     dataset_name: ${run.dataset_name}
     squash_factor: null
     allow_different_observation_shapes: false
-    mean:
-    - 0.0005193147306841649
-    - 0.01693638833782681
-    - 0.9975761892653651
-    - -0.0006908546008132581
-    - 1.3418749663943175
-    - 0.9030952287471214
-    - -0.35353343710893326
-    - 0.013205595388173891
-    - 0.9119289730336408
-    - 0.2873953330264962
-    - -0.00964233815011297
-    std:
-    - 0.05156655275845753
-    - 0.03391999766650851
-    - 0.0049835870008170975
-    - 0.026826230605326625
-    - 0.06714998978977962
-    - 0.029681688792894543
-    - 0.049326131535059596
-    - 0.09293437042272575
-    - 0.02405676258502097
-    - 0.05665295573623896
-    - 0.09794854260695622
+    mean: null
+    std: null
 algorithm:
   name: SAC
   policy: MlpPolicy
@@ -174,6 +152,7 @@ expert:
   - vec_eef_to_human_lh
   - vec_eef_to_human_rh
   - board_quat
+  - board_gripped
 run:
   n_envs: 8
   n_steps: 3000001
@@ -181,7 +160,7 @@ run:
   test_only: false
   load_step: null
   id: null
-  type: wandb
+  type: tensorboard
   log_interval:
   - 8000
   - step
@@ -195,10 +174,7 @@ run:
   - dist_eef_to_human_head
   - vec_eef_to_human_lh
   - vec_eef_to_human_rh
-  expert_obs_keys:
-  - vec_eef_to_human_lh
-  - vec_eef_to_human_rh
-  - board_quat
+  expert_obs_keys: ${expert.obs_keys}
   log_info_keys:
   - n_goal_reached
   - collision
@@ -228,8 +204,8 @@ run:
   resetting_interval: null
   dataset_name: collaborative-lifting
 wandb_run:
-  project: thesis
+  project: icra_2024
   entity: null
-  group: cl_sac
-  name: sac_${run.seed}
+  group: CL_SAC
+  name: run_${run.seed}
   tags: null

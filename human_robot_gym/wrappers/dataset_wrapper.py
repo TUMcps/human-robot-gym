@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import os
 
 import numpy as np
+import pandas as pd
 
 import gym
 
@@ -160,7 +161,10 @@ class DatasetObsNormWrapper(gym.Wrapper):
     r"""Wrapper for normalizing observations based on dataset statistics.
 
     Obtains mean and std of per observation value from the dataset and normalizes observations accordingly.
-    The statistics might be provided in form of a dataset or as numpy arrays for mean and std.
+    The statistics might be provided in form of
+    - numpy array arguments for mean and std,
+    - a csv file in the dataset named 'observations.csv', with two columns 'mean' and 'std', or
+    - directly calculated from the observations in the dataset if necessary.
 
     Additionally supports squashing observations to [-1, 1] by applying tanh with a given factor.
     This induces a fish-eye effect when using cartesian vector observations:
@@ -206,19 +210,22 @@ class DatasetObsNormWrapper(gym.Wrapper):
         # Fill up missing values from dataset -> only load dataset if necessary
         if self._obs_mean is None or self._obs_std is None:
             assert dataset_name is not None, "Dataset name must be provided if mean or std are not provided!"
-
-            dataset = DatasetWrapper.load_dataset(dataset_name=dataset_name)
-            observations = np.concatenate([dic["observations"] for _, dic in dataset], axis=0)
-            if self._obs_mean is None:
-                self._obs_mean = np.mean(observations, axis=0)
-            if self._obs_std is None:
-                self._obs_std = np.std(observations, axis=0)
+            if os.path.exists(observation_stats_path := f"datasets/{dataset_name}/observations.csv"):
+                stats_df = pd.read_csv(observation_stats_path)
+                self._obs_mean = stats_df["mean"].values if self._obs_mean is None else self._obs_mean
+                self._obs_std = stats_df["std"].values if self._obs_std is None else self._obs_std
+            else:  # Compatibility: if statistics are not given explicitely, calculate them from the dataset
+                dataset = DatasetWrapper.load_dataset(dataset_name=dataset_name)
+                observations = np.concatenate([dic["observations"] for _, dic in dataset], axis=0)
+                self._obs_mean = np.mean(observations, axis=0) if self._obs_mean is None else self._obs_mean
+                self._obs_std = np.std(observations, axis=0) if self._obs_std is None else self._obs_std
 
         # Handle different observation shapes (e.g. when using SIR with a time observation)
         if self._obs_mean.shape != self.observation_space.shape:
             assert allow_different_observation_shapes, "Environment and dataset observation space do not match!"
             assert len(self._obs_mean.shape) == len(self.observation_space.shape) == 1, \
-                "Matching shapes only supported for one-dimensional observations!"
+                "Matching shapes only supported for one-dimensional observations!" \
+                f"Got {self._obs_mean} and {self.observation_space.shape}"
 
             if self._obs_mean.shape[0] < self.observation_space.shape[0]:
                 self._obs_mean = np.concatenate(
@@ -230,6 +237,9 @@ class DatasetObsNormWrapper(gym.Wrapper):
             else:
                 self._obs_mean = self._obs_mean[: self.observation_space.shape[0]]
                 self._obs_std = self._obs_std[: self.observation_space.shape[0]]
+
+        # Prevent division by zero errors
+        self._obs_std[self._obs_std == 0] = 1
 
         self._squash_factor = squash_factor
 

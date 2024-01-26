@@ -107,42 +107,8 @@ wrappers:
     dataset_name: ${run.dataset_name}
     squash_factor: null
     allow_different_observation_shapes: false
-    mean:
-    - 0.475650276892096
-    - -0.029443475303398855
-    - -0.12168997333651783
-    - -0.0877087503844327
-    - -0.017340065143845517
-    - 0.05148722445545789
-    - -0.04179128580703979
-    - 0.2465093512123413
-    - 0.06000488655904954
-    - 0.05524775786810052
-    - 0.10864012818927103
-    - 0.36305532324111184
-    - -0.06338403700083617
-    - 0.8164845541373004
-    - 0.9131372289096538
-    - 0.5291957431854729
-    - 0.9816393205309717
-    std:
-    - 0.49940673902743243
-    - 0.07770267648339886
-    - 0.21579153985631286
-    - 0.11307673990210818
-    - 0.03998251165254117
-    - 0.11733471720559856
-    - 0.077610778930801
-    - 0.27517965001706707
-    - 0.24591978554193464
-    - 0.18247821927416313
-    - 0.2983588898440488
-    - 0.23687152471585957
-    - 0.0832643821523221
-    - 0.18406110916373622
-    - 0.1350812834507632
-    - 0.24745180989009305
-    - 0.20605785963830342
+    mean: null
+    std: null
 algorithm:
   name: SAC
   policy: MlpPolicy
@@ -199,7 +165,7 @@ run:
   test_only: false
   load_step: null
   id: null
-  type: wandb
+  type: tensorboard
   log_interval:
   - 8000
   - step
@@ -215,11 +181,7 @@ run:
   - dist_eef_to_human_head
   - dist_eef_to_human_lh
   - dist_eef_to_human_rh
-  expert_obs_keys:
-  - object_gripped
-  - vec_eef_to_object
-  - vec_eef_to_target
-  - robot0_gripper_qpos
+  expert_obs_keys: ${expert.obs_keys}
   log_info_keys:
   - n_goal_reached
   - max_stack_height
@@ -250,8 +212,8 @@ run:
   resetting_interval: null
   dataset_name: collaborative-stacking
 wandb_run:
-  project: thesis
+  project: icra_2024
   entity: null
-  group: cs_air
-  name: air_${run.seed}
+  group: CS_AIR
+  name: run_${run.seed}
   tags: null

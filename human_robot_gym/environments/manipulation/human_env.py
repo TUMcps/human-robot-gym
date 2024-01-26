@@ -373,8 +373,9 @@ class HumanEnv(SingleArmEnv):
         self.human_base_quat = Rotation.from_quat([0.5, 0.5, 0.5, 0.5])
         self.human_animation_freq = human_animation_freq
         self.low_level_time = int(0)
-        self._n_animations_to_sample_at_resets = int(
-            horizon * n_animations_sampled_per_100_steps / 100
+        self._n_animations_to_sample_at_resets = max(
+            int(horizon * n_animations_sampled_per_100_steps / 100),
+            1,
         )
         self._human_animation_ids = None
         self._human_animation_ids_index = 0
@@ -1167,7 +1168,6 @@ class HumanEnv(SingleArmEnv):
             True: velocity lower or equal than threshold
             False: velocity higher than threshold
         """
-        print(np.linalg.norm(v_arr[0:3]))
         return np.linalg.norm(v_arr[0:3]) <= threshold
 
     def _setup_arena(self):
@@ -1509,6 +1509,11 @@ class HumanEnv(SingleArmEnv):
             def gripper_aperture(obs_cache):
                 if f"{pf}gripper_qpos" in obs_cache:
                     gripper_qpos = obs_cache[f"{pf}gripper_qpos"]
+                    if not hasattr(self.robots[0].gripper, "qpos_range"):
+                        if self.verbose:
+                            print("Gripper has no qpos_range attribute. Gripper aperture observable is not normalized!")
+                        return np.mean(gripper_qpos)
+
                     gripper_qpos_range = self.robots[0].gripper.qpos_range
                     normed_qpos = (
                         (gripper_qpos - gripper_qpos_range[0]) / (gripper_qpos_range[1] - gripper_qpos_range[0])

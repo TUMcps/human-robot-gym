@@ -129,9 +129,9 @@ def print_stats(
     Args:
         stats (pd.DataFrame): Dataframe containing the statistics.
     """
-    stats_str = f"Success rate: {stats.success_mean}%\n" \
-                f"Episode length: {stats.ep_len_mean} ({stats.ep_len_025}, {stats.ep_len_975})\n" \
-                f"Episode return: {stats.ep_rew_mean} ({stats.ep_rew_025}, {stats.ep_rew_975})\n" \
+    stats_str = f"Success rate: {stats.success_mean.values[0]}%\n" \
+                f"Episode length: {stats.ep_len_mean.values[0]} ({stats.ep_len_025[0]}, {stats.ep_len_975[0]})\n" \
+                f"Episode return: {stats.ep_rew_mean.values[0]} ({stats.ep_rew_025[0]}, {stats.ep_rew_975[0]})\n" \
 
     print(stats_str)
 
@@ -148,6 +148,11 @@ def save_obs_stats(
     observations: np.ndarray,
     dataset_name: str,
 ):
+    # Account for the case when an observation value is constant across all observations
+    # as that might provoke division-by-zero errors when performing observation normalization
+    std = np.std(observations, axis=0)
+    std[std == 0] = 1
+
     pd.DataFrame(
         {
             "mean": np.mean(observations, axis=0),

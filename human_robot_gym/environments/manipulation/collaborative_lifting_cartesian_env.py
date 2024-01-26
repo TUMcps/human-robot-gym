@@ -443,7 +443,7 @@ class CollaborativeLiftingCart(HumanEnv):
         """
         return self._animation_complete
 
-    def sparse_reward(
+    def _sparse_reward(
         self,
         achieved_goal: List[float],
         desired_goal: List[float],
@@ -477,7 +477,7 @@ class CollaborativeLiftingCart(HumanEnv):
         else:
             return 1.0
 
-    def dense_reward(
+    def _dense_reward(
         self,
         achieved_goal: List[float],
         desired_goal: List[float],
