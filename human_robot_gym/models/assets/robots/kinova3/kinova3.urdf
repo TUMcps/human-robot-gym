@@ -43,7 +43,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="Actuator1" type="revolute">
+  <joint name="Actuator1" type="revolute"> <!--continuous-->
     <origin xyz="0 0 0.15643" rpy="3.1416 2.7629E-18 -4.9305E-36" />
     <parent link="base_link" />
     <child link="Shoulder_Link" />
@@ -217,7 +217,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="Actuator7" type="continuous">
+  <joint name="Actuator7" type="revolute">
     <origin xyz="0 -0.10593 -0.00017505" rpy="-1.5708 -5.5511E-17 9.6396E-17" />
     <parent link="SphericalWrist2_Link" />
     <child link="Bracelet_Link" />
@@ -243,11 +243,11 @@
         </geometry>
       </collision> -->
   </link>
-  <joint name="EndEffector" type="fixed"> <!--fixed-->
+  <joint name="EndEffector" type="revolute"> <!--fixed-->
     <origin xyz="0 0 -0.0615250000000001" rpy="3.14159265358979 1.09937075168372E-32 0" />
     <parent link="Bracelet_Link" />
     <child link="EndEffector_Link" />
-    <!--<limit lower="-3.14" upper="3.14" effort="9.0" velocity="0.8727" />-->
+    <limit lower="-3.14" upper="3.14" effort="9.0" velocity="0.8727" />
     <axis xyz="0 0 0" />
   </joint>
 </robot>
