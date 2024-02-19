@@ -7,3 +7,4 @@ from robosuite.robots.single_arm import SingleArm
 # Robot class mappings -- must be maintained manually
 ROBOT_CLASS_MAPPING["Schunk"] = SingleArm
 ROBOT_CLASS_MAPPING["PandaZero"] = SingleArm
+ROBOT_CLASS_MAPPING["Kinova3Pinn"] = SingleArm
