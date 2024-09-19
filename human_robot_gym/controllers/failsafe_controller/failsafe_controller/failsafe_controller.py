@@ -424,7 +424,7 @@ class FailsafeController(JointPositionController):
         Returns:
             list[capsule]
         """
-        self.human_cap_in = self.safety_shield.getHumanReachCapsules(2)
+        self.human_cap_in = self.safety_shield.getHumanReachCapsules(0)
         if len(self.human_capsules) == 0:
             for cap in self.human_cap_in:
                 self.human_capsules.append(PlotCapsule(cap[0:3], cap[3:6], cap[6]))
