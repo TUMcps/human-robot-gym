@@ -24,7 +24,7 @@ Inspect the documentation at `docs/build/html/index.html`.
 # Installation
 ### Clone the repo with submodules
 ```
-git clone --recurse-submodules git@gitlab.lrz.de:cps-rl/human-robot-gym.git
+git clone --recurse-submodules git@github.com:TUMcps/human-robot-gym.git
 ```
 ### Install MuJoCo
 1. Download the MuJoCo version 2.1 binaries for
