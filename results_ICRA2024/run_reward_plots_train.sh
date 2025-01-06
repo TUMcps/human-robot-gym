@@ -1,0 +1,7 @@
+(cd output && pdflatex -synctex=1 -interaction=nonstopmode 'legend1'.tex)
+(cd output && pdflatex -synctex=1 -interaction=nonstopmode 'reward_reach_train'.tex)
+(cd output && pdflatex -synctex=1 -interaction=nonstopmode 'reward_pp_train'.tex)
+(cd output && pdflatex -synctex=1 -interaction=nonstopmode 'reward_cl_train'.tex)
+(cd output && pdflatex -synctex=1 -interaction=nonstopmode 'reward_rhh_train'.tex)
+(cd output && pdflatex -synctex=1 -interaction=nonstopmode 'reward_hrh_train'.tex)
+(cd output && pdflatex -synctex=1 -interaction=nonstopmode 'reward_cs_train'.tex)

@@ -1,0 +1,36 @@
+\documentclass[border=0cm]{standalone}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\usepgfplotslibrary{fillbetween}
+\usepackage[nohyperlinks, nolist]{acronym}
+\definecolorset{RGB}{RPTH}{}{%
+	Black,   0,   0,   0;%
+	Blue, 0, 45, 106;%
+	Red, 227, 27, 35;%
+	MediumBlue, 0, 92, 171;%
+	LightBlue, 220, 238, 243;%
+	Yellow, 255, 195, 37;%
+	Gray, 80, 91, 88;%
+  Cyan, 27, 220, 238%
+}
+\RequirePackage{times}
+\newcommand\FramedBox[3]{%
+  \setlength\fboxsep{0pt}
+  \setlength{\fboxrule}{0.5pt}
+  \fbox{\parbox[t][#1][c]{#2}{\centering #3}}}
+\begin{document}
+\hspace{-3.5mm}
+\setlength{\tabcolsep}{5pt}
+\FramedBox{6mm}{176mm}{
+\begin{small}
+\begin{tabular}{l l l l l l l l l l}
+  \raisebox{0.45mm}{\colorbox{RPTHGray}{\textcolor{RPTHGray}{--}}\hspace{1.3mm}\colorbox{RPTHGray}{\textcolor{RPTHGray}{--}}} & \footnotesize{Expert}
+    & \raisebox{0.45mm}{\colorbox{RPTHCyan}{\textcolor{RPTHCyan}{---}}} & \footnotesize{SAC}
+    & \raisebox{0.45mm}{\colorbox{RPTHYellow}{\textcolor{RPTHYellow}{---}}} & \footnotesize{Reference state initialization}
+    & \raisebox{0.45mm}{\colorbox{RPTHRed}{\textcolor{RPTHRed}{---}}} & \footnotesize{State-based imitation reward}
+    & \raisebox{0.45mm}{\colorbox{RPTHBlue}{\textcolor{RPTHBlue}{---}}} & \footnotesize{Action-based imitation reward}
+\end{tabular}
+\end{small}
+}
+\end{document}

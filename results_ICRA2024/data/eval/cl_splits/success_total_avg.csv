@@ -1,0 +1,2 @@
+trainset_mean,trainset_025,trainset_975,testset_mean,testset_025,testset_975,expert_train_mean,expert_train_025,expert_train_975,expert_test_mean,expert_test_025,expert_test_975
+0.728,0.624,0.8,0.49800000000000005,0.3931787070332903,0.5820000000000001,0.6100000000000001,0.32,0.75,0.6699999999999999,0.4499999999999999,0.79

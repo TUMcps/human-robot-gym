@@ -1,0 +1,6 @@
+(cd output && pdflatex -synctex=1 -interaction=nonstopmode 'success_reach_train'.tex)
+(cd output && pdflatex -synctex=1 -interaction=nonstopmode 'success_pp_train'.tex)
+(cd output && pdflatex -synctex=1 -interaction=nonstopmode 'success_cl_train'.tex)
+(cd output && pdflatex -synctex=1 -interaction=nonstopmode 'success_rhh_train'.tex)
+(cd output && pdflatex -synctex=1 -interaction=nonstopmode 'success_hrh_train'.tex)
+(cd output && pdflatex -synctex=1 -interaction=nonstopmode 'success_cs_train'.tex)

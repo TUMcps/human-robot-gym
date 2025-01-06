@@ -1,0 +1,726 @@
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\usepgfplotslibrary{fillbetween}
+\usepackage[nohyperlinks, nolist]{acronym}
+\usepackage{amsmath}
+\usepackage{ifthen}
+\usepackage{pdftexcmds}
+\RequirePackage{times}
+
+%%%%%%%%%%%%%%% DEFINE COLORS %%%%%%%%%%%%%%%
+\definecolorset{RGB}{RPTH}{}{%
+  Black,   0,   0,   0;%
+	Blue, 0, 45, 106;%
+	Red, 227, 27, 35;%
+  MediumBlue, 0, 92, 171;%
+  LightBlue, 220, 238, 243;%
+  Yellow, 255, 195, 37;%
+  Gray, 80, 91, 88;%
+  Cyan, 27, 220, 238%
+}
+
+\pgfplotsset{
+	compat=1.16,
+	legend image code/.code={ 
+		% Set length of legend icon
+		\draw[mark repeat=2,mark phase=2]
+		plot coordinates {
+			(0cm,0cm)
+			(0.05cm,0cm)        %% default is (0.3cm,0cm)
+			(0.2cm,0cm)         %% default is (0.6cm,0cm)
+		};%
+	},
+  /pgfplots/ybar legend/.style={
+    /pgfplots/legend image code/.code={%
+       \draw[##1,/tikz/.cd,yshift=-0.25em]
+        (0cm,0cm) rectangle (3pt,0.8em);},
+   },
+}
+
+\newcommand{\omityticklabels}[1]{
+  \ifnum\pdf@strcmp{\unexpanded{#1}}{False}=0 %
+     \expandafter\@firstoftwo
+  \else
+    \expandafter\@secondoftwo
+  \fi
+  {yticklabels={,,},}
+  {}%
+}
+\newcommand{\showyaxislabel}[2]{
+  \ifnum\pdf@strcmp{\unexpanded{#1}}{True}=0 %
+     \expandafter\@firstoftwo
+  \else
+    \expandafter\@secondoftwo
+  \fi
+  {ylabel={#2},}
+  {}%
+}
+
+%%%%%%%%%%%%%%% DEFINE PATH TO DATA %%%%%%%%%%%%%%%
+\providecommand{\filepath}{.}
+\newcommand{\figpath}{\filepath/../data/}
+
+%%%%%%%%%%%%%%% DEFINE AXIS OF PLOTS %%%%%%%%%%%%%%%
+% Axis definition for normalized reward plots
+% Input args:
+% #1: content of axis
+% #2: width
+% #3: height
+% #4: bool: true: plot y axis info, false: omit y axis info
+\newcommand{\normalizedrewardplot}[4]{
+\begin{tikzpicture}
+\tikzstyle{every node}=[font=\footnotesize]
+
+\begin{axis}[width=#2,
+    height=#3,
+    every tick label/.append style={font=\footnotesize},
+    label style={font=\footnotesize},
+    ymin=-0.10, ymax=1.30,
+    ytick distance = 0.50,
+    \omityticklabels{#4},
+    xmin=0, xmax=3000000,
+    xtick distance = 1000000,
+    xticklabel style={
+        /pgf/number format/fixed,
+        /pgf/number format/precision=0
+    },
+    scaled x ticks=false,
+    xticklabels={0, 0, 1, 2, 3},
+    x tick label style={
+    	/pgf/number format/.cd,
+    	fixed,
+    	fixed zerofill,
+    	precision=0,
+    	/tikz/.cd
+    },
+    \showyaxislabel{#4}{Normalized reward},
+    xlabel={Steps (in $10^6$)},
+    y label style={yshift=-.4em},
+    x label style={yshift=.5em},
+]
+{#1}
+\end{axis}
+\end{tikzpicture}
+}
+
+\newcommand{\normalizedrewardplotshort}[4]{
+\begin{tikzpicture}
+\tikzstyle{every node}=[font=\footnotesize]
+
+\begin{axis}[width=#2,
+    height=#3,
+    every tick label/.append style={font=\footnotesize},
+    label style={font=\footnotesize},
+    ymin=-0.10, ymax=1.30,
+    ytick distance = 0.50,
+    \omityticklabels{#4},
+    xmin=0, xmax=1000000,
+    xtick distance = 500000,
+    xticklabel style={
+        /pgf/number format/fixed,
+        /pgf/number format/precision=0
+    },
+    scaled x ticks=false,
+    xticklabels={0, 0, 0.5, 1},
+    x tick label style={
+    	/pgf/number format/.cd,
+    	fixed,
+    	fixed zerofill,
+    	precision=0,
+    	/tikz/.cd
+    },
+    \showyaxislabel{#4}{Normalized reward},
+    xlabel={Steps (in $10^6$)},
+    y label style={yshift=-.4em},
+    x label style={yshift=.5em},
+]
+{#1}
+\end{axis}
+\end{tikzpicture}
+}
+
+% Axis definition for success plots
+% Input args:
+% #1: content of axis
+% #2: width
+% #3: height
+% #4: bool: true: plot y axis info, false: omit y axis info
+\newcommand{\successplot}[4]{
+\begin{tikzpicture}
+\tikzstyle{every node}=[font=\footnotesize]
+
+\begin{axis}[width=#2,
+    height=#3,
+    every tick label/.append style={font=\footnotesize},
+    label style={font=\footnotesize},
+    %axis lines=left,
+    %scaled ticks=false,
+    ymin=-0.05, ymax=1.05,
+    ytick distance = 0.5,
+    \omityticklabels{#4},
+    xmin=0, xmax=3000000,
+    xtick distance = 1000000,
+    xticklabel style={
+        /pgf/number format/fixed,
+        /pgf/number format/precision=0
+    },
+    scaled x ticks=false,
+    xticklabels={0, 0, 1, 2, 3},
+    x tick label style={
+    	/pgf/number format/.cd,
+    	fixed,
+    	fixed zerofill,
+    	precision=0,
+    	/tikz/.cd
+    },
+    \showyaxislabel{#4}{Success rate},
+    xlabel={Steps (in $10^6$)},
+    y label style={yshift=-.4em},
+    x label style={yshift=.5em},
+]
+{#1}
+\end{axis}
+\end{tikzpicture}
+}
+
+\newcommand{\successplotshort}[4]{
+\begin{tikzpicture}
+\tikzstyle{every node}=[font=\footnotesize]
+
+\begin{axis}[width=#2,
+    height=#3,
+    every tick label/.append style={font=\footnotesize},
+    label style={font=\footnotesize},
+    %axis lines=left,
+    %scaled ticks=false,
+    ymin=-0.05, ymax=1.05,
+    ytick distance = 0.5,
+    \omityticklabels{#4},
+    xmin=0, xmax=1000000,
+    xtick distance = 500000,
+    xticklabel style={
+        /pgf/number format/fixed,
+        /pgf/number format/precision=0
+    },
+    scaled x ticks=false,
+    xticklabels={0, 0, 0.5, 1},
+    x tick label style={
+    	/pgf/number format/.cd,
+    	fixed,
+    	fixed zerofill,
+    	precision=0,
+    	/tikz/.cd
+    },
+    \showyaxislabel{#4}{Success rate},
+    xlabel={Steps (in $10^6$)},
+    y label style={yshift=-.4em},
+    x label style={yshift=.5em},
+]
+{#1}
+\end{axis}
+\end{tikzpicture}
+}
+
+% Axis definition for normalized reward bar plots
+% Input args:
+% #1: content of axis
+% #2: width
+% #3: height
+\newcommand{\barplotaxis}[3]{
+\begin{tikzpicture}
+\tikzstyle{every node}=[font=\footnotesize]
+
+\begin{axis}[
+    width=#2,
+    height=#3,
+    ybar,
+    ymin=0,
+    bar width=5mm,
+    %ylabel=Values,
+    xticklabels from table={\data}{metric},
+    %xticklabels={Normalized reward, Success rate},
+    xtick=data,
+    error bars/y dir=both,
+    error bars/y explicit,
+    %cycle list name=default,
+    every tick label/.append style={font=\footnotesize},
+    label style={font=\footnotesize},
+    ymin=0, ymax=1.30,
+    ytick distance = 0.50,
+    y label style={yshift=-.4em},
+    x label style={yshift=.5em},
+    enlarge x limits={abs=0.5},
+    legend style={
+      at={(0.99, 0.96)},
+      anchor=north east,
+      legend columns=-1,
+      font=\normalfont,
+      nodes={scale=0.7, transform shape}
+    },
+    legend cell align={center}
+]
+{#1}
+\end{axis}
+\end{tikzpicture}
+}
+
+%%%%%%%%%%%%%%% DEFINE PLOTS (LINES TO PLOT) %%%%%%%%%%%%%%%
+%%%%%%% NORMALIZED REWARD PLOTS %%%%%%%
+% Normalize the mean reward with the given minimal and expert (max) value
+% Input args:
+% #1: line style
+% #2: color
+% #3: legend entry
+% #4: min value
+% #5: max value
+\newcommand{\plotmeannormalizedreward}[5][solid]{
+    \pgfplotstablecreatecol[create col/expr={1 * (\thisrow{ep_rew_mean} - (#4))/((#5) - (#4))}]{normalized_mean}\data
+    \addplot [
+    mark=None,
+    line width=2pt,
+    color=#2,
+    #1
+    ] 
+    table[
+    x = step,
+    y = normalized_mean,
+    ] 
+    {\data};
+    % \addlegendentry{#3}
+}
+
+% Normalize the confidence value in the mean reward with the given minimal and expert (max) value
+% Input args:
+% #1: color
+% #2: min value
+% #3: max value
+\newcommand{\plotbootstrapnormalizedreward}[3]{
+    \pgfplotstablecreatecol[create col/expr={1 * (\thisrow{ep_rew_025} - #2)/(#3 - #2)}]{normalized_bootstrap025}\data
+    \pgfplotstablecreatecol[create col/expr={1 * (\thisrow{ep_rew_975} - #2)/(#3 - #2)}]{normalized_bootstrap975}\data
+
+    \addplot [
+    mark=None,
+    forget plot,
+    line width=0pt,
+    opacity=0,
+    name path=A,
+    ] 
+    table[
+    x = step, 
+    y = normalized_bootstrap025,
+    ] 
+    {\data};
+    
+    \addplot [
+    mark=None,
+    forget plot,
+    line width=0pt,
+    opacity=0,
+    name path=B,
+    ] 
+    table[
+    x = step, 
+    y = normalized_bootstrap975,
+    ] 
+    {\data};
+    
+    \addplot [
+    forget plot,
+    color=#1,
+    fill opacity=0.15,
+    ] 
+    fill between [
+    of=A and B];
+}
+
+% Input args:
+% #1: line style
+% #2: color
+% #3: legend entry
+% #4: min value
+% #5: mean expert reward
+% #6: 2.5% confidence interval in expert reward
+% #7: 97.5% confidence interval in expert reward
+\newcommand{\plotnormalizedexpertreward}[7][densely dashed]{
+    \addplot[
+      mark=none,
+      samples=2,
+      domain=0:3000000,
+      line width=0.7pt,
+      color=#2,
+      forget plot,
+      #1
+    ]
+    {
+      1 * ((#5) - (#4))/((#5) - (#4))
+    };
+    % \addlegendentry{#3}
+    \addplot [
+    mark=None,
+    samples=2,
+    domain=0:3000000,
+    forget plot,
+    line width=0pt,
+    opacity=0,
+    name path=A,
+    ] 
+    {
+      1 * ((#6) - (#4))/((#5) - (#4))
+    };
+    
+    \addplot [
+    mark=None,
+    samples=2,
+    domain=0:3000000,
+    forget plot,
+    line width=0pt,
+    opacity=0,
+    name path=B,
+    ] 
+    {
+      1 * ((#7) - (#4))/((#5) - (#4))
+    };
+    
+    \addplot [
+    forget plot,
+    color=#2,
+    fill opacity=0.25,
+    ] 
+    fill between [
+    of=A and B];
+}
+
+% Normalize the mean reward with the given minimal and expert (max) value
+% Input args:
+% #1: color1
+% #2: color2
+% #3: min value
+% #4: max value
+% Style to select only points from #1 to #2 (inclusive)
+\pgfplotsset{select coords between index/.style 2 args={
+    x filter/.code={
+        \ifnum\coordindex<#1\def\pgfmathresult{}\fi
+        \ifnum\coordindex>#2\def\pgfmathresult{}\fi
+    }
+}}
+
+\newcommand{\plotbars}[2]{
+  \addplot+[
+    fill=#1,
+    draw=#2,
+    select coords between index={0}{1},
+    error bars/.cd,
+    y dir=both,
+    y explicit,
+    error bar style=#2
+  ] table [
+    x expr=\coordindex,
+    y = trainset_mean,
+    y error plus expr=\thisrow{trainset_975}-\thisrow{trainset_mean},
+    y error minus expr=\thisrow{trainset_mean}-\thisrow{trainset_025},
+  ]{\data};
+  \addlegendentry{Seen data}
+  \addplot+[
+    fill=#2,
+    draw=#1,
+    select coords between index={0}{1},
+    error bars/.cd,
+    y dir=both,
+    y explicit,
+    error bar style=#1
+  ] table [
+    x expr=\coordindex,
+    y = testset_mean,
+    y error plus expr=\thisrow{testset_975}-\thisrow{testset_mean},
+    y error minus expr=\thisrow{testset_mean}-\thisrow{testset_025},
+  ]{\data};
+  \addlegendentry{Unseen data}
+}
+
+%%%%%%%%%%%%%%% DEFINE REWARD PLOTS %%%%%%%%%%%%%%%
+% Input args:
+% #1: Line style
+% #2: color
+% #3: legend entry
+\newcommand{\plotmeanreward}[3][solid]{
+    \addplot [
+    mark=None,
+    line width=2pt,
+    color=#2,
+    #1
+    ] 
+    table[
+    x = step,
+    y = ep_rew_mean
+    ] 
+    {\data};
+    % \addlegendentry{#3}
+}
+
+\newcommand{\plotbootstrapreward}[1]{
+    \addplot [
+    mark=None,
+    forget plot,
+    line width=0pt,
+    opacity=0,
+    name path=A,
+    ] 
+    table[
+    x = step, 
+    y = ep_rew_025
+    ] 
+    {\data};
+    
+    \addplot [
+    mark=None,
+    forget plot,
+    line width=0pt,
+    opacity=0,
+    name path=B,
+    ] 
+    table[
+    x = step, 
+    y = ep_rew_975
+    ] 
+    {\data};
+    
+    \addplot [
+    forget plot,
+    color=#1,
+    fill opacity=0.15,
+    ] 
+    fill between [
+    of=A and B];
+}
+
+%%%%%%%%%%%%%%% DEFINE SUCCESS RATE PLOTS %%%%%%%%%%%%%%%
+% Input args:
+% #1: Line style
+% #2: color
+% #3: legend entry
+\newcommand{\plotmeansuccess}[3][solid]{
+    \addplot [
+    mark=None,
+    line width=2pt,
+    color=#2,
+    #1
+    ] 
+    table[
+    x = step,
+    y = success_mean
+    ] 
+    {\data};
+    % \addlegendentry{#3}
+}
+
+\newcommand{\plotbootstrapsuccess}[1]{
+    \addplot [
+    mark=None,
+    forget plot,
+    line width=0pt,
+    opacity=0,
+    name path=A,
+    ] 
+    table[
+    x = step, 
+    y = success_025
+    ] 
+    {\data};
+    
+    \addplot [
+    mark=None,
+    forget plot,
+    line width=0pt,
+    opacity=0,
+    name path=B,
+    ] 
+    table[
+    x = step, 
+    y = success_975
+    ] 
+    {\data};
+    
+    \addplot [
+    forget plot,
+    color=#1,
+    fill opacity=0.15,
+    ] 
+    fill between [
+    of=A and B];
+}
+
+% Plot expert success
+% Input args:
+% #1: line style
+% #2: color
+% #3: legend entry
+% #4: mean expert reward
+% #5: 2.5% confidence interval in expert reward
+% #6: 97.5% confidence interval in expert reward
+\newcommand{\plotexpertsuccess}[6][densely dashed]{
+    \addplot[
+      mark=none,
+      samples=2,
+      domain=0:3000000,
+      line width=0.7pt,
+      color=#2,
+      forget plot,
+      #1
+    ]{#4};
+    % \addlegendentry{#3}
+    \addplot [
+    mark=None,
+    samples=2,
+    domain=0:3000000,
+    forget plot,
+    line width=0pt,
+    opacity=0,
+    name path=A,
+    ]{#5};
+    
+    \addplot [
+    mark=None,
+    samples=2,
+    domain=0:3000000,
+    forget plot,
+    line width=0pt,
+    opacity=0,
+    name path=B,
+    ]{#6};
+    
+    \addplot [
+    forget plot,
+    color=#2,
+    fill opacity=0.25,
+    ] 
+    fill between [
+    of=A and B];
+}
+
+%%%%%%%%%%%%%%%% FINAL PLOTS %%%%%%%%%%%%%%%%%%%%%
+% ------------- Normalized Reward -------------
+% Args:
+% #1: Experiment abbreviation
+% #2: Print y axis info (true/false)
+% #3: Min value
+% #4: Mean expert reward
+% #5: 2.5% confidence interval in expert reward
+% #6: 97.5% confidence interval in expert reward
+\newcommand{\plotNormalizedReward}[6]{
+    \normalizedrewardplot{
+      \plotnormalizedexpertreward{RPTHGray}{Expert}{#3}{#4}{#5}{#6}
+
+      \pgfplotstableread[col sep=comma]{\figpath eval_train/#1/sac/stats.csv}{\data}
+      \plotmeannormalizedreward{RPTHCyan}{SAC}{#3}{#4}
+      \plotbootstrapnormalizedreward{RPTHCyan}{#3}{#4}
+      
+      \pgfplotstableread[col sep=comma]{\figpath eval_train/#1/sac_rsi/stats.csv}{\data}
+      \plotmeannormalizedreward{RPTHYellow}{SAC + RSI}{#3}{#4}
+      \plotbootstrapnormalizedreward{RPTHYellow}{#3}{#4}
+
+      \pgfplotstableread[col sep=comma]{\figpath eval_train/#1/sir/stats.csv}{\data}
+      \plotmeannormalizedreward{RPTHRed}{SIR}{#3}{#4}
+      \plotbootstrapnormalizedreward{RPTHRed}{#3}{#4}
+
+      \pgfplotstableread[col sep=comma]{\figpath eval_train/#1/air/stats.csv}{\data}
+      \plotmeannormalizedreward{RPTHBlue}{AIR}{#3}{#4}
+      \plotbootstrapnormalizedreward{RPTHBlue}{#3}{#4}
+	}{41mm}{41mm}{#2}
+}
+% ------------- Success Rate -------------
+% Args:
+% #1: Experiment abbreviation
+% #2: Print y axis info (true/false)
+% #3: Mean expert reward
+% #4: 2.5% confidence interval in expert reward
+% #5: 97.5% confidence interval in expert reward
+\newcommand{\plotSuccess}[5]{
+    \successplot{
+      \plotexpertsuccess{RPTHGray}{Expert}{#3}{#4}{#5}
+
+      \pgfplotstableread[col sep=comma]{\figpath eval_train/#1/sac/stats.csv}{\data}
+      \plotmeansuccess{RPTHCyan}{SAC}
+      \plotbootstrapsuccess{RPTHCyan}
+      
+      \pgfplotstableread[col sep=comma]{\figpath eval_train/#1/sac_rsi/stats.csv}{\data}
+      \plotmeansuccess{RPTHYellow}{SAC + RSI}
+      \plotbootstrapsuccess{RPTHYellow}
+
+      \pgfplotstableread[col sep=comma]{\figpath eval_train/#1/sir/stats.csv}{\data}
+      \plotmeansuccess{RPTHRed}{SIR}
+      \plotbootstrapsuccess{RPTHRed}
+
+      \pgfplotstableread[col sep=comma]{\figpath eval_train/#1/air/stats.csv}{\data}
+      \plotmeansuccess{RPTHBlue}{AIR}
+      \plotbootstrapsuccess{RPTHBlue}
+	}{41mm}{41mm}{#2}
+}
+% ------------- Normalized Reward Reach -------------
+% Args:
+% #1: Experiment abbreviation
+% #2: Print y axis info (true/false)
+% #3: Min value
+% #4: Mean expert reward
+% #5: 2.5% confidence interval in expert reward
+% #6: 97.5% confidence interval in expert reward
+\newcommand{\plotNormalizedRewardShort}[6]{
+    \normalizedrewardplotshort{
+      \plotnormalizedexpertreward{RPTHGray}{Expert}{#3}{#4}{#5}{#6}
+
+      \pgfplotstableread[col sep=comma]{\figpath eval_train/#1/sac/stats.csv}{\data}
+      \plotmeannormalizedreward{RPTHCyan}{SAC}{#3}{#4}
+      \plotbootstrapnormalizedreward{RPTHCyan}{#3}{#4}
+      
+      \pgfplotstableread[col sep=comma]{\figpath eval_train/#1/sac_rsi/stats.csv}{\data}
+      \plotmeannormalizedreward{RPTHYellow}{SAC + RSI}{#3}{#4}
+      \plotbootstrapnormalizedreward{RPTHYellow}{#3}{#4}
+
+      \pgfplotstableread[col sep=comma]{\figpath eval_train/#1/sir/stats.csv}{\data}
+      \plotmeannormalizedreward{RPTHRed}{SIR}{#3}{#4}
+      \plotbootstrapnormalizedreward{RPTHRed}{#3}{#4}
+
+      \pgfplotstableread[col sep=comma]{\figpath eval_train/#1/air/stats.csv}{\data}
+      \plotmeannormalizedreward{RPTHBlue}{AIR}{#3}{#4}
+      \plotbootstrapnormalizedreward{RPTHBlue}{#3}{#4}
+	}{41mm}{41mm}{#2}
+}
+% ------------- Success Rate Reach -------------
+% Args:
+% #1: Experiment abbreviation
+% #2: Print y axis info (true/false)
+% #3: Mean expert reward
+% #4: 2.5% confidence interval in expert reward
+% #5: 97.5% confidence interval in expert reward
+\newcommand{\plotSuccessShort}[5]{
+    \successplotshort{
+      \plotexpertsuccess{RPTHGray}{Expert}{#3}{#4}{#5}
+
+      \pgfplotstableread[col sep=comma]{\figpath eval_train/#1/sac/stats.csv}{\data}
+      \plotmeansuccess{RPTHCyan}{SAC}
+      \plotbootstrapsuccess{RPTHCyan}
+      
+      \pgfplotstableread[col sep=comma]{\figpath eval_train/#1/sac_rsi/stats.csv}{\data}
+      \plotmeansuccess{RPTHYellow}{SAC + RSI}
+      \plotbootstrapsuccess{RPTHYellow}
+
+      \pgfplotstableread[col sep=comma]{\figpath eval_train/#1/sir/stats.csv}{\data}
+      \plotmeansuccess{RPTHRed}{SIR}
+      \plotbootstrapsuccess{RPTHRed}
+
+      \pgfplotstableread[col sep=comma]{\figpath eval_train/#1/air/stats.csv}{\data}
+      \plotmeansuccess{RPTHBlue}{AIR}
+      \plotbootstrapsuccess{RPTHBlue}
+	}{41mm}{41mm}{#2}
+}
+
+% ------------- Normalized Reward Ablation-------------
+% Args:
+% #1: Experiment abbreviation
+\newcommand{\plotAblation}[1]{
+  \pgfplotstableread[col sep=comma]{\figpath eval/#1_splits/ablation_summary.csv}{\data}
+  \barplotaxis{
+    % SAC Data
+    \plotbars{RPTHBlack}{RPTHBlack!30!white}
+	}{80mm}{35mm}
+}
