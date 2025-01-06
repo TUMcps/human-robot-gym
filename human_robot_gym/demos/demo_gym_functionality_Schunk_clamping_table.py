@@ -1,4 +1,10 @@
-"""This script shows an example of a possible clamping prevention between robot, human, and the static environment.
+"""
+Demo for testing PFL criterion.
+With PFL, robot can move past the human with reduced speed.
+With SSM, robot cannot move past the human because it is too close
+
+Author:
+Leonardo Maglanoc
 """
 
 import robosuite as suite
@@ -12,7 +18,7 @@ from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 import human_robot_gym.environments.manipulation.reach_human_env  # noqa: F401
 import human_robot_gym.robots  # noqa: F401
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
-from human_robot_gym.wrappers.collision_prevention_wrapper import (  # noqa: F401
+from human_robot_gym.wrappers.collision_prevention_wrapper import (
     CollisionPreventionWrapper,
 )
 
@@ -25,6 +31,8 @@ if __name__ == "__main__":
     robot_conig_path = file_path_completion("models/robots/config/schunk.json")
     controller_config = load_controller_config(custom_fpath=controller_conig_path)
     robot_config = load_controller_config(custom_fpath=robot_conig_path)
+    # robot_config["base_ori"] = [0, 0, -0.7071068, 0.7071068]
+
     controller_config = merge_configs(controller_config, robot_config)
     controller_configs = [controller_config]
 
@@ -33,7 +41,6 @@ if __name__ == "__main__":
             "ReachHuman",
             robots="Schunk",  # use Sawyer robot
             robot_base_offset=[0, 0, 0],
-            robot_base_orientation=[0, 0, np.sqrt(2)/2, np.sqrt(2)/2],
             use_camera_obs=False,  # do not use pixel observations
             has_offscreen_renderer=False,  # not needed since not using pixel obs
             has_renderer=True,  # make sure we can render to the screen
@@ -45,13 +52,13 @@ if __name__ == "__main__":
             horizon=1000,
             controller_configs=controller_configs,
             shield_type="PFL",
-            visualize_failsafe_controller=False,
+            visualize_failsafe_controller=True,
             visualize_pinocchio=False,
-            base_human_pos_offset=[1.45, -1.9, -0.54],  # 1.45, -1.9, -0.54
+            base_human_pos_offset=[1.3, -2.0, -0.50],
             verbose=True,
             goal_dist=0.0001,
             human_rand=[0.0, 0.0, 0.0],
-            human_animation_names=["Static/sitting"],
+            human_animation_names=["Test/test"],
             human_animation_freq=10
         ),
         keys=[
@@ -61,26 +68,31 @@ if __name__ == "__main__":
         ]
     )
 
-    # env = CollisionPreventionWrapper(
-    #     env=env, collision_check_fn=env.check_collision_action, replace_type=0
-    # )
+    env = CollisionPreventionWrapper(
+        env=env, collision_check_fn=env.check_collision_action, replace_type=0
+    )
 
     env = VisualizationWrapper(env)
 
-    t_max = 120
-    for i_episode in range(20):
+    t_max = 200
+    t_episode = 1
+    goals = np.array([
+      [0, 1.1, -1.1, 0, -0.75, 0],
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      [0, 1.1, -1.1, 0, -0.75, 0],
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    ])
+
+    for i_episode in range(t_episode):
         observation = env.reset()
-        env.desired_goal = np.array([0, 2.0, -np.pi / 2 + 1.7, 0, -np.pi / 2, 0])
         t1 = time.time()
         for t in range(t_max):
-            action = env.action_space.sample()
+            action = np.zeros(7)
             pos = np.array([env.sim.data.qpos[x] for x in env.robots[0]._ref_joint_pos_indexes])
-            # goal = env.desired_goal
-            goal = np.abs(np.sin(t/t_max * 2 * np.pi)) * env.desired_goal
-            action[:pos.shape[0]] = np.clip(goal-pos, -0.5, 0.5)
+            goal_idx = np.round(t/t_max * (goals.shape[0] - 1)).astype(int)
+            goal = goals[goal_idx]
+            action[:6] = np.clip(goal-pos, -1, 1)
             observation, reward, done, info = env.step(action)
-            # print("Reward: {}".format(reward))
+            time.sleep(0.025)
             if done or t == t_max:
-                print("Episode finished after {} timesteps".format(t + 1))
                 break
-        print("Episode {}, fps = {}".format(i_episode, t / (time.time() - t1)))

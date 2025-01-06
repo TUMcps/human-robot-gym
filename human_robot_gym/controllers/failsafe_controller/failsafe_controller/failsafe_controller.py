@@ -20,7 +20,7 @@ from scipy.spatial.transform import Rotation
 from robosuite.controllers.joint_pos import JointPositionController
 from robosuite.utils.control_utils import set_goal_position
 
-from safety_shield_py import SafetyShield, ShieldType, AABB  # noqa: F401
+from safety_shield_py import SafetyShield, ShieldType, ContactType, AABB  # noqa: F401
 
 from .plot_capsule import PlotCapsule
 
@@ -170,6 +170,7 @@ class FailsafeController(JointPositionController):
         rpy = rot.as_euler("XYZ")
         # Unfortunately, all other native python enum functions seem to fail.
         self.shield_type = eval("ShieldType." + shield_type)
+        self.eef_contact_type = eval("ContactType." + "WEDGE")
 
         self.safety_shield = SafetyShield(
             sample_time=control_sample_time,
@@ -186,7 +187,8 @@ class FailsafeController(JointPositionController):
             init_yaw=rpy[2],
             init_qpos=init_qpos,
             environment_elements=[self.table],
-            shield_type=self.shield_type
+            shield_type=self.shield_type,
+            eef_contact_type=self.eef_contact_type
         )
         self.desired_motion = self.safety_shield.step(0.0)
         self.robot_capsules = []
@@ -247,7 +249,8 @@ class FailsafeController(JointPositionController):
             init_qpos=self.joint_pos,
             current_time=self.sim.data.time,
             environment_elements=[self.table],
-            shield_type=self.shield_type
+            shield_type=self.shield_type,
+            eef_contact_type=self.eef_contact_type
         )
 
     def set_goal(self, action, set_qpos=None):

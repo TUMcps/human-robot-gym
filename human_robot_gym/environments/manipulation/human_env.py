@@ -506,8 +506,14 @@ class HumanEnv(SingleArmEnv):
                 # The first step i=0 is a policy step, the rest not.
                 # Only in a policy step, set_goal of controller will be called.
                 self._pre_action(action, policy_step)
-                self._visualize_reachable_sets()
-                self.render()
+                # if (
+                #     self.use_failsafe_controller
+                #     and self.visualize_failsafe_controller
+                #     and self.has_renderer
+                #     and self.shield_type != "OFF"
+                # ):
+                #     self._visualize_reachable_sets()
+                # self.render()
                 if self.use_failsafe_controller and not failsafe_intervention:
                     for robot in self.robots:
                         if robot.controller.get_safety() is False:

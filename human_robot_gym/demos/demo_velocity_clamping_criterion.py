@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     env = VisualizationWrapper(env)
 
-    t_max = 200
+    t_max = 60
     for i_episode in range(20):
         observation = env.reset()
         env.desired_goal = np.array([0, 1.8, -np.pi / 2 + 1.5, 0, -np.pi / 2, 0])

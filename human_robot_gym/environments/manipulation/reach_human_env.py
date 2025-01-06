@@ -576,7 +576,7 @@ class ReachHuman(HumanEnv):
             size=box_size * 0.5,
             rgba=[0.1, 0.7, 0.3, 1],
         )
-        self.objects = [box]
+        self.objects = []  # [box]
         # Placement sampler for objects
         bin_x_half = self.table_full_size[0] / 2 - 0.05
         bin_y_half = self.table_full_size[1] / 2 - 0.05
