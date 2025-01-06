@@ -166,3 +166,5 @@ This will
 - Run all experiments within the container.
 
 Please note that due to the amount of training runs (6 environments x 4 methods x 5 random seeds), the execution of this command will take a very significant amount of time (order of magnitude: 1 month) and will run on up to 50 threads.
+
+To recreate the exact plots, please see the documentation in `results_ICRA2024`.
