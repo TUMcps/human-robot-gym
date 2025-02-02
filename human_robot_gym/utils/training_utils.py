@@ -130,7 +130,7 @@ def create_data_collection_environment(config: DataCollectionConfig, start_episo
         start_episode=start_episode,
         store_expert_observations=config.run.expert_obs_keys is not None,
         verbose=config.run.verbose,
-    )
+)
 
     return env
 

@@ -24,13 +24,19 @@ from human_robot_gym.wrappers.collision_prevention_wrapper import (
     CollisionPreventionWrapper,
 )
 from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
+import cv2
+
+
+def create_video(source, fps=60, output_name='output'):
+    out = cv2.VideoWriter(output_name + '.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps, (source[0].shape[1], source[0].shape[0]))
+    for i in range(len(source)):
+        out.write(source[i])
+    out.release()
 
 if __name__ == "__main__":
     # Notice how the environment is wrapped by the wrapper
     controller_config = dict()
-    controller_conig_path = file_path_completion(
-        "controllers/failsafe_controller/config/failsafe.json"
-    )
+    controller_conig_path = file_path_completion("controllers/failsafe_controller/config/failsafe.json")
     robot_conig_path = file_path_completion("models/robots/config/schunk.json")
     controller_config = load_controller_config(custom_fpath=controller_conig_path)
     robot_config = load_controller_config(custom_fpath=robot_conig_path)
@@ -74,7 +80,8 @@ if __name__ == "__main__":
         env=env, collision_check_fn=env.check_collision_action, replace_type=0
     )
 
-    env = VisualizationWrapper(env)
+    env = VisualizationWrapper(env) # render_mode='rgb_array')
+    # env.monitor.start('/tmp/cartpole-experiment-1', force=True)
 
     expert = ReachHumanExpert(
         observation_space=env.observation_space,
@@ -98,3 +105,6 @@ if __name__ == "__main__":
                 print("Episode finished after {} timesteps".format(t + 1))
                 break
         print("Episode {}, fps = {}".format(i_episode, t / (time.time() - t1)))
+
+    # create_video(env.frames, 60, 'output')
+

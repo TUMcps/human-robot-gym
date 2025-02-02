@@ -33,7 +33,6 @@ def main(config: TrainingConfig):
 
     if config.run.verbose:
         print(OmegaConf.to_yaml(cfg=config, resolve=True))
-
     try:
         train_and_evaluate(config)
     except Exception as e:

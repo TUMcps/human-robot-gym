@@ -38,6 +38,7 @@ import hydra
 from omegaconf import OmegaConf
 
 import robosuite  # noqa: F401
+import sys
 
 import human_robot_gym.robots  # noqa: F401
 from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
@@ -189,6 +190,7 @@ def collect_data(
             - A dictionary containing the values of the logged info keys for each episode
             - A list of the observations
     """
+
     if end_ep_idx is None:
         end_ep_idx = config.n_episodes + start_ep_idx
 
@@ -203,6 +205,7 @@ def collect_data(
     observations = []
 
     env.seed(config.environment.seed)
+
 
     for _ in range(start_ep_idx, end_ep_idx):
         obs = env.reset()
@@ -336,6 +339,7 @@ def collect_data_threaded(
 
 @hydra.main(version_base=None, config_path="config", config_name=None)
 def main(config: DataCollectionConfig):
+
     if config.run.verbose:
         print(OmegaConf.to_yaml(cfg=config, resolve=True))
 

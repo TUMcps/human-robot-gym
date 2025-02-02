@@ -378,7 +378,6 @@ def _run_training_with_id(config: TrainingConfig, run_id: Optional[int]) -> Base
     )
 
     env.close()
-
     return model
 
 

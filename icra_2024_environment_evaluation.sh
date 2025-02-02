@@ -49,6 +49,7 @@ evaluation_data_csv_folder="csv/evaluation/${project_name}"
 delete_intermediate_data=true  # Whether to only keep the statistics and delete the raw csv data of the training and evaluation.
 
 seeds=(0 1 2 3 4)
+# seeds=(0)
 
 # =============================================================================
 # ======================== Function Definitions ===============================
@@ -156,7 +157,6 @@ train () {
 #       - RSI for reference state initialization
 #       - SAC for vanilla soft actor-critic
 #   <group>: name of the run group, name of the subfolders in which the runs and csv files are stored, run group for wandb. Defaults to <method>.
-
 training_data_pipeline () {
     local method=$1
     local group=${2:-${method}}

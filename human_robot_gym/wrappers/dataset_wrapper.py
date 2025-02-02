@@ -95,8 +95,8 @@ class DatasetRSIWrapper(DatasetWrapper):
         env (gym.Env): The environment to wrap
         dataset_name (str): The name of the dataset to use
         rsi_prob (float): The probability of performing RSI on reset calls.
-            If set to 0, the environment is always initialized from the first state of a random episode.
-            Otherwise, chooses a random state from a random episode. Defaults to 0.
+        If set to 0, the environment is always initialized from the first state of a random episode.
+        Otherwise, chooses a random state from a random episode. Defaults to 0.
     """
     def __init__(
         self,

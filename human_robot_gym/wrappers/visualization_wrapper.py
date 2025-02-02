@@ -18,11 +18,18 @@ class VisualizationWrapper(Wrapper):
         env: Robosuite environment to wrap.
     """
 
-    def __init__(self, env):  # noqa: D107
+    def __init__(self, env, render_mode = None):  # noqa: D107
         super(VisualizationWrapper, self).__init__(env)
+        self.render_mode = render_mode
+        self.frames = []
+
+
 
     def step(self, action):
         """Step the environment and render the visualization."""
         observation, reward, done, info = self.env.step(action)
-        self.unwrapped.render()
+
+        #self.frames.append(self.unwrapped.render(mode="rgb_array", close = True))
+
+        self.unwrapped.render(render_mode = self.render_mode)
         return observation, reward, done, info

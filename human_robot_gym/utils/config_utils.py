@@ -16,6 +16,7 @@ from omegaconf import OmegaConf
 
 from hydra.core.config_store import ConfigStore
 
+import os
 
 @dataclass
 class RunConfig:
@@ -183,6 +184,21 @@ class DataCollectionConfig(TrainingConfig):
     start_episode_index: int = 0
     n_threads: Optional[int] = None
     load_episode_index: Optional[int] = None
+
+
+@dataclass
+class DataAugmentationConfig:
+    """
+    Data Augmentation configuration class. Sub-configuration specific to the data augmentation phase.
+    """
+    translation_ranges: List[List[float]] = None
+    rotation_range: List = None
+    num_trans_aug: int = None
+    num_rot_aug: int = None
+    human_demo_names: List[str] = None
+    human_demo_parent_path: str = os.path.join("/home/mb230/projects/human-robot-gym/human_robot_gym/models/assets/human/animations/human-robot-animations"),
+    augmentations_output_folder: str = "./aug_human_demo/"
+    
 
 
 # Register config class

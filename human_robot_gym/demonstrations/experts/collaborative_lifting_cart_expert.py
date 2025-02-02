@@ -47,7 +47,6 @@ class CollaborativeLiftingCartExpert(Expert):
     The horizontal motion should maintain a fixed distance between the end effector and that point.
 
     The observation values required are contained in the `CollaborativeLiftingCartExpertObservation` dataclass.
-
     Noise can be added to the motion parameters. We draw from an Ornstein-Uhlenbeck (OU) process
     with asymptotic mean 0 and variance of half the motion action limit as described in the action space.
     Note that the OU process maintains a custom random number generator that is not affected by np.random.seed calls.
