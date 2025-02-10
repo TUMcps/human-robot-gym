@@ -36,6 +36,9 @@ from human_robot_gym.callbacks.custom_wandb_callback import CustomWandbCallback
 from human_robot_gym.callbacks.model_reset_callback import ModelResetCallback
 from human_robot_gym.callbacks.logging_callback import LoggingCallback
 
+import sys
+import os
+
 SB3_ALGORITHMS = {
     "SAC": SAC,
     "PPO": PPO,
@@ -195,7 +198,7 @@ def create_model(
         run_id=run_id,
         save_logs=save_logs,
     )
-
+    
     return SB3_ALGORITHMS[config.algorithm.name](**algorithm_kwargs)
 
 

@@ -1,7 +1,8 @@
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union, Optional
 
 import pickle
 import json
+import sys
 
 import numpy as np
 
@@ -56,6 +57,38 @@ def load_human_animation_data(
 
         animation_data.append((animation, info))
 
+    return animation_data
+
+def load_human_animation_data_custom(
+    human_animation_names: List[str],
+    custom_animation_cfg_list_dict_path: Dict[str, List[str]] = None,
+    verbose: bool = False,
+) -> List[Tuple[Dict[str, Any], Dict[str, Any]]]:
+    """Load the human animation data from pickled files and the accompanying info json files.
+
+    Gives a list of tuples of the form (animation_data, animation_info).
+    If an animation info file is missing, the animation will be played back without transformation
+    (i.e. no scaling, no position offset, no orientation offset).
+
+    Args:
+        human_animation_names (List[str]): List of human animation names to load.
+        verbose (bool): Whether to print out debug information. Defaults to False.
+
+    Returns:
+        List[Tuple[Dict[str, Any], Dict[str, Any]]]: List of tuples of the form (animation_data, animation_info).
+    """
+    # animation data
+    animation_data = []
+    with open(custom_animation_cfg_list_dict_path, "r") as file:
+        custom_animation_cfg_list_dict = json.load(file)
+
+    # looping over all animations that are passed to the loading function
+    for animation_path, animation_cfg in zip(custom_animation_cfg_list_dict['motion_pkl'], custom_animation_cfg_list_dict['infos']):
+        with open(animation_path, "rb") as pkl_file:
+            animation = pickle.load(pkl_file)
+        with open(animation_cfg, 'r') as info_file:
+            info = json.load(info_file)
+        animation_data.append((animation, info))  
     return animation_data
 
 
@@ -174,3 +207,19 @@ def sample_animation_loop_properties(
             )
             for stage in animation_info["loop_amplitudes"]
         }
+
+
+    # OLD CODE
+    # for animation_name in human_animation_names:
+    #     with open(xml_path_completion(f"human/animations/human-robot-animations/{animation_name}.pkl"), "rb") as pkl_file:
+    #         animation = pickle.load(pkl_file)
+
+    #     # get the list of various configurations that can be associated with the animation
+    #     cfg_list = human_animation_name_cfg_map[str(animation_name)]
+    #     for cfg in cfg_list:
+    #         with open(
+    #         xml_path_completion(f"human/animations/human-robot-animations/{cfg}_info.json"),
+    #         "r",) as info_file:
+    #             info = json.load(info_file)
+    #         animation_data.append((animation, info))
+    # human_animation_name_cfg_map: Optional[Dict[str, List[str]]] = None,

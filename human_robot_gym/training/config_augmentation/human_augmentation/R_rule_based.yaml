@@ -1,0 +1,27 @@
+seed: 0 
+aug_output_folder_name: rule_based
+aug_metadata_file_name: CMU_rule_based_reach # this file saves the paths of the motion pickles and the corrresponding orientation, so that we have a map from the actual motion files to the orientation files
+aug_type: rule_based
+translation_ranges: [[-2, 2], [0.0, 0.0] ,[-0.5, 0.5]]
+# from the perspective of default opening scene reference frame when playing demo, here are the descriptions of the coordinates (vice versa can be trivially inferred)
+# 0th - higher value moves towards front of screen
+# 1st - higher value moves up (i.e above the floor plane)
+# 2nd - higher value moves towards left (computer users left)
+rotation_ranges: [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]]
+aug_factor: 10
+translation_aug: true
+rotation_aug: true
+human_animation_names:
+- CMU/62_01
+- CMU/62_03
+- CMU/62_04
+- CMU/62_07
+- CMU/62_09
+- CMU/62_10
+- CMU/62_12
+- CMU/62_13
+- CMU/62_14
+- CMU/62_15
+- CMU/62_16
+- CMU/62_18
+- CMU/62_19

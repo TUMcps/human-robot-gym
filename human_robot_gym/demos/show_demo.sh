@@ -1,1 +1,1 @@
-python demo_animation_clips.py CMU/62_01
+python demo_animation_clips.py CMU/test_cmu

@@ -42,7 +42,7 @@ from robosuite.models.objects import PrimitiveObject
 from human_robot_gym.models.objects.human.human import HumanObject
 from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat, quat_to_rot
 from human_robot_gym.utils.pairing import cantor_pairing
-from human_robot_gym.utils.animation_utils import load_human_animation_data
+from human_robot_gym.utils.animation_utils import load_human_animation_data, load_human_animation_data_custom
 from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import (
     PinocchioManipulatorModel,
 )
@@ -319,6 +319,8 @@ class HumanEnv(SingleArmEnv):
             "CMU/62_19",
             "CMU/62_20",
         ],
+        use_custom_animation_config_paths: bool = False,
+        custom_animation_cfg_list_dict_path: str = None,
         base_human_pos_offset: List[float] = [0.0, 0.0, 0.0],
         human_animation_freq: float = 120,
         human_rand: List[float] = [0.0, 0.0, 0.0],
@@ -362,11 +364,14 @@ class HumanEnv(SingleArmEnv):
 
         # Human animation definition
         self.human_animation_names = human_animation_names
-
-        self.human_animation_data = load_human_animation_data(
-            human_animation_names=human_animation_names,
-            verbose=verbose,
-        )
+        
+        if use_custom_animation_config_paths:
+            self.human_animation_data = load_human_animation_data_custom(human_animation_names=human_animation_names, custom_animation_cfg_list_dict_path=custom_animation_cfg_list_dict_path,verbose=verbose)
+        else:
+            self.human_animation_data = load_human_animation_data(
+                human_animation_names=human_animation_names,
+                verbose=verbose,
+            )
 
         self.base_human_pos_offset = base_human_pos_offset
         # Input to scipy: quat = [x, y, z, w]

@@ -43,7 +43,7 @@ from human_robot_gym.wrappers.dataset_collection_wrapper import DatasetCollectio
 from human_robot_gym.wrappers.dataset_wrapper import DatasetObsNormWrapper, DatasetRSIWrapper
 
 import human_robot_gym.robots  # noqa: F401
-
+import sys
 
 def get_controller_configs(config: TrainingConfig) -> List[Dict[str, Any]]:
     """Obtain the controller config for the robot from the paths specified in the config.
@@ -94,7 +94,9 @@ def create_wrapped_env_from_config(config: TrainingConfig, evaluation_mode: bool
     Args:
         config (Config): The config object containing information about the environment and optional wrappers
     """
+
     kwargs = _compose_environment_kwargs(config=config, evaluation_mode=evaluation_mode)
+
 
     if config.run.expert_obs_keys is None:
         env = make_gym_env(

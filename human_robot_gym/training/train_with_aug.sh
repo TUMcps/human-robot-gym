@@ -46,10 +46,12 @@ project_name="${env_long}_environment_evaluation"
 training_data_csv_folder="csv/training/${project_name}"
 evaluation_data_csv_folder="csv/evaluation/${project_name}"
 
+custom_animation_cfg_list_dict_path="human_robot_gym/models/assets/human/animations/human-robot-animations/augmented_data/rule_based/CMU_rule_based_reach.json"
+
 delete_intermediate_data=true  # Whether to only keep the statistics and delete the raw csv data of the training and evaluation.
 
-seeds=(0 1 2 3 4)
-
+# seeds=(0 1 2 3 4)
+seeds=(0 1 2)
 # =============================================================================
 # ======================== Function Definitions ===============================
 # =============================================================================
@@ -112,10 +114,9 @@ generate_dataset () {
     (
         set -o xtrace
         python human_robot_gym/training/create_expert_dataset.py \
-            -cp config_icra_2024/environment_evaluation/dataset_creation \
+            -cp config_augmentation/robot_expert_dataset_creation \
             -cn ${env} \
-            dataset_name=${env_long} n_episodes=${n_dataset_episodes} \
-            environment.horizon=${horizon} environment.verbose=False
+            environment.custom_animation_cfg_list_dict_path=${custom_animation_cfg_list_dict_path} dataset_name=${env_long} n_episodes=${n_dataset_episodes} environment.horizon=${horizon} environment.verbose=False
     )
 }
 
@@ -136,12 +137,13 @@ train () {
     (
         set -o xtrace # every command is printed to the command line before it is executed
         python human_robot_gym/training/train_SB3.py --multirun \
-            -cp config_icra_2024/environment_evaluation/training \
+            -cp config_augmentation/training \
             -cn ${env}-${method} \
             hydra/launcher=ray \
             wandb_run.project=${project_name} wandb_run.group=${group} \
             run.type=${run_type} run.n_steps=${n_steps} "run.seed=${run_seed_arg}" run.n_envs=${n_envs} \
             run.dataset_name=${env_long} "run.log_interval=[${log_interval},'step']" run.save_freq=${model_save_interval} \
+            environment.custom_animation_cfg_list_dict_path=${custom_animation_cfg_list_dict_path} \
             environment.horizon=${horizon} environment.verbose=False
     )
 }
@@ -214,23 +216,25 @@ evaluate_expert () {
 # =============================================================================
 
 # Comment if you do not want to override any data
-cleanup_existing_data
+# cleanup_existing_data
 
 
 # =============================================================================
 # ======================== Generate an Expert Dataset =========================
 # =============================================================================
+# TODO - Uncomment this later on, for now for debugging purposes this is commented out
 
-print_green "Generating dataset..."
-generate_dataset
+# print_green "Generating dataset..."
+# generate_dataset
 
-# Store the expert statistics into the training data csv folder
-if [ ${run_type} != debug ]
-then
-    mkdir -p ${training_data_csv_folder}
-    cp "datasets/${env_long}/stats.csv" "${training_data_csv_folder}/expert.csv"
-fi
+# # Store the expert statistics into the training data csv folder
+# if [ ${run_type} != debug ]
+# then
+#     mkdir -p ${training_data_csv_folder}
+#     cp "datasets/${env_long}/stats.csv" "${training_data_csv_folder}/expert.csv"
+# fi
 
+# exit 0
 
 # =============================================================================
 # ======================== Run Training =======================================
@@ -242,6 +246,7 @@ train AIR  # Soft actor-critic with reference state initialization and action-ba
 train SIR  # Soft actor-critic with reference state initialization and state-based expert imitation reward
 train RSI  # Soft actor-critic with reference state initialization
 train SAC  # Soft-actor critic
+
 
 if [ ${run_type} = debug ]
 then
