@@ -58,6 +58,7 @@ def test_robomimic_env(env_name: str, num_episodes: int = 1, max_steps: int = 10
         env = GymWrapper(
             suite.make(
                 env_name,
+                use_robomimic_arena=True,  # Use robomimic arena
                 robots="Panda",
                 robot_base_offset=[0, 0, 0],
                 use_camera_obs=False,  # do not use pixel observations
