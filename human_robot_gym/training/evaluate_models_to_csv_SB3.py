@@ -184,6 +184,62 @@ def evaluate_to_df(
     return df
 
 
+def get_eval_raw_data_folder_path(config: TrainingConfig) -> str:
+    """Return the relative path to the folder in which the raw evaluation csv files should be saved.
+
+    Args:
+        config (TrainingConfig): the config specifying the subfolder for the raw csv files.
+
+    Returns:
+        str: the path to the raw csv folder
+    """
+    return os.path.join("csv", "evaluation", config.group_name, "raw")
+
+
+def get_eval_raw_data_csv_file_path(
+    config: TrainingConfig,
+    evaluate_expert: bool,
+    run_id: Optional[str],
+    load_step: Optional[Union[int, str]],
+) -> str:
+    """Return the path to the file where the raw evaluation csv files should be saved according to the config.
+
+    Args:
+        config (TrainingConfig): the config specifying the save location of the raw csv files
+        evaluate_expert (bool): whether the expert or a trained agent is evaluated
+        run_id (str | None): enables overriding the run id specified in `config.run.id`
+        load_step (str | int | None): enables overriding `config.run.load_step`
+
+    Returns:
+        str: the path to the raw csv file
+    """
+    raw_csv_folder_path = get_eval_raw_data_folder_path(config=config)
+    if evaluate_expert:
+        return os.path.join(raw_csv_folder_path, f"expert_{config.expert.id}.csv")
+    else:
+        if run_id is None:
+            run_id = config.run.id
+        if load_step is None:
+            load_step = config.run.load_step
+
+        if isinstance(load_step, int):
+            return os.path.join(raw_csv_folder_path, f"{run_id}_{load_step:_}.csv")
+        else:
+            return os.path.join(raw_csv_folder_path, f"{run_id}_{load_step}.csv")
+
+
+def get_eval_stats_data_folder_path(config: TrainingConfig) -> str:
+    """Return the relative path to the folder in which the evaluation statistics csv files should be saved.
+
+    Args:
+        config (TrainingConfig): the config specifying the subfolder for the stats csv files.
+
+    Returns:
+        str: the path to the raw csv folder
+    """
+    return os.path.join("csv", "evaluation", config.group_name)
+
+
 def eval_to_csv(
     config: TrainingConfig,
     evaluate_expert: bool,
@@ -209,26 +265,16 @@ def eval_to_csv(
     """
     df = evaluate_to_df(config=config, evaluate_expert=evaluate_expert, run_id=run_id, load_step=load_step)
 
-    raw_csv_folder_path = os.path.join("csv", "evaluation", config.group_name, "raw")
-    os.makedirs(raw_csv_folder_path, exist_ok=True)
+    csv_file_path = get_eval_raw_data_csv_file_path(
+        config=config,
+        evaluate_expert=evaluate_expert,
+        run_id=run_id,
+        load_step=load_step,
+    )
 
-    if evaluate_expert:
-        csv_path = os.path.join(raw_csv_folder_path, f"expert_{config.expert.id}.csv")
-    else:
-        if run_id is None:
-            run_id = config.run.id
-        if load_step is None:
-            load_step = config.run.load_step
-
-        if isinstance(load_step, int):
-            csv_path = os.path.join(raw_csv_folder_path, f"{run_id}_{load_step:_}.csv")
-        else:
-            csv_path = os.path.join(raw_csv_folder_path, f"{run_id}_{load_step}.csv")
-        os.makedirs(os.path.dirname(csv_path), exist_ok=True)
-
-    df.to_csv(csv_path, index=False)
-
-    return csv_path
+    os.makedirs(os.path.dirname(csv_file_path), exist_ok=True)
+    df.to_csv(csv_file_path, index=False)
+    return csv_file_path
 
 
 @ray.remote
@@ -322,6 +368,29 @@ def combine_to_stats_df(
     return stats_df
 
 
+def get_evaluation_run_ids(config: TrainingConfig) -> Optional[List[str]]:
+    """Get the run ids to evaluate."""
+    run_ids = config.run.id
+    if hasattr(run_ids, "__iter__"):
+        return [str(run_id) for run_id in run_ids]
+    elif run_ids is None:
+        return None
+    else:
+        return [str(run_ids)]
+
+
+def get_evaluation_load_steps(config: TrainingConfig) -> List[Union[str, int]]:
+    """Get the steps at which model snapshots should be evaluated."""
+    load_steps = config.run.load_step
+    if load_steps == "all":
+        return [
+            load_step + config.run.save_freq
+            for load_step in range(0, config.run.n_steps, config.run.save_freq)
+        ]
+    else:
+        return [load_steps]
+
+
 def evaluate_to_stats_df(
     config: TrainingConfig,
     max_parallel_runs: Optional[int] = None,
@@ -365,27 +434,21 @@ def evaluate_to_stats_df(
         print(OmegaConf.to_yaml(cfg=config, resolve=True))
 
     # If a list of strings is passed to config.run.id, evaluate all and calculate statistics over all
-    run_ids = config.run.id
-    if isinstance(run_ids, str):
-        run_ids = [run_ids]
+    run_ids = get_evaluation_run_ids(config=config)
 
     # If run_ids is None, evaluate the expert policy
     evaluate_expert = run_ids is None
 
-    load_steps = config.run.load_step
-    if load_steps == "all":
-        load_steps = [
-            load_step + config.run.save_freq for load_step in range(0, config.run.n_steps, config.run.save_freq)
-        ]
-    else:
-        load_steps = [load_steps]
+    load_steps = get_evaluation_load_steps(config=config)
 
-    print(f"Evaluating models {run_ids} at steps {load_steps}")
+    if config.run.verbose:
+        print(f"Evaluating models {run_ids} at steps {load_steps}")
 
     # List of lists: shape (len(load_steps), len(run_ids))
     csv_paths = []
     if evaluate_expert:
-        print(f"Evaluating expert {config.expert.id}")
+        if config.run.verbose:
+            print(f"Evaluating expert {config.expert.id}")
         csv_paths.append([eval_to_csv(config=config, evaluate_expert=True)])
     else:
         if max_parallel_runs is None:
@@ -397,13 +460,18 @@ def evaluate_to_stats_df(
         print(f"Evaluating models with up to {max_parallel_runs} parallel runs")
 
         results = []
-        for load_step in load_steps:
-            results.append([eval_to_csv_ray.remote(
-                config=config,
-                evaluate_expert=False,
-                run_id=run_id,
-                load_step=load_step,
-            ) for run_id in run_ids])
+        results = [
+            [
+                eval_to_csv_ray.remote(
+                    config=config,
+                    evaluate_expert=False,
+                    run_id=run_id,
+                    load_step=load_step,
+                )
+                for run_id in run_ids
+            ]
+            for load_step in load_steps
+        ]
 
         for result in results:
             csv_paths.append(ray.get(result))
@@ -470,15 +538,16 @@ def evaluate_to_csv(config: TrainingConfig, max_parallel_runs: Optional[int] = N
     assert hasattr(config, "group_name") and config.group_name is not None
     df = evaluate_to_stats_df(config=config, max_parallel_runs=max_parallel_runs)
 
-    stats_csv_folder = os.path.join("csv", "evaluation", config.group_name)
+    stats_csv_folder = get_eval_stats_data_folder_path(config=config)
+    stats_csv_file_path = os.path.join(stats_csv_folder, "stats.csv")
     if os.path.exists(stats_csv_folder):
         print(f"Stats csv folder {stats_csv_folder} already exists! Overwriting...")
         shutil.rmtree(stats_csv_folder)
 
     os.makedirs(stats_csv_folder, exist_ok=False)
-    df.to_csv(os.path.join(stats_csv_folder, "stats.csv"), index=False)
+    df.to_csv(stats_csv_file_path, index=False)
 
-    return os.path.join(stats_csv_folder, "stats.csv")
+    return stats_csv_file_path
 
 
 @hydra.main(version_base=None, config_path="config", config_name=None)
