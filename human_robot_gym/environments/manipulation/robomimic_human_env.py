@@ -72,43 +72,50 @@ class RobomimicHumanEnv(HumanEnv):
         Uses robomimic's task-specific arena if use_robomimic_arena=True,
         otherwise falls back to human-robot-gym's table arena.
         """
-        # Always use human-robot-gym's table arena for simplicity and safety integration
-        self.mujoco_arena = TableArena(
-            table_full_size=[1, 1, 0.05],
-            table_offset=[0.0, 0.0, 0.8],
-            xml=xml_path_completion("arenas/table_arena.xml")
+        if self.use_robomimic_arena:
+            self._setup_robosuite_arena()
+        else:
+            # Use default human-robot-gym setup
+            super()._setup_arena()
+
+    def _setup_robosuite_arena(self):
+        # Import and setup the real robosuite Lift environment
+        import robosuite as suite
+        
+        # Create a robosuite Lift environment to get the proper arena and objects
+        # Use robot names instead of robot objects
+        robot_names = self.robot_names if hasattr(self, 'robot_names') else ["Panda"]
+        self.robosuite_env = suite.make(
+            self.robomimic_task_name,
+            robots=robot_names,
+            has_renderer=False,
+            has_offscreen_renderer=False,
+            use_camera_obs=False,
         )
         
-        # Set table attributes needed by parent class
-        self.table_full_size = self.mujoco_arena.table_full_size
-        self.table_offset = self.mujoco_arena.table_offset
+        # Use the arena and objects from the robosuite environment
+        # Correct way to access arena and objects through the model
+        self.mujoco_arena = self.robosuite_env.model.mujoco_arena
+        self.objects = self.robosuite_env.model.mujoco_objects
         
-        # Arena always gets set to zero origin
+        # Set table attributes from the robosuite environment
+        self.table_full_size = getattr(self.mujoco_arena, 'table_full_size', [0.8, 0.8, 0.05])
+        self.table_offset = getattr(self.mujoco_arena, 'table_offset', [0, 0, 0.8])
+        
+        # Arena setup
         self._set_origin()
-        
-        # Modify default agentview camera (essential for rendering!)
         self._set_mujoco_camera()
         
-        # Create simple objects for robomimic tasks
-        # Add a simple box object to make the environment more interesting
-        from robosuite.models.objects.primitive.box import BoxObject
-        box_size = np.array([0.04, 0.04, 0.04])  # Small cube for manipulation
-        manipulation_object = BoxObject(
-            name="manipulation_object",
-            size=box_size,
-            rgba=[0.1, 0.7, 0.3, 1],  # Green color
-        )
-        self.objects = [manipulation_object]
-        
-        # Setup object placement
+        # Setup object placement - use robosuite's placement approach
+        # For now, create our own placement initializer with robosuite objects
         bin_x_half = self.table_full_size[0] / 2 - 0.05
         bin_y_half = self.table_full_size[1] / 2 - 0.05
         self.object_placement_initializer = self._setup_placement_initializer(
             name="ObjectSampler", 
             initializer=getattr(self, 'object_placement_initializer', None),
-            objects=self.objects,
-            x_range=[-bin_x_half, bin_x_half],
-            y_range=[-bin_y_half, bin_y_half],
+            objects=[],
+            x_range=(-bin_x_half, bin_x_half),
+            y_range=(-bin_y_half, bin_y_half),
         )
         
         # Setup collision objects for safety
@@ -125,6 +132,13 @@ class RobomimicHumanEnv(HumanEnv):
             initializer=getattr(self, 'obstacle_placement_initializer', None),
             objects=self.obstacles,
         )
+    
+    def _reset_internal(self):
+        if self.use_robomimic_arena:
+            self.robosuite_env._reset_internal()
+            self.mujoco_arena = self.robosuite_env.model.mujoco_arena
+            self.objects = self.robosuite_env.model.mujoco_objects
+        return super()._reset_internal()
     
     def _sparse_reward(
         self,

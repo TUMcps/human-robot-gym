@@ -32,7 +32,7 @@ from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.collision_prevention_wrapper import CollisionPreventionWrapper
 
 
-def test_robomimic_env(env_name: str, num_episodes: int = 1, max_steps: int = 100):
+def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 100):
     """Test a robomimic environment with human safety features.
     
     Args:
