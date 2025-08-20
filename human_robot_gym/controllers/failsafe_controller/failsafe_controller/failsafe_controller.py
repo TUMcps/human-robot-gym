@@ -155,7 +155,6 @@ class FailsafeController(JointPositionController):
             qpos_limits,
             interpolator,
         )
-
         # Control dimension
         dir_path = os.path.dirname(os.path.realpath(__file__))
         rot = Rotation.from_quat(
@@ -335,7 +334,7 @@ class FailsafeController(JointPositionController):
         current_time = self.sim.data.time
         self.desired_motion = self.safety_shield.step(current_time)
         # Debug
-        print("Safety shield safe? {}", self.get_safety())
+        # print("Safety shield safe? {}", self.get_safety())
         self.get_human_capsules()
         # End debug
         desired_qpos = self.desired_motion.getAngle()
