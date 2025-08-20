@@ -33,7 +33,7 @@ if __name__ == "__main__":
     env = GymWrapper(
         suite.make(
             "ReachHuman",
-            robots="Panda",  # use robot
+            robots="Panda",  # use Sawyer robot
             robot_base_offset=[0, 0, 0],
             use_camera_obs=False,  # do not use pixel observations
             has_offscreen_renderer=False,  # not needed since not using pixel obs
@@ -45,13 +45,13 @@ if __name__ == "__main__":
             hard_reset=False,
             horizon=1000,
             controller_configs=controller_configs,
-            use_failsafe_controller=True,
+            shield_type="SSM",
             visualize_failsafe_controller=True,
             visualize_pinocchio=False,
-            base_human_pos_offset=[1.0, 0.0, 0.0],
+            base_human_pos_offset=[0.1, 0.0, 0.0],
             verbose=True,
             goal_dist=0.0001,
-            human_rand=[1.0, 0.5, 0.2]
+            human_rand=[0.0, 0.0, 0.0]
         ),
         keys=[
             "object-state",
