@@ -370,16 +370,13 @@ class BaseLiftHumanEnv(Lift):
         self._set_mujoco_camera()
 
         # << OBJECTS >>
-        # Objects are elements that can be moved around and manipulated.
-        # Create objects
-        self.objects = []
-        # Placement sampler for objects
+        # Empty placement sampler for objects
         bin_x_half = self.table_full_size[0] / 2 - 0.05
         bin_y_half = self.table_full_size[1] / 2 - 0.05
         self.object_placement_initializer = self._setup_placement_initializer(
             name="ObjectSampler",
             initializer=self.object_placement_initializer,
-            objects=self.objects,
+            objects=[],
             x_range=[-bin_x_half, bin_x_half],
             y_range=[-bin_y_half, bin_y_half],
         )
@@ -547,7 +544,6 @@ class BaseLiftHumanEnv(Lift):
             mujoco_robots=[robot.robot_model for robot in self.robots],
             mujoco_objects=self.model.mujoco_objects
             + [self.human]
-            + self.objects
             + self.obstacles,
         )
 
@@ -589,12 +585,3 @@ class LiftHumanEnv(BaseLiftHumanEnv):
     def __init__(self, **kwargs):
         """Initialize Lift environment with human simulation."""
         super().__init__(**kwargs)
-        self.target_height = 1.1  # Target height for lifting task
-
-    def _check_success(self, achieved_goal=None, desired_goal=None):
-        """Check if cube was lifted to target height."""
-        if hasattr(self, "cube"):
-            cube_pos = self.sim.data.body_xpos[self.cube_body_id]
-            cube_height = cube_pos[2]
-            return cube_height >= self.target_height
-        return False

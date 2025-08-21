@@ -38,7 +38,7 @@ from human_robot_gym.controllers.failsafe_controller.failsafe_controller import 
     FailsafeController,
 )
 
-from robosuite.environments.manipulation.nut_assembly import NutAssemblySquare
+from robosuite.environments.manipulation.nut_assembly import NutAssembly
 
 from human_robot_gym.environments.manipulation.human_env import (  # noqa: F401
     HumanEnv,
@@ -47,10 +47,10 @@ from human_robot_gym.environments.manipulation.human_env import (  # noqa: F401
 )
 
 
-class BaseNutAssemblySquareHumanEnv(NutAssemblySquare):
-    """Base class that inherits from robosuite NutAssemblySquare and adds human simulation.
+class BaseNutAssemblyHumanEnv(NutAssembly):
+    """Base class that inherits from robosuite NutAssembl and adds human simulation.
 
-    This approach directly inherits from robosuite environments (like NutAssemblySquare) and adds:
+    This approach directly inherits from robosuite environments (like NutAssembly) and adds:
     - Human animation and collision detection
     - Sara-shield safety controller
     - Failsafe collision prevention
@@ -68,7 +68,7 @@ class BaseNutAssemblySquareHumanEnv(NutAssemblySquare):
         gripper_types="default",
         initialization_noise="default",
         table_full_size=(0.8, 0.8, 0.05),
-        table_friction=(1.0, 5e-3, 1e-4),
+        table_friction=(1, 0.005, 0.0001),
         use_camera_obs=True,
         use_object_obs=True,
         reward_scale=1.0,
@@ -159,6 +159,7 @@ class BaseNutAssemblySquareHumanEnv(NutAssemblySquare):
         # Objects to create
         self.objects = []
         self.obstacles = []
+        self.add_table = True
         self.collision_obstacles_joints = dict()
         self.object_placement_initializer = None
         self.obstacle_placement_initializer = None
@@ -375,16 +376,14 @@ class BaseNutAssemblySquareHumanEnv(NutAssemblySquare):
         self._set_mujoco_camera()
 
         # << OBJECTS >>
-        # Objects are elements that can be moved around and manipulated.
-        # Create objects
-        self.objects = []
+        # Empty sampler
         # Placement sampler for objects
         bin_x_half = self.table_full_size[0] / 2 - 0.05
         bin_y_half = self.table_full_size[1] / 2 - 0.05
         self.object_placement_initializer = self._setup_placement_initializer(
             name="ObjectSampler",
             initializer=self.object_placement_initializer,
-            objects=self.objects,
+            objects=[],
             x_range=[-bin_x_half, bin_x_half],
             y_range=[-bin_y_half, bin_y_half],
         )
@@ -545,7 +544,6 @@ class BaseNutAssemblySquareHumanEnv(NutAssemblySquare):
             mujoco_robots=[robot.robot_model for robot in self.robots],
             mujoco_objects=self.model.mujoco_objects
             + [self.human]
-            + self.objects
             + self.obstacles,
         )
 
@@ -573,19 +571,10 @@ class BaseNutAssemblySquareHumanEnv(NutAssemblySquare):
         return False
 
 
-class NutAssemblySquareHumanEnv(BaseNutAssemblySquareHumanEnv):
+class NutAssemblySquareHumanEnv(BaseNutAssemblyHumanEnv):
     """NutAssemblySquare task with human simulation."""
 
     def __init__(self, **kwargs):
         """Initialize NutAssemblySquare environment with human simulation."""
-        super().__init__(nut_type="square", **kwargs)
-        self.target_peg_position = np.array([0.0, 0.0, 0.8])  # Target peg location
-        self.assembly_tolerance = 0.02  # Tight tolerance for nut assembly
-
-    def _check_success(self, achieved_goal=None, desired_goal=None):
-        """Check if square nut was successfully assembled on peg."""
-        if hasattr(self, "nut"):
-            nut_pos = self.sim.data.body_xpos[self.nut_body_id]
-            distance = np.linalg.norm(nut_pos - self.target_peg_position)
-            return distance <= self.assembly_tolerance
-        return False
+        assert "single_object_mode" not in kwargs and "nut_type" not in kwargs, "invalid set of arguments"
+        super().__init__(single_object_mode=2, nut_type="square", **kwargs)
