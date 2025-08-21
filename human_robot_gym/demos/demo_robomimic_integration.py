@@ -26,7 +26,7 @@ from robosuite.controllers import load_controller_config
 
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 # Import robomimic environments
-import human_robot_gym.environments.manipulation.robomimic_human_env  # noqa: F401
+import human_robot_gym.environments.manipulation.lift_human_env  # noqa: F401
 import human_robot_gym.robots  # noqa: F401
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.collision_prevention_wrapper import CollisionPreventionWrapper
@@ -58,7 +58,6 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
         env = GymWrapper(
             suite.make(
                 env_name,
-                use_robomimic_arena=True,  # Use robomimic arena
                 robots="Panda",
                 robot_base_offset=[0, 0, 0],
                 use_camera_obs=False,  # do not use pixel observations
