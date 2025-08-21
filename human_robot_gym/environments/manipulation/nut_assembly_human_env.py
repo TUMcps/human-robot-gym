@@ -1,7 +1,7 @@
-"""RoboSuite environments with human simulation and safety features.
+"""RoboSuite NutAssembly environments with human simulation and safety features.
 
-This module provides a cleaner approach by directly inheriting from robosuite
-environments and adding human simulation capabilities on top.
+This module provides NutAssembly environments that inherit from robosuite
+environments and add human simulation capabilities on top.
 
 Owner:
     Jakob Thumm (JT)
@@ -9,7 +9,7 @@ Owner:
 Contributors:
 
 Changelog:
-    XX.XX.XX JT Created RoboSuiteHumanEnv architecture
+    XX.XX.XX JT Created NutAssembly RoboSuiteHumanEnv architecture
 """
 
 from typing import Any, Dict, Union, List, Optional, Tuple  # noqa: F401
@@ -25,7 +25,6 @@ from robosuite.models.tasks import ManipulationTask
 import robosuite.utils.macros as macros
 from robosuite.robots import SingleArm, Bimanual
 
-# from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.placement_samplers import (
     UniformRandomSampler
 )
@@ -39,7 +38,7 @@ from human_robot_gym.controllers.failsafe_controller.failsafe_controller import 
     FailsafeController,
 )
 
-from robosuite.environments.manipulation.lift import Lift
+from robosuite.environments.manipulation.nut_assembly import NutAssemblySquare
 
 from human_robot_gym.environments.manipulation.human_env import (  # noqa: F401
     HumanEnv,
@@ -48,10 +47,10 @@ from human_robot_gym.environments.manipulation.human_env import (  # noqa: F401
 )
 
 
-class BaseLiftHumanEnv(Lift):
-    """Base class that inherits from robosuite environments and adds human simulation.
+class BaseNutAssemblySquareHumanEnv(NutAssemblySquare):
+    """Base class that inherits from robosuite NutAssemblySquare and adds human simulation.
 
-    This approach directly inherits from robosuite environments (like Lift) and adds:
+    This approach directly inherits from robosuite environments (like NutAssemblySquare) and adds:
     - Human animation and collision detection
     - Sara-shield safety controller
     - Failsafe collision prevention
@@ -92,6 +91,9 @@ class BaseLiftHumanEnv(Lift):
         camera_segmentations=None,
         renderer="mujoco",
         renderer_config=None,
+        # NutAssembly-specific parameters
+        single_object_mode=1,
+        nut_type="square",
         # Human-specific parameters
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_names=["CMU/62_01"],
@@ -115,10 +117,12 @@ class BaseLiftHumanEnv(Lift):
         n_goals_sampled_per_100_steps=8,
         **kwargs,
     ):
-        """Initialize RoboSuite environment with human simulation.
+        """Initialize NutAssemblySquare environment with human simulation.
 
         Args:
             robots: Robot configuration (inherited from robosuite)
+            single_object_mode: NutAssembly-specific parameter for object selection
+            nut_type: Type of nut to assemble (e.g., "square")
             All other robosuite parameters are passed through...
             base_human_pos_offset: Offset for human base position
             human_animation_names: List of human animation files
@@ -213,7 +217,7 @@ class BaseLiftHumanEnv(Lift):
         # Define all the stolen functions
         self._setup_human_simulation()
 
-        # Initialize the robosuite Lift environment
+        # Initialize the robosuite NutAssemblySquare environment
         super().__init__(
             robots=robots,
             env_configuration=env_configuration,
@@ -244,6 +248,8 @@ class BaseLiftHumanEnv(Lift):
             camera_segmentations=camera_segmentations,
             renderer=renderer,
             renderer_config=renderer_config,
+            single_object_mode=single_object_mode,
+            nut_type=nut_type,
             **kwargs,
         )
 
@@ -362,7 +368,6 @@ class BaseLiftHumanEnv(Lift):
         Must define self.mujoco_arena.
         Define self.objects and self.obstacles here.
         """
-        # super()._setup_arena()
         # Arena always gets set to zero origin
         self._set_origin()
 
@@ -510,13 +515,6 @@ class BaseLiftHumanEnv(Lift):
         The human is always added to the manipulation task.
         """
         super()._load_model()
-        # Adjust base pose accordingly
-        # for i in range(len(self.robots)):
-        #     if self.robot_base_offset.ndim == 2:
-        #         xpos = self.robot_base_offset[i]
-        #     else:
-        #         xpos = self.robot_base_offset
-        #     self.robots[i].robot_model.set_base_xpos(xpos)
 
         self._setup_arena()
         assert self.mujoco_arena is not None
@@ -568,33 +566,26 @@ class BaseLiftHumanEnv(Lift):
         if self.ignore_done:
             return False
 
-        # Check if the cube was lifted to the target height
-        # if self._check_success(achieved_goal, desired_goal):
-        #     self.goal_reached = True
-        #     return True
-
         if self.timestep >= self.horizon:
             return True
-        # Check for collisions
-        # if self.has_collision:
-        #     return True
 
         # If we reach here, the episode is not done
         return False
 
 
-class LiftHumanEnv(BaseLiftHumanEnv):
-    """Lift task with human simulation."""
+class NutAssemblySquareHumanEnv(BaseNutAssemblySquareHumanEnv):
+    """NutAssemblySquare task with human simulation."""
 
     def __init__(self, **kwargs):
-        """Initialize Lift environment with human simulation."""
-        super().__init__(**kwargs)
-        self.target_height = 1.1  # Target height for lifting task
+        """Initialize NutAssemblySquare environment with human simulation."""
+        super().__init__(nut_type="square", **kwargs)
+        self.target_peg_position = np.array([0.0, 0.0, 0.8])  # Target peg location
+        self.assembly_tolerance = 0.02  # Tight tolerance for nut assembly
 
     def _check_success(self, achieved_goal=None, desired_goal=None):
-        """Check if cube was lifted to target height."""
-        if hasattr(self, "cube"):
-            cube_pos = self.sim.data.body_xpos[self.cube_body_id]
-            cube_height = cube_pos[2]
-            return cube_height >= self.target_height
+        """Check if square nut was successfully assembled on peg."""
+        if hasattr(self, "nut"):
+            nut_pos = self.sim.data.body_xpos[self.nut_body_id]
+            distance = np.linalg.norm(nut_pos - self.target_peg_position)
+            return distance <= self.assembly_tolerance
         return False

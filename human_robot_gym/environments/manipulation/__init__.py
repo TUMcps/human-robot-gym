@@ -15,10 +15,13 @@ from human_robot_gym.environments.manipulation.collaborative_stacking_cartesian_
 
 # Robomimic environments with human simulation and safety
 from human_robot_gym.environments.manipulation.lift_human_env import (  # noqa: F401
-    # RobomimicHumanEnv,
     LiftHumanEnv,
-    # CanHumanEnv,
-    # SquareHumanEnv,
-    # TransportHumanEnv,
-    # ToolHangHumanEnv,
+)
+
+from human_robot_gym.environments.manipulation.pick_place_human_env import (  # noqa: F401
+    PickPlaceCanHumanEnv,
+)
+
+from human_robot_gym.environments.manipulation.nut_assembly_human_env import (  # noqa: F401
+    NutAssemblySquareHumanEnv,
 )

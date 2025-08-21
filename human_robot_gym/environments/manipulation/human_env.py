@@ -358,6 +358,7 @@ class HumanEnv(SingleArmEnv):
         # Objects to create
         self.objects = []
         self.obstacles = []
+        self.add_table = True
         self.collision_obstacles_joints = dict()
 
         # Human animation definition
@@ -1203,8 +1204,12 @@ class HumanEnv(SingleArmEnv):
         # Create objects
         self.objects = []
         # Placement sampler for objects
-        bin_x_half = self.table_full_size[0] / 2 - 0.05
-        bin_y_half = self.table_full_size[1] / 2 - 0.05
+        if self.add_table:
+            bin_x_half = self.table_full_size[0] / 2 - 0.05
+            bin_y_half = self.table_full_size[1] / 2 - 0.05
+        else:
+            bin_x_half = 0.5
+            bin_y_half = 0.5
         self.object_placement_initializer = self._setup_placement_initializer(
             name="ObjectSampler",
             initializer=self.object_placement_initializer,
@@ -1214,7 +1219,7 @@ class HumanEnv(SingleArmEnv):
         )
         # << OBSTACLES >>
         self._setup_collision_objects(
-            add_table=True,
+            add_table=self.add_table,
             add_base=True,
             safety_margin=0.01
         )

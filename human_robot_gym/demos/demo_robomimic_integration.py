@@ -26,10 +26,21 @@ from robosuite.controllers import load_controller_config
 
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 # Import robomimic environments
-import human_robot_gym.environments.manipulation.lift_human_env  # noqa: F401
+from human_robot_gym.environments.manipulation.lift_human_env import LiftHumanEnv
+from human_robot_gym.environments.manipulation.pick_place_human_env import PickPlaceCanHumanEnv
+from human_robot_gym.environments.manipulation.nut_assembly_human_env import NutAssemblySquareHumanEnv
 import human_robot_gym.robots  # noqa: F401
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.collision_prevention_wrapper import CollisionPreventionWrapper
+
+
+ENV_MAPPING = {
+    "lift": LiftHumanEnv,
+    "can": PickPlaceCanHumanEnv,
+    "square": NutAssemblySquareHumanEnv,
+    # "transport": -> Dual arm, leave out for now
+    # "tool_hang": -> Only available in robosuite 1.5
+}
 
 
 def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 100):
@@ -159,10 +170,10 @@ def main():
     
     # Test each environment
     for env_name in test_environments:
-        test_robomimic_env(env_name, num_episodes=1, max_steps=50)
-        time.sleep(1)  # Brief pause between tests
+        test_robomimic_env(env_name, num_episodes=5, max_steps=100)
+        # time.sleep(1)  # Brief pause between tests
     
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 20)
     print("Demo completed!")
     print("\nRobomimic environments successfully integrated with human-robot-gym safety features:")
     print("  ✓ Sara-shield collision avoidance")
@@ -181,7 +192,7 @@ def test_environment_variants():
     ]
     
     for variant in variants:
-        test_robomimic_env(variant, num_episodes=1, max_steps=30)
+        test_robomimic_env(variant, num_episodes=5, max_steps=100)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
-"""RoboSuite environments with human simulation and safety features.
+"""RoboSuite PickPlace environments with human simulation and safety features.
 
-This module provides a cleaner approach by directly inheriting from robosuite
-environments and adding human simulation capabilities on top.
+This module provides PickPlace environments that inherit from robosuite
+environments and add human simulation capabilities on top.
 
 Owner:
     Jakob Thumm (JT)
@@ -9,7 +9,7 @@ Owner:
 Contributors:
 
 Changelog:
-    XX.XX.XX JT Created RoboSuiteHumanEnv architecture
+    XX.XX.XX JT Created PickPlace RoboSuiteHumanEnv architecture
 """
 
 from typing import Any, Dict, Union, List, Optional, Tuple  # noqa: F401
@@ -25,7 +25,6 @@ from robosuite.models.tasks import ManipulationTask
 import robosuite.utils.macros as macros
 from robosuite.robots import SingleArm, Bimanual
 
-# from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.placement_samplers import (
     UniformRandomSampler
 )
@@ -39,7 +38,7 @@ from human_robot_gym.controllers.failsafe_controller.failsafe_controller import 
     FailsafeController,
 )
 
-from robosuite.environments.manipulation.lift import Lift
+from robosuite.environments.manipulation.pick_place import PickPlace
 
 from human_robot_gym.environments.manipulation.human_env import (  # noqa: F401
     HumanEnv,
@@ -48,10 +47,10 @@ from human_robot_gym.environments.manipulation.human_env import (  # noqa: F401
 )
 
 
-class BaseLiftHumanEnv(Lift):
-    """Base class that inherits from robosuite environments and adds human simulation.
+class BasePickPlaceHumanEnv(PickPlace):
+    """Base class that inherits from robosuite PickPlaceCan and adds human simulation.
 
-    This approach directly inherits from robosuite environments (like Lift) and adds:
+    This approach directly inherits from robosuite environments (like PickPlaceCan) and adds:
     - Human animation and collision detection
     - Sara-shield safety controller
     - Failsafe collision prevention
@@ -68,8 +67,8 @@ class BaseLiftHumanEnv(Lift):
         controller_configs=None,
         gripper_types="default",
         initialization_noise="default",
-        table_full_size=(0.8, 0.8, 0.05),
-        table_friction=(1.0, 5e-3, 1e-4),
+        table_full_size=(0.39, 0.49, 0.82),
+        table_friction=(1, 0.005, 0.0001),
         use_camera_obs=True,
         use_object_obs=True,
         reward_scale=1.0,
@@ -92,6 +91,9 @@ class BaseLiftHumanEnv(Lift):
         camera_segmentations=None,
         renderer="mujoco",
         renderer_config=None,
+        # PickPlace-specific parameters
+        single_object_mode=1,
+        object_type="can",
         # Human-specific parameters
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_names=["CMU/62_01"],
@@ -115,10 +117,12 @@ class BaseLiftHumanEnv(Lift):
         n_goals_sampled_per_100_steps=8,
         **kwargs,
     ):
-        """Initialize RoboSuite environment with human simulation.
+        """Initialize PickPlaceCan environment with human simulation.
 
         Args:
             robots: Robot configuration (inherited from robosuite)
+            single_object_mode: PickPlace-specific parameter for object selection
+            object_type: Type of object to pick and place (e.g., "can")
             All other robosuite parameters are passed through...
             base_human_pos_offset: Offset for human base position
             human_animation_names: List of human animation files
@@ -156,6 +160,7 @@ class BaseLiftHumanEnv(Lift):
         self.objects = []
         self.obstacles = []
         self.collision_obstacles_joints = dict()
+        self.add_table = False
         self.object_placement_initializer = None
         self.obstacle_placement_initializer = None
 
@@ -213,7 +218,7 @@ class BaseLiftHumanEnv(Lift):
         # Define all the stolen functions
         self._setup_human_simulation()
 
-        # Initialize the robosuite Lift environment
+        # Initialize the robosuite PickPlaceCan environment
         super().__init__(
             robots=robots,
             env_configuration=env_configuration,
@@ -226,7 +231,6 @@ class BaseLiftHumanEnv(Lift):
             use_object_obs=use_object_obs,
             reward_scale=reward_scale,
             reward_shaping=reward_shaping,
-            placement_initializer=placement_initializer,
             has_renderer=has_renderer,
             has_offscreen_renderer=has_offscreen_renderer,
             render_camera=render_camera,
@@ -244,6 +248,8 @@ class BaseLiftHumanEnv(Lift):
             camera_segmentations=camera_segmentations,
             renderer=renderer,
             renderer_config=renderer_config,
+            single_object_mode=single_object_mode,
+            object_type=object_type,
             **kwargs,
         )
 
@@ -362,7 +368,6 @@ class BaseLiftHumanEnv(Lift):
         Must define self.mujoco_arena.
         Define self.objects and self.obstacles here.
         """
-        # super()._setup_arena()
         # Arena always gets set to zero origin
         self._set_origin()
 
@@ -370,22 +375,19 @@ class BaseLiftHumanEnv(Lift):
         self._set_mujoco_camera()
 
         # << OBJECTS >>
-        # Objects are elements that can be moved around and manipulated.
-        # Create objects
-        self.objects = []
-        # Placement sampler for objects
+        # Empty object sampler as we don't want to change the default object placement
         bin_x_half = self.table_full_size[0] / 2 - 0.05
         bin_y_half = self.table_full_size[1] / 2 - 0.05
         self.object_placement_initializer = self._setup_placement_initializer(
             name="ObjectSampler",
             initializer=self.object_placement_initializer,
-            objects=self.objects,
+            objects=[],
             x_range=[-bin_x_half, bin_x_half],
             y_range=[-bin_y_half, bin_y_half],
         )
 
         # << OBSTACLES >>
-        self._setup_collision_objects(add_table=True, add_base=True, safety_margin=0.01)
+        self._setup_collision_objects(add_table=self.add_table, add_base=True, safety_margin=0.01)
         # Obstacles are elements that the robot should avoid.
         self.obstacles = []
         self.obstacle_placement_initializer = self._setup_placement_initializer(
@@ -510,13 +512,6 @@ class BaseLiftHumanEnv(Lift):
         The human is always added to the manipulation task.
         """
         super()._load_model()
-        # Adjust base pose accordingly
-        # for i in range(len(self.robots)):
-        #     if self.robot_base_offset.ndim == 2:
-        #         xpos = self.robot_base_offset[i]
-        #     else:
-        #         xpos = self.robot_base_offset
-        #     self.robots[i].robot_model.set_base_xpos(xpos)
 
         self._setup_arena()
         assert self.mujoco_arena is not None
@@ -547,7 +542,6 @@ class BaseLiftHumanEnv(Lift):
             mujoco_robots=[robot.robot_model for robot in self.robots],
             mujoco_objects=self.model.mujoco_objects
             + [self.human]
-            + self.objects
             + self.obstacles,
         )
 
@@ -568,33 +562,16 @@ class BaseLiftHumanEnv(Lift):
         if self.ignore_done:
             return False
 
-        # Check if the cube was lifted to the target height
-        # if self._check_success(achieved_goal, desired_goal):
-        #     self.goal_reached = True
-        #     return True
-
         if self.timestep >= self.horizon:
             return True
-        # Check for collisions
-        # if self.has_collision:
-        #     return True
 
         # If we reach here, the episode is not done
         return False
 
 
-class LiftHumanEnv(BaseLiftHumanEnv):
-    """Lift task with human simulation."""
+class PickPlaceCanHumanEnv(BasePickPlaceHumanEnv):
+    """PickPlaceCan task with human simulation."""
 
     def __init__(self, **kwargs):
-        """Initialize Lift environment with human simulation."""
-        super().__init__(**kwargs)
-        self.target_height = 1.1  # Target height for lifting task
-
-    def _check_success(self, achieved_goal=None, desired_goal=None):
-        """Check if cube was lifted to target height."""
-        if hasattr(self, "cube"):
-            cube_pos = self.sim.data.body_xpos[self.cube_body_id]
-            cube_height = cube_pos[2]
-            return cube_height >= self.target_height
-        return False
+        assert "single_object_mode" not in kwargs and "object_type" not in kwargs, "invalid set of arguments"
+        super().__init__(single_object_mode=2, object_type="can", **kwargs)
