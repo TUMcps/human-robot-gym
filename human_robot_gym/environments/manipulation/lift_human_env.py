@@ -32,13 +32,20 @@ from robosuite.robots import SingleArm, Bimanual
 
 # from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
-from robosuite.utils.placement_samplers import UniformRandomSampler, ObjectPositionSampler
+from robosuite.utils.placement_samplers import (
+    UniformRandomSampler,
+    ObjectPositionSampler,
+)
 from robosuite.utils.transform_utils import quat2mat
 from robosuite.utils.control_utils import set_goal_position
 from robosuite.models.objects import PrimitiveObject
 
 from human_robot_gym.models.objects.human.human import HumanObject
-from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat, quat_to_rot
+from human_robot_gym.utils.mjcf_utils import (
+    xml_path_completion,
+    rot_to_quat,
+    quat_to_rot,
+)
 from human_robot_gym.utils.pairing import cantor_pairing
 from human_robot_gym.utils.animation_utils import load_human_animation_data
 from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import (
@@ -50,21 +57,25 @@ from human_robot_gym.controllers.failsafe_controller.failsafe_controller import 
 import human_robot_gym.models.objects.obstacle as obstacle
 from robosuite.environments.manipulation.lift import Lift
 
-from human_robot_gym.environments.manipulation.human_env import HumanEnv, COLLISION_TYPE, HumanEnvState
+from human_robot_gym.environments.manipulation.human_env import (
+    HumanEnv,
+    COLLISION_TYPE,
+    HumanEnvState,
+)
 
 
 class BaseLiftHumanEnv(Lift):
     """Base class that inherits from robosuite environments and adds human simulation.
-    
+
     This approach directly inherits from robosuite environments (like Lift) and adds:
     - Human animation and collision detection
     - Sara-shield safety controller
     - Failsafe collision prevention
     - Multi-level collision categorization
-    
+
     This is much cleaner than the previous approach of copying objects from a separate env.
     """
-    
+
     def __init__(
         self,
         robots="Panda",
@@ -74,7 +85,7 @@ class BaseLiftHumanEnv(Lift):
         gripper_types="default",
         initialization_noise="default",
         table_full_size=(0.8, 0.8, 0.05),
-        table_friction=(1., 5e-3, 1e-4),
+        table_friction=(1.0, 5e-3, 1e-4),
         use_camera_obs=True,
         use_object_obs=True,
         reward_scale=1.0,
@@ -118,10 +129,10 @@ class BaseLiftHumanEnv(Lift):
         # Goal-related parameters (inherited from HumanEnv)
         goal_dist=0.1,
         n_goals_sampled_per_100_steps=8,
-        **kwargs
+        **kwargs,
     ):
         """Initialize RoboSuite environment with human simulation.
-        
+
         Args:
             robots: Robot configuration (inherited from robosuite)
             All other robosuite parameters are passed through...
@@ -146,18 +157,24 @@ class BaseLiftHumanEnv(Lift):
         self.collision_debounce_delay = collision_debounce_delay
         self.seed = seed
         self.verbose = verbose
-        
+
         if robot_base_offset is None:
             if isinstance(robots, str) or len(robots) == 1:
                 robot_base_offset = [0, 0, 0]
             else:
                 robot_base_offset = [[0, 0, 0] for robot in robots]
         self.robot_base_offset = np.array(robot_base_offset)
-        
+
         # Objects and obstacles
+        # whether to use ground-truth object states
+        self.use_object_obs = use_object_obs
+        # Objects to create
+        self.objects = []
+        self.obstacles = []
+        self.collision_obstacles_joints = dict()
         self.object_placement_initializer = None
         self.obstacle_placement_initializer = None
-        
+
         # Failsafe controller settings
         self.failsafe_controller = None
         self.control_sample_time = control_sample_time
@@ -169,16 +186,16 @@ class BaseLiftHumanEnv(Lift):
         self.visualize_failsafe_controller = visualize_failsafe_controller
         self.safe_vel = safe_vel
         self.self_collision_safety = self_collision_safety
-        
+
         # Safety parameters
         self.shield_type = shield_type
         self.visualize_failsafe_controller = visualize_failsafe_controller
         self.visualize_pinocchio = visualize_pinocchio
-        
+
         # Goal parameters (from HumanEnv)
         self.goal_dist = goal_dist
         self.n_goals_sampled_per_100_steps = n_goals_sampled_per_100_steps
-        
+
         # Human animation definition
         self.human = None
         self.human_animation_names = human_animation_names
@@ -208,10 +225,10 @@ class BaseLiftHumanEnv(Lift):
         if self.visualize_pinocchio:
             self.pin_viz = pin.visualize.MeshcatVisualizer()
             self.pin_viz.initViewer()
-        
+
         # Define all the stolen functions
         self._setup_human_simulation()
-        
+
         # Initialize the robosuite Lift environment
         super().__init__(
             robots=robots,
@@ -243,12 +260,13 @@ class BaseLiftHumanEnv(Lift):
             camera_segmentations=camera_segmentations,
             renderer=renderer,
             renderer_config=renderer_config,
-            **kwargs
+            **kwargs,
         )
+
     @property
     def mujoco_arena(self):
         return self.model.mujoco_arena
-        
+
     @property
     def human_animation_id(self) -> int:
         """Get the current human animation id in the random list of human animation ids."""
@@ -264,8 +282,10 @@ class BaseLiftHumanEnv(Lift):
     @property
     def human_animation_length(self) -> int:
         """Get the length of the current human animation."""
-        return self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
-    
+        return self.human_animation_data[self.human_animation_id][0][
+            "Pelvis_pos_x"
+        ].shape[0]
+
     @property
     def _visualizations(self):
         """Set the visualization keywords for this environment.
@@ -275,10 +295,10 @@ class BaseLiftHumanEnv(Lift):
         """
         vis_set = super()._visualizations
         return vis_set
-    
+
     def _setup_human_simulation(self):
         """Add human simulation capabilities to the robosuite environment.
-        
+
         This method adds all the human-robot-gym specific functionality:
         - Human animation system
         - Safety collision objects
@@ -288,37 +308,69 @@ class BaseLiftHumanEnv(Lift):
         # Import HumanEnv methods for human simulation
         # This is a bit of a hack, but allows us to reuse human simulation code
         from human_robot_gym.environments.manipulation.human_env import HumanEnv
-        
+
         # Copy essential human simulation methods
-        self._setup_collision_objects = HumanEnv._setup_collision_objects.__get__(self, type(self))
-        self.check_collision_action = HumanEnv.check_collision_action.__get__(self, type(self))
+        self._setup_collision_objects = HumanEnv._setup_collision_objects.__get__(
+            self, type(self)
+        )
+        self.check_collision_action = HumanEnv.check_collision_action.__get__(
+            self, type(self)
+        )
         self.step = HumanEnv.step.__get__(self, type(self))
         self._get_info = HumanEnv._get_info.__get__(self, type(self))
-        self.check_collision_action = HumanEnv.check_collision_action.__get__(self, type(self))
-        self._setup_collision_info = HumanEnv._setup_collision_info.__get__(self, type(self))
-        self._check_action_safety = HumanEnv._check_action_safety.__get__(self, type(self))
-        self._determine_geom_contact_type = HumanEnv._determine_geom_contact_type.__get__(self, type(self))
-        self._setup_placement_initializer = HumanEnv._setup_placement_initializer.__get__(self, type(self))
+        self.check_collision_action = HumanEnv.check_collision_action.__get__(
+            self, type(self)
+        )
+        self._setup_collision_info = HumanEnv._setup_collision_info.__get__(
+            self, type(self)
+        )
+        self._check_action_safety = HumanEnv._check_action_safety.__get__(
+            self, type(self)
+        )
+        self._determine_geom_contact_type = (
+            HumanEnv._determine_geom_contact_type.__get__(self, type(self))
+        )
+        self._setup_placement_initializer = (
+            HumanEnv._setup_placement_initializer.__get__(self, type(self))
+        )
         self._set_origin = HumanEnv._set_origin.__get__(self, type(self))
         self._set_mujoco_camera = HumanEnv._set_mujoco_camera.__get__(self, type(self))
-        self._setup_collision_objects = HumanEnv._setup_collision_objects.__get__(self, type(self))
-        self._create_new_controller = HumanEnv._create_new_controller.__get__(self, type(self))
-        self._override_controller = HumanEnv._override_controller.__get__(self, type(self))
+        self._setup_collision_objects = HumanEnv._setup_collision_objects.__get__(
+            self, type(self)
+        )
+        self._create_new_controller = HumanEnv._create_new_controller.__get__(
+            self, type(self)
+        )
+        self._override_controller = HumanEnv._override_controller.__get__(
+            self, type(self)
+        )
         self._reset_controller = HumanEnv._reset_controller.__get__(self, type(self))
-        self._set_human_measurement = HumanEnv._set_human_measurement.__get__(self, type(self))
+        self._set_human_measurement = HumanEnv._set_human_measurement.__get__(
+            self, type(self)
+        )
         self._reset_pin_models = HumanEnv._reset_pin_models.__get__(self, type(self))
-        self._compute_animation_time = HumanEnv._compute_animation_time.__get__(self, type(self))
-        self._progress_to_next_animation = HumanEnv._progress_to_next_animation.__get__(self, type(self))
+        self._compute_animation_time = HumanEnv._compute_animation_time.__get__(
+            self, type(self)
+        )
+        self._progress_to_next_animation = HumanEnv._progress_to_next_animation.__get__(
+            self, type(self)
+        )
         self._control_human = HumanEnv._control_human.__get__(self, type(self))
-        self._visualize_reachable_sets = HumanEnv._visualize_reachable_sets.__get__(self, type(self))
+        self._visualize_reachable_sets = HumanEnv._visualize_reachable_sets.__get__(
+            self, type(self)
+        )
         self.visualize_pin = HumanEnv.visualize_pin.__get__(self, type(self))
         self.render = HumanEnv.render.__get__(self, type(self))
-        self.get_environment_state = HumanEnv.get_environment_state.__get__(self, type(self))
-        self.set_environment_state = HumanEnv.set_environment_state.__get__(self, type(self))
+        self.get_environment_state = HumanEnv.get_environment_state.__get__(
+            self, type(self)
+        )
+        self.set_environment_state = HumanEnv.set_environment_state.__get__(
+            self, type(self)
+        )
 
     def _collision_detection(self):
         pass
-      
+
     def _setup_arena(self):
         """Set up the mujoco arena.
 
@@ -349,11 +401,7 @@ class BaseLiftHumanEnv(Lift):
         )
 
         # << OBSTACLES >>
-        self._setup_collision_objects(
-            add_table=True,
-            add_base=True,
-            safety_margin=0.01
-        )
+        self._setup_collision_objects(add_table=True, add_base=True, safety_margin=0.01)
         # Obstacles are elements that the robot should avoid.
         self.obstacles = []
         self.obstacle_placement_initializer = self._setup_placement_initializer(
@@ -379,10 +427,10 @@ class BaseLiftHumanEnv(Lift):
         self.human_animation_step_length = (
             simulation_step_freq / self.human_animation_freq
         )
-        assert (
-            self.human_animation_step_length >= 1
-        ), "No human animation frequency faster than {} Hz is allowed".format(
-            self.model_freq
+        assert self.human_animation_step_length >= 1, (
+            "No human animation frequency faster than {} Hz is allowed".format(
+                self.model_freq
+            )
         )
         self.human_joint_addr = []
         self.human_joint_names = []
@@ -410,7 +458,9 @@ class BaseLiftHumanEnv(Lift):
             elif isinstance(robot, Bimanual):
                 for arm in robot.arms:
                     if robot.has_gripper[arm]:
-                        robot.gripper[arm].current_action = np.zeros(robot.gripper[arm].dof)
+                        robot.gripper[arm].current_action = np.zeros(
+                            robot.gripper[arm].dof
+                        )
 
         self._reset_controller()
         self._reset_pin_models()
@@ -430,7 +480,9 @@ class BaseLiftHumanEnv(Lift):
         self.collision_debounce_timer = 0
 
         self._human_animation_ids = np.random.randint(
-            0, len(self.human_animation_data), size=self._n_animations_to_sample_at_resets
+            0,
+            len(self.human_animation_data),
+            size=self._n_animations_to_sample_at_resets,
         )
         self._human_animation_ids_index = 0
 
@@ -509,51 +561,55 @@ class BaseLiftHumanEnv(Lift):
         self.model = ManipulationTask(
             mujoco_arena=self.mujoco_arena,
             mujoco_robots=[robot.robot_model for robot in self.robots],
-            mujoco_objects=self.model.mujoco_objects + [self.human] + self.objects + self.obstacles,
+            mujoco_objects=self.model.mujoco_objects
+            + [self.human]
+            + self.objects
+            + self.obstacles,
         )
-        
+
     def _get_achieved_goal_from_obs(self, obs):
         return obs
-      
+
     def _get_desired_goal_from_obs(self, obs):
         return obs
-      
+
     def _check_success(self, achieved_goal=None, desired_goal=None):
         return super()._check_success()
-      
+
     def _compute_reward(self, achieved_goal=None, desired_goal=None, info=None):
         return super().reward(None)
-      
+
     def _compute_done(self, achieved_goal=None, desired_goal=None, info=None):
         """Compute if the episode is done."""
         if self.ignore_done:
             return False
-        
+
         # Check if the cube was lifted to the target height
         # if self._check_success(achieved_goal, desired_goal):
         #     self.goal_reached = True
         #     return True
-        
+
         if self.timestep >= self.horizon:
             return True
         # Check for collisions
         # if self.has_collision:
         #     return True
-        
+
         # If we reach here, the episode is not done
         return False
 
+
 class LiftHumanEnv(BaseLiftHumanEnv):
     """Lift task with human simulation."""
-    
+
     def __init__(self, **kwargs):
         """Initialize Lift environment with human simulation."""
         super().__init__(**kwargs)
         self.target_height = 1.1  # Target height for lifting task
-    
+
     def _check_success(self, achieved_goal=None, desired_goal=None):
         """Check if cube was lifted to target height."""
-        if hasattr(self, 'cube'):
+        if hasattr(self, "cube"):
             cube_pos = self.sim.data.body_xpos[self.cube_body_id]
             cube_height = cube_pos[2]
             return cube_height >= self.target_height
