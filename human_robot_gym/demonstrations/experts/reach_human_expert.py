@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from gym.spaces import Box
+from gymnasium.spaces import Box
 
 from human_robot_gym.utils.ou_process import ReparameterizedOrnsteinUhlenbeckProcess
 from human_robot_gym.demonstrations.experts.expert import Expert

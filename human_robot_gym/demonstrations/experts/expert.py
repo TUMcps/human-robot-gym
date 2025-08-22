@@ -6,7 +6,7 @@ Author:
 Changelog:
     06.02.23 FT File creation
 """
-from gym import Space
+from gymnasium import Space
 import numpy as np
 from typing import Any, Dict
 

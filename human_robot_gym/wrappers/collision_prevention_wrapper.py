@@ -1,6 +1,6 @@
 import numpy as np
 from robosuite.wrappers import Wrapper
-from gym import spaces
+from gymnasium import spaces
 
 
 class CollisionPreventionWrapper(Wrapper):

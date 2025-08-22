@@ -25,8 +25,8 @@ Changelog:
 from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
-from gym.core import Env
-from gym.spaces import Box
+from gymnasium.core import Env
+from gymnasium.spaces import Box
 
 from human_robot_gym.demonstrations.experts import ReachHumanExpert
 from human_robot_gym.demonstrations.experts import PickPlaceHumanCartExpert

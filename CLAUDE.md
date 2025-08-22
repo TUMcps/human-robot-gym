@@ -51,6 +51,11 @@ pip install -e .
 ```
 
 ### Testing & Quality
+To run any python code, we should always use the conda environment `hrgym` like so:
+```bash
+source ~/anaconda3/etc/profile.d/conda.sh && conda activate hrgym && python ...
+```
+
 ```bash
 # Linting
 flake8

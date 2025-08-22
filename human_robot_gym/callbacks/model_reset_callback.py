@@ -12,7 +12,16 @@ Changelog:
     25.05.23 (FT): File created.
 """
 from typing import Callable, Optional
-from stable_baselines3.common.callbacks import BaseCallback
+try:
+    from stable_baselines3.common.callbacks import BaseCallback
+    HAS_SB3 = True
+except ImportError:
+    HAS_SB3 = False
+    # Define placeholder class for when SB3 is not available
+    class BaseCallback:
+        def __init__(self, *args, **kwargs):
+            if not HAS_SB3:
+                raise ImportError("stable-baselines3 is required for ModelResetCallback. Install with: pip install stable-baselines3")
 
 
 class ModelResetCallback(BaseCallback):

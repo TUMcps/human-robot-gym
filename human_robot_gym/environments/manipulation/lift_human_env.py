@@ -22,8 +22,8 @@ from scipy.spatial.transform import Rotation
 import pinocchio as pin
 
 from robosuite.models.tasks import ManipulationTask
-import robosuite.utils.macros as macros
-from robosuite.robots import SingleArm, Bimanual
+import robosuite.macros as macros
+from robosuite.robots import FixedBaseRobot
 
 # from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.placement_samplers import (

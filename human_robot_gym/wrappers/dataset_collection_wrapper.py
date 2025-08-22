@@ -20,7 +20,7 @@ from typing import Any, Dict, Tuple
 
 import numpy as np
 
-import gym
+import gymnasium
 
 from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
 from human_robot_gym.environments.manipulation.human_env import HumanEnv
@@ -42,7 +42,7 @@ class DatasetCollectionWrapper(gym.Wrapper):
     Requires the wrapped environment to be a HumanEnv.
 
     Args:
-        env (gym.Env): The environment to monitor.
+        env (gymnasium.Env): The environment to monitor.
         directory (str): Where to store the dataset.
         start_episode (int): The index of the first episode. Defaults to 0.
         store_expert_observations (bool): Whether to store expert observations. Defaults to False.
@@ -53,7 +53,7 @@ class DatasetCollectionWrapper(gym.Wrapper):
     """
     def __init__(
         self,
-        env: gym.Env,
+        env: gymnasium.Env,
         directory: str,
         start_episode: int = 0,
         store_expert_observations: bool = False,

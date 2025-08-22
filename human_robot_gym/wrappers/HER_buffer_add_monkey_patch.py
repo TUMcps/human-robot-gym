@@ -13,14 +13,23 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from gym.spaces import Box
+from gymnasium.spaces import Box
 
-from stable_baselines3.common.type_aliases import DictReplayBufferSamples
-from stable_baselines3.common.vec_env import VecEnv, VecNormalize  # noqa: F401
-from stable_baselines3.her.goal_selection_strategy import (  # noqa: F401
-    KEY_TO_GOAL_STRATEGY,  # noqa: F401
-    GoalSelectionStrategy,  # noqa: F401
-)  # noqa: F401
+try:
+    from stable_baselines3.common.type_aliases import DictReplayBufferSamples
+    from stable_baselines3.common.vec_env import VecEnv, VecNormalize  # noqa: F401
+    from stable_baselines3.her.goal_selection_strategy import (  # noqa: F401
+        KEY_TO_GOAL_STRATEGY,  # noqa: F401
+        GoalSelectionStrategy,  # noqa: F401
+    )  # noqa: F401
+    HAS_SB3 = True
+except ImportError:
+    HAS_SB3 = False
+    # Define placeholder classes/functions for when SB3 is not available
+    DictReplayBufferSamples = None
+    VecEnv = object
+    VecNormalize = object
+    GoalSelectionStrategy = None
 
 
 def custom_add(
@@ -44,7 +53,12 @@ def custom_add(
         reward: the received reward (r).
         done: if the episode was done after the transition.
         infos: info dictionary (may contain the truely executed action).
+        
+    Raises:
+        ImportError: If stable-baselines3 is not installed
     """
+    if not HAS_SB3:
+        raise ImportError("stable-baselines3 is required for HER functionality. Install with: pip install stable-baselines3")
     if self.current_idx == 0 and self.full:
         # Clear info buffer
         self.info_buffer[self.pos] = deque(maxlen=self.max_episode_length)
@@ -120,13 +134,10 @@ def custom_add(
 def _custom_sample_transitions(
     self,
     batch_size: Optional[int],
-    maybe_vec_env: Optional[VecNormalize],
+    maybe_vec_env,
     online_sampling: bool,
     n_sampled_goal: Optional[int] = None,
-) -> Union[
-    DictReplayBufferSamples,
-    Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray], np.ndarray, np.ndarray],
-]:
+):
     """Sample a set of transitions from the replay buffer with HER strategy future.
 
     This monkey patch correctly updates the done flag of the HER transitions.
@@ -139,7 +150,12 @@ def _custom_sample_transitions(
         n_sampled_goal: Number of sampled goals for replay. (offline sampling)
     Returns
         Samples.
+        
+    Raises:
+        ImportError: If stable-baselines3 is not installed
     """
+    if not HAS_SB3:
+        raise ImportError("stable-baselines3 is required for HER functionality. Install with: pip install stable-baselines3")
     # Select which episodes to use
     if online_sampling:
         assert (

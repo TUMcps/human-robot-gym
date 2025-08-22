@@ -17,7 +17,7 @@ import numpy as np
 
 from robosuite.environments import MujocoEnv
 from robosuite.wrappers import Wrapper
-from gym import Env, spaces
+from gymnasium import Env, spaces
 
 
 class ExpertObsWrapper(Wrapper, Env):

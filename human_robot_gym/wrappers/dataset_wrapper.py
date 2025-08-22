@@ -15,7 +15,7 @@ import os
 import numpy as np
 import pandas as pd
 
-import gym
+import gymnasium
 
 from human_robot_gym.utils.mjcf_utils import file_path_completion
 from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
@@ -29,12 +29,12 @@ class DatasetWrapper(gym.Wrapper):
     Be careful when using large datasets or many parallel environments as large amounts of memory might be required.
 
     Args:
-        env (gym.Env): The environment to wrap
+        env (gymnasium.Env): The environment to wrap
         dataset_name (str): The name of the dataset to use
     """
     def __init__(
         self,
-        env: gym.Env,
+        env: gymnasium.Env,
         dataset_name: str,
     ):
         super().__init__(env=env)
@@ -92,7 +92,7 @@ class DatasetRSIWrapper(DatasetWrapper):
     episode trajectories.
 
     Args:
-        env (gym.Env): The environment to wrap
+        env (gymnasium.Env): The environment to wrap
         dataset_name (str): The name of the dataset to use
         rsi_prob (float): The probability of performing RSI on reset calls.
             If set to 0, the environment is always initialized from the first state of a random episode.
@@ -100,7 +100,7 @@ class DatasetRSIWrapper(DatasetWrapper):
     """
     def __init__(
         self,
-        env: gym.Env,
+        env: gymnasium.Env,
         dataset_name: str,
         rsi_prob: float = 0,
     ):
@@ -179,7 +179,7 @@ class DatasetObsNormWrapper(gym.Wrapper):
             normed_obs = tanh(squash_factor * normed_obs)
 
     Args:
-        env (gym.Env): The environment to wrap
+        env (gymnasium.Env): The environment to wrap
         mean (Optional[np.ndarray]): The mean to use for normalization.
         std (Optional[np.ndarray]): The std to use for normalization.
         dataset_name (Optional[str]): If `mean` or `std` are not provided,
@@ -195,7 +195,7 @@ class DatasetObsNormWrapper(gym.Wrapper):
     """
     def __init__(
         self,
-        env: gym.Env,
+        env: gymnasium.Env,
         dataset_name: Optional[str] = None,
         mean: Optional[np.ndarray] = None,
         std: Optional[np.ndarray] = None,
@@ -245,7 +245,7 @@ class DatasetObsNormWrapper(gym.Wrapper):
 
         # Without squashing, the observation space is not guaranteed to be bounded in [-1, 1]
         if squash_factor is not None:
-            self.observation_space = gym.spaces.Box(
+            self.observation_space = gymnasium.spaces.Box(
                 low=-1.0,
                 high=1.0,
                 shape=self.observation_space.shape,

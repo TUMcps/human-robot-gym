@@ -9,10 +9,19 @@ Changelog:
     """
 from typing import Optional, Dict, Any, Type, Callable, Union, List
 from functools import partial
-import gym
+import gymnasium
 
-from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
-from stable_baselines3.common.env_util import make_vec_env as sb3_make_vec_env
+try:
+    from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
+    from stable_baselines3.common.env_util import make_vec_env as sb3_make_vec_env
+    HAS_SB3 = True
+except ImportError:
+    HAS_SB3 = False
+    # Define placeholder classes for when SB3 is not available
+    DummyVecEnv = object
+    SubprocVecEnv = object
+    VecEnv = object
+    sb3_make_vec_env = None
 from human_robot_gym.utils.env_util import make_gym_env, make_goal_env, make_expert_obs_env
 
 
@@ -25,13 +34,13 @@ def make_vec_env(
     seed: Optional[int] = None,
     start_index: int = 0,
     monitor_dir: Optional[str] = None,
-    wrapper_class: Optional[Callable[[gym.Env], gym.Env]] = None,
+    wrapper_class: Optional[Callable[[gymnasium.Env], gymnasium.Env]] = None,
     env_kwargs: Optional[Dict[str, Any]] = None,
-    vec_env_cls: Optional[Type[Union[DummyVecEnv, SubprocVecEnv]]] = None,
+    vec_env_cls = None,
     vec_env_kwargs: Optional[Dict[str, Any]] = None,
     monitor_kwargs: Optional[Dict[str, Any]] = None,
     wrapper_kwargs: Optional[Dict[str, Any]] = None,
-) -> VecEnv:
+):
     """
     Create a wrapped, monitored ``VecEnv``.
     By default it uses a ``DummyVecEnv`` which is usually faster
@@ -58,7 +67,13 @@ def make_vec_env(
 
     Returns:
         The wrapped environment
+        
+    Raises:
+        ImportError: If stable-baselines3 is not installed
     """
+    if not HAS_SB3:
+        raise ImportError("stable-baselines3 is required for vectorized environments. Install with: pip install stable-baselines3")
+    
     assert type in ["env", "goal_env"], "The type of environment must be either 'env' or 'goal_env'."
     if type == "env":
         if expert_obs_keys is None:

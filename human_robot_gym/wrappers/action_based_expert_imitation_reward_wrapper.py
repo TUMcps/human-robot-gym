@@ -11,7 +11,7 @@ Changelog:
 from typing import List, Tuple, Union
 
 import numpy as np
-from gym.core import Env, Wrapper
+from gymnasium.core import Env, Wrapper
 
 from human_robot_gym.demonstrations.experts.expert import Expert
 from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper

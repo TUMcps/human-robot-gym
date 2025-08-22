@@ -12,7 +12,7 @@ Changelog:
     XX.XX.XX JT Created robomimic gym environment registrations
 """
 
-from gym.envs.registration import register
+from gymnasium.envs.registration import register
 from human_robot_gym.environments.gym_envs.make_gym import make_gym
 
 # Robomimic Lift Task with Human Safety

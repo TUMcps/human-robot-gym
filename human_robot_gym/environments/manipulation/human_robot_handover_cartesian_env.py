@@ -30,7 +30,7 @@ import xml.etree.ElementTree as ET
 import numpy as np
 from robosuite.utils.observables import Observable, sensor
 from scipy.spatial.transform import Rotation
-import mujoco_py
+import mujoco
 
 from robosuite.models.arenas import TableArena
 from robosuite.models.objects.primitive.box import BoxObject
@@ -896,8 +896,8 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             AssertionError: If any of the references could not be found.
         """
         super()._setup_references()
-        self._manipulation_object_weld_eq_id = mujoco_py.functions.mj_name2id(
-            self.sim.model, mujoco_py.const.OBJ_EQUALITY, "manipulation_object_weld"
+        self._manipulation_object_weld_eq_id = mujoco.mj_name2id(
+            self.sim.model, mujoco.mjtObj.mjOBJ_EQUALITY, "manipulation_object_weld"
         )
 
         assert self._manipulation_object_weld_eq_id != -1

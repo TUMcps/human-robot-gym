@@ -17,7 +17,7 @@ from scipy.spatial.transform import Rotation
 
 # from matplotlib import pyplot as plt
 
-from robosuite.controllers.joint_pos import JointPositionController
+from robosuite.controllers.parts.generic.joint_pos import JointPositionController
 from robosuite.utils.control_utils import set_goal_position
 
 from safety_shield_py import SafetyShield, ShieldType, ContactType, AABB  # noqa: F401
@@ -137,26 +137,31 @@ class FailsafeController(JointPositionController):
         **kwargs,  # does nothing; used so no error raised when dict is passed with extra terms used previously
     ):
         # noqa: D107
+        # Updated for robosuite 1.5 - parameter order changed
         super().__init__(
             sim,
-            eef_name,
             joint_indexes,
             actuator_range,
-            input_max,
-            input_min,
-            output_max,
-            output_min,
-            kp,
-            damping_ratio,
-            impedance_mode,
-            kp_limits,
-            damping_ratio_limits,
-            policy_freq,
-            qpos_limits,
-            interpolator,
+            ref_name=eef_name,
+            input_max=input_max,
+            input_min=input_min,
+            output_max=output_max,
+            output_min=output_min,
+            kp=kp,
+            damping_ratio=damping_ratio,
+            impedance_mode=impedance_mode,
+            kp_limits=kp_limits,
+            damping_ratio_limits=damping_ratio_limits,
+            policy_freq=policy_freq,
+            qpos_limits=qpos_limits,
+            interpolator=interpolator,
         )
         # Control dimension
         dir_path = os.path.dirname(os.path.realpath(__file__))
+        
+        # Store eef_name for getting end-effector position
+        self.eef_name = eef_name
+        
         rot = Rotation.from_quat(
             [
                 base_orientation[0],
@@ -304,6 +309,26 @@ class FailsafeController(JointPositionController):
             # self.interpolator.set_goal(self.goal_qpos)
 
         self.safety_shield.newLongTermTrajectory(self.goal_qpos, self.command_vel)
+
+    @property
+    def ee_pos(self):
+        """Get the end-effector position from the simulation."""
+        try:
+            site_id = self.sim.model.site_name2id(self.eef_name)
+            return self.sim.data.site_xpos[site_id]
+        except Exception:
+            # Fallback: return zero position if site not found
+            return np.zeros(3)
+
+    @property
+    def ee_ori_mat(self):
+        """Get the end-effector orientation matrix from the simulation."""
+        try:
+            site_id = self.sim.model.site_name2id(self.eef_name)
+            return self.sim.data.site_xmat[site_id].reshape(3, 3)
+        except Exception:
+            # Fallback: return identity matrix if site not found
+            return np.eye(3)
 
     def set_human_measurement(self, human_measurement, time):
         """Set the human measurement of the safety shield.

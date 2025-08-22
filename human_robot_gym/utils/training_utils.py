@@ -17,9 +17,9 @@ from wandb.sdk.wandb_run import Run
 
 import numpy as np
 
-import gym
+import gymnasium
 
-from robosuite.controllers import load_controller_config
+from robosuite.controllers import load_composite_controller_config
 
 from human_robot_gym.demonstrations.experts import Expert, REGISTERED_EXPERTS
 
@@ -61,8 +61,8 @@ def get_controller_configs(config: TrainingConfig) -> List[Dict[str, Any]]:
     robot_config_path = file_path_completion(config.robot.robot_config_path)
 
     controller_config = merge_configs(
-        load_controller_config(custom_fpath=controller_config_path),
-        load_controller_config(custom_fpath=robot_config_path),
+        load_composite_controller_config(controller=controller_config_path),
+        load_composite_controller_config(controller=robot_config_path),
     )
 
     return [controller_config]
@@ -88,7 +88,7 @@ def _compose_environment_kwargs(config: TrainingConfig, evaluation_mode: bool) -
     return kwargs
 
 
-def create_wrapped_env_from_config(config: TrainingConfig, evaluation_mode: bool = False) -> gym.Env:
+def create_wrapped_env_from_config(config: TrainingConfig, evaluation_mode: bool = False) -> gymnasium.Env:
     """Create a non-vectorized wrapped gym environment from a config.
 
     Args:
@@ -115,7 +115,7 @@ def create_wrapped_env_from_config(config: TrainingConfig, evaluation_mode: bool
     return env
 
 
-def create_data_collection_environment(config: DataCollectionConfig, start_episode: int = 0) -> gym.Env:
+def create_data_collection_environment(config: DataCollectionConfig, start_episode: int = 0) -> gymnasium.Env:
     """Create a wrapped gym environment for data collection from a config.
 
     Args:
@@ -150,12 +150,12 @@ def _compose_expert_kwargs(config: TrainingConfig) -> Dict[str, Any]:
     return kwargs
 
 
-def create_expert(config: TrainingConfig, env: gym.Env) -> Expert:
+def create_expert(config: TrainingConfig, env: gymnasium.Env) -> Expert:
     """Create an expert from a config.
 
     Args:
         config (Config): The config object containing information about the expert
-        env (gym.Env): The environment the expert is defined for
+        env (gymnasium.Env): The environment the expert is defined for
 
     Returns:
         Expert: The expert specified in the config
@@ -208,18 +208,18 @@ def env_has_cartesian_action_space(config: TrainingConfig) -> bool:
 
 def state_based_expert_imitation_reward_wrap_fn(
     config: TrainingConfig,
-    env: gym.Env,
-) -> gym.Env:
+    env: gymnasium.Env,
+) -> gymnasium.Env:
     """Wrap the environment in an `StateBasedExpertImitationRewardWrapper`.
 
     Which subclass is used depends on the expert specified in the config.
 
     Args:
         config (TrainingConfig): The config object containing information about the wrapper
-        env (gym.Env): The environment to wrap
+        env (gymnasium.Env): The environment to wrap
 
     Returns:
-        gym.Env: The wrapped environment
+        gymnasium.Env: The wrapped environment
 
     Raises:
         [AssertionError: No expert specified in config!]
@@ -273,8 +273,8 @@ def _compose_action_based_expert_imitation_reward_wrapper_kwargs(config: Trainin
 
 def action_based_expert_imitation_reward_wrap_fn(
     config: TrainingConfig,
-    env: gym.Env,
-) -> gym.Env:
+    env: gymnasium.Env,
+) -> gymnasium.Env:
     """Wrap the environment in an `ActionBasedExpertImitationRewardWrapper`.
 
     If the config specifies a `rsi_prob` > 0, the environment is also wrapped in a `DatasetRSIWrapper`.
@@ -283,10 +283,10 @@ def action_based_expert_imitation_reward_wrap_fn(
 
     Args:
         config (TrainingConfig): The config object containing information about the wrapper
-        env (gym.Env): The environment to wrap
+        env (gymnasium.Env): The environment to wrap
 
     Returns:
-        gym.Env: The wrapped environment
+        gymnasium.Env: The wrapped environment
 
     Raises:
         [AssertionError: No expert specified in config!]
@@ -347,16 +347,16 @@ def _compose_dataset_obs_norm_wrapper_kwargs(config: TrainingConfig) -> Dict[str
     return kwargs
 
 
-def get_environment_wrap_fn(config: TrainingConfig) -> Callable[[gym.Env], gym.Env]:
+def get_environment_wrap_fn(config: TrainingConfig) -> Callable[[gymnasium.Env], gymnasium.Env]:
     """Create a function that wraps the environment as specified in the config.
 
     Args:
         config (TrainingConfig): The config object containing information about the wrappers
 
     Returns:
-        Callable[[gym.Env], gym.Env]: A function that wraps the environment as specified in the config.
+        Callable[[gymnasium.Env], gymnasium.Env]: A function that wraps the environment as specified in the config.
     """
-    def wrap_fn(env: gym.Env):
+    def wrap_fn(env: gymnasium.Env):
         # Collision prevention wrapper
         if hasattr(config.wrappers, "collision_prevention") and config.wrappers.collision_prevention is not None:
             env = CollisionPreventionWrapper(

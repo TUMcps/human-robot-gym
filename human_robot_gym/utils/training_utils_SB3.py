@@ -14,16 +14,32 @@ import os
 from omegaconf import OmegaConf
 
 import numpy as np
-import gym
+import gymnasium
 
-from stable_baselines3.common.vec_env.base_vec_env import VecEnv
-from stable_baselines3.common.vec_env.dummy_vec_env import DummyVecEnv
-from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
-from stable_baselines3.common.base_class import BaseAlgorithm
-from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
-from stable_baselines3.common.evaluation import evaluate_policy
-from stable_baselines3.common.callbacks import BaseCallback, CallbackList
-from stable_baselines3 import SAC, PPO, HerReplayBuffer
+try:
+    from stable_baselines3.common.vec_env.base_vec_env import VecEnv
+    from stable_baselines3.common.vec_env.dummy_vec_env import DummyVecEnv
+    from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
+    from stable_baselines3.common.base_class import BaseAlgorithm
+    from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
+    from stable_baselines3.common.evaluation import evaluate_policy
+    from stable_baselines3.common.callbacks import BaseCallback, CallbackList
+    from stable_baselines3 import SAC, PPO, HerReplayBuffer
+    HAS_SB3 = True
+except ImportError:
+    HAS_SB3 = False
+    # Define placeholder classes/types for when SB3 is not available
+    VecEnv = object
+    DummyVecEnv = object
+    SubprocVecEnv = object
+    BaseAlgorithm = object
+    OffPolicyAlgorithm = object
+    BaseCallback = object
+    CallbackList = object
+    SAC = None
+    PPO = None
+    HerReplayBuffer = None
+    evaluate_policy = None
 
 
 from human_robot_gym.utils.env_util_SB3 import make_vec_env
@@ -39,10 +55,10 @@ from human_robot_gym.callbacks.logging_callback import LoggingCallback
 SB3_ALGORITHMS = {
     "SAC": SAC,
     "PPO": PPO,
-}
+} if HAS_SB3 else {}
 
 
-def create_training_vec_env(config: TrainingConfig, evaluation_mode: bool = False) -> VecEnv:
+def create_training_vec_env(config: TrainingConfig, evaluation_mode: bool = False):
     """Create an environment from a config and optionally wrap it in specified wrappers.
 
     If the config specifies more than one environment (`run.n_envs > 1`),
@@ -51,7 +67,12 @@ def create_training_vec_env(config: TrainingConfig, evaluation_mode: bool = Fals
     Args:
         config (Config): The config object containing information about the environment and optional wrappers
         evaluation_mode (bool): If `True`, use `run.eval_seed` instead of `environment.seed`. Defaults to `False`.
+        
+    Raises:
+        ImportError: If stable-baselines3 is not installed
     """
+    if not HAS_SB3:
+        raise ImportError("stable-baselines3 is required for training utilities. Install with: pip install stable-baselines3")
     wrapper_class = get_environment_wrap_fn(config)
 
     # Get the environment keword arguments as a dict
@@ -111,7 +132,7 @@ def _get_tb_log_path(
 
 def _compose_algorithm_kwargs(
     config: TrainingConfig,
-    env: Optional[VecEnv] = None,
+    env = None,
     run_id: Optional[str] = None,
     save_logs: bool = False,
 ) -> Dict[str, Any]:
@@ -126,7 +147,12 @@ def _compose_algorithm_kwargs(
 
     Returns:
         Dict[str, Any]: A dictionary of all configured keyword arguments for the algorithm.
+        
+    Raises:
+        ImportError: If stable-baselines3 is not installed
     """
+    if not HAS_SB3:
+        raise ImportError("stable-baselines3 is required for training utilities. Install with: pip install stable-baselines3")
     if run_id is None:
         run_id = config.run.id
 
@@ -163,10 +189,10 @@ def _compose_algorithm_kwargs(
 
 def create_model(
     config: TrainingConfig,
-    env: Optional[VecEnv] = None,
+    env = None,
     run_id: Optional[str] = None,
     save_logs: bool = False,
-) -> BaseAlgorithm:
+):
     """Create a new model according to the config for the given environment.
 
     If the env_type is set to 'goal_env' in the run sub-config,
@@ -185,7 +211,10 @@ def create_model(
     Raises:
         AssertionError: [Only off-policy algorithms accepted for goal environments (HER)]
         AssertionError: [HER does not support vectorized environments!]
+        ImportError: If stable-baselines3 is not installed
     """
+    if not HAS_SB3:
+        raise ImportError("stable-baselines3 is required for training utilities. Install with: pip install stable-baselines3")
     if config.run.verbose:
         print(f"Creating new model for run {run_id}")
 
@@ -201,10 +230,10 @@ def create_model(
 
 def load_model(
     config: TrainingConfig,
-    env: Optional[VecEnv] = None,
+    env = None,
     run_id: Optional[str] = None,
     load_step: Optional[Union[int, str]] = None,
-) -> BaseAlgorithm:
+):
     """Load a model from disk.
 
     If the model uses an off-policy algorithm, the replay buffer is also loaded.
@@ -224,7 +253,10 @@ def load_model(
 
     Raises:
         ValueError: [load_step must be a positive integer or 'final']
+        ImportError: If stable-baselines3 is not installed
     """
+    if not HAS_SB3:
+        raise ImportError("stable-baselines3 is required for training utilities. Install with: pip install stable-baselines3")
     if run_id is None:
         run_id = config.run.id
 
@@ -264,10 +296,10 @@ def load_model(
 
 def get_model(
     config: TrainingConfig,
-    env: Optional[VecEnv] = None,
+    env = None,
     run_id: Optional[str] = None,
     save_logs: bool = False,
-) -> BaseAlgorithm:
+):
     """Create a new model or load an existing model from disk,
         depending on whether a load episode is specified in the run sub-config.
 
@@ -280,7 +312,12 @@ def get_model(
 
     Returns:
         BaseAlgorithm: The model created according to the config for the given environment.
+        
+    Raises:
+        ImportError: If stable-baselines3 is not installed
     """
+    if not HAS_SB3:
+        raise ImportError("stable-baselines3 is required for training utilities. Install with: pip install stable-baselines3")
     if config.run.load_step is None:
         return create_model(config=config, env=env, run_id=run_id, save_logs=save_logs)
     else:
@@ -289,18 +326,23 @@ def get_model(
 
 def create_callback(
     config: TrainingConfig,
-    model: BaseAlgorithm,
-    env: gym.Env,
+    model,
+    env: gymnasium.Env,
     run_id: int
-) -> BaseCallback:
+):
     """Generate callbacks for the training run based on the config.
 
     Args:
         config (TrainingConfig): The config object containing information about the model
         model (BaseAlgorithm): The model to train
-        env (gym.Env): The environment to train the model on
+        env (gymnasium.Env): The environment to train the model on
         run_id (int): The run id to use for this training run
+        
+    Raises:
+        ImportError: If stable-baselines3 is not installed
     """
+    if not HAS_SB3:
+        raise ImportError("stable-baselines3 is required for training utilities. Install with: pip install stable-baselines3")
     callbacks = []
 
     if config.run.type == "wandb":
@@ -350,7 +392,7 @@ def create_callback(
     return CallbackList(callbacks)
 
 
-def _run_training_with_id(config: TrainingConfig, run_id: Optional[int]) -> BaseAlgorithm:
+def _run_training_with_id(config: TrainingConfig, run_id: Optional[int]):
     """Run a training with a given run id.
 
     Args:
@@ -360,7 +402,12 @@ def _run_training_with_id(config: TrainingConfig, run_id: Optional[int]) -> Base
 
     Returns:
         BaseAlgorithm: The trained model
+        
+    Raises:
+        ImportError: If stable-baselines3 is not installed
     """
+    if not HAS_SB3:
+        raise ImportError("stable-baselines3 is required for training utilities. Install with: pip install stable-baselines3")
     debug_run_id = "~~debug~~"
 
     if run_id is None:
@@ -382,7 +429,7 @@ def _run_training_with_id(config: TrainingConfig, run_id: Optional[int]) -> Base
     return model
 
 
-def run_debug_training(config: TrainingConfig) -> BaseAlgorithm:
+def run_debug_training(config: TrainingConfig):
     """Run a training without storing any data to disk.
 
     This is useful for debugging purposes to avoid creating a lot of unnecessary files.
@@ -396,7 +443,7 @@ def run_debug_training(config: TrainingConfig) -> BaseAlgorithm:
     return _run_training_with_id(config=config, run_id=None)
 
 
-def run_training_tensorboard(config: TrainingConfig) -> BaseAlgorithm:
+def run_training_tensorboard(config: TrainingConfig):
     """Run a training and store the logs to tensorboard.
 
     This avoids using WandB and stores logs only locally. Only stores the final model.
@@ -429,7 +476,7 @@ def run_training_tensorboard(config: TrainingConfig) -> BaseAlgorithm:
     return model
 
 
-def run_training_wandb(config: TrainingConfig) -> BaseAlgorithm:
+def run_training_wandb(config: TrainingConfig):
     """Run a training and store the logs to WandB.
 
     The WandB run is closed at the end of the training.
@@ -461,7 +508,7 @@ def run_training_wandb(config: TrainingConfig) -> BaseAlgorithm:
         return model
 
 
-def run_training(config: TrainingConfig) -> BaseAlgorithm:
+def run_training(config: TrainingConfig):
     """Run a training according to the config.
 
     Depending on the type specified in the run sub-config, logs are either
@@ -489,7 +536,7 @@ def run_training(config: TrainingConfig) -> BaseAlgorithm:
         return run_debug_training(config=config)
 
 
-def evaluate_model_simple(config: TrainingConfig, model: BaseAlgorithm, eval_env: VecEnv):
+def evaluate_model_simple(config: TrainingConfig, model, eval_env):
     """Evaluate a model and print the reward mean and std.
 
     Creates a new environment based on the information from the config.
@@ -500,7 +547,12 @@ def evaluate_model_simple(config: TrainingConfig, model: BaseAlgorithm, eval_env
         config (TrainingConfig): The config object containing information about the model
         model (BaseAlgorithm): The model to evaluate
         eval_env (VecEnv): The environment to evaluate the model in
+        
+    Raises:
+        ImportError: If stable-baselines3 is not installed
     """
+    if not HAS_SB3:
+        raise ImportError("stable-baselines3 is required for training utilities. Install with: pip install stable-baselines3")
     model.set_env(env=eval_env)
 
     mean_reward, std_reward = evaluate_policy(
@@ -514,7 +566,7 @@ def evaluate_model_simple(config: TrainingConfig, model: BaseAlgorithm, eval_env
     print(f"Mean evaluation reward: {mean_reward} +/- {std_reward}")
 
 
-def evaluate_model_wandb(config: TrainingConfig, model: BaseAlgorithm, eval_env: VecEnv):
+def evaluate_model_wandb(config: TrainingConfig, model, eval_env):
     """Evaluate a model and upload the results to WandB.
 
     Creates a new environment based on the information from the config.
@@ -544,7 +596,7 @@ def evaluate_model_wandb(config: TrainingConfig, model: BaseAlgorithm, eval_env:
         )
 
 
-def evaluate_model(config: TrainingConfig, model: BaseAlgorithm, eval_env: VecEnv):
+def evaluate_model(config: TrainingConfig, model, eval_env):
     """Evaluate a model and either print the results to the console or upload them to WandB.
 
     Which method is used depends on the `type` specified in the run sub-config.

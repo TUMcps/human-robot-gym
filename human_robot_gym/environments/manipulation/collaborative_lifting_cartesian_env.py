@@ -18,7 +18,7 @@ import numpy as np
 from robosuite.utils.observables import Observable, sensor
 from scipy.spatial.transform import Rotation
 
-import mujoco_py
+import mujoco
 
 from robosuite.models.arenas import TableArena
 from robosuite.models.objects.primitive.box import BoxObject
@@ -971,12 +971,12 @@ class CollaborativeLiftingCart(HumanEnv):
         super()._setup_references()
 
         self.board_body_id = self.sim.model.body_name2id(self.board.root_body)
-        self.eq_l_id = mujoco_py.functions.mj_name2id(
-            self.sim.model, mujoco_py.const.OBJ_EQUALITY, self._lh_connect_name,
+        self.eq_l_id = mujoco.mj_name2id(
+            self.sim.model, mujoco.mjtObj.mjOBJ_EQUALITY, self._lh_connect_name,
         )
 
-        self.eq_r_id = mujoco_py.functions.mj_name2id(
-            self.sim.model, mujoco_py.const.OBJ_EQUALITY, self._rh_connect_name,
+        self.eq_r_id = mujoco.mj_name2id(
+            self.sim.model, mujoco.mjtObj.mjOBJ_EQUALITY, self._rh_connect_name,
         )
 
     def _setup_observables(self) -> OrderedDict[str, Observable]:

@@ -24,13 +24,13 @@ from scipy.spatial.transform import Rotation
 
 import pinocchio as pin
 
-from mujoco_py.builder import MujocoException
+from mujoco import FatalError as MujocoException
 
-from robosuite.environments.manipulation.single_arm_env import SingleArmEnv
+from robosuite.environments.manipulation.manipulation_env import ManipulationEnv
 from robosuite.models.arenas import TableArena
 from robosuite.models.tasks import ManipulationTask
-import robosuite.utils.macros as macros
-from robosuite.robots import SingleArm, Bimanual
+import robosuite.macros as macros
+from robosuite.robots import FixedBaseRobot
 
 # from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
@@ -103,7 +103,7 @@ class HumanEnvState:
     human_rot_offset: List[float]
 
 
-class HumanEnv(SingleArmEnv):
+class HumanEnv(ManipulationEnv):
     """This is the super class for any environment with a human.
 
     Args:
@@ -415,7 +415,7 @@ class HumanEnv(SingleArmEnv):
             robots=robots,
             env_configuration=env_configuration,
             controller_configs=controller_configs,
-            mount_types="default",
+            base_types="default",
             gripper_types=gripper_types,
             initialization_noise=initialization_noise,
             use_camera_obs=use_camera_obs,
@@ -927,9 +927,20 @@ class HumanEnv(SingleArmEnv):
             # Arm elements
             for item in self.robots[i].robot_model.contact_geoms:
                 self.robot_collision_geoms[self.sim.model.geom_name2id(item)] = i
-            # Gripper elements
-            for el in self.robots[i].gripper.contact_geoms:
-                self.robot_collision_geoms[self.sim.model.geom_name2id(el)] = i
+            # Gripper elements - handle robosuite 1.5 dict structure
+            if hasattr(self.robots[i], 'gripper'):
+                gripper = self.robots[i].gripper
+                if isinstance(gripper, dict):
+                    # In robosuite 1.5, gripper is a dict mapping arm names to gripper objects
+                    for arm_name, gripper_obj in gripper.items():
+                        if hasattr(gripper_obj, 'contact_geoms'):
+                            for el in gripper_obj.contact_geoms:
+                                self.robot_collision_geoms[self.sim.model.geom_name2id(el)] = i
+                else:
+                    # Legacy robosuite format
+                    if hasattr(gripper, 'contact_geoms'):
+                        for el in gripper.contact_geoms:
+                            self.robot_collision_geoms[self.sim.model.geom_name2id(el)] = i
         # Human elements
         self.human_collision_geoms = {
             self.sim.model.geom_name2id(item) for item in self.human.contact_geoms
@@ -1410,17 +1421,30 @@ class HumanEnv(SingleArmEnv):
         if self.use_failsafe_controller:
             self.failsafe_controller = []
             for i in range(len(self.robots)):
-                self.robots[i].controller_config["init_qpos"] = self.robots[i].init_qpos
-                self.robots[i].controller_config["base_pos"] = self.robots[i].base_pos
-                self.robots[i].controller_config["base_orientation"] = self.robots[
-                    i
-                ].base_ori
-                self.robots[i].controller_config[
-                    "control_sample_time"
-                ] = self.control_sample_time
-                self.robots[i].controller_config["shield_type"] = self.shield_type
+                # In robosuite 1.5, extract parameters from part_controller_config
+                robot = self.robots[i]
+                arm_config = robot.part_controller_config.get('right', {})
+                
+                # Create FailsafeController with required parameters
+                # Convert 3x3 rotation matrix to quaternion [x, y, z, w]
+                from scipy.spatial.transform import Rotation as R
+                base_quat = R.from_matrix(robot.base_ori).as_quat()  # Returns [x, y, z, w]
+                
                 self.failsafe_controller.append(
-                    FailsafeController(**self.robots[i].controller_config)
+                    FailsafeController(
+                        sim=arm_config['sim'],
+                        eef_name=arm_config['ref_name'],  # Use ref_name as eef_name
+                        joint_indexes=arm_config['joint_indexes'],
+                        actuator_range=arm_config['actuator_range'],
+                        init_qpos=robot.init_qpos,
+                        robot_name=arm_config['robot_name'],
+                        base_pos=robot.base_pos,
+                        base_orientation=base_quat,  # Use quaternion instead of rotation matrix
+                        shield_type=self.shield_type,
+                        control_sample_time=self.control_sample_time,
+                        **{k: v for k, v in robot.composite_controller_config.get('body_parts', {}).get('right', {}).items() 
+                           if k in ['input_max', 'input_min', 'output_max', 'output_min', 'kp', 'damping_ratio']}
+                    )
                 )
         else:
             self.failsafe_controller = None
@@ -1438,9 +1462,13 @@ class HumanEnv(SingleArmEnv):
                 self._create_new_controller()
             else:
                 for i in range(len(self.failsafe_controller)):
+                    # Convert 3x3 rotation matrix to quaternion [x, y, z, w] for reset call
+                    from scipy.spatial.transform import Rotation as R
+                    base_quat = R.from_matrix(self.robots[i].base_ori).as_quat()
+                    
                     self.failsafe_controller[i].reset(
                         base_pos=self.robots[i].base_pos,
-                        base_orientation=self.robots[i].base_ori,
+                        base_orientation=base_quat,
                         shield_type=self.shield_type,
                     )
             self._override_controller()
@@ -1622,12 +1650,10 @@ class HumanEnv(SingleArmEnv):
         # reset the current_action values of all grippers to 0 so that actions prior to the reset have
         # no effect on the next episode
         for robot in self.robots:
-            if isinstance(robot, SingleArm):
-                if robot.has_gripper:
-                    robot.gripper.current_action = np.zeros(robot.gripper.dof)
-            elif isinstance(robot, Bimanual):
+            # In robosuite 1.5, all robots use FixedBaseRobot with arms dict structure
+            if hasattr(robot, 'arms') and hasattr(robot, 'has_gripper'):
                 for arm in robot.arms:
-                    if robot.has_gripper[arm]:
+                    if robot.has_gripper.get(arm, False):
                         robot.gripper[arm].current_action = np.zeros(robot.gripper[arm].dof)
 
         self._reset_controller()

@@ -25,7 +25,7 @@ from typing import Any, Dict, List, Optional, OrderedDict, Tuple, Union
 
 import xml.etree.ElementTree as ET
 
-import mujoco_py
+import mujoco
 
 import numpy as np
 from robosuite.utils.observables import Observable, sensor
@@ -1162,16 +1162,16 @@ class CollaborativeHammeringCart(HumanEnv):
         self.board_body_id = self.sim.model.body_name2id(self.board.root_body)
         self.hammer_body_id = self.sim.model.body_name2id(self.hammer.root_body)
 
-        self.lh_eq_id = mujoco_py.functions.mj_name2id(
-            self.sim.model, mujoco_py.const.OBJ_EQUALITY, self._lh_eq_name,
+        self.lh_eq_id = mujoco.mj_name2id(
+            self.sim.model, mujoco.mjtObj.mjOBJ_EQUALITY, self._lh_eq_name,
         )
 
-        self.rh_eq_id = mujoco_py.functions.mj_name2id(
-            self.sim.model, mujoco_py.const.OBJ_EQUALITY, self._rh_eq_name,
+        self.rh_eq_id = mujoco.mj_name2id(
+            self.sim.model, mujoco.mjtObj.mjOBJ_EQUALITY, self._rh_eq_name,
         )
 
-        self.rh_connect_eq_id = mujoco_py.functions.mj_name2id(
-            self.sim.model, mujoco_py.const.OBJ_EQUALITY, self._rh_connect_eq_name,
+        self.rh_connect_eq_id = mujoco.mj_name2id(
+            self.sim.model, mujoco.mjtObj.mjOBJ_EQUALITY, self._rh_connect_eq_name,
         )
 
         assert self.lh_eq_id != -1

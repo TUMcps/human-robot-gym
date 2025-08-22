@@ -35,7 +35,7 @@ import numpy as np
 
 from scipy.spatial.transform import Rotation
 
-import mujoco_py
+import mujoco
 
 import xml.etree.ElementTree as ET
 
@@ -1295,12 +1295,12 @@ class CollaborativeStackingCart(HumanEnv):
         self._l_cube_body_id = self.sim.model.body_name2id(self.l_cube.root_body)
         self._r_cube_body_id = self.sim.model.body_name2id(self.r_cube.root_body)
 
-        self._l_weld_eq_id = mujoco_py.functions.mj_name2id(
-            self.sim.model, mujoco_py.const.OBJ_EQUALITY, self._l_weld_eq_name,
+        self._l_weld_eq_id = mujoco.mj_name2id(
+            self.sim.model, mujoco.mjtObj.mjOBJ_EQUALITY, self._l_weld_eq_name,
         )
 
-        self._r_weld_eq_id = mujoco_py.functions.mj_name2id(
-            self.sim.model, mujoco_py.const.OBJ_EQUALITY, self._r_weld_eq_name,
+        self._r_weld_eq_id = mujoco.mj_name2id(
+            self.sim.model, mujoco.mjtObj.mjOBJ_EQUALITY, self._r_weld_eq_name,
         )
 
     def _setup_observables(self) -> OrderedDict[str, Observable]:

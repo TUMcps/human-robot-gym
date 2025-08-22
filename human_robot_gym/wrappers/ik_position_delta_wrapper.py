@@ -8,8 +8,8 @@ Author: Rafael Cabral
 
 import numpy as np
 import pybullet as p
-from gym.core import Wrapper
-from gym.spaces import Box
+from gymnasium.core import Wrapper
+from gymnasium.spaces import Box
 
 
 class IKPositionDeltaWrapper(Wrapper):
