@@ -1,0 +1,85 @@
+[build-system]
+requires = [
+    "setuptools>=64",
+    "setuptools-scm>=8",
+    "wheel",
+    "cmake",
+    "ninja",
+    "pybind11",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "human_robot_gym"
+version = "0.1.0"
+description = "human-robot-gym is an extension to the robosuite package to train RL algorithms on robots in human environments."
+authors = [
+    {name = "Jakob Thumm", email = "jakob.thumm@tum.de"}
+]
+readme = "README.md"
+requires-python = ">=3.13"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    # robosuite requirements
+    "robosuite==1.5.1",
+    "robosuite-models==1.0.0",
+    "gymnasium",
+    "mink==0.0.12",  # Only needed for GR1 robot whole-body IK, not required for Panda
+    "h5py",
+    "usd-core",
+    "mujoco>=3.3.0",
+    # hrgym requirements
+    "bvh==0.3",
+    "opencv_python",
+    "pin",
+    "pybullet",
+    "meshcat",
+    "numpy~=2.2",
+    "scipy",
+    "numba",
+    "mypy",
+    "patchelf",
+]
+
+[project.optional-dependencies]
+training = [
+    # "stable_baselines3==1.5.0",  # Optional for training
+    # "wandb",  # Optional for logging
+    # "tensorboard==2.10.0",  # Optional for logging
+    "hydra-core",
+    "hydra-ray-launcher",
+]
+dev = [
+    "pydocstyle",
+    "flake8", 
+    "black",
+    "pytest",
+    "mypy",
+]
+docs = [
+    "graphviz",
+    "sphinx_rtd_theme",
+    "sphinx-autoapi",
+]
+
+[project.urls]
+Homepage = "https://github.com/TUMcps/human-robot-gym"
+Repository = "https://github.com/TUMcps/human-robot-gym.git"
+Issues = "https://github.com/TUMcps/human-robot-gym/issues"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["human_robot_gym*"]
+
+[tool.setuptools.package-data]
+"*" = ["*"]
