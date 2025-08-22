@@ -1808,30 +1808,45 @@ class HumanEnv(ManipulationEnv):
     def _visualize_reachable_sets(self):
         """Visualize the robot and human reachable set."""
         if self.use_failsafe_controller:
-            for i in range(len(self.robots)):
-                robot_capsules = self.robots[i].controller.get_robot_capsules()
-                for cap in robot_capsules:
-                    self.viewer.viewer.add_marker(
-                        pos=cap.pos,
-                        type=3,
-                        size=cap.size,
-                        mat=cap.mat.flatten(),
-                        rgba=[0.0, 0.0, 1.0, 0.2],
-                        label="",
-                        shininess=0.0,
-                    )
-                # These should 100% match for all robots.
-                human_capsules = self.robots[i].controller.get_human_capsules()
-                for cap in human_capsules:
-                    self.viewer.viewer.add_marker(
-                        pos=cap.pos,
-                        type=3,
-                        size=cap.size,
-                        mat=cap.mat.flatten(),
-                        rgba=[0.0, 1.0, 0.0, 0.2],
-                        label="",
-                        shininess=0.0,
-                    )
+            # Check if we have a MuJoCo viewer with marker support
+            has_marker_support = (
+                hasattr(self.viewer, 'viewer') and 
+                self.viewer.viewer is not None and 
+                hasattr(self.viewer.viewer, 'add_marker')
+            )
+            
+            if has_marker_support:
+                # Use original marker-based visualization for MuJoCo viewer
+                for i in range(len(self.robots)):
+                    robot_capsules = self.robots[i].controller.get_robot_capsules()
+                    for cap in robot_capsules:
+                        self.viewer.viewer.add_marker(
+                            pos=cap.pos,
+                            type=3,
+                            size=cap.size,
+                            mat=cap.mat.flatten(),
+                            rgba=[0.0, 0.0, 1.0, 0.2],
+                            label="",
+                            shininess=0.0,
+                        )
+                    # These should 100% match for all robots.
+                    human_capsules = self.robots[i].controller.get_human_capsules()
+                    for cap in human_capsules:
+                        self.viewer.viewer.add_marker(
+                            pos=cap.pos,
+                            type=3,
+                            size=cap.size,
+                            mat=cap.mat.flatten(),
+                            rgba=[0.0, 1.0, 0.0, 0.2],
+                            label="",
+                            shininess=0.0,
+                        )
+            else:
+                # For OpenCV renderer, we could add sites to the MuJoCo model instead
+                # This would be visible in the OpenCV rendering
+                # For now, just skip visualization to avoid errors
+                print("Warning: Marker visualization not supported with OpenCV renderer. "
+                      "Use renderer='mjviewer' if you need marker visualization.")
                 # Visualize human joints
                 # for joint_element in self.human.joint_elements:
                 #    pos = self.sim.data.get_site_xpos("Human_" + joint_element)
