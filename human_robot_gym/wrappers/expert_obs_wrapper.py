@@ -160,13 +160,14 @@ class ExpertObsWrapper(Wrapper, Env):
         Args:
             action (np.array): Action to take in environment
         Returns:
-            4-tuple:
+            5-tuple:
                 - (np.array) flattened observations from the environment
                 - (float) reward from the environment
-                - (bool) whether the current episode is completed or not
+                - (bool) whether the episode terminated
+                - (bool) whether the episode was truncated
                 - (dict) misc information
         """
-        obs_dict, reward, done, info = self.env.step(action)
+        obs_dict, reward, terminated, truncated, info = self.env.step(action)
 
         self._previous_expert_observation = self._current_expert_observation
         self._current_expert_observation = {key: obs_dict[key] for key in self.expert_keys if key in obs_dict}
@@ -179,7 +180,7 @@ class ExpertObsWrapper(Wrapper, Env):
             obs_dict=obs_dict,
         )
 
-        return flat_agent_obs, reward, done, info
+        return flat_agent_obs, reward, terminated, truncated, info
 
     def seed(self, seed: Optional[float] = None):
         """Set numpy seed.

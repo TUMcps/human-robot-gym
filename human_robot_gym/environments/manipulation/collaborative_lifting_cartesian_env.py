@@ -702,7 +702,8 @@ class CollaborativeLiftingCart(HumanEnv):
         for i in range(5):
             self._reset_animation()
             self.sim.step()
-            obs, _, done, _ = self.step(np.concatenate(
+            obs, _, terminated, truncated, _ = self.step(np.concatenate(
+            done = terminated or truncated
                 [
                     [0 for _ in range(self.action_dim - 1)],
                     [1],

@@ -144,11 +144,11 @@ class DatasetRSIWrapper(DatasetWrapper):
             Tuple[np.ndarray, float, bool, Dict[str, Any]]: The next observation, the reward, whether the episode is
                 done, and additional info
         """
-        obs, reward, done, info = super().step(action)
+        obs, reward, terminated, truncated, info = super().step(action)
 
         self._dataset_ep_step_idx = min(self._dataset_ep_step_idx + 1, self._dataset_transition_count)
 
-        return obs, reward, done, info
+        return obs, reward, terminated, truncated, info
 
     def _get_initial_dataset_ep_step_idx(self) -> int:
         if np.random.rand() < self._rsi_prob:

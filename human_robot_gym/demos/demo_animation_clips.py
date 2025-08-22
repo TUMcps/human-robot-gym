@@ -92,7 +92,8 @@ if __name__ == "__main__":
         for t in range(100000):
             action = env.action_space.sample()
             controller.add_animation_time_overlay()
-            observation, reward, done, info = env.step(action)
+            observation, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
             if done:
                 print("Episode finished after {} timesteps".format(t + 1))
                 break

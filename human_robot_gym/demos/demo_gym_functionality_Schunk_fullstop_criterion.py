@@ -78,7 +78,8 @@ if __name__ == "__main__":
             action = np.array([0.0, 2, 0.0, 0.0, 0.0, 0.0, 0.0])
             pos = np.array([env.sim.data.qpos[x] for x in env.robots[0]._ref_joint_pos_indexes])
             goal = env.desired_goal
-            observation, reward, done, info = env.step(action)
+            observation, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
             time.sleep(0.025)
             if done or t == t_max:
                 break

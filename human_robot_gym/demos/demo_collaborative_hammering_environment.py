@@ -202,7 +202,8 @@ if __name__ == "__main__":
             if rsenv.task_phase.value > 1:
                 action = action * 0.0 + np.array([0, 0, 1, 0])
 
-            observation, reward, done, info = env.step(action)
+            observation, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
             if done:
                 print("Episode finished after {} timesteps".format(t + 1))
                 break

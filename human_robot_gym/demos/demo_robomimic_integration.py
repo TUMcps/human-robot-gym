@@ -121,7 +121,7 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
                 action = env.action_space.sample()
                 
                 # Step environment
-                obs, reward, done, info = env.step(action)
+                obs, reward, terminated, truncated, info = env.step(action)
                 total_reward += reward
                 
                 # Track safety metrics

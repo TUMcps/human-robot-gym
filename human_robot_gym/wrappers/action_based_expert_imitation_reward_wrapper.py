@@ -84,7 +84,7 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
             NotImplementedError [get_imitation_reward method not implemented in ActionBasedExpertImitationRewardWrapper]
             AssertionError [Expert observation not stored in info dict]
         """
-        obs, env_reward, done, info = super().step(action)
+        obs, env_reward, terminated, truncated, info = super().step(action)
 
         assert "previous_expert_observation" in info, "Expert observation not stored in info dict"
         expert_action = self._expert(ExpertObsWrapper.get_previous_expert_observation_from_info(info))
@@ -99,10 +99,11 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         reward = self._combine_reward(env_reward, imitation_reward)
 
         # Log the imitation and env rewards
+        done = terminated or truncated
         if done:
             self._add_reward_to_info(info)
 
-        return obs, reward, done, info
+        return obs, reward, terminated, truncated, info
 
     def _add_reward_to_info(self, info: dict):
         """Add data to the info dict.

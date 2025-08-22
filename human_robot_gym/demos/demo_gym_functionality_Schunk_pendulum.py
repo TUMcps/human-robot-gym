@@ -98,7 +98,8 @@ if __name__ == "__main__":
             goal_idx = np.round(t/t_max * (goals.shape[0] - 1)).astype(int)
             goal = goals[goal_idx]
             action[:6] = np.clip(goal-pos, -1, 1)
-            observation, reward, done, info = env.step(action)
+            observation, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
             time.sleep(0.025)
             if done or t == t_max:
                 break

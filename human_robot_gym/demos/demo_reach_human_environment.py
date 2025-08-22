@@ -92,7 +92,8 @@ if __name__ == "__main__":
             expert_observation = expert_obs_wrapper.current_expert_observation
             action = expert(expert_observation)
 
-            observation, reward, done, info = env.step(action)
+            observation, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
             print("Reward: {}".format(reward))
             if done or t == t_max:
                 print("Episode finished after {} timesteps".format(t + 1))

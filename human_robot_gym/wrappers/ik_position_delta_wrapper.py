@@ -138,5 +138,5 @@ class IKPositionDeltaWrapper(Wrapper):
         if len(action) > self.control_dim:
             q_action = np.append(q_action, action[self.control_dim:])
 
-        next_obs, reward, done, info = super().step(q_action)
-        return next_obs, reward, done, info
+        next_obs, reward, terminated, truncated, info = super().step(q_action)
+        return next_obs, reward, terminated, truncated, info

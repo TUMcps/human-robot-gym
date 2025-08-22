@@ -36,12 +36,12 @@ class TimeLimit(Wrapper):
         assert (
             self._elapsed_steps is not None
         ), "Cannot call env.step() before calling reset()"
-        observation, reward, done, info = self.env.step(action)
+        observation, reward, terminated, truncated, info = self.env.step(action)
         self._elapsed_steps += 1
         if self._elapsed_steps >= self._max_episode_steps:
-            info["TimeLimit.truncated"] = not done
-            done = True
-        return observation, reward, done, info
+            info["TimeLimit.truncated"] = not (terminated or truncated)
+            truncated = True
+        return observation, reward, terminated, truncated, info
 
     def reset(self, **kwargs):
         """Reset the environment step counter."""

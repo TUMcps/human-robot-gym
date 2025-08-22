@@ -27,6 +27,7 @@ class CollisionPreventionWrapper(Wrapper):
         super().__init__(env)
         self.collision_check_fn = collision_check_fn
         self.n_resamples = n_resamples
+        self.action_resamples = 0
         if replace_type == 0:
             self.replace_action = self.replace_zero
         elif replace_type == 1:
@@ -39,10 +40,10 @@ class CollisionPreventionWrapper(Wrapper):
     def step(self, action):
         """Wrap the step function with the replaced action and adds the new action to the info dict."""
         action = self.action(action)
-        obs, reward, done, info = self.env.step(action)
+        obs, reward, terminated, truncated, info = self.env.step(action)
         info["action"] = action
         info["action_resamples"] = self.action_resamples
-        return obs, reward, done, info
+        return obs, reward, terminated, truncated, info
 
     def action(self, action):
         """Replace the action if a collision is detected."""

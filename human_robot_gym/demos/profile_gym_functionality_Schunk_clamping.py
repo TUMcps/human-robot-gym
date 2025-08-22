@@ -26,7 +26,8 @@ def run_episode(env):
         pos = np.array([env.sim.data.qpos[x] for x in env.robots[0]._ref_joint_pos_indexes])
         goal = env.desired_goal
         action[:pos.shape[0]] = np.clip(goal-pos, -0.5, 0.5)
-        observation, reward, done, info = env.step(action)
+        observation, reward, terminated, truncated, info = env.step(action)
+        done = terminated or truncated
         if done:
             break
 

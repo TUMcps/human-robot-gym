@@ -108,7 +108,8 @@ if __name__ == "__main__":
             eef_pos = env.sim.data.site_xpos[env.robots[0].eef_site_id]
             goal = env.desired_goal
             action = agent()
-            observation, reward, done, info = env.step(action)
+            observation, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
             if done or t == t_max:
                 print("Episode finished after {} timesteps".format(t + 1))
                 break

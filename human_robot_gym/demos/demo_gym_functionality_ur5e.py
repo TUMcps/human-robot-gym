@@ -81,7 +81,8 @@ if __name__ == "__main__":
             goal[1] = -np.pi
             goal[5] = np.sin(0.08 * t)
             action[:pos.shape[0]] = np.clip(goal-pos, -0.5, 0.5)
-            observation, reward, done, info = env.step(action)
+            observation, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
             print("Reward: {}".format(reward))
             if done or t == t_max:
                 print("Episode finished after {} timesteps".format(t + 1))
