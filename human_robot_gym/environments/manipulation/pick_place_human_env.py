@@ -307,6 +307,7 @@ class BasePickPlaceHumanEnv(PickPlace):
             self, type(self)
         )
         self.step = HumanEnv.step.__get__(self, type(self))
+        self._render_scene = HumanEnv._render_scene.__get__(self, type(self))
         self._get_info = HumanEnv._get_info.__get__(self, type(self))
         self.check_collision_action = HumanEnv.check_collision_action.__get__(
             self, type(self)

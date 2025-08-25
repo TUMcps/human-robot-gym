@@ -21,7 +21,7 @@ import math
 
 import numpy as np
 from scipy.spatial.transform import Rotation
-
+import mujoco
 import pinocchio as pin
 
 from mujoco import FatalError as MujocoException
@@ -553,21 +553,11 @@ class HumanEnv(ManipulationEnv):
             reward += self.simulation_crash_reward
             done = True
             return observations, reward, done, info
-        if (
-            self.use_failsafe_controller
-            and self.visualize_failsafe_controller
-            and self.has_renderer
-            and self.shield_type != "OFF"
-        ):
-            self._visualize_reachable_sets()
         # Note: this is done all at once to avoid floating point inaccuracies
         self.cur_time += self.control_timestep
-
-        if self.viewer_get_obs:
-            # observations = self.viewer._get_observations()
-            raise NotImplementedError
-        else:
-            observations = self._get_observations()
+        
+        self._render_scene()
+        observations = self.viewer._get_observations() if self.viewer_get_obs else self._get_observations()
 
         achieved_goal = self._get_achieved_goal_from_obs(observations)
         desired_goal = self._get_desired_goal_from_obs(observations)
@@ -589,10 +579,27 @@ class HumanEnv(ManipulationEnv):
             info=info
             )
 
+        return observations, reward, done, info
+
+    def _render_scene(self):
+        # Render scene if we have a viewer
         if self.viewer is not None and self.renderer != "mujoco":
             self.viewer.update()
+        elif self.has_renderer and self.renderer == "mjviewer" and self.viewer is None:
+            # need to launch again after it was destroyed
+            self.initialize_renderer()
+            # so that mujoco viewer renders
+            self.viewer.update()
 
-        return observations, reward, done, info
+        # Visualize reachable sets
+        if (
+            self.use_failsafe_controller
+            and self.visualize_failsafe_controller
+            and self.has_renderer
+            and self.shield_type != "OFF"
+        ):
+            self._visualize_reachable_sets()
+
 
     def check_collision_action(self, action):
         """Checks if the given action collides.
@@ -1424,12 +1431,12 @@ class HumanEnv(ManipulationEnv):
                 # In robosuite 1.5, extract parameters from part_controller_config
                 robot = self.robots[i]
                 arm_config = robot.part_controller_config.get('right', {})
-                
+
                 # Create FailsafeController with required parameters
                 # Convert 3x3 rotation matrix to quaternion [x, y, z, w]
                 from scipy.spatial.transform import Rotation as R
                 base_quat = R.from_matrix(robot.base_ori).as_quat()  # Returns [x, y, z, w]
-                
+
                 self.failsafe_controller.append(
                     FailsafeController(
                         sim=arm_config['sim'],
@@ -1807,53 +1814,59 @@ class HumanEnv(ManipulationEnv):
         self.sim.data.qpos[self.human_joint_addr] = all_joint_pos
 
     def _visualize_reachable_sets(self):
-        """Visualize the robot and human reachable set."""
-        if self.use_failsafe_controller:
-            # Check if we have a MuJoCo viewer with marker support
-            has_marker_support = (
-                hasattr(self.viewer, 'viewer') and 
-                self.viewer.viewer is not None and 
-                hasattr(self.viewer.viewer, 'add_marker')
-            )
+        """Visualize the robot and human reachable set using MuJoCo 3.3+ user_scn."""
+        if not self.use_failsafe_controller:
+            return
+        # Check if we have a passive MuJoCo viewer with user_scn support (MuJoCo 3.3+)
+        has_user_scn_support = (
+            hasattr(self.viewer.viewer, 'user_scn') and 
+            self.viewer.viewer.user_scn is not None
+        )
+        if not has_user_scn_support:
+            if self.verbose:
+                print("Warning: MuJoCo viewer does not support user_scn. Reachable set visualization is disabled.")
+            return
+
+        geom_index = 0
+        
+        # Reset the user scene geom count
+        self.viewer.viewer.user_scn.ngeom = 0
+        
+        for i in range(len(self.robots)):
+            # Add robot reachable set capsules (blue)
+            robot_capsules = self.robots[i].controller.get_robot_capsules()
+            for cap in robot_capsules:
+                if geom_index >= len(self.viewer.viewer.user_scn.geoms):
+                    break  # Safety check to avoid overflow
+                    
+                mujoco.mjv_initGeom(
+                    self.viewer.viewer.user_scn.geoms[geom_index],
+                    type=mujoco.mjtGeom.mjGEOM_CAPSULE,
+                    size=cap.size,  # [radius, half_length, 0]
+                    pos=cap.pos,
+                    mat=cap.mat.flatten(),
+                    rgba=[0.0, 0.0, 1.0, 0.2]  # Blue with transparency
+                )
+                geom_index += 1
             
-            if has_marker_support:
-                # Use original marker-based visualization for MuJoCo viewer
-                for i in range(len(self.robots)):
-                    robot_capsules = self.robots[i].controller.get_robot_capsules()
-                    for cap in robot_capsules:
-                        self.viewer.viewer.add_marker(
-                            pos=cap.pos,
-                            type=3,
-                            size=cap.size,
-                            mat=cap.mat.flatten(),
-                            rgba=[0.0, 0.0, 1.0, 0.2],
-                            label="",
-                            shininess=0.0,
-                        )
-                    # These should 100% match for all robots.
-                    human_capsules = self.robots[i].controller.get_human_capsules()
-                    for cap in human_capsules:
-                        self.viewer.viewer.add_marker(
-                            pos=cap.pos,
-                            type=3,
-                            size=cap.size,
-                            mat=cap.mat.flatten(),
-                            rgba=[0.0, 1.0, 0.0, 0.2],
-                            label="",
-                            shininess=0.0,
-                        )
-            else:
-                # For OpenCV renderer, we could add sites to the MuJoCo model instead
-                # This would be visible in the OpenCV rendering
-                # For now, just skip visualization to avoid errors
-                print("Warning: Marker visualization not supported with OpenCV renderer. "
-                      "Use renderer='mjviewer' if you need marker visualization.")
-                # Visualize human joints
-                # for joint_element in self.human.joint_elements:
-                #    pos = self.sim.data.get_site_xpos("Human_" + joint_element)
-                #    self.viewer.viewer.add_marker(pos=pos, type=2, size=[0.05, 0.05, 0.05],
-                #       mat=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
-                #       rgba=[1.0, 0.0, 0.0, 1.0], label="", shininess=0.0)
+            # Add human reachable set capsules (green)
+            human_capsules = self.robots[i].controller.get_human_capsules()
+            for cap in human_capsules:
+                if geom_index >= len(self.viewer.viewer.user_scn.geoms):
+                    break  # Safety check to avoid overflow
+                    
+                mujoco.mjv_initGeom(
+                    self.viewer.viewer.user_scn.geoms[geom_index],
+                    type=mujoco.mjtGeom.mjGEOM_CAPSULE,
+                    size=cap.size,  # [radius, half_length, 0]
+                    pos=cap.pos,
+                    mat=cap.mat.flatten(),
+                    rgba=[0.0, 1.0, 0.0, 0.2]  # Green with transparency
+                )
+                geom_index += 1
+        
+        # Set the number of geoms in the user scene
+        self.viewer.viewer.user_scn.ngeom = geom_index
 
     @property
     def _visualizations(self):
