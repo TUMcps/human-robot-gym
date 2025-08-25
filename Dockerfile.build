@@ -6,50 +6,49 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
 ## Install apt packages
-RUN apt-get update --fix-missing \
-  && apt-get install --no-install-recommends -y \
-    tzdata \
-    dirmngr \
-    gnupg2 \
-    psmisc \
-    python3.6 \
-    python3-pip \
-    python-is-python3 \
-    mpich \
-    python3-tk \
-    python3-dev \
-    libosmesa6-dev \
-    libgl1-mesa-glx \
-    libglfw3 \
-    apt-utils dialog 2>&1 \
-    git \
-    iproute2 \
-    procps \
-    lsb-release \
-    nano \
-    libopenmpi-dev \
-    swig \
-    wget \
-    ca-certificates \
-    curl \
-    git \
-    bzip2 \
-    sudo \
-    cmake \
-    build-essential \
-    tar \
-    unzip \
-    curl \
-    g++ \
-    gcc \
-    clang \
-    libgtest-dev \
-    libgmock-dev \
-    patchelf \
-    ssh \
-    curl \
-    liboctomap-dev \
-    python3-sphinx
+RUN apt-get update --allow-insecure-repositories && \
+      apt-get install -y --no-install-recommends --allow-unauthenticated \
+        ca-certificates \
+        tzdata \
+        dirmngr \
+        gnupg2 \
+        psmisc \
+        python3-pip \
+        python-is-python3 \
+        mpich \
+        python3-tk \
+        python3-dev \
+        libosmesa6-dev \
+        libgl1-mesa-glx \
+        libglfw3 \
+        apt-utils \
+        git \
+        iproute2 \
+        procps \
+        lsb-release \
+        nano \
+        libopenmpi-dev \
+        swig \
+        wget \
+        ca-certificates \
+        curl \
+        bzip2 \
+        sudo \
+        cmake \
+        build-essential \
+        tar \
+        unzip \
+        g++ \
+        gcc \
+        clang \
+        libgtest-dev \
+        libgmock-dev \
+        patchelf \
+        ssh \
+        liboctomap-dev \
+        python3-sphinx && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get clean
 
 # Create the environment:
 COPY environment.yml .

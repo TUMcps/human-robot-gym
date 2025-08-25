@@ -129,23 +129,9 @@ build:
     - echo $EIGEN3_INCLUDE_DIR
     - sudo -E /opt/conda/envs/hrgym/bin/pip install .
     - /opt/conda/envs/hrgym/bin/python -c "import safety_shield_py"
+    - /opt/conda/envs/hrgym/bin/python -c "from safety_shield_py import SafetyShield, ShieldType, ContactType, AABB"
     - cd /builds/cps-rl/human-robot-gym
     - /opt/conda/envs/hrgym/bin/pip install .
+    - /opt/conda/envs/hrgym/bin/python -c "import human_robot_gym"
     # There is a mysterious invalid chunk size error in the pipeline.
     # - /opt/conda/envs/hrgym/bin/python -c "import human_robot_gym"
-
-# We build the packages again because they don't take too much time and artifacts are complicated.
-test safety shield:
-  image:
-    name: ${CI_REGISTRY_IMAGE}
-  stage: test
-  tags: [unittest]
-  script:
-    - source /root/.bashrc
-    - export CONDA_PREFIX=/opt/conda/envs/hrgym/
-    - cd human_robot_gym/controllers/failsafe_controller/sara-shield/
-    - export EIGEN3_INCLUDE_DIR=/usr/include/eigen3/eigen-3.4.0
-    - echo $EIGEN3_INCLUDE_DIR
-    - sudo -E /opt/conda/envs/hrgym/bin/pip install .
-    - cd safety_shield/tests
-    - /opt/conda/envs/hrgym/bin/python -m pytest

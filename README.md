@@ -58,6 +58,12 @@ Optional:
   pip install .[training]
   ```
 
+*Post Install:*
+Run the setup macros script that robosuite asks you to build. E.g.:
+```
+python /opt/conda/envs/hrgym/lib/python3.13/site-packages/robosuite/scripts/setup_macros.py
+```
+
 # Test a demo
 ```
 python human_robot_gym/demos/demo_gym_functionality_panda.py
