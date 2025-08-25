@@ -7,6 +7,8 @@ ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
 ## Install apt packages
 
+RUN apt-get update && apt-get install -y gnupg
+
 RUN curl -s https://packages.gitlab.com/gpg.key | apt-key add -
 
 RUN apt-get update --allow-insecure-repositories && \
