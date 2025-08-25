@@ -16,6 +16,8 @@ image: python:latest
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  GIT_STRATEGY: clone
+  GIT_CLEAN_FLAGS: -ffdx
   GIT_SUBMODULE_STRATEGY: recursive
   GIT_SUBMODULE_UPDATE_FLAGS: --remote
   # IMAGE_BASE_TAG: ${CI_REGISTRY_IMAGE}/base:${CI_COMMIT_REF_SLUG}
@@ -125,7 +127,7 @@ build:
     - cd human_robot_gym/controllers/failsafe_controller/sara-shield/
     - export EIGEN3_INCLUDE_DIR=/usr/include/eigen3/eigen-3.4.0
     - echo $EIGEN3_INCLUDE_DIR
-    - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
+    - sudo -E /opt/conda/envs/hrgym/bin/pip install .
     - /opt/conda/envs/hrgym/bin/python -c "import safety_shield_py"
     - cd /builds/cps-rl/human-robot-gym
     - /opt/conda/envs/hrgym/bin/pip install .
@@ -144,6 +146,6 @@ test safety shield:
     - cd human_robot_gym/controllers/failsafe_controller/sara-shield/
     - export EIGEN3_INCLUDE_DIR=/usr/include/eigen3/eigen-3.4.0
     - echo $EIGEN3_INCLUDE_DIR
-    - sudo -E /opt/conda/envs/hrgym/bin/python setup.py install
+    - sudo -E /opt/conda/envs/hrgym/bin/pip install .
     - cd safety_shield/tests
     - /opt/conda/envs/hrgym/bin/python -m pytest
