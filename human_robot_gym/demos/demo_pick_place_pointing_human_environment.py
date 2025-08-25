@@ -107,7 +107,8 @@ if __name__ == "__main__":
     robot_conig_path = file_path_completion("models/robots/config/schunk.json")
     controller_config = load_controller_config(custom_fpath=controller_conig_path)
     robot_config = load_controller_config(custom_fpath=robot_conig_path)
-    controller_config = merge_configs(controller_config, robot_config)
+    controller_config = {'body_parts': {'right': {}}}
+    controller_config['body_parts']['right'] = merge_configs(failsafe_config['body_parts']['right'], robot_config)
     controller_configs = [controller_config]
 
     rsenv = suite.make(

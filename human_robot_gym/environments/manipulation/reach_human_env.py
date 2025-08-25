@@ -530,15 +530,14 @@ class ReachHuman(HumanEnv):
             joint configuration (np.array)
         """
         robot = self.robots[0]
-        # In robosuite 1.5, get position limits from part controller
         arm_controller = robot.part_controllers.get('right')
-        if arm_controller and hasattr(arm_controller, 'output_max') and hasattr(arm_controller, 'output_min'):
-            pos_limits = np.array([arm_controller.output_min, arm_controller.output_max])
+        if arm_controller and hasattr(arm_controller, 'position_limits'):
+            pos_limits = arm_controller.position_limits
         else:
             # Fallback to default limits if controller doesn't have them
-            pos_limits = np.array([[-0.05, -0.05, -0.05, -0.5, -0.5, -0.5], 
+            pos_limits = np.array([[-0.05, -0.05, -0.05, -0.5, -0.5, -0.5],
                                    [0.05, 0.05, 0.05, 0.5, 0.5, 0.5]])
-        
+
         goal = np.zeros(pos_limits.shape[1])
         for i in range(20):
             rand = np.random.rand(pos_limits.shape[1])

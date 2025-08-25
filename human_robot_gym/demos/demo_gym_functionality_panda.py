@@ -35,7 +35,8 @@ if __name__ == "__main__":
         robot_config = json.load(f)
     
     # Merge robot limits into failsafe config
-    controller_config = merge_configs(failsafe_config, robot_config)
+    controller_config = {'body_parts': {'right': {}}}
+    controller_config['body_parts']['right'] = merge_configs(failsafe_config['body_parts']['right'], robot_config)
     controller_configs = [controller_config]
 
     env = GymWrapper(

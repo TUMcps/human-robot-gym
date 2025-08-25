@@ -33,7 +33,8 @@ if __name__ == "__main__":
     robot_config = load_controller_config(custom_fpath=robot_conig_path)
     # robot_config["base_ori"] = [0, 0, -0.7071068, 0.7071068]
 
-    controller_config = merge_configs(controller_config, robot_config)
+    controller_config = {'body_parts': {'right': {}}}
+    controller_config['body_parts']['right'] = merge_configs(failsafe_config['body_parts']['right'], robot_config)
     controller_configs = [controller_config]
 
     env = GymWrapper(

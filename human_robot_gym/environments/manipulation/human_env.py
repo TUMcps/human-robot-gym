@@ -1436,6 +1436,7 @@ class HumanEnv(ManipulationEnv):
                         eef_name=arm_config['ref_name'],  # Use ref_name as eef_name
                         joint_indexes=arm_config['joint_indexes'],
                         actuator_range=arm_config['actuator_range'],
+                        qpos_limits=arm_config['qpos_limits'],
                         init_qpos=robot.init_qpos,
                         robot_name=arm_config['robot_name'],
                         base_pos=robot.base_pos,

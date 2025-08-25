@@ -137,7 +137,6 @@ class FailsafeController(JointPositionController):
         **kwargs,  # does nothing; used so no error raised when dict is passed with extra terms used previously
     ):
         # noqa: D107
-        # Updated for robosuite 1.5 - parameter order changed
         super().__init__(
             sim,
             joint_indexes,
