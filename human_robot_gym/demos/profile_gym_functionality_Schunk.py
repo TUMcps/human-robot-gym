@@ -50,6 +50,7 @@ if __name__ == "__main__":
             has_offscreen_renderer=False,  # not needed since not using pixel obs
             has_renderer=False,  # make sure we can render to the screen
             render_camera=None,
+            renderer="mjviewer",
             render_collision_mesh=False,
             reward_shaping=False,  # use dense rewards
             control_freq=10,  # control should happen fast enough so that simulation looks smooth

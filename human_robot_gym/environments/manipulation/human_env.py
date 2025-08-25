@@ -38,6 +38,7 @@ from robosuite.utils.placement_samplers import UniformRandomSampler, ObjectPosit
 from robosuite.utils.transform_utils import quat2mat
 from robosuite.utils.control_utils import set_goal_position
 from robosuite.models.objects import PrimitiveObject
+from zmq import has
 
 from human_robot_gym.models.objects.human.human import HumanObject
 from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat, quat_to_rot
@@ -1027,7 +1028,7 @@ class HumanEnv(ManipulationEnv):
             dq=self.sim.data.qvel[self.robots[robot_id].joint_indexes])
         """
         # 2) Use the velocity of the simulation
-        robot_geom_velocity = self.sim.data.geom_xvelp[robot_contact_geom]
+        robot_geom_velocity = self.sim.data.get_geom_xvelp(self.sim.model.geom_id2name(robot_contact_geom))
 
         if self.verbose:
             print(f"Robot speed: {robot_geom_velocity}")
@@ -1818,6 +1819,10 @@ class HumanEnv(ManipulationEnv):
             return
         # Check if we have a passive MuJoCo viewer with user_scn support (MuJoCo 3.3+)
         has_user_scn_support = (
+            hasattr(self, 'viewer') and 
+            self.viewer is not None and
+            hasattr(self.viewer, 'viewer') and 
+            self.viewer.viewer is not None and
             hasattr(self.viewer.viewer, 'user_scn') and 
             self.viewer.viewer.user_scn is not None
         )
