@@ -10,6 +10,7 @@ Changelog:
 """
 from typing import Any, Callable, Dict, List
 from copy import deepcopy
+import json
 
 from omegaconf import OmegaConf
 import wandb
@@ -60,10 +61,16 @@ def get_controller_configs(config: TrainingConfig) -> List[Dict[str, Any]]:
     controller_config_path = file_path_completion(config.robot.controller_config_path)
     robot_config_path = file_path_completion(config.robot.robot_config_path)
 
-    controller_config = merge_configs(
-        load_composite_controller_config(controller=controller_config_path),
-        load_composite_controller_config(controller=robot_config_path),
-    )
+    # Load the failsafe controller config (has structure)
+    failsafe_config = load_composite_controller_config(controller=controller_config_path)
+    
+    # Load robot-specific limits (just data, no structure)
+    with open(robot_config_path, 'r') as f:
+        robot_config = json.load(f)
+    
+    # Merge robot limits into failsafe config following the working demo pattern
+    controller_config = {'body_parts': {'right': {}}}
+    controller_config['body_parts']['right'] = merge_configs(failsafe_config['body_parts']['right'], robot_config)
 
     return [controller_config]
 
@@ -359,9 +366,14 @@ def get_environment_wrap_fn(config: TrainingConfig) -> Callable[[gymnasium.Env],
     def wrap_fn(env: gymnasium.Env):
         # Collision prevention wrapper
         if hasattr(config.wrappers, "collision_prevention") and config.wrappers.collision_prevention is not None:
+            # Access the underlying environment that has check_collision_action
+            unwrapped_env = env
+            while hasattr(unwrapped_env, 'env') and not hasattr(unwrapped_env, 'check_collision_action'):
+                unwrapped_env = unwrapped_env.env
+            
             env = CollisionPreventionWrapper(
                 env=env,
-                collision_check_fn=env.check_collision_action,
+                collision_check_fn=unwrapped_env.check_collision_action,
                 **config.wrappers.collision_prevention,
             )
 

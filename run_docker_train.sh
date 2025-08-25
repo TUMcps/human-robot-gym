@@ -15,7 +15,7 @@ then
     docker_command="docker run"
 fi
 
-command="cd human-robot-gym; conda run --no-capture-output -n hrgym pip install -e .; conda run --no-capture-output -n hrgym ${bash_command}"
+command="cd human-robot-gym; conda run --no-capture-output -n hrgym pip install -e .[training]; conda run --no-capture-output -n hrgym ${bash_command}"
 
 echo "Chosen mode: $user"
 if [ "$user" = "root" ]

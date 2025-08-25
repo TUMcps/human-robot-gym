@@ -22,9 +22,9 @@ black
 pytest
 mypy
 ## Training requirements
-# stable_baselines3==1.5.0
-# wandb
-# tensorboard==2.10.0
+stable_baselines3
+wandb
+tensorboard
 hydra-core
 hydra-ray-launcher
 ## Documentation

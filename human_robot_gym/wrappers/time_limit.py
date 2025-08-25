@@ -8,10 +8,10 @@ Contributors:
 Changelog:
     2.5.22 JT Formatted docstrings
 """
-from robosuite.wrappers import Wrapper
+import gymnasium
 
 
-class TimeLimit(Wrapper):
+class TimeLimit(gymnasium.Wrapper):
     """Wraps a robosuite environment with a time limit functionality.
 
     Args:

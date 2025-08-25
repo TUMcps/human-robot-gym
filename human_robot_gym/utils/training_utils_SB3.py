@@ -171,6 +171,10 @@ def _compose_algorithm_kwargs(
     # Stable-baselines3 throws an error if train_freq is a list (expects tuple or int)
     if "train_freq" in kwargs and isinstance(kwargs["train_freq"], list):
         kwargs["train_freq"] = tuple(kwargs["train_freq"])
+    
+    # Remove create_eval_env parameter - not supported in newer SB3 versions
+    if "create_eval_env" in kwargs:
+        del kwargs["create_eval_env"]
 
     # Support Hindsight Experience Replay (HER)
     if config.run.env_type == "goal_env":

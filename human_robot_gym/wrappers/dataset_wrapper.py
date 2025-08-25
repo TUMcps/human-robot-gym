@@ -21,7 +21,7 @@ from human_robot_gym.utils.mjcf_utils import file_path_completion
 from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
 
 
-class DatasetWrapper(gym.Wrapper):
+class DatasetWrapper(gymnasium.Wrapper):
     """Base class for wrappers leveraging datasets created by the
     `human_robot_gym/training/create_expert_dataset.py` script.
 
@@ -157,7 +157,7 @@ class DatasetRSIWrapper(DatasetWrapper):
             return 0
 
 
-class DatasetObsNormWrapper(gym.Wrapper):
+class DatasetObsNormWrapper(gymnasium.Wrapper):
     r"""Wrapper for normalizing observations based on dataset statistics.
 
     Obtains mean and std of per observation value from the dataset and normalizes observations accordingly.

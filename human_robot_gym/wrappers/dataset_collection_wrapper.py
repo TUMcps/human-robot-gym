@@ -26,7 +26,7 @@ from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
 from human_robot_gym.environments.manipulation.human_env import HumanEnv
 
 
-class DatasetCollectionWrapper(gym.Wrapper):
+class DatasetCollectionWrapper(gymnasium.Wrapper):
     """This wrapper can be used to record data from an environment by storing the state representations,
     observations, actions and expert observations in a dataset directory.
 

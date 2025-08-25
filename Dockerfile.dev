@@ -150,7 +150,6 @@ FROM base AS branch-root
 COPY .bashrc_docker ~/.bashrc
 RUN echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc
 RUN echo "conda activate hrgym" >> ~/.bashrc
-RUN echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/.mujoco/mujoco210/bin:/usr/lib/nvidia" >> ~/.bashrc
 
 # Get Eigen3.4
 RUN curl -LJO https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.bz2
@@ -188,7 +187,6 @@ RUN mkdir -p /usr/local/share/pip-global \
 COPY .bashrc_docker /home/$USERNAME/.bashrc
 RUN echo ". /opt/conda/etc/profile.d/conda.sh" >> /home/$USERNAME/.bashrc
 RUN echo "conda activate hrgym" >> /home/$USERNAME/.bashrc
-RUN echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/.mujoco/mujoco210/bin:/usr/lib/nvidia" >> /home/$USERNAME/.bashrc
 
 # Get Eigen3.4
 WORKDIR /home/$USERNAME/

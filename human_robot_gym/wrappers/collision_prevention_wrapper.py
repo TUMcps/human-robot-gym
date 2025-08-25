@@ -1,9 +1,9 @@
 import numpy as np
-from robosuite.wrappers import Wrapper
+import gymnasium
 from gymnasium import spaces
 
 
-class CollisionPreventionWrapper(Wrapper):
+class CollisionPreventionWrapper(gymnasium.Wrapper):
     """Checks if the given action would result in a collision and replaces the unsafe action with another action."""
 
     def __init__(self, env, collision_check_fn, replace_type=0, n_resamples=20):
@@ -109,7 +109,7 @@ class CollisionPreventionWrapper(Wrapper):
         else:
             return self.replace_zero(action)
 
-    def reset(self):
+    def reset(self, **kwargs):
         """Reset the action wrapper variables and calls env.reset()."""
         self.action_resamples = 0
-        return self.env.reset()
+        return self.env.reset(**kwargs)
