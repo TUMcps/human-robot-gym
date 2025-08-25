@@ -28,14 +28,18 @@ def build_sara_shield():
 
 class PostDevelopCommand(develop):
     """Post-installation for development mode."""
+
     def run(self):
+        """Run the standard develop and then build sara-shield."""
         develop.run(self)
         build_sara_shield()
 
 
 class PostInstallCommand(install):
     """Post-installation for installation mode."""
+
     def run(self):
+        """Run the standard install and then build sara-shield."""
         install.run(self)
         build_sara_shield()
 
