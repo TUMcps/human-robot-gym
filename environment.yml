@@ -26,18 +26,18 @@ dependencies:
     - numba
     - patchelf
     ## Testing and Linting
-    - pydocstyle
-    - flake8
-    - black
-    - pytest
-    - mypy
-    ## Training requirements
-    - stable_baselines3
-    - wandb
-    - tensorboard
-    - hydra-core
-    - hydra-ray-launcher
-    ## Documentation
-    - graphviz
-    - sphinx_rtd_theme
-    - sphinx-autoapi
+    # - pydocstyle
+    # - flake8
+    # - black
+    # - pytest
+    # - mypy
+    # ## Training requirements
+    # - stable_baselines3
+    # - wandb
+    # - tensorboard
+    # - hydra-core
+    # - hydra-ray-launcher
+    # ## Documentation
+    # - graphviz
+    # - sphinx_rtd_theme
+    # - sphinx-autoapi
