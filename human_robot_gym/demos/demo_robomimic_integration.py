@@ -82,7 +82,8 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
                 use_camera_obs=False,  # do not use pixel observations
                 has_offscreen_renderer=False,  # not needed since not using pixel obs
                 has_renderer=True,  # make sure we can render to the screen
-                render_camera=None,  # Let environment choose default camera
+                render_camera=None,
+                renderer="mjviewer",
                 render_collision_mesh=False,
                 reward_shaping=True,  # use dense rewards
                 control_freq=5,  # control should happen fast enough so that simulation looks smooth
