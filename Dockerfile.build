@@ -41,7 +41,7 @@ RUN apt-get update --fix-missing \
     unzip \
     curl \
     g++ \
-    gcc-9 \
+    gcc \
     clang \
     libgtest-dev \
     libgmock-dev \
