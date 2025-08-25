@@ -1723,7 +1723,8 @@ class HumanEnv(ManipulationEnv):
         """Set the base pose of the pinocchio robots."""
         for robot in self.robots:
             if isinstance(robot.robot_model, PinocchioManipulatorModel):
-                rot = quat2mat(robot.base_ori)
+                # robot.base_ori is already a 3x3 rotation matrix
+                rot = robot.base_ori
                 trans = np.eye(4)
                 trans[0:3, 0:3] = rot
                 trans[0:3, 3] = robot.base_pos
