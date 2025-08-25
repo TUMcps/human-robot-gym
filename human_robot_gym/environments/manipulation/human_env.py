@@ -1555,14 +1555,16 @@ class HumanEnv(ManipulationEnv):
 
             @sensor(modality=modality)
             def gripper_aperture(obs_cache):
+                robot = self.robots[0]
+                arm = robot.arms[0]
                 if f"{pf}gripper_qpos" in obs_cache:
                     gripper_qpos = obs_cache[f"{pf}gripper_qpos"]
-                    if not hasattr(self.robots[0].gripper, "qpos_range"):
+                    if not hasattr(robot.gripper[arm], "qpos_range"):
                         if self.verbose:
                             print("Gripper has no qpos_range attribute. Gripper aperture observable is not normalized!")
                         return np.mean(gripper_qpos)
 
-                    gripper_qpos_range = self.robots[0].gripper.qpos_range
+                    gripper_qpos_range = robot.gripper[arm].qpos_range
                     normed_qpos = (
                         (gripper_qpos - gripper_qpos_range[0]) / (gripper_qpos_range[1] - gripper_qpos_range[0])
                     )
