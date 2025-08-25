@@ -23,7 +23,6 @@ import pinocchio as pin
 
 from robosuite.models.tasks import ManipulationTask
 import robosuite.macros as macros
-from robosuite.robots import FixedBaseRobot
 
 from robosuite.utils.placement_samplers import (
     UniformRandomSampler
@@ -296,10 +295,6 @@ class BaseNutAssemblyHumanEnv(NutAssembly):
         - Sara-shield integration
         - Human observation spaces
         """
-        # Import HumanEnv methods for human simulation
-        # This is a bit of a hack, but allows us to reuse human simulation code
-        from human_robot_gym.environments.manipulation.human_env import HumanEnv
-
         # Copy essential human simulation methods
         self._setup_collision_objects = HumanEnv._setup_collision_objects.__get__(
             self, type(self)
@@ -441,15 +436,11 @@ class BaseNutAssemblyHumanEnv(NutAssembly):
         # reset the current_action values of all grippers to 0 so that actions prior to the reset have
         # no effect on the next episode
         for robot in self.robots:
-            if isinstance(robot, SingleArm):
-                if robot.has_gripper:
-                    robot.gripper.current_action = np.zeros(robot.gripper.dof)
-            elif isinstance(robot, Bimanual):
+            # In robosuite 1.5, all robots use FixedBaseRobot with arms dict structure
+            if hasattr(robot, 'arms') and hasattr(robot, 'has_gripper'):
                 for arm in robot.arms:
-                    if robot.has_gripper[arm]:
-                        robot.gripper[arm].current_action = np.zeros(
-                            robot.gripper[arm].dof
-                        )
+                    if robot.has_gripper.get(arm, False):
+                        robot.gripper[arm].current_action = np.zeros(robot.gripper[arm].dof)
 
         self._reset_controller()
         self._reset_pin_models()

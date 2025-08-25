@@ -23,11 +23,8 @@ import pinocchio as pin
 
 from robosuite.models.tasks import ManipulationTask
 import robosuite.macros as macros
-from robosuite.robots import FixedBaseRobot
 
-from robosuite.utils.placement_samplers import (
-    UniformRandomSampler
-)
+from robosuite.utils.placement_samplers import UniformRandomSampler
 from robosuite.utils.transform_utils import quat2mat
 
 from human_robot_gym.models.objects.human.human import HumanObject
@@ -264,17 +261,12 @@ class BasePickPlaceHumanEnv(PickPlace):
 
     @property
     def human_measurement(self) -> List[np.ndarray]:
-        return [
-            self.sim.data.get_site_xpos("Human_" + joint_element)
-            for joint_element in self.human.joint_elements
-        ]
+        return [self.sim.data.get_site_xpos("Human_" + joint_element) for joint_element in self.human.joint_elements]
 
     @property
     def human_animation_length(self) -> int:
         """Get the length of the current human animation."""
-        return self.human_animation_data[self.human_animation_id][0][
-            "Pelvis_pos_x"
-        ].shape[0]
+        return self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
 
     @property
     def _visualizations(self):
@@ -295,69 +287,33 @@ class BasePickPlaceHumanEnv(PickPlace):
         - Sara-shield integration
         - Human observation spaces
         """
-        # Import HumanEnv methods for human simulation
-        # This is a bit of a hack, but allows us to reuse human simulation code
-        from human_robot_gym.environments.manipulation.human_env import HumanEnv
-
         # Copy essential human simulation methods
-        self._setup_collision_objects = HumanEnv._setup_collision_objects.__get__(
-            self, type(self)
-        )
-        self.check_collision_action = HumanEnv.check_collision_action.__get__(
-            self, type(self)
-        )
+        self._setup_collision_objects = HumanEnv._setup_collision_objects.__get__(self, type(self))
+        self.check_collision_action = HumanEnv.check_collision_action.__get__(self, type(self))
         self.step = HumanEnv.step.__get__(self, type(self))
         self._render_scene = HumanEnv._render_scene.__get__(self, type(self))
         self._get_info = HumanEnv._get_info.__get__(self, type(self))
-        self.check_collision_action = HumanEnv.check_collision_action.__get__(
-            self, type(self)
-        )
-        self._setup_collision_info = HumanEnv._setup_collision_info.__get__(
-            self, type(self)
-        )
-        self._check_action_safety = HumanEnv._check_action_safety.__get__(
-            self, type(self)
-        )
-        self._determine_geom_contact_type = (
-            HumanEnv._determine_geom_contact_type.__get__(self, type(self))
-        )
-        self._setup_placement_initializer = (
-            HumanEnv._setup_placement_initializer.__get__(self, type(self))
-        )
+        self.check_collision_action = HumanEnv.check_collision_action.__get__(self, type(self))
+        self._setup_collision_info = HumanEnv._setup_collision_info.__get__(self, type(self))
+        self._check_action_safety = HumanEnv._check_action_safety.__get__(self, type(self))
+        self._determine_geom_contact_type = HumanEnv._determine_geom_contact_type.__get__(self, type(self))
+        self._setup_placement_initializer = HumanEnv._setup_placement_initializer.__get__(self, type(self))
         self._set_origin = HumanEnv._set_origin.__get__(self, type(self))
         self._set_mujoco_camera = HumanEnv._set_mujoco_camera.__get__(self, type(self))
-        self._setup_collision_objects = HumanEnv._setup_collision_objects.__get__(
-            self, type(self)
-        )
-        self._create_new_controller = HumanEnv._create_new_controller.__get__(
-            self, type(self)
-        )
-        self._override_controller = HumanEnv._override_controller.__get__(
-            self, type(self)
-        )
+        self._setup_collision_objects = HumanEnv._setup_collision_objects.__get__(self, type(self))
+        self._create_new_controller = HumanEnv._create_new_controller.__get__(self, type(self))
+        self._override_controller = HumanEnv._override_controller.__get__(self, type(self))
         self._reset_controller = HumanEnv._reset_controller.__get__(self, type(self))
-        self._set_human_measurement = HumanEnv._set_human_measurement.__get__(
-            self, type(self)
-        )
+        self._set_human_measurement = HumanEnv._set_human_measurement.__get__(self, type(self))
         self._reset_pin_models = HumanEnv._reset_pin_models.__get__(self, type(self))
-        self._compute_animation_time = HumanEnv._compute_animation_time.__get__(
-            self, type(self)
-        )
-        self._progress_to_next_animation = HumanEnv._progress_to_next_animation.__get__(
-            self, type(self)
-        )
+        self._compute_animation_time = HumanEnv._compute_animation_time.__get__(self, type(self))
+        self._progress_to_next_animation = HumanEnv._progress_to_next_animation.__get__(self, type(self))
         self._control_human = HumanEnv._control_human.__get__(self, type(self))
-        self._visualize_reachable_sets = HumanEnv._visualize_reachable_sets.__get__(
-            self, type(self)
-        )
+        self._visualize_reachable_sets = HumanEnv._visualize_reachable_sets.__get__(self, type(self))
         self.visualize_pin = HumanEnv.visualize_pin.__get__(self, type(self))
         self.render = HumanEnv.render.__get__(self, type(self))
-        self.get_environment_state = HumanEnv.get_environment_state.__get__(
-            self, type(self)
-        )
-        self.set_environment_state = HumanEnv.set_environment_state.__get__(
-            self, type(self)
-        )
+        self.get_environment_state = HumanEnv.get_environment_state.__get__(self, type(self))
+        self.set_environment_state = HumanEnv.set_environment_state.__get__(self, type(self))
 
     def _collision_detection(self):
         pass
@@ -406,18 +362,13 @@ class BasePickPlaceHumanEnv(PickPlace):
         super()._setup_references()
         if self.control_sample_time % self.model_timestep != 0:
             self.control_sample_time = (
-                math.floor(self.control_sample_time / float(self.model_timestep))
-                * self.model_timestep
+                math.floor(self.control_sample_time / float(self.model_timestep)) * self.model_timestep
             )
 
         simulation_step_freq = int(1.0 / float(self.model_timestep))
-        self.human_animation_step_length = (
-            simulation_step_freq / self.human_animation_freq
-        )
+        self.human_animation_step_length = simulation_step_freq / self.human_animation_freq
         assert self.human_animation_step_length >= 1, (
-            "No human animation frequency faster than {} Hz is allowed".format(
-                self.model_freq
-            )
+            "No human animation frequency faster than {} Hz is allowed".format(self.model_freq)
         )
         self.human_joint_addr = []
         self.human_joint_names = []
@@ -425,11 +376,7 @@ class BasePickPlaceHumanEnv(PickPlace):
             for dim in ["_x", "_y", "_z"]:
                 joint_name = joint_element + dim
                 self.human_joint_names.append(joint_name)
-                self.human_joint_addr.append(
-                    self.sim.model.get_joint_qpos_addr(
-                        self.human.naming_prefix + joint_name
-                    )
-                )
+                self.human_joint_addr.append(self.sim.model.get_joint_qpos_addr(self.human.naming_prefix + joint_name))
 
     def _reset_internal(self):
         """Reset the simulation internal configurations."""
@@ -439,15 +386,11 @@ class BasePickPlaceHumanEnv(PickPlace):
         # reset the current_action values of all grippers to 0 so that actions prior to the reset have
         # no effect on the next episode
         for robot in self.robots:
-            if isinstance(robot, SingleArm):
-                if robot.has_gripper:
-                    robot.gripper.current_action = np.zeros(robot.gripper.dof)
-            elif isinstance(robot, Bimanual):
+            # In robosuite 1.5, all robots use FixedBaseRobot with arms dict structure
+            if hasattr(robot, 'arms') and hasattr(robot, 'has_gripper'):
                 for arm in robot.arms:
-                    if robot.has_gripper[arm]:
-                        robot.gripper[arm].current_action = np.zeros(
-                            robot.gripper[arm].dof
-                        )
+                    if robot.has_gripper.get(arm, False):
+                        robot.gripper[arm].current_action = np.zeros(robot.gripper[arm].dof)
 
         self._reset_controller()
         self._reset_pin_models()
@@ -485,9 +428,7 @@ class BasePickPlaceHumanEnv(PickPlace):
             obstacle_placements = self.obstacle_placement_initializer.sample()
             # We know we're only setting a single object (the door), so specifically set its pose
             human_pos, human_quat, _ = human_placements[self.human.name]
-            self.human_pos_offset = [
-                self.base_human_pos_offset[i] + human_pos[i] for i in range(3)
-            ]
+            self.human_pos_offset = [self.base_human_pos_offset[i] + human_pos[i] for i in range(3)]
             self.human_rot_offset = human_quat
             # Loop through all objects and reset their positions
             for obj_pos, obj_quat, obj in object_placements.values():
@@ -541,9 +482,7 @@ class BasePickPlaceHumanEnv(PickPlace):
         self.model = ManipulationTask(
             mujoco_arena=self.mujoco_arena,
             mujoco_robots=[robot.robot_model for robot in self.robots],
-            mujoco_objects=self.model.mujoco_objects
-            + [self.human]
-            + self.obstacles,
+            mujoco_objects=self.model.mujoco_objects + [self.human] + self.obstacles,
         )
 
     def _get_achieved_goal_from_obs(self, obs):

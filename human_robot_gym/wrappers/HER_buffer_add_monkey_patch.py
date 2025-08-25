@@ -9,7 +9,7 @@ Changelog:
     2.5.22 JT Formatted docstrings
 """
 from collections import deque
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -53,12 +53,13 @@ def custom_add(
         reward: the received reward (r).
         done: if the episode was done after the transition.
         infos: info dictionary (may contain the truely executed action).
-        
+
     Raises:
         ImportError: If stable-baselines3 is not installed
     """
     if not HAS_SB3:
-        raise ImportError("stable-baselines3 is required for HER functionality. Install with: pip install stable-baselines3")
+        raise ImportError("stable-baselines3 is required for HER functionality. \
+          Install with: pip install stable-baselines3")
     if self.current_idx == 0 and self.full:
         # Clear info buffer
         self.info_buffer[self.pos] = deque(maxlen=self.max_episode_length)
@@ -150,12 +151,13 @@ def _custom_sample_transitions(
         n_sampled_goal: Number of sampled goals for replay. (offline sampling)
     Returns
         Samples.
-        
+
     Raises:
         ImportError: If stable-baselines3 is not installed
     """
     if not HAS_SB3:
-        raise ImportError("stable-baselines3 is required for HER functionality. Install with: pip install stable-baselines3")
+        raise ImportError("stable-baselines3 is required for HER functionality.\
+          Install with: pip install stable-baselines3")
     # Select which episodes to use
     if online_sampling:
         assert (

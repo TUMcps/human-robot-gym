@@ -13,7 +13,6 @@ Changelog:
 """
 
 from gymnasium.envs.registration import register
-from human_robot_gym.environments.gym_envs.make_gym import make_gym
 
 # Robomimic Lift Task with Human Safety
 register(
@@ -29,7 +28,7 @@ register(
 
 # Robomimic Can Task with Human Safety
 register(
-    id="RobomimicCanHuman-v0", 
+    id="RobomimicCanHuman-v0",
     entry_point="human_robot_gym.environments.gym_envs.make_gym:make_gym",
     kwargs={
         "env": "CanHumanEnv",
@@ -42,7 +41,7 @@ register(
 # Robomimic Square Task with Human Safety
 register(
     id="RobomimicSquareHuman-v0",
-    entry_point="human_robot_gym.environments.gym_envs.make_gym:make_gym", 
+    entry_point="human_robot_gym.environments.gym_envs.make_gym:make_gym",
     kwargs={
         "env": "SquareHumanEnv",
         "robots": "Panda",
@@ -56,7 +55,7 @@ register(
     id="RobomimicTransportHuman-v0",
     entry_point="human_robot_gym.environments.gym_envs.make_gym:make_gym",
     kwargs={
-        "env": "TransportHumanEnv", 
+        "env": "TransportHumanEnv",
         "robots": "Panda",
         "id": "RobomimicTransportHuman-v0",
     },
@@ -69,7 +68,7 @@ register(
     entry_point="human_robot_gym.environments.gym_envs.make_gym:make_gym",
     kwargs={
         "env": "ToolHangHumanEnv",
-        "robots": "Panda", 
+        "robots": "Panda",
         "id": "RobomimicToolHangHuman-v0",
     },
     max_episode_steps=700,  # Longer horizon for tool hang task
@@ -82,7 +81,7 @@ register(
     kwargs={
         "env": "LiftHumanEnv",
         "robots": "Schunk",
-        "id": "RobomimicLiftHumanSchunk-v0", 
+        "id": "RobomimicLiftHumanSchunk-v0",
     },
     max_episode_steps=400,
 )
@@ -91,7 +90,7 @@ register(
     id="RobomimicCanHumanSchunk-v0",
     entry_point="human_robot_gym.environments.gym_envs.make_gym:make_gym",
     kwargs={
-        "env": "CanHumanEnv", 
+        "env": "CanHumanEnv",
         "robots": "Schunk",
         "id": "RobomimicCanHumanSchunk-v0",
     },
@@ -104,7 +103,7 @@ register(
     entry_point="human_robot_gym.environments.gym_envs.make_gym:make_gym",
     kwargs={
         "env": "LiftHumanEnv",
-        "robots": "Panda", 
+        "robots": "Panda",
         "id": "RobomimicLiftHumanNoShield-v0",
         "shield_type": "OFF",  # Disable safety shield for comparison
     },
@@ -113,7 +112,7 @@ register(
 
 register(
     id="RobomimicCanHumanPFL-v0",
-    entry_point="human_robot_gym.environments.gym_envs.make_gym:make_gym", 
+    entry_point="human_robot_gym.environments.gym_envs.make_gym:make_gym",
     kwargs={
         "env": "CanHumanEnv",
         "robots": "Panda",

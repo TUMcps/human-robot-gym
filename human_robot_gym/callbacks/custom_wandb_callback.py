@@ -35,12 +35,15 @@ try:
 except ImportError:
     HAS_WANDB_SB3 = False
     # Define placeholder class for when wandb SB3 integration is not available
+
     class WandbCallback:
         def __init__(self, *args, **kwargs):
             if not HAS_SB3:
-                raise ImportError("stable-baselines3 is required for WandbCallback. Install with: pip install stable-baselines3")
+                raise ImportError("stable-baselines3 is required for WandbCallback.\
+                  Install with: pip install stable-baselines3")
             if not HAS_WANDB_SB3:
-                raise ImportError("wandb SB3 integration is required for WandbCallback. Install with: pip install wandb[sb3]")
+                raise ImportError("wandb SB3 integration is required for WandbCallback.\
+                  Install with: pip install wandb[sb3]")
 
 from typing import Any, Dict, List, Tuple, Union
 import time

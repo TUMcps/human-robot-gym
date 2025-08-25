@@ -70,12 +70,12 @@ class PandaGripper(PandaGripperBase):
     def qpos_range(self) -> np.ndarray:
         """
         Returns the joint position range for gripper aperture observable normalization.
-        
+
         Returns:
             np.ndarray: 2x2 array where first row is minimum values and second row is maximum values
                        for [finger1, finger2] joints. Based on Panda gripper specifications.
         """
         return np.array([
             [0.0, -0.04],     # Minimum values: [finger1_min, finger2_min] (closed position)
-            [0.04, 0.0],      # Maximum values: [finger1_max, finger2_max] (open position)  
+            [0.04, 0.0],      # Maximum values: [finger1_max, finger2_max] (open position)
         ])

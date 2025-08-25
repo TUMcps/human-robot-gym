@@ -6,14 +6,16 @@ Contributors:
 Changelog:
     16.07.23 MW moved all SB3 specific code form human_robot_gym/utils/env_util.py to
     human_robot_gym/utils/env_util_SB3.py
-    """
-from typing import Optional, Dict, Any, Type, Callable, Union, List
+"""
+
+from typing import Optional, Dict, Any, Callable, List
 from functools import partial
 import gymnasium
 
 try:
     from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
     from stable_baselines3.common.env_util import make_vec_env as sb3_make_vec_env
+
     HAS_SB3 = True
 except ImportError:
     HAS_SB3 = False
@@ -36,7 +38,7 @@ def make_vec_env(
     monitor_dir: Optional[str] = None,
     wrapper_class: Optional[Callable[[gymnasium.Env], gymnasium.Env]] = None,
     env_kwargs: Optional[Dict[str, Any]] = None,
-    vec_env_cls = None,
+    vec_env_cls=None,
     vec_env_kwargs: Optional[Dict[str, Any]] = None,
     monitor_kwargs: Optional[Dict[str, Any]] = None,
     wrapper_kwargs: Optional[Dict[str, Any]] = None,
@@ -67,23 +69,22 @@ def make_vec_env(
 
     Returns:
         The wrapped environment
-        
+
     Raises:
         ImportError: If stable-baselines3 is not installed
     """
     if not HAS_SB3:
-        raise ImportError("stable-baselines3 is required for vectorized environments. Install with: pip install stable-baselines3")
-    
+        raise ImportError(
+            "stable-baselines3 is required for vectorized environments. Install with: pip install stable-baselines3"
+        )
+
     assert type in ["env", "goal_env"], "The type of environment must be either 'env' or 'goal_env'."
     if type == "env":
         if expert_obs_keys is None:
             env_callable = partial(make_gym_env, env_id, env_kwargs, obs_keys=obs_keys)
         else:
             env_callable = partial(
-                make_expert_obs_env,
-                env_id, env_kwargs,
-                obs_keys=obs_keys,
-                expert_obs_keys=expert_obs_keys
+                make_expert_obs_env, env_id, env_kwargs, obs_keys=obs_keys, expert_obs_keys=expert_obs_keys
             )
     else:
         env_callable = partial(make_goal_env, env_id, env_kwargs, obs_keys=obs_keys)

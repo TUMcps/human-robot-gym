@@ -14,6 +14,7 @@ Changelog:
     13.7.22 JB adjusted observation space (sensors) to relative distances eef and L_hand, R_hand, and Head
     05.09.23 FT new reward function interface
 """
+
 from typing import Any, Dict, Union, List, Optional, Tuple
 from dataclasses import dataclass
 from enum import IntFlag
@@ -30,7 +31,6 @@ from robosuite.environments.manipulation.manipulation_env import ManipulationEnv
 from robosuite.models.arenas import TableArena
 from robosuite.models.tasks import ManipulationTask
 import robosuite.macros as macros
-from robosuite.robots import FixedBaseRobot
 
 # from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
@@ -38,7 +38,6 @@ from robosuite.utils.placement_samplers import UniformRandomSampler, ObjectPosit
 from robosuite.utils.transform_utils import quat2mat
 from robosuite.utils.control_utils import set_goal_position
 from robosuite.models.objects import PrimitiveObject
-from zmq import has
 
 from human_robot_gym.models.objects.human.human import HumanObject
 from human_robot_gym.utils.mjcf_utils import xml_path_completion, rot_to_quat, quat_to_rot
@@ -70,6 +69,7 @@ class COLLISION_TYPE(IntFlag):
     4 - Collision with a human but robot has low speed.
     5 - Collision with a human and robot has high speed.
     """
+
     NULL = 0
     ALLOWED = 1
     HUMAN = 2
@@ -94,6 +94,7 @@ class HumanEnvState:
         human_pos_offset (List[float]): Offset of the human position.
         human_rot_offset (List[float]): Offset of the human rotation.
     """
+
     sim_state: np.ndarray
     human_animation_ids: np.ndarray
     human_animation_ids_index: int
@@ -267,6 +268,7 @@ class HumanEnv(ManipulationEnv):
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
+
     def __init__(
         self,
         robots: Union[str, List[str]],
@@ -459,10 +461,7 @@ class HumanEnv(ManipulationEnv):
 
     @property
     def human_measurement(self) -> List[np.ndarray]:
-        return [
-            self.sim.data.get_site_xpos("Human_" + joint_element)
-            for joint_element in self.human.joint_elements
-        ]
+        return [self.sim.data.get_site_xpos("Human_" + joint_element) for joint_element in self.human.joint_elements]
 
     @property
     def human_animation_length(self) -> int:
@@ -518,7 +517,7 @@ class HumanEnv(ManipulationEnv):
                 # self.render()
                 if self.use_failsafe_controller and not failsafe_intervention:
                     for robot in self.robots:
-                        if robot.composite_controller.part_controllers[robot.arms[0]] .get_safety() is False:
+                        if robot.composite_controller.part_controllers[robot.arms[0]].get_safety() is False:
                             failsafe_intervention = True
                             self.failsafe_interventions += 1
                 # Step the simulation n times
@@ -545,40 +544,25 @@ class HumanEnv(ManipulationEnv):
             desired_goal = self._get_desired_goal_from_obs(observations)
             self.goal_reached = False
             info = self._get_info()
-            reward = self._compute_reward(
-                achieved_goal=achieved_goal,
-                desired_goal=desired_goal,
-                info=info
-                )
+            reward = self._compute_reward(achieved_goal=achieved_goal, desired_goal=desired_goal, info=info)
             # Add a penalty for breaking the simulation
             reward += self.simulation_crash_reward
             done = True
             return observations, reward, done, info
         # Note: this is done all at once to avoid floating point inaccuracies
         self.cur_time += self.control_timestep
-        
+
         self._render_scene()
         observations = self.viewer._get_observations() if self.viewer_get_obs else self._get_observations()
 
         achieved_goal = self._get_achieved_goal_from_obs(observations)
         desired_goal = self._get_desired_goal_from_obs(observations)
-        self.goal_reached = self._check_success(
-            achieved_goal=achieved_goal,
-            desired_goal=desired_goal
-            )
+        self.goal_reached = self._check_success(achieved_goal=achieved_goal, desired_goal=desired_goal)
         if self.goal_reached:
             self.n_goal_reached += 1
         info = self._get_info()
-        reward = self._compute_reward(
-            achieved_goal=achieved_goal,
-            desired_goal=desired_goal,
-            info=info
-            )
-        done = self._compute_done(
-            achieved_goal=achieved_goal,
-            desired_goal=desired_goal,
-            info=info
-            )
+        reward = self._compute_reward(achieved_goal=achieved_goal, desired_goal=desired_goal, info=info)
+        done = self._compute_done(achieved_goal=achieved_goal, desired_goal=desired_goal, info=info)
 
         return observations, reward, done, info
 
@@ -600,7 +584,6 @@ class HumanEnv(ManipulationEnv):
             and self.shield_type != "OFF"
         ):
             self._visualize_reachable_sets()
-
 
     def check_collision_action(self, action):
         """Checks if the given action collides.
@@ -628,14 +611,14 @@ class HumanEnv(ManipulationEnv):
 
         for robot in self.robots:
             if robot.has_gripper.get(robot.arms[0], False):
-                arm_action = action[: robot.composite_controller.part_controllers[robot.arms[0]] .control_dim]
+                arm_action = action[: robot.composite_controller.part_controllers[robot.arms[0]].control_dim]
             else:
                 arm_action = action
-            scaled_delta = robot.composite_controller.part_controllers[robot.arms[0]] .scale_action(arm_action)
+            scaled_delta = robot.composite_controller.part_controllers[robot.arms[0]].scale_action(arm_action)
             goal_qpos = set_goal_position(
                 delta=scaled_delta,
                 current_position=self.sim.data.qpos[robot.joint_indexes],
-                position_limit=robot.composite_controller.part_controllers[robot.arms[0]] .position_limits,
+                position_limit=robot.composite_controller.part_controllers[robot.arms[0]].position_limits,
             )
             if isinstance(robot.robot_model, PinocchioManipulatorModel):
                 if not self._check_action_safety(robot.robot_model, goal_qpos):
@@ -776,7 +759,7 @@ class HumanEnv(ManipulationEnv):
             "n_collisions_critical": self.n_collisions_critical,
             "timeout": (self.timestep >= self.horizon),
             "failsafe_interventions": self.failsafe_interventions,
-            "n_goal_reached": self.n_goal_reached
+            "n_goal_reached": self.n_goal_reached,
         }
         return info
 
@@ -802,10 +785,7 @@ class HumanEnv(ManipulationEnv):
             # Only one sample
             return self.reward(achieved_goal, desired_goal, info)
         else:
-            rewards = [
-                self.reward(a_g, d_g, i)
-                for (a_g, d_g, i) in zip(achieved_goal, desired_goal, info)
-            ]
+            rewards = [self.reward(a_g, d_g, i) for (a_g, d_g, i) in zip(achieved_goal, desired_goal, info)]
             return rewards
 
     def _compute_done(
@@ -829,14 +809,9 @@ class HumanEnv(ManipulationEnv):
             # Only one sample
             return self._check_done(achieved_goal, desired_goal, info)
         else:
-            return [
-                self._check_done(a_g, d_g, i)
-                for (a_g, d_g, i) in zip(achieved_goal, desired_goal, info)
-            ]
+            return [self._check_done(a_g, d_g, i) for (a_g, d_g, i) in zip(achieved_goal, desired_goal, info)]
 
-    def _check_success(
-        self, achieved_goal: List[float], desired_goal: List[float]
-    ) -> bool:
+    def _check_success(self, achieved_goal: List[float], desired_goal: List[float]) -> bool:
         """Check if the desired goal was reached.
 
         Should be overridden by subclasses to specify task success conditions.
@@ -849,9 +824,7 @@ class HumanEnv(ManipulationEnv):
         """
         return False
 
-    def _check_done(
-        self, achieved_goal: List[float], desired_goal: List[float], info: Dict
-    ) -> bool:
+    def _check_done(self, achieved_goal: List[float], desired_goal: List[float], info: Dict) -> bool:
         """Compute the done flag based on the achieved goal, the desired goal, and the info dict.
 
         This function can only be called for one sample.
@@ -894,9 +867,7 @@ class HumanEnv(ManipulationEnv):
         """
         return collision_type in (COLLISION_TYPE.STATIC | COLLISION_TYPE.ROBOT | COLLISION_TYPE.HUMAN_CRIT)
 
-    def _get_achieved_goal_from_obs(
-        self, observation: Union[List[float], Dict]
-    ) -> List[float]:
+    def _get_achieved_goal_from_obs(self, observation: Union[List[float], Dict]) -> List[float]:
         """Extract the achieved goal from the observation.
 
         Args:
@@ -907,9 +878,7 @@ class HumanEnv(ManipulationEnv):
         """
         return [0]
 
-    def _get_desired_goal_from_obs(
-        self, observation: Union[List[float], Dict]
-    ) -> List[float]:
+    def _get_desired_goal_from_obs(self, observation: Union[List[float], Dict]) -> List[float]:
         """
         Extract the desired goal from the observation.
 
@@ -939,15 +908,13 @@ class HumanEnv(ManipulationEnv):
             arm = robot.arms[0]
             if robot.has_gripper.get(arm, False):
                 gripper = robot.gripper[arm]
-                if hasattr(gripper, 'contact_geoms'):
+                if hasattr(gripper, "contact_geoms"):
                     for el in gripper.contact_geoms:
                         self.robot_collision_geoms[self.sim.model.geom_name2id(el)] = i
                 else:
                     print("[WARNING] Gripper has no contact_geoms attribute, cannot add to collision detection.")
         # Human elements
-        self.human_collision_geoms = {
-            self.sim.model.geom_name2id(item) for item in self.human.contact_geoms
-        }
+        self.human_collision_geoms = {self.sim.model.geom_name2id(item) for item in self.human.contact_geoms}
 
         self.whitelisted_collision_geoms = set()
 
@@ -1034,7 +1001,8 @@ class HumanEnv(ManipulationEnv):
             print(f"Robot speed: {robot_geom_velocity}")
 
         vel_safe = self._check_vel_safe(
-            v_arr=robot_geom_velocity, threshold=self.safe_vel,
+            v_arr=robot_geom_velocity,
+            threshold=self.safe_vel,
         )
 
         if vel_safe:
@@ -1114,7 +1082,7 @@ class HumanEnv(ManipulationEnv):
 
         # Note that the contact array has more than `ncon` entries,
         # so be careful to only read the valid entries.
-        for contact in self.sim.data.contact[:self.sim.data.ncon]:
+        for contact in self.sim.data.contact[: self.sim.data.ncon]:
             contact_type1 = self._determine_geom_contact_type(contact.geom1)
             contact_type2 = self._determine_geom_contact_type(contact.geom2)
 
@@ -1204,7 +1172,7 @@ class HumanEnv(ManipulationEnv):
         self.mujoco_arena = TableArena(
             table_full_size=[1, 1, 0.05],
             table_offset=[0.0, 0.0, 0.8],
-            xml=xml_path_completion("arenas/table_arena.xml")
+            xml=xml_path_completion("arenas/table_arena.xml"),
         )
 
         # Arena always gets set to zero origin
@@ -1232,11 +1200,7 @@ class HumanEnv(ManipulationEnv):
             y_range=[-bin_y_half, bin_y_half],
         )
         # << OBSTACLES >>
-        self._setup_collision_objects(
-            add_table=self.add_table,
-            add_base=True,
-            safety_margin=0.01
-        )
+        self._setup_collision_objects(add_table=self.add_table, add_base=True, safety_margin=0.01)
         # Obstacles are elements that the robot should avoid.
         self.obstacles = []
         self.obstacle_placement_initializer = self._setup_placement_initializer(
@@ -1292,12 +1256,11 @@ class HumanEnv(ManipulationEnv):
                 ensure_object_boundary_in_range=ensure_object_boundary_in_range,
                 ensure_valid_placement=ensure_valid_placement,
                 reference_pos=reference_pos,
-                z_offset=z_offset
+                z_offset=z_offset,
             )
         return initializer
 
-    def _set_origin(self,
-                    origin: List[float] = [.0, .0, .0]):
+    def _set_origin(self, origin: List[float] = [0.0, 0.0, 0.0]):
         """Set the origin of the arena.
 
         Args:
@@ -1330,7 +1293,7 @@ class HumanEnv(ManipulationEnv):
         collision_objects: List[obstacle.ObstacleBase] = [],
         add_table: bool = True,
         add_base: bool = True,
-        safety_margin: float = 0.0
+        safety_margin: float = 0.0,
     ):
         """Define the collision objects for pinocchio.
 
@@ -1366,11 +1329,7 @@ class HumanEnv(ManipulationEnv):
             )
             self.collision_obstacles.append(coll_base)
             coll_computer = obstacle.Box(
-                name="Computer",
-                x=0.3,
-                y=0.5,
-                z=0.8,
-                translation=self.robot_base_offset + np.array([-0.4, 0, 0.35])
+                name="Computer", x=0.3, y=0.5, z=0.8, translation=self.robot_base_offset + np.array([-0.4, 0, 0.35])
             )
             self.collision_obstacles.append(coll_computer)
 
@@ -1431,17 +1390,18 @@ class HumanEnv(ManipulationEnv):
                 # Create FailsafeController with required parameters
                 # Convert 3x3 rotation matrix to quaternion [x, y, z, w]
                 from scipy.spatial.transform import Rotation as R
+
                 base_quat = R.from_matrix(robot.base_ori).as_quat()  # Returns [x, y, z, w]
 
                 self.failsafe_controller.append(
                     FailsafeController(
-                        sim=arm_config['sim'],
-                        eef_name=arm_config['ref_name'],  # Use ref_name as eef_name
-                        joint_indexes=arm_config['joint_indexes'],
-                        actuator_range=arm_config['actuator_range'],
-                        qpos_limits=arm_config['qpos_limits'],
+                        sim=arm_config["sim"],
+                        eef_name=arm_config["ref_name"],  # Use ref_name as eef_name
+                        joint_indexes=arm_config["joint_indexes"],
+                        actuator_range=arm_config["actuator_range"],
+                        qpos_limits=arm_config["qpos_limits"],
                         init_qpos=robot.init_qpos,
-                        robot_name=arm_config['robot_name'],
+                        robot_name=arm_config["robot_name"],
                         base_pos=robot.base_pos,
                         base_orientation=base_quat,  # Use quaternion instead of rotation matrix
                         shield_type=self.shield_type,
@@ -1449,8 +1409,13 @@ class HumanEnv(ManipulationEnv):
                         naming_prefix=robot.robot_model.naming_prefix,
                         part_name=robot.arms[0],
                         lite_physics=robot.lite_physics,
-                        **{k: v for k, v in robot.composite_controller_config.get('body_parts', {}).get(robot.arms[0], {}).items() 
-                           if k in ['input_max', 'input_min', 'output_max', 'output_min', 'kp', 'damping_ratio']}
+                        **{
+                            k: v
+                            for k, v in robot.composite_controller_config.get("body_parts", {})
+                            .get(robot.arms[0], {})
+                            .items()
+                            if k in ["input_max", "input_min", "output_max", "output_min", "kp", "damping_ratio"]
+                        },
                     )
                 )
         else:
@@ -1471,8 +1436,9 @@ class HumanEnv(ManipulationEnv):
                 for i in range(len(self.failsafe_controller)):
                     # Convert 3x3 rotation matrix to quaternion [x, y, z, w] for reset call
                     from scipy.spatial.transform import Rotation as R
+
                     base_quat = R.from_matrix(self.robots[i].base_ori).as_quat()
-                    
+
                     self.failsafe_controller[i].reset(
                         base_pos=self.robots[i].base_pos,
                         base_orientation=base_quat,
@@ -1492,7 +1458,9 @@ class HumanEnv(ManipulationEnv):
         """
         if self.failsafe_controller is not None:
             for robot in self.robots:
-                robot.composite_controller.part_controllers[robot.arms[0]] .set_human_measurement(human_measurement, time)
+                robot.composite_controller.part_controllers[robot.arms[0]].set_human_measurement(
+                    human_measurement, time
+                )
 
     def _setup_references(self):
         """Set up references to important components.
@@ -1502,19 +1470,12 @@ class HumanEnv(ManipulationEnv):
         """
         super()._setup_references()
         if self.control_sample_time % self.model_timestep != 0:
-            self.control_sample_time = (
-                math.floor(self.control_sample_time / self.model_timestep)
-                * self.model_timestep
-            )
+            self.control_sample_time = math.floor(self.control_sample_time / self.model_timestep) * self.model_timestep
 
         simulation_step_freq = int(1 / self.model_timestep)
-        self.human_animation_step_length = (
-            simulation_step_freq / self.human_animation_freq
-        )
-        assert (
-            self.human_animation_step_length >= 1
-        ), "No human animation frequency faster than {} Hz is allowed".format(
-            self.model_freq
+        self.human_animation_step_length = simulation_step_freq / self.human_animation_freq
+        assert self.human_animation_step_length >= 1, (
+            "No human animation frequency faster than {} Hz is allowed".format(self.model_freq)
         )
         self.human_joint_addr = []
         self.human_joint_names = []
@@ -1522,11 +1483,7 @@ class HumanEnv(ManipulationEnv):
             for dim in ["_x", "_y", "_z"]:
                 joint_name = joint_element + dim
                 self.human_joint_names.append(joint_name)
-                self.human_joint_addr.append(
-                    self.sim.model.get_joint_qpos_addr(
-                        self.human.naming_prefix + joint_name
-                    )
-                )
+                self.human_joint_addr.append(self.sim.model.get_joint_qpos_addr(self.human.naming_prefix + joint_name))
 
     def _setup_observables(self):
         """Set up observables to be used for this environment.
@@ -1547,11 +1504,7 @@ class HumanEnv(ManipulationEnv):
 
             @sensor(modality=modality)
             def gripper_pos(obs_cache):
-                return (
-                    obs_cache[f"{pf}eef_pos"]
-                    if f"{pf}eef_pos" in obs_cache
-                    else np.zeros(3)
-                )
+                return obs_cache[f"{pf}eef_pos"] if f"{pf}eef_pos" in obs_cache else np.zeros(3)
 
             @sensor(modality=modality)
             def gripper_aperture(obs_cache):
@@ -1565,8 +1518,8 @@ class HumanEnv(ManipulationEnv):
                         return np.mean(gripper_qpos)
 
                     gripper_qpos_range = robot.gripper[arm].qpos_range
-                    normed_qpos = (
-                        (gripper_qpos - gripper_qpos_range[0]) / (gripper_qpos_range[1] - gripper_qpos_range[0])
+                    normed_qpos = (gripper_qpos - gripper_qpos_range[0]) / (
+                        gripper_qpos_range[1] - gripper_qpos_range[0]
                     )
                     gripper_aperture = np.mean(normed_qpos)
                     return gripper_aperture
@@ -1661,7 +1614,7 @@ class HumanEnv(ManipulationEnv):
         # TODO implement this for the new robosuite API
         for robot in self.robots:
             # In robosuite 1.5, all robots use FixedBaseRobot with arms dict structure
-            if hasattr(robot, 'arms') and hasattr(robot, 'has_gripper'):
+            if hasattr(robot, "arms") and hasattr(robot, "has_gripper"):
                 for arm in robot.arms:
                     if robot.has_gripper.get(arm, False):
                         robot.gripper[arm].current_action = np.zeros(robot.gripper[arm].dof)
@@ -1700,9 +1653,7 @@ class HumanEnv(ManipulationEnv):
             obstacle_placements = self.obstacle_placement_initializer.sample()
             # We know we're only setting a single object (the door), so specifically set its pose
             human_pos, human_quat, _ = human_placements[self.human.name]
-            self.human_pos_offset = [
-                self.base_human_pos_offset[i] + human_pos[i] for i in range(3)
-            ]
+            self.human_pos_offset = [self.base_human_pos_offset[i] + human_pos[i] for i in range(3)]
             self.human_rot_offset = human_quat
             # Loop through all objects and reset their positions
             for obj_pos, obj_quat, obj in object_placements.values():
@@ -1751,9 +1702,7 @@ class HumanEnv(ManipulationEnv):
         Args:
             animation_start_time (int): Current control time. Used to set the animation start time.
         """
-        self._human_animation_ids_index = (
-            (self._human_animation_ids_index + 1) % self._n_animations_to_sample_at_resets
-        )
+        self._human_animation_ids_index = (self._human_animation_ids_index + 1) % self._n_animations_to_sample_at_resets
         self.animation_time = 0
         self.animation_start_time = animation_start_time
 
@@ -1766,9 +1715,7 @@ class HumanEnv(ManipulationEnv):
         """
         # <<< Time management and animation selection >>>
         # Convert low level time to human animation time
-        control_time = math.floor(
-            self.low_level_time / self.human_animation_step_length
-        )
+        control_time = math.floor(self.low_level_time / self.human_animation_step_length)
 
         updated_animation_time = self._compute_animation_time(control_time)
         # If the animation time would stay the same, there is no need to update the human.
@@ -1822,12 +1769,12 @@ class HumanEnv(ManipulationEnv):
             return
         # Check if we have a passive MuJoCo viewer with user_scn support (MuJoCo 3.3+)
         has_user_scn_support = (
-            hasattr(self, 'viewer') and 
-            self.viewer is not None and
-            hasattr(self.viewer, 'viewer') and 
-            self.viewer.viewer is not None and
-            hasattr(self.viewer.viewer, 'user_scn') and 
-            self.viewer.viewer.user_scn is not None
+            hasattr(self, "viewer")
+            and self.viewer is not None
+            and hasattr(self.viewer, "viewer")
+            and self.viewer.viewer is not None
+            and hasattr(self.viewer.viewer, "user_scn")
+            and self.viewer.viewer.user_scn is not None
         )
         if not has_user_scn_support:
             if self.verbose:
@@ -1835,43 +1782,43 @@ class HumanEnv(ManipulationEnv):
             return
 
         geom_index = 0
-        
+
         # Reset the user scene geom count
         self.viewer.viewer.user_scn.ngeom = 0
-        
+
         for robot in self.robots:
             # Add robot reachable set capsules (blue)
-            robot_capsules = robot.composite_controller.part_controllers[robot.arms[0]] .get_robot_capsules()
+            robot_capsules = robot.composite_controller.part_controllers[robot.arms[0]].get_robot_capsules()
             for cap in robot_capsules:
                 if geom_index >= len(self.viewer.viewer.user_scn.geoms):
                     break  # Safety check to avoid overflow
-                    
+
                 mujoco.mjv_initGeom(
                     self.viewer.viewer.user_scn.geoms[geom_index],
                     type=mujoco.mjtGeom.mjGEOM_CAPSULE,
                     size=[cap.size[0], cap.size[2], 0],  # [radius, half_length, 0]
                     pos=cap.pos,
                     mat=cap.mat.flatten(),
-                    rgba=[0.0, 0.0, 1.0, 0.2]  # Blue with transparency
+                    rgba=[0.0, 0.0, 1.0, 0.2],  # Blue with transparency
                 )
                 geom_index += 1
-            
+
             # Add human reachable set capsules (green)
-            human_capsules = robot.composite_controller.part_controllers[robot.arms[0]] .get_human_capsules()
+            human_capsules = robot.composite_controller.part_controllers[robot.arms[0]].get_human_capsules()
             for cap in human_capsules:
                 if geom_index >= len(self.viewer.viewer.user_scn.geoms):
                     break  # Safety check to avoid overflow
-                    
+
                 mujoco.mjv_initGeom(
                     self.viewer.viewer.user_scn.geoms[geom_index],
                     type=mujoco.mjtGeom.mjGEOM_CAPSULE,
                     size=[cap.size[0], cap.size[2], 0],  # [radius, half_length, 0]
                     pos=cap.pos,
                     mat=cap.mat.flatten(),
-                    rgba=[0.0, 1.0, 0.0, 0.2]  # Green with transparency
+                    rgba=[0.0, 1.0, 0.0, 0.2],  # Green with transparency
                 )
                 geom_index += 1
-        
+
         # Set the number of geoms in the user scene
         self.viewer.viewer.user_scn.ngeom = geom_index
 
@@ -1885,9 +1832,7 @@ class HumanEnv(ManipulationEnv):
         vis_set = super()._visualizations
         return vis_set
 
-    def visualize_pin(
-        self, viz: pin.visualize.MeshcatVisualizer = None
-    ) -> pin.visualize.MeshcatVisualizer:
+    def visualize_pin(self, viz: pin.visualize.MeshcatVisualizer = None) -> pin.visualize.MeshcatVisualizer:
         """Plot the scenario in a Meshcat visualizer.
 
         Calls the "visualize" function for each Object in the scenario. As Objects are the high-level representation
@@ -1955,19 +1900,26 @@ class HumanEnv(ManipulationEnv):
         self.sim.forward()
 
         for robot in self.robots:
-            robot_qpos = np.array(self.sim.data.qpos[robot.composite_controller.part_controllers[robot.arms[0]] .qpos_index])
-            clamp_diff = np.clip(
-                robot_qpos,
-                robot.composite_controller.part_controllers[robot.arms[0]] .position_limits[0],
-                robot.composite_controller.part_controllers[robot.arms[0]] .position_limits[1]
-            ) - robot_qpos
+            robot_qpos = np.array(
+                self.sim.data.qpos[robot.composite_controller.part_controllers[robot.arms[0]].qpos_index]
+            )
+            clamp_diff = (
+                np.clip(
+                    robot_qpos,
+                    robot.composite_controller.part_controllers[robot.arms[0]].position_limits[0],
+                    robot.composite_controller.part_controllers[robot.arms[0]].position_limits[1],
+                )
+                - robot_qpos
+            )
             if np.sum(np.abs(clamp_diff)) > 1e-6:
                 if self.verbose:
                     print("Warning: Robot joint limits violated in loaded state!")
                     print("Clamping to joint limits")
 
                 self.init_qpos = robot_qpos + clamp_diff + np.sign(clamp_diff) * 1e-6
-                self.sim.data.qpos[robot.composite_controller.part_controllers[robot.arms[0]] .qpos_index] = self.init_qpos
+                self.sim.data.qpos[robot.composite_controller.part_controllers[robot.arms[0]].qpos_index] = (
+                    self.init_qpos
+                )
                 self.sim.forward()
             else:
                 self.init_qpos = robot_qpos

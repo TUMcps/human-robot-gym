@@ -6,7 +6,7 @@ import time
 import numpy as np  # noqa: F401
 
 from robosuite.wrappers import GymWrapper
-from robosuite.controllers import load_controller_config
+
 
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 import human_robot_gym.environments.manipulation.reach_human_env  # noqa: F401
@@ -18,13 +18,21 @@ from human_robot_gym.wrappers.collision_prevention_wrapper import (
 
 if __name__ == "__main__":
     # Notice how the environment is wrapped by the wrapper
-    controller_config = dict()
-    controller_conig_path = file_path_completion(
+    failsafe_config_path = file_path_completion(
         "controllers/failsafe_controller/config/failsafe.json"
     )
-    robot_conig_path = file_path_completion("models/robots/config/schunk.json")
-    controller_config = load_controller_config(custom_fpath=controller_conig_path)
-    robot_config = load_controller_config(custom_fpath=robot_conig_path)
+    robot_config_path = file_path_completion("models/robots/config/schunk.json")
+
+    # Load the failsafe controller config from file
+    import json
+    with open(failsafe_config_path, 'r') as f:
+        failsafe_config = json.load(f)
+
+    # Load robot-specific limits
+    with open(robot_config_path, 'r') as f:
+        robot_config = json.load(f)
+
+    # Merge robot limits into failsafe config
     controller_config = {'body_parts': {'right': {}}}
     controller_config['body_parts']['right'] = merge_configs(failsafe_config['body_parts']['right'], robot_config)
     controller_configs = [controller_config]

@@ -18,10 +18,12 @@ try:
 except ImportError:
     HAS_SB3 = False
     # Define placeholder class for when SB3 is not available
+
     class BaseCallback:
         def __init__(self, *args, **kwargs):
             if not HAS_SB3:
-                raise ImportError("stable-baselines3 is required for ModelResetCallback. Install with: pip install stable-baselines3")
+                raise ImportError("stable-baselines3 is required for ModelResetCallback.\
+                  Install with: pip install stable-baselines3")
 
 
 class ModelResetCallback(BaseCallback):

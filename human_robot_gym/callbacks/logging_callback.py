@@ -18,10 +18,12 @@ except ImportError:
     HAS_SB3 = False
     # Define placeholder functions/classes for when SB3 is not available
     safe_mean = None
+
     class BaseCallback:
         def __init__(self, *args, **kwargs):
             if not HAS_SB3:
-                raise ImportError("stable-baselines3 is required for LoggingCallback. Install with: pip install stable-baselines3")
+                raise ImportError("stable-baselines3 is required for LoggingCallback.\
+                  Install with: pip install stable-baselines3")
 
 from typing import List, Tuple, Union
 import time

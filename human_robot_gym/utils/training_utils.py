@@ -63,11 +63,11 @@ def get_controller_configs(config: TrainingConfig) -> List[Dict[str, Any]]:
 
     # Load the failsafe controller config (has structure)
     failsafe_config = load_composite_controller_config(controller=controller_config_path)
-    
+
     # Load robot-specific limits (just data, no structure)
     with open(robot_config_path, 'r') as f:
         robot_config = json.load(f)
-    
+
     # Merge robot limits into failsafe config following the working demo pattern
     controller_config = {'body_parts': {'right': {}}}
     controller_config['body_parts']['right'] = merge_configs(failsafe_config['body_parts']['right'], robot_config)
@@ -370,7 +370,7 @@ def get_environment_wrap_fn(config: TrainingConfig) -> Callable[[gymnasium.Env],
             unwrapped_env = env
             while hasattr(unwrapped_env, 'env') and not hasattr(unwrapped_env, 'check_collision_action'):
                 unwrapped_env = unwrapped_env.env
-            
+
             env = CollisionPreventionWrapper(
                 env=env,
                 collision_check_fn=unwrapped_env.check_collision_action,

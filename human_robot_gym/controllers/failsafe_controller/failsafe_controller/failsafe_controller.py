@@ -163,10 +163,10 @@ class FailsafeController(JointPositionController):
         )
         # Control dimension
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        
+
         # Store eef_name for getting end-effector position
         self.eef_name = eef_name
-        
+
         rot = Rotation.from_quat(
             [
                 base_orientation[0],
@@ -407,11 +407,6 @@ class FailsafeController(JointPositionController):
         self.torques = self.clip_torques(torques=self.torques)
         # Always run superclass call for any cleanups at the end
         self.new_update = True
-        
-        if self.get_safety() == False:
-            stop = 0
-        else:
-            stop = 0
 
         return self.torques
 

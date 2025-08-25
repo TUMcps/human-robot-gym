@@ -24,16 +24,16 @@ if __name__ == "__main__":
         "controllers/failsafe_controller/config/failsafe.json"
     )
     robot_config_path = file_path_completion("models/robots/config/sawyer.json")
-    
+
     # Load the failsafe controller config from file
     import json
     with open(failsafe_config_path, 'r') as f:
         failsafe_config = json.load(f)
-    
+
     # Load robot-specific limits
     with open(robot_config_path, 'r') as f:
         robot_config = json.load(f)
-    
+
     # Merge robot limits into failsafe config
     controller_config = {'body_parts': {'right': {}}}
     controller_config['body_parts']['right'] = merge_configs(failsafe_config['body_parts']['right'], robot_config)
