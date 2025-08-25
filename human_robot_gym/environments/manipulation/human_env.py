@@ -1847,7 +1847,7 @@ class HumanEnv(ManipulationEnv):
                 mujoco.mjv_initGeom(
                     self.viewer.viewer.user_scn.geoms[geom_index],
                     type=mujoco.mjtGeom.mjGEOM_CAPSULE,
-                    size=cap.size,  # [radius, half_length, 0]
+                    size=[cap.size[0], cap.size[2], 0],  # [radius, half_length, 0]
                     pos=cap.pos,
                     mat=cap.mat.flatten(),
                     rgba=[0.0, 0.0, 1.0, 0.2]  # Blue with transparency
@@ -1863,7 +1863,7 @@ class HumanEnv(ManipulationEnv):
                 mujoco.mjv_initGeom(
                     self.viewer.viewer.user_scn.geoms[geom_index],
                     type=mujoco.mjtGeom.mjGEOM_CAPSULE,
-                    size=cap.size,  # [radius, half_length, 0]
+                    size=[cap.size[0], cap.size[2], 0],  # [radius, half_length, 0]
                     pos=cap.pos,
                     mat=cap.mat.flatten(),
                     rgba=[0.0, 1.0, 0.0, 0.2]  # Green with transparency
