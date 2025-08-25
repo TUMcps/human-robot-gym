@@ -134,6 +134,9 @@ class FailsafeController(JointPositionController):
         control_sample_time=0.004,
         qpos_limits=None,
         interpolator=None,
+        part_name=None,
+        naming_prefix="",
+        lite_physics=True,
         **kwargs,  # does nothing; used so no error raised when dict is passed with extra terms used previously
     ):
         # noqa: D107
@@ -142,6 +145,9 @@ class FailsafeController(JointPositionController):
             joint_indexes,
             actuator_range,
             ref_name=eef_name,
+            part_name=part_name,
+            naming_prefix=naming_prefix,
+            lite_physics=lite_physics,
             input_max=input_max,
             input_min=input_min,
             output_max=output_max,
@@ -349,9 +355,6 @@ class FailsafeController(JointPositionController):
         if self.goal_qpos is None:
             self.set_goal(np.zeros(self.control_dim))
 
-        # Update state
-        # self.update() <- takes forever
-        # self.sim.forward()
         self.joint_pos = np.array(self.sim.data.qpos[self.qpos_index])
         self.joint_vel = np.array(self.sim.data.qvel[self.qvel_index])
 
