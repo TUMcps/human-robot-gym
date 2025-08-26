@@ -12,9 +12,9 @@ import glfw
 import numpy as np
 from typing import Any, Callable, Literal, Union
 
-import mujoco_py
+import mujoco
 
-from gym import Env
+from gymnasium import Env
 from robosuite.renderers.mujoco.mujoco_py_renderer import MujocoPyRenderer
 
 from human_robot_gym.environments.manipulation.human_env import HumanEnv
@@ -385,7 +385,7 @@ class AnimationDebugKeyboardController(KeyboardController):
     def add_animation_time_overlay(self):
         """Display the current animation time in the top right corner of the screen."""
         self._env.unwrapped.viewer.viewer.add_overlay(
-            mujoco_py.generated.const.GRID_TOPRIGHT,
+            mujoco.mjtGridPos.mjGRID_TOPRIGHT,
             f"Animation Time_ {self._env.unwrapped.animation_time}",
             "",
         )

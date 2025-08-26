@@ -10,7 +10,7 @@ Changelog:
 """
 import struct
 from typing import Optional, Dict, Any, List
-import gym
+import gymnasium
 from human_robot_gym.wrappers.time_limit import TimeLimit
 import robosuite
 from robosuite.wrappers.gym_wrapper import GymWrapper
@@ -21,15 +21,15 @@ from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
 def make_robosuite_env(
     env_id: str,
     env_kwargs: Optional[Dict[str, Any]] = None
-) -> gym.Env:
+) -> gymnasium.Env:
     """Make the robosuite environment."""
     return robosuite.make(env_id, **env_kwargs)
 
 
 def add_time_limit(
-    env: gym.Env,
+    env: gymnasium.Env,
     max_episode_steps: int = 1000
-) -> gym.Env:
+) -> gymnasium.Env:
     if env.spec is None:
         env.spec = struct
     if max_episode_steps is not None:
@@ -41,7 +41,7 @@ def make_gym_env(
     env_id: str,
     env_kwargs: Optional[Dict[str, Any]] = None,
     obs_keys: Optional[List[str]] = None,
-) -> gym.Env:
+) -> gymnasium.Env:
     """Make the gym environment and add the optional TimeLimit wrapper.
 
     We add the TimeLimit wrapper here because it would require a second Monitor wrapper later.
@@ -55,7 +55,7 @@ def make_goal_env(
     env_id: str,
     env_kwargs: Optional[Dict[str, Any]] = None,
     obs_keys: Optional[List[str]] = None,
-) -> gym.Env:
+) -> gymnasium.Env:
     """Make the goal environment and add the optional TimeLimit wrapper.
 
     We add the TimeLimit wrapper here because it would require a second Monitor wrapper later.
@@ -70,7 +70,7 @@ def make_expert_obs_env(
     env_kwargs: Optional[Dict[str, Any]] = None,
     obs_keys: Optional[List[str]] = None,
     expert_obs_keys: Optional[List[str]] = None,
-) -> gym.Env:
+) -> gymnasium.Env:
     """Make the expert obs environment and add the optional TimeLimit wrapper.
 
     We add the TimeLimit wrapper here because it would require a second Monitor wrapper later.

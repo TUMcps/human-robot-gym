@@ -161,7 +161,7 @@ def evaluate_to_df(
             else:
                 action, _ = model.predict(obs, deterministic=True)
             step_index += 1
-            obs, reward, done, info = env.step(action)
+            obs, reward, terminated, truncated, info = env.step(action)
             ep_return += reward
             ep_length += 1
 

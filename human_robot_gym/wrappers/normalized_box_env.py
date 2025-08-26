@@ -9,11 +9,11 @@ Changelog:
     2.5.22 JT Formatted docstrings
 """
 import numpy as np
-from gym.spaces import Box
-import gym.core
+from gymnasium.spaces import Box
+import gymnasium.core
 
 
-class NormalizedBoxEnv(gym.core.Wrapper):
+class NormalizedBoxEnv(gymnasium.core.Wrapper):
     """Normalize action to lie in [-1, 1].
 
     Optionally normalize observations and scale reward.

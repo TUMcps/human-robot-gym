@@ -17,8 +17,7 @@ from pathlib import Path
 import warnings
 from typing import Dict, List
 
-from hppfcl import CollisionObject, Transform3f
-from hppfcl import hppfcl
+import coal
 import numpy as np
 from numpy import pi
 import meshcat.geometry
@@ -45,15 +44,15 @@ class ObstacleBase(ABC):
     def __init__(
         self,
         name: str,
-        collision_objects: List[CollisionObject] = None,
+        collision_objects: List[coal.CollisionObject] = None,
     ):  # noqa: D107
         self.name = name
         if collision_objects is None:
-            self.collision_objects: List[CollisionObject] = []
+            self.collision_objects: List[coal.CollisionObject] = []
         else:
-            self.collision_objects: List[CollisionObject] = collision_objects
-        if isinstance(self.collision_objects, CollisionObject):
-            self.collision_objects: List[CollisionObject] = [self.collision_objects]
+            self.collision_objects: List[coal.CollisionObject] = collision_objects
+        if isinstance(self.collision_objects, coal.CollisionObject):
+            self.collision_objects: List[coal.CollisionObject] = [self.collision_objects]
 
     def __copy__(self):
         """Deep copy the object.
@@ -96,7 +95,7 @@ class ObstacleBase(ABC):
             rotation (np.ndarray): rotation matrix (3x3) of the object.
         """
         self.T = homogeneous(translation, rotation)
-        transform = Transform3f(rotation, translation)
+        transform = coal.Transform3s(rotation, translation)
         for collision_object in self.collision_objects:
             collision_object.setTransform(transform)
 
@@ -124,9 +123,9 @@ class Box(ObstacleBase):
     ):  # noqa: D107
         self.lengths = np.asarray([x, y, z])
         self.T = homogeneous(translation, rotation)
-        box = hppfcl.Box(x, y, z)
-        transform = Transform3f(rotation, translation)
-        collision_object = CollisionObject(box, transform)
+        box = coal.Box(x, y, z)
+        transform = coal.Transform3s(rotation, translation)
+        collision_object = coal.CollisionObject(box, transform)
         super().__init__(name, collision_object)
 
     def __deepcopy__(self, memodict={}):
@@ -168,9 +167,9 @@ class Cylinder(ObstacleBase):
         self.r: float = float(r)
         self.z: float = float(z)
         self.T = homogeneous(translation, rotation)
-        cylinder = hppfcl.Cylinder(r, z)
-        transform = Transform3f(rotation, translation)
-        collision_object = CollisionObject(cylinder, transform)
+        cylinder = coal.Cylinder(r, z)
+        transform = coal.Transform3s(rotation, translation)
+        collision_object = coal.CollisionObject(cylinder, transform)
         super().__init__(name, collision_object)
 
     def __deepcopy__(self, memodict={}):
@@ -205,7 +204,7 @@ class MeshObstacle(ObstacleBase):
     def __init__(
         self,
         name: str,
-        mesh: hppfcl.BVHModelOBBRSS,
+        mesh: coal.BVHModelOBBRSS,
         translation: np.ndarray = NO_TRANSLATION,
         rotation: np.ndarray = NO_ROTATION,
         mesh_file: str = "",
@@ -213,8 +212,8 @@ class MeshObstacle(ObstacleBase):
     ):  # noqa: D107
         self.T = homogeneous(translation, rotation)
         self.mesh_geometry = mesh
-        transform = Transform3f(rotation, translation)
-        collision_object = CollisionObject(mesh, transform)
+        transform = coal.Transform3s(rotation, translation)
+        collision_object = coal.CollisionObject(mesh, transform)
         self.mesh_file: str = mesh_file
         self.scale: np.ndarray = scale
         super().__init__(name, collision_object)
@@ -268,9 +267,9 @@ class Plane(ObstacleBase):
         self.n = n / np.linalg.norm(n)
         self.d = d
         self.T = homogeneous(translation, rotation)
-        plane = hppfcl.Plane(self.n, d)
-        transform = Transform3f(rotation, translation)
-        collision_object = CollisionObject(plane, transform)
+        plane = coal.Plane(self.n, d)
+        transform = coal.Transform3s(rotation, translation)
+        collision_object = coal.CollisionObject(plane, transform)
         super().__init__(name, collision_object)
 
     def __deepcopy__(self, memodict={}):
@@ -325,9 +324,9 @@ class Sphere(ObstacleBase):
     ):  # noqa: D107
         self.r: float = float(r)
         self.T = homogeneous(translation, rotation)
-        sphere = hppfcl.Sphere(r)
-        transform = Transform3f(rotation, translation)
-        collision_object = CollisionObject(sphere, transform)
+        sphere = coal.Sphere(r)
+        transform = coal.Transform3s(rotation, translation)
+        collision_object = coal.CollisionObject(sphere, transform)
         super().__init__(name, collision_object)
 
     def __deepcopy__(self, memodict={}):
@@ -364,7 +363,7 @@ class ComposedObstacle(ObstacleBase):
         rotation: np.ndarray = NO_ROTATION,
     ):  # noqa: D107
         self.T = homogeneous(translation, rotation)
-        transform3f = hppfcl.Transform3f(rotation, translation)
+        transform3f = coal.Transform3s(rotation, translation)
         self._children = obstacles
         for i, child in enumerate(self._children):
             child.T = child.T @ self.T
@@ -441,7 +440,7 @@ def crok2obstacle(
                 "You must provide a package dir when a mesh file is given."
             )
 
-        mesh_loader = hppfcl.MeshLoader()
+        mesh_loader = coal.MeshLoader()
         mesh = mesh_loader.load(filepath, scale)
         return MeshObstacle(
             name,
@@ -468,28 +467,28 @@ def crok2obstacle(
         raise NotImplementedError("Unknown geometry {}".format(geometry))
 
 
-def hppfcl2obstacle(name: str, fcl: hppfcl.CollisionObject) -> ObstacleBase:
-    """Transform a generic hppfcl collision object to an according Obstacle instance.
+def coal2obstacle(name: str, fcl: coal.CollisionObject) -> ObstacleBase:
+    """Transform a generic coal collision object to an according Obstacle instance.
 
     (This allows plotting, composing a scenario of multiple obstacles, ...)
 
     Args:
         name (str): The name that shall be given to the Obstacle.
-        fcl (FCL Collision Object): The hppfcl collision object.
+        fcl (Coal Collision Object): The coal collision object.
     Returns:
         An instance of the according Obstacle class, based on the kind of collision object handed over.
     """
     translation = fcl.getTranslation()
     rotation = fcl.getRotation()
     geom = fcl.collisionGeometry()
-    if isinstance(geom, hppfcl.Box):
+    if isinstance(geom, coal.Box):
         return Box(
             name,
             *[2 * hs for hs in geom.halfSide],
             translation=translation,
             rotation=rotation
         )
-    elif isinstance(geom, hppfcl.Cylinder):
+    elif isinstance(geom, coal.Cylinder):
         return Cylinder(
             name,
             geom.radius,
@@ -497,11 +496,11 @@ def hppfcl2obstacle(name: str, fcl: hppfcl.CollisionObject) -> ObstacleBase:
             translation=translation,
             rotation=rotation,
         )
-    elif isinstance(geom, hppfcl.Sphere):
+    elif isinstance(geom, coal.Sphere):
         return Sphere(name, geom.radius, translation=translation, rotation=rotation)
-    elif isinstance(geom, hppfcl.Plane):
+    elif isinstance(geom, coal.Plane):
         return Plane(name, geom.n, geom.d, translation=translation, rotation=rotation)
-    elif isinstance(geom, hppfcl.BVHModelOBBRSS):
+    elif isinstance(geom, coal.BVHModelOBBRSS):
         return MeshObstacle(name, geom, translation=translation, rotation=rotation)
     else:
         raise NotImplementedError()

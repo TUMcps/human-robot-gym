@@ -14,16 +14,26 @@ Changelog:
 
 from typing import Tuple, Union
 import numpy as np
-from matplotlib import colors
 
 import pinocchio as pin
-from hppfcl import CollisionRequest, CollisionResult, collide, CollisionObject
 from robosuite.models.robots.manipulators import ManipulatorModel
 
 from human_robot_gym.utils.pinocchio_utils import q_pin
 import human_robot_gym.utils.errors as err
 from human_robot_gym.utils import spatial
 from human_robot_gym.utils.visualization import drawable_coordinate_system
+
+
+BASE_COLORS = {
+    'b': (0, 0, 1),        # blue
+    'g': (0, 0.5, 0),      # green
+    'r': (1, 0, 0),        # red
+    'c': (0, 0.75, 0.75),  # cyan
+    'm': (0.75, 0, 0.75),  # magenta
+    'y': (0.75, 0.75, 0),  # yellow
+    'k': (0, 0, 0),        # black
+    'w': (1, 1, 1),        # white
+}
 
 
 class PinocchioManipulatorModel(ManipulatorModel):
@@ -180,8 +190,8 @@ class PinocchioManipulatorModel(ManipulatorModel):
         if q is not None:
             self.update_configuration(q)
         self._update_collision_placement()
-        request = CollisionRequest()
-        result = CollisionResult()
+        request = pin.hppfcl.CollisionRequest()
+        result = pin.hppfcl.CollisionResult()
         # Iterate over all robot collision objects
         robot_coll_geometries = [rco.geometry for rco in self.collision_objects]
         for (robot_coll_geo, robot_coll_trans) in zip(
@@ -189,7 +199,7 @@ class PinocchioManipulatorModel(ManipulatorModel):
         ):
             # Iterate over all sub-collision objects in the given object
             for collision_part in collision_object.collision_objects:
-                if collide(
+                if pin.hppfcl.collide(
                     robot_coll_geo,
                     robot_coll_trans,
                     collision_part.collisionGeometry(),
@@ -351,7 +361,7 @@ class PinocchioManipulatorModel(ManipulatorModel):
         return cp
 
     @property
-    def collision_objects(self) -> Tuple[CollisionObject]:
+    def collision_objects(self) -> Tuple[pin.hppfcl.CollisionObject]:
         """Return all collision objects of the robot (internally wrapped by pinocchio) as hppfcl collision objects.
 
         Returns:
@@ -501,7 +511,7 @@ class PinocchioManipulatorModel(ManipulatorModel):
         # red = np.array([1, 0.2, 0.15, 1])
         collision_colors = [
             np.hstack([np.array(clr), np.ones(1)])
-            for clr in colors.BASE_COLORS.values()
+            for clr in BASE_COLORS.values()
         ]
         visualizer.displayCollisions(True)
         visualizer.displayVisuals(False)

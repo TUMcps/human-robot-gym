@@ -17,10 +17,10 @@ from scipy.spatial.transform import Rotation
 
 # from matplotlib import pyplot as plt
 
-from robosuite.controllers.joint_pos import JointPositionController
+from robosuite.controllers.parts.generic.joint_pos import JointPositionController
 from robosuite.utils.control_utils import set_goal_position
 
-from safety_shield_py import SafetyShield, ShieldType  # noqa: F401
+from safety_shield_py import SafetyShield, ShieldType, ContactType, AABB  # noqa: F401
 
 from .plot_capsule import PlotCapsule
 
@@ -134,30 +134,39 @@ class FailsafeController(JointPositionController):
         control_sample_time=0.004,
         qpos_limits=None,
         interpolator=None,
+        part_name=None,
+        naming_prefix="",
+        lite_physics=True,
         **kwargs,  # does nothing; used so no error raised when dict is passed with extra terms used previously
     ):
         # noqa: D107
         super().__init__(
             sim,
-            eef_name,
             joint_indexes,
             actuator_range,
-            input_max,
-            input_min,
-            output_max,
-            output_min,
-            kp,
-            damping_ratio,
-            impedance_mode,
-            kp_limits,
-            damping_ratio_limits,
-            policy_freq,
-            qpos_limits,
-            interpolator,
+            ref_name=eef_name,
+            part_name=part_name,
+            naming_prefix=naming_prefix,
+            lite_physics=lite_physics,
+            input_max=input_max,
+            input_min=input_min,
+            output_max=output_max,
+            output_min=output_min,
+            kp=kp,
+            damping_ratio=damping_ratio,
+            impedance_mode=impedance_mode,
+            kp_limits=kp_limits,
+            damping_ratio_limits=damping_ratio_limits,
+            policy_freq=policy_freq,
+            qpos_limits=qpos_limits,
+            interpolator=interpolator,
         )
-
         # Control dimension
         dir_path = os.path.dirname(os.path.realpath(__file__))
+
+        # Store eef_name for getting end-effector position
+        self.eef_name = eef_name
+
         rot = Rotation.from_quat(
             [
                 base_orientation[0],
@@ -166,11 +175,14 @@ class FailsafeController(JointPositionController):
                 base_orientation[3],
             ]
         )
+        self.table = AABB([base_pos[0]-0.75, base_pos[1]-1.0, 0.82 - 0.05],
+                          [base_pos[0]+0.75, base_pos[1]+1.0, 0.82])
         rpy = rot.as_euler("XYZ")
 
         robot_name = robot_name.lower()
         # Unfortunately, all other native python enum functions seem to fail.
         self.shield_type = eval("ShieldType." + shield_type)
+        self.eef_contact_type = eval("ContactType." + "WEDGE")
 
         self.safety_shield = SafetyShield(
             sample_time=control_sample_time,
@@ -186,7 +198,9 @@ class FailsafeController(JointPositionController):
             init_pitch=rpy[1],
             init_yaw=rpy[2],
             init_qpos=init_qpos,
-            shield_type=self.shield_type
+            environment_elements=[self.table],
+            shield_type=self.shield_type,
+            eef_contact_type=self.eef_contact_type
         )
         self.desired_motion = self.safety_shield.step(0.0)
         self.robot_capsules = []
@@ -246,7 +260,9 @@ class FailsafeController(JointPositionController):
             init_yaw=rpy[2],
             init_qpos=self.joint_pos,
             current_time=self.sim.data.time,
+            environment_elements=[self.table],
             shield_type=self.shield_type,
+            eef_contact_type=self.eef_contact_type
         )
 
     def set_goal(self, action, set_qpos=None):
@@ -299,6 +315,26 @@ class FailsafeController(JointPositionController):
 
         self.safety_shield.newLongTermTrajectory(self.goal_qpos, self.command_vel)
 
+    @property
+    def ee_pos(self):
+        """Get the end-effector position from the simulation."""
+        try:
+            site_id = self.sim.model.site_name2id(self.eef_name)
+            return self.sim.data.site_xpos[site_id]
+        except Exception:
+            # Fallback: return zero position if site not found
+            return np.zeros(3)
+
+    @property
+    def ee_ori_mat(self):
+        """Get the end-effector orientation matrix from the simulation."""
+        try:
+            site_id = self.sim.model.site_name2id(self.eef_name)
+            return self.sim.data.site_xmat[site_id].reshape(3, 3)
+        except Exception:
+            # Fallback: return identity matrix if site not found
+            return np.eye(3)
+
     def set_human_measurement(self, human_measurement, time):
         """Set the human measurement of the safety shield.
 
@@ -319,14 +355,15 @@ class FailsafeController(JointPositionController):
         if self.goal_qpos is None:
             self.set_goal(np.zeros(self.control_dim))
 
-        # Update state
-        # self.update() <- takes forever
-        # self.sim.forward()
         self.joint_pos = np.array(self.sim.data.qpos[self.qpos_index])
         self.joint_vel = np.array(self.sim.data.qvel[self.qvel_index])
 
         current_time = self.sim.data.time
         self.desired_motion = self.safety_shield.step(current_time)
+        # Debug
+        # print("Safety shield safe? {}", self.get_safety())
+        self.get_human_capsules()
+        # End debug
         desired_qpos = self.desired_motion.getAngle()
         desired_qvel = self.desired_motion.getVelocity()
         desided_qacc = self.desired_motion.getAcceleration()
@@ -361,8 +398,9 @@ class FailsafeController(JointPositionController):
 
         # Return desired torques plus gravity compensations
         # Similar to PD+ control, without squared velocity term
+        feedback_torque = feedback_torque + desided_qacc
         self.torques = (
-            np.dot(self.mass_matrix, feedback_torque + desided_qacc)
+            np.dot(self.mass_matrix, feedback_torque)
             + self.torque_compensation
         )
 
@@ -413,7 +451,7 @@ class FailsafeController(JointPositionController):
         Returns:
             list[capsule]
         """
-        self.human_cap_in = self.safety_shield.getHumanReachCapsules()
+        self.human_cap_in = self.safety_shield.getHumanReachCapsules(0)
         if len(self.human_capsules) == 0:
             for cap in self.human_cap_in:
                 self.human_capsules.append(PlotCapsule(cap[0:3], cap[3:6], cap[6]))

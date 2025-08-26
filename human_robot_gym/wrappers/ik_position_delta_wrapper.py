@@ -8,8 +8,8 @@ Author: Rafael Cabral
 
 import numpy as np
 import pybullet as p
-from gym.core import Wrapper
-from gym.spaces import Box
+from gymnasium.core import Wrapper
+from gymnasium.spaces import Box
 
 
 class IKPositionDeltaWrapper(Wrapper):
@@ -138,5 +138,5 @@ class IKPositionDeltaWrapper(Wrapper):
         if len(action) > self.control_dim:
             q_action = np.append(q_action, action[self.control_dim:])
 
-        next_obs, reward, done, info = super().step(q_action)
-        return next_obs, reward, done, info
+        next_obs, reward, terminated, truncated, info = super().step(q_action)
+        return next_obs, reward, terminated, truncated, info
