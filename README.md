@@ -80,6 +80,34 @@ python human_robot_gym/training/train_SB3.py -cn human_reach_ppo_parallel run.ty
 ```
 
 # Known issues
+
+## SARA shield installation
+### INCLUDE_DIRECTORIES given empty-string as include directory
+During installation of SARA shield:
+```
+CMake Error at CMakeLists.txt:29 (INCLUDE_DIRECTORIES):
+INCLUDE_DIRECTORIES given empty-string as include directory.
+```
+is caused by a missing Eigen installation or incorrect EIGEN3_INCLUDE_DIR.
+
+### GTest missing
+During installation of SARA shield:
+```
+Could NOT find GTest (missing: GTEST_LIBRARY GTEST_INCLUDE_DIR
+        GTEST_MAIN_LIBRARY)
+```
+**Solution 1**
+Make sure that you have gtest installed with 
+```
+sudo apt-get install libgtest-dev
+```
+**Solution 2**
+Disable testing in SARA shield build 
+```
+BUILD_TESTS=OFF pip install .
+```
+
+## Runtime issues
 ### `GLIBCXX_3.4.29' not found
 ```
 ImportError: /lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.29' not found (required by /opt/conda/envs/hrgym/lib/python3.8/site-packages/google/protobuf/pyext/_message.cpython-38-x86_64-linux-gnu.so
