@@ -16,12 +16,14 @@ from typing import Any, Dict, Union, List, Optional, Tuple
 
 from robosuite.models.tasks import ManipulationTask
 
-from .human_simulation_mixin import HumanSimulationMixin
+from human_robot_gym.environments.manipulation.human_simulation_mixin import HumanSimulationMixin
+from human_robot_gym.models.objects.human.single_point_human import SinglePointHumanObject
+from robosuite.utils.placement_samplers import UniformRandomSampler
 
 
 class RoboSuiteHumanEnv(HumanSimulationMixin):
     """Generic base class for robosuite environments with human simulation.
-    
+
     This class can wrap any robosuite environment and add human simulation
     capabilities using composition. It eliminates the need for separate
     implementations for each robosuite environment type.
@@ -30,6 +32,7 @@ class RoboSuiteHumanEnv(HumanSimulationMixin):
     def __init__(
         self,
         robosuite_env_class,
+        use_simple_human: bool = True,
         # Human-specific parameters
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_names=["CMU/62_01"],
@@ -57,9 +60,10 @@ class RoboSuiteHumanEnv(HumanSimulationMixin):
         **kwargs,
     ):
         """Initialize RoboSuite environment with human simulation.
-        
+
         Args:
             robosuite_env_class: The robosuite environment class to wrap
+            use_simple_human: Whether to use a simplified human model as dynamic obstacle
             base_human_pos_offset: Offset for human base position
             human_animation_names: List of human animation files
             human_animation_freq: Frequency of human animation playback
@@ -83,10 +87,11 @@ class RoboSuiteHumanEnv(HumanSimulationMixin):
         """
         # Store the robosuite environment class
         self.robosuite_env_class = robosuite_env_class
-        
+
+        self.use_simple_human = use_simple_human
         # Store arena configuration
         self._arena_config = arena_config or self._get_default_arena_config()
-        
+
         # Setup human simulation first
         self.setup_human_simulation(
             base_human_pos_offset=base_human_pos_offset,
@@ -108,35 +113,48 @@ class RoboSuiteHumanEnv(HumanSimulationMixin):
             goal_dist=goal_dist,
             n_goals_sampled_per_100_steps=n_goals_sampled_per_100_steps,
             robot_base_offset=robot_base_offset,
-            **kwargs
+            **kwargs,
         )
-        
+
         # Filter out human-specific parameters before passing to robosuite
-        robosuite_kwargs = {k: v for k, v in kwargs.items() if k not in {
-            'base_human_pos_offset', 'human_animation_names', 'human_animation_freq',
-            'human_rand', 'base_human_joint_pos', 'human_observable',
-            'n_animations_sampled_per_100_steps', 'safe_vel', 'self_collision_safety',
-            'collision_debounce_delay', 'shield_type', 'visualize_failsafe_controller',
-            'visualize_pinocchio', 'control_sample_time', 'goal_dist',
-            'n_goals_sampled_per_100_steps', 'robot_base_offset', 'arena_config'
-        }}
-        
+        robosuite_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k
+            not in {
+                "base_human_pos_offset",
+                "human_animation_names",
+                "human_animation_freq",
+                "human_rand",
+                "base_human_joint_pos",
+                "human_observable",
+                "n_animations_sampled_per_100_steps",
+                "safe_vel",
+                "self_collision_safety",
+                "collision_debounce_delay",
+                "shield_type",
+                "visualize_failsafe_controller",
+                "visualize_pinocchio",
+                "control_sample_time",
+                "goal_dist",
+                "n_goals_sampled_per_100_steps",
+                "robot_base_offset",
+                "arena_config",
+            }
+        }
+
         # Initialize the robosuite environment using multiple inheritance approach
         super(HumanSimulationMixin, self).__init__(**robosuite_kwargs)
 
     def _get_default_arena_config(self):
         """Get default arena configuration.
-        
+
         Can be overridden by subclasses for environment-specific settings.
-        
+
         Returns:
             dict: Default arena configuration
         """
-        return {
-            "add_table": True,
-            "add_base": True,
-            "safety_margin": 0.01
-        }
+        return {"add_table": True, "add_base": True, "safety_margin": 0.01}
 
     def _get_arena_config(self):
         """Get arena configuration for this environment."""
@@ -173,11 +191,30 @@ class RoboSuiteHumanEnv(HumanSimulationMixin):
     def _load_model(self):
         """Define the mujoco models and initialize the manipulation task."""
         super()._load_model()
-        
+
+        if self.use_simple_human:
+            self.human = SinglePointHumanObject(name="Human")
+            if self.human_placement_initializer is not None:
+                self.human_placement_initializer.reset()
+                self.human_placement_initializer.add_objects(self.human)
+            else:
+                self.human_placement_initializer = UniformRandomSampler(
+                    name="HumanSampler",
+                    mujoco_objects=self.human,
+                    x_range=[-self.human_rand[0], self.human_rand[0]],
+                    y_range=[-self.human_rand[1], self.human_rand[1]],
+                    rotation=(-self.human_rand[2], self.human_rand[2]),
+                    rotation_axis="z",
+                    ensure_object_boundary_in_range=False,
+                    ensure_valid_placement=True,
+                    reference_pos=[0.0, 0.0, 0.0],
+                    z_offset=0.0,
+                )
+
         # Setup arena (which includes human simulation setup)
         self._setup_arena()
         assert self.mujoco_arena is not None
-        
+
         # Setup human model
         self.setup_human_model()
 
