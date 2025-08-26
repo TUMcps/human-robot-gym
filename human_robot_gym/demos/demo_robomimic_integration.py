@@ -28,6 +28,7 @@ from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 from human_robot_gym.environments.manipulation.lift_human_env import LiftHumanEnv
 from human_robot_gym.environments.manipulation.pick_place_human_env import PickPlaceCanHumanEnv
 from human_robot_gym.environments.manipulation.nut_assembly_human_env import NutAssemblySquareHumanEnv
+from human_robot_gym.environments.manipulation.tool_hang_human_env import ToolHangHumanEnv
 import human_robot_gym.robots  # noqa: F401
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.collision_prevention_wrapper import CollisionPreventionWrapper
@@ -38,7 +39,7 @@ ENV_MAPPING = {
     "can": PickPlaceCanHumanEnv,
     "square": NutAssemblySquareHumanEnv,
     # "transport": -> Dual arm, leave out for now
-    # "tool_hang": -> Only available in robosuite 1.5
+    "tool_hang": ToolHangHumanEnv
 }
 
 
