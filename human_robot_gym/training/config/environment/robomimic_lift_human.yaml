@@ -1,0 +1,53 @@
+# Configuration for RobomimicLiftHuman environment
+# Lift task from robomimic with human simulation and safety features
+
+# Environment setup
+env_name: LiftHumanEnv
+robots: Schunk
+env_configuration: default
+
+# Robomimic specific settings
+robomimic_task_name: Lift
+use_robomimic_arena: true
+
+# Safety settings
+shield_type: SSM  # Options: OFF, SSM, PFL
+visualize_failsafe_controller: false
+safe_vel: 0.001
+self_collision_safety: 0.01
+collision_debounce_delay: 0.01
+
+# Human animation settings
+human_animation_names:
+  - "CMU/62_01"
+  - "CMU/62_03"
+  - "CMU/62_04"
+  - "CMU/62_07"
+  - "CMU/62_09"
+  - "CMU/62_10"
+base_human_pos_offset: [0.0, 0.0, 0.0]
+human_animation_freq: 120
+human_rand: [0.2, 0.2, 0.3]  # Randomization range [x, y, rotation]
+n_animations_sampled_per_100_steps: 5
+
+# Reward settings
+reward_scale: 1.0
+reward_shaping: true
+collision_reward: -10
+task_reward: 100
+done_at_collision: false
+done_at_success: true
+
+# Control settings
+control_freq: 10
+control_sample_time: 0.004
+horizon: 400
+
+# Observation settings
+use_camera_obs: false
+use_object_obs: true
+
+# Rendering settings
+has_renderer: false
+has_offscreen_renderer: false
+render_camera: frontview

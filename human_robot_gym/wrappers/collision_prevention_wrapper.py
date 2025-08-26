@@ -1,9 +1,9 @@
 import numpy as np
-from robosuite.wrappers import Wrapper
-from gym import spaces
+import gymnasium
+from gymnasium import spaces
 
 
-class CollisionPreventionWrapper(Wrapper):
+class CollisionPreventionWrapper(gymnasium.Wrapper):
     """Checks if the given action would result in a collision and replaces the unsafe action with another action."""
 
     def __init__(self, env, collision_check_fn, replace_type=0, n_resamples=20):
@@ -27,6 +27,7 @@ class CollisionPreventionWrapper(Wrapper):
         super().__init__(env)
         self.collision_check_fn = collision_check_fn
         self.n_resamples = n_resamples
+        self.action_resamples = 0
         if replace_type == 0:
             self.replace_action = self.replace_zero
         elif replace_type == 1:
@@ -39,10 +40,10 @@ class CollisionPreventionWrapper(Wrapper):
     def step(self, action):
         """Wrap the step function with the replaced action and adds the new action to the info dict."""
         action = self.action(action)
-        obs, reward, done, info = self.env.step(action)
+        obs, reward, terminated, truncated, info = self.env.step(action)
         info["action"] = action
         info["action_resamples"] = self.action_resamples
-        return obs, reward, done, info
+        return obs, reward, terminated, truncated, info
 
     def action(self, action):
         """Replace the action if a collision is detected."""
@@ -108,7 +109,7 @@ class CollisionPreventionWrapper(Wrapper):
         else:
             return self.replace_zero(action)
 
-    def reset(self):
+    def reset(self, **kwargs):
         """Reset the action wrapper variables and calls env.reset()."""
         self.action_resamples = 0
-        return self.env.reset()
+        return self.env.reset(**kwargs)

@@ -10,9 +10,20 @@ Contributors:
 Changelog:
     11.09.23 FT File created
 """
-from stable_baselines3.common.utils import safe_mean
+try:
+    from stable_baselines3.common.utils import safe_mean
+    from stable_baselines3.common.callbacks import BaseCallback
+    HAS_SB3 = True
+except ImportError:
+    HAS_SB3 = False
+    # Define placeholder functions/classes for when SB3 is not available
+    safe_mean = None
 
-from stable_baselines3.common.callbacks import BaseCallback
+    class BaseCallback:
+        def __init__(self, *args, **kwargs):
+            if not HAS_SB3:
+                raise ImportError("stable-baselines3 is required for LoggingCallback.\
+                  Install with: pip install stable-baselines3")
 
 from typing import List, Tuple, Union
 import time

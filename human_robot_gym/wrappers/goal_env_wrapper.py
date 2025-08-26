@@ -17,8 +17,8 @@ Changelog:
     2.5.22 JT Formatted docstrings
 """
 import numpy as np
-from gym import spaces
-from gym.core import Env
+from gymnasium import spaces
+from gymnasium.core import Env
 
 from robosuite.wrappers import Wrapper
 
@@ -30,11 +30,11 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
     The main point of goal environments is that both the desired and achieved goal are
     part of the observation.
     The observation must have the following form:
-    gym.spaces.Dict({
+    gymnasium.spaces.Dict({
 
-        - '`observation`': gym.spaces.Box,
-        - '`achieved_goal`': gym.spaces.Box,
-        - '`desired_goal`': gym.spaces.Box
+        - '`observation`': gymnasium.spaces.Box,
+        - '`achieved_goal`': gymnasium.spaces.Box,
+        - '`desired_goal`': gymnasium.spaces.Box
 
     })
 

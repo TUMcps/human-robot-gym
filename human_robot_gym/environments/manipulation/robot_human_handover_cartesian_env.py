@@ -28,7 +28,7 @@ import xml.etree.ElementTree as ET
 
 import numpy as np
 from scipy.spatial.transform import Rotation
-import mujoco_py
+import mujoco
 
 from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.mjcf_utils import find_elements
@@ -970,8 +970,8 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
             AssertionError: If any of the references could not be found.
         """
         super()._setup_references()
-        self._manipulation_object_weld_eq_id = mujoco_py.functions.mj_name2id(
-            self.sim.model, mujoco_py.const.OBJ_EQUALITY, "manipulation_object_weld"
+        self._manipulation_object_weld_eq_id = mujoco.mj_name2id(
+            self.sim.model, mujoco.mjtObj.mjOBJ_EQUALITY, "manipulation_object_weld"
         )
 
         self._l_palm_contact_geom_id = self.sim.model.geom_name2id("Human_L_Palm_collision")

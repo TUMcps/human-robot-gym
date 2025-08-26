@@ -1,15 +1,29 @@
 {
-  "type": "JOINT_POSITION",
-  "input_max": 1,
-  "input_min": -1,
-  "output_max": 0.2,
-  "output_min": -0.2,
-  "kp": 100,
-  "damping_ratio": 1,
-  "impedance_mode": "fixed",
-  "kp_limits": [0, 300],
-  "damping_ratio_limits": [0, 10],
-  "qpos_limits": null,
-  "interpolation": null,
-  "ramp_ratio": 0.2
+  "type": "BASIC",
+  "body_parts": {
+    "right": {
+      "type": "JOINT_POSITION",
+      "input_max": 1,
+      "input_min": -1,
+      "output_max": 0.2,
+      "output_min": -0.2,
+      "kp": 1000,
+      "damping_ratio": 1,
+      "impedance_mode": "fixed",
+      "kp_limits": [
+        0,
+        3000
+      ],
+      "damping_ratio_limits": [
+        0,
+        10
+      ],
+      "qpos_limits": null,
+      "interpolation": null,
+      "ramp_ratio": 0.2,
+      "gripper": {
+        "type": "GRIP"
+      }
+    }
+  }
 }

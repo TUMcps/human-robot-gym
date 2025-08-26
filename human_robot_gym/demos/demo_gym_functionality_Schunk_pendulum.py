@@ -1,0 +1,115 @@
+"""
+Demo for testing PFL criterion.
+With PFL, robot can move past the human with reduced speed.
+With SSM, robot cannot move past the human because it is too close
+
+Author:
+Leonardo Maglanoc
+"""
+
+import robosuite as suite
+import time
+import numpy as np  # noqa: F401
+
+from robosuite.wrappers import GymWrapper
+
+
+from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
+import human_robot_gym.environments.manipulation.reach_human_env  # noqa: F401
+import human_robot_gym.robots  # noqa: F401
+from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
+from human_robot_gym.wrappers.collision_prevention_wrapper import (
+    CollisionPreventionWrapper,
+)
+
+if __name__ == "__main__":
+    # Notice how the environment is wrapped by the wrapper
+    failsafe_config_path = file_path_completion(
+        "controllers/failsafe_controller/config/failsafe.json"
+    )
+    robot_config_path = file_path_completion("models/robots/config/schunk.json")
+
+    # Load the failsafe controller config from file
+    import json
+    with open(failsafe_config_path, 'r') as f:
+        failsafe_config = json.load(f)
+
+    # Load robot-specific limits
+    with open(robot_config_path, 'r') as f:
+        robot_config = json.load(f)
+
+    # Merge robot limits into failsafe config
+    controller_config = {'body_parts': {'right': {}}}
+    controller_config['body_parts']['right'] = merge_configs(failsafe_config['body_parts']['right'], robot_config)
+    controller_configs = [controller_config]
+
+    env = GymWrapper(
+        suite.make(
+            "ReachHuman",
+            robots="Schunk",  # use Sawyer robot
+            robot_base_offset=[0, 0, 0],
+            use_camera_obs=False,  # do not use pixel observations
+            has_offscreen_renderer=False,  # not needed since not using pixel obs
+            has_renderer=True,  # make sure we can render to the screen
+            render_camera=None,
+            renderer="mjviewer",
+            render_collision_mesh=False,
+            reward_shaping=True,  # use dense rewards
+            control_freq=5,  # control should happen fast enough so that simulation looks smooth
+            hard_reset=False,
+            horizon=1000,
+            controller_configs=controller_configs,
+            shield_type="PFL",
+            visualize_failsafe_controller=False,
+            visualize_pinocchio=False,
+            human_animation_names=["Static/tpose"],
+            base_human_pos_offset=[10.15, 0, 0.8],
+            verbose=True,
+            goal_dist=0.0001,
+        ),
+        keys=[
+            "object-state",
+            "robot0_proprio-state",
+            "goal_difference"
+        ]
+    )
+
+    env = CollisionPreventionWrapper(
+        env=env, collision_check_fn=env.check_collision_action, replace_type=0
+    )
+
+    env = VisualizationWrapper(env)
+
+    t_max = 100
+    t_episode = 1
+    # ## Main pendulum setup
+    # goals = np.array([
+    #   [-1.3, 1.5, -0.4, 1.6, -1.5, 0.0],
+    #   [0.3, 1.5, -0.4, 1.6, -1.5, 0.0]
+    # ])
+    # ## Second pendulum setup
+    goals = np.array([
+      [0.0, np.pi/8, -3*np.pi/4, 0.0, 3*np.pi/8, 0.0],
+      [0.0, 3*np.pi/16, -5/8 * np.pi, 0.0, 5/16*np.pi, 0.0],
+      [0.0, np.pi/4, -np.pi/2, 0.0, np.pi/4, 0.0]
+    ])
+    # ## Third pendulum setup
+    # goals = np.array([
+    #   [1.0, 1.0, -1.5, np.pi/2, 1.5, 0.0],
+    #   [-0.3, 1.0, -1.5, np.pi/2, 1.5, 0.0]
+    # ])
+
+    for i_episode in range(t_episode):
+        observation = env.reset()
+        t1 = time.time()
+        for t in range(t_max):
+            action = np.zeros(7)
+            pos = np.array([env.sim.data.qpos[x] for x in env.robots[0]._ref_joint_pos_indexes])
+            goal_idx = np.round(t/t_max * (goals.shape[0] - 1)).astype(int)
+            goal = goals[goal_idx]
+            action[:6] = np.clip(goal-pos, -1, 1)
+            observation, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
+            time.sleep(0.025)
+            if done or t == t_max:
+                break
