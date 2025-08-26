@@ -91,47 +91,47 @@ pages:
     paths:
       - public
 
-build dockerimage:
-  image: docker:19.03.12
-  variables:
-    DOCKER_TLS_CERTDIR: "/certs"
-  stage: build
-  tags: [docker]
-  services:
-    - docker:19.03.12-dind
-  before_script:
-      - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  script:
-    - docker build -t ${CI_REGISTRY_IMAGE} -f Dockerfile.build .
-    - docker push ${CI_REGISTRY_IMAGE}
-  rules:
-    - changes:
-      - Dockerfile.build
-      - requirements.txt
-      - environment.yml
-    - if: $CI_PIPELINE_SOURCE == "schedule"
+# build dockerimage:
+#   image: docker:19.03.12
+#   variables:
+#     DOCKER_TLS_CERTDIR: "/certs"
+#   stage: build
+#   tags: [docker]
+#   services:
+#     - docker:19.03.12-dind
+#   before_script:
+#       - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+#   script:
+#     - docker build -t ${CI_REGISTRY_IMAGE} -f Dockerfile.build .
+#     - docker push ${CI_REGISTRY_IMAGE}
+#   rules:
+#     - changes:
+#       - Dockerfile.build
+#       - requirements.txt
+#       - environment.yml
+#     - if: $CI_PIPELINE_SOURCE == "schedule"
 
 
-build:
-  image:
-    name: ${CI_REGISTRY_IMAGE}
-  stage: build
-  needs:
-    - job: build dockerimage
-      optional: true
-  tags: [python, unittest]
-  script:
-    - pwd
-    - source /root/.bashrc
-    - export CONDA_PREFIX=/opt/conda/envs/hrgym/
-    - cd human_robot_gym/controllers/failsafe_controller/sara-shield/
-    - export EIGEN3_INCLUDE_DIR=/usr/include/eigen3/eigen-3.4.0
-    - echo $EIGEN3_INCLUDE_DIR
-    - sudo -E /opt/conda/envs/hrgym/bin/pip install .
-    - /opt/conda/envs/hrgym/bin/python -c "import safety_shield_py"
-    - /opt/conda/envs/hrgym/bin/python -c "from safety_shield_py import SafetyShield, ShieldType, ContactType, AABB"
-    - cd /builds/cps-rl/human-robot-gym
-    - /opt/conda/envs/hrgym/bin/pip install .
-    - /opt/conda/envs/hrgym/bin/python -c "import human_robot_gym"
-    # There is a mysterious invalid chunk size error in the pipeline.
-    # - /opt/conda/envs/hrgym/bin/python -c "import human_robot_gym"
+# build:
+#   image:
+#     name: ${CI_REGISTRY_IMAGE}
+#   stage: build
+#   needs:
+#     - job: build dockerimage
+#       optional: true
+#   tags: [python, unittest]
+#   script:
+#     - pwd
+#     - source /root/.bashrc
+#     - export CONDA_PREFIX=/opt/conda/envs/hrgym/
+#     - cd human_robot_gym/controllers/failsafe_controller/sara-shield/
+#     - export EIGEN3_INCLUDE_DIR=/usr/include/eigen3/eigen-3.4.0
+#     - echo $EIGEN3_INCLUDE_DIR
+#     - sudo -E /opt/conda/envs/hrgym/bin/pip install .
+#     - /opt/conda/envs/hrgym/bin/python -c "import safety_shield_py"
+#     - /opt/conda/envs/hrgym/bin/python -c "from safety_shield_py import SafetyShield, ShieldType, ContactType, AABB"
+#     - cd /builds/cps-rl/human-robot-gym
+#     - /opt/conda/envs/hrgym/bin/pip install .
+#     - /opt/conda/envs/hrgym/bin/python -c "import human_robot_gym"
+#     # There is a mysterious invalid chunk size error in the pipeline.
+#     # - /opt/conda/envs/hrgym/bin/python -c "import human_robot_gym"

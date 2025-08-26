@@ -7,8 +7,6 @@ ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
 ## Install apt packages
 
-RUN curl -s https://packages.gitlab.com/gpg.key | apt-key add -
-
 RUN apt-get update --allow-insecure-repositories && \
       apt-get install -y --no-install-recommends --allow-unauthenticated \
         ca-certificates \
