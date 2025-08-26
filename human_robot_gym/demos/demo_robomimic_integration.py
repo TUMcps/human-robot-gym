@@ -114,10 +114,7 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
             obs = env.reset()
             print("✓ Environment reset successful")
             print(
-                f"  - Observation keys: {
-                  list(obs.keys()) if isinstance(obs, dict) else '\
-                    Array shape: ' + str(obs.shape) if hasattr(obs, 'shape') else 'Single value'
-                }"
+                f"  - Observation keys: {list(obs.keys()) if isinstance(obs, dict) else 'Array shape: ' + str(obs.shape) if hasattr(obs, 'shape') else 'Single value'}"  # noqa: E501
             )
 
             total_reward = 0
