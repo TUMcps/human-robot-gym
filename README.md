@@ -115,9 +115,6 @@ export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so
 ```
 to your bashrc.
 
-### E: Package 'libgl1-mesa-glx' has no installation candidate
-Try the installation without `libgl1-mesa-glx` and use this fix if the error remains: https://askubuntu.com/questions/1517352/issues-installing-libgl1-mesa-glx
-
 # Developer's guide
 To check your code for linting style:
 ```
