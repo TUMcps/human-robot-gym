@@ -24,7 +24,7 @@ class SinglePointHumanObject(MujocoXMLObject):
         name (str): Name of the human object.
     """
 
-    def __init__(self, name):  # noqa: D107
+    def __init__(self, name, mocap_file="human_reach_test_single_joint_cm_kf.yaml"):  # noqa: D107
         super().__init__(
             xml_path_completion("human/single_point_human.xml"),
             name=name,
@@ -32,11 +32,14 @@ class SinglePointHumanObject(MujocoXMLObject):
             obj_type="all",
             duplicate_collision_geoms=True,
         )
+        self.mocap_file = mocap_file
         self._setup_joint_names()
 
     def _setup_joint_names(self):
         """Define the name of all controllable and observable joints."""
-        self.joint_elements = []
+        self.joint_elements = [
+          "Head"
+        ]
         self.joint_names = []
         for joint in self.joint_elements:
             self.joint_names.append(self.naming_prefix + joint + "_x")

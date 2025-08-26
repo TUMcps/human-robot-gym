@@ -121,6 +121,7 @@ class FailsafeController(JointPositionController):
         base_pos=[0.0, 0.0, 0.0],
         base_orientation=[0.0, 0.0, 0.0, 1.0],
         shield_type="SSM",
+        mocap_file="mujoco_mocap.yaml",
         input_max=1,
         input_min=-1,
         output_max=0.05,
@@ -190,7 +191,7 @@ class FailsafeController(JointPositionController):
                 f"{dir_path}/../sara-shield/safety_shield/config/trajectory_parameters_{robot_name}.yaml"
             ),
             robot_config_file=f"{dir_path}/../sara-shield/safety_shield/config/robot_parameters_{robot_name}.yaml",
-            mocap_config_file=dir_path + "/../sara-shield/safety_shield/config/mujoco_mocap.yaml",
+            mocap_config_file=dir_path + f"/../sara-shield/safety_shield/config/{mocap_file}",
             init_x=base_pos[0],
             init_y=base_pos[1],
             init_z=base_pos[2],

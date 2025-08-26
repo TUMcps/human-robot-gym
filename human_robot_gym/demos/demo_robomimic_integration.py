@@ -94,10 +94,12 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
                 shield_type="SSM",
                 visualize_failsafe_controller=True,  # Enable failsafe visualization
                 visualize_pinocchio=False,
-                base_human_pos_offset=[0.1, 0.0, 0.0],
+                base_human_pos_offset=[0.0, 0.0, 0.0],
                 verbose=True,  # Enable verbose output for debugging
                 goal_dist=0.0001,
                 human_rand=[0.0, 0.0, 0.0],
+                human_animation_names=["SinglePoint/left_right"],
+                human_animation_freq=20
             ),
             keys=["object-state", "robot0_proprio-state"],
         )

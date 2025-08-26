@@ -53,7 +53,7 @@ class HumanSimulationMixin:
         use_simple_human: bool = True,
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_names=["CMU/62_01"],
-        human_animation_freq: float = 120,
+        human_animation_freq: float = 100,
         human_rand=[0.0, 0.0, 0.0],
         base_human_joint_pos="default",
         human_observable=True,
@@ -227,7 +227,7 @@ class HumanSimulationMixin:
 
     @property
     def human_measurement(self) -> List[np.ndarray]:
-        return [self.sim.data.get_site_xpos("Human_" + joint_element) for joint_element in self.human.joint_elements]
+        return [self.sim.data.get_site_xpos(f"{self.human.name}_" + joint_element) for joint_element in self.human.joint_elements]
 
     @property
     def human_animation_length(self) -> int:
@@ -364,7 +364,7 @@ class HumanSimulationMixin:
         # << HUMAN >>
         # Initialize human
         if self.use_simple_human:
-            self.human = SinglePointHumanObject(name="Human")
+            self.human = SinglePointHumanObject(name="SinglePointHuman")
         else:
             self.human = HumanObject(name="Human")
         # Placement sampler for human
