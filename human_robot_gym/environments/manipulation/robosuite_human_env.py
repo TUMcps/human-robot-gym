@@ -17,8 +17,6 @@ from typing import Any, Dict, Union, List, Optional, Tuple
 from robosuite.models.tasks import ManipulationTask
 
 from human_robot_gym.environments.manipulation.human_simulation_mixin import HumanSimulationMixin
-from human_robot_gym.models.objects.human.single_point_human import SinglePointHumanObject
-from robosuite.utils.placement_samplers import UniformRandomSampler
 
 
 class RoboSuiteHumanEnv(HumanSimulationMixin):
@@ -32,7 +30,6 @@ class RoboSuiteHumanEnv(HumanSimulationMixin):
     def __init__(
         self,
         robosuite_env_class,
-        use_simple_human: bool = True,
         # Human-specific parameters
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_names=["CMU/62_01"],
@@ -63,7 +60,6 @@ class RoboSuiteHumanEnv(HumanSimulationMixin):
 
         Args:
             robosuite_env_class: The robosuite environment class to wrap
-            use_simple_human: Whether to use a simplified human model as dynamic obstacle
             base_human_pos_offset: Offset for human base position
             human_animation_names: List of human animation files
             human_animation_freq: Frequency of human animation playback
@@ -88,7 +84,6 @@ class RoboSuiteHumanEnv(HumanSimulationMixin):
         # Store the robosuite environment class
         self.robosuite_env_class = robosuite_env_class
 
-        self.use_simple_human = use_simple_human
         # Store arena configuration
         self._arena_config = arena_config or self._get_default_arena_config()
 
@@ -191,25 +186,6 @@ class RoboSuiteHumanEnv(HumanSimulationMixin):
     def _load_model(self):
         """Define the mujoco models and initialize the manipulation task."""
         super()._load_model()
-
-        if self.use_simple_human:
-            self.human = SinglePointHumanObject(name="Human")
-            if self.human_placement_initializer is not None:
-                self.human_placement_initializer.reset()
-                self.human_placement_initializer.add_objects(self.human)
-            else:
-                self.human_placement_initializer = UniformRandomSampler(
-                    name="HumanSampler",
-                    mujoco_objects=self.human,
-                    x_range=[-self.human_rand[0], self.human_rand[0]],
-                    y_range=[-self.human_rand[1], self.human_rand[1]],
-                    rotation=(-self.human_rand[2], self.human_rand[2]),
-                    rotation_axis="z",
-                    ensure_object_boundary_in_range=False,
-                    ensure_valid_placement=True,
-                    reference_pos=[0.0, 0.0, 0.0],
-                    z_offset=0.0,
-                )
 
         # Setup arena (which includes human simulation setup)
         self._setup_arena()

@@ -13,7 +13,7 @@ Changelog:
     XX.XX.XX JT Created HumanSimulationMixin to eliminate code duplication
 """
 
-from typing import Any, Dict, Union, List, Optional, Tuple
+from typing import List
 
 import math
 
@@ -22,38 +22,35 @@ from scipy.spatial.transform import Rotation
 
 import pinocchio as pin
 
-from robosuite.models.tasks import ManipulationTask
 import robosuite.macros as macros
 
 from robosuite.utils.placement_samplers import UniformRandomSampler
 from robosuite.utils.transform_utils import quat2mat
 
 from human_robot_gym.models.objects.human.human import HumanObject
+from human_robot_gym.models.objects.human.single_point_human import SinglePointHumanObject
 from human_robot_gym.utils.animation_utils import load_human_animation_data
-from human_robot_gym.controllers.failsafe_controller.failsafe_controller import FailsafeController
+from human_robot_gym.controllers.failsafe_controller.failsafe_controller import FailsafeController  # noqa: F401
 
-from human_robot_gym.environments.manipulation.human_env import (
-    HumanEnv,
-    COLLISION_TYPE,
-    HumanEnvState,
-)
+from human_robot_gym.environments.manipulation.human_env import HumanEnv, COLLISION_TYPE
 
 
 class HumanSimulationMixin:
     """Mixin that adds human simulation capabilities to any robosuite environment.
-    
+
     This mixin provides:
     - Human animation and collision detection
     - Sara-shield safety controller
     - Failsafe collision prevention
     - Multi-level collision categorization
-    
+
     The mixin approach allows adding human simulation to any robosuite environment
     without code duplication or multiple inheritance issues.
     """
 
     def setup_human_simulation(
         self,
+        use_simple_human: bool = True,
         base_human_pos_offset=[0.0, 0.0, 0.0],
         human_animation_names=["CMU/62_01"],
         human_animation_freq: float = 120,
@@ -74,11 +71,12 @@ class HumanSimulationMixin:
         n_goals_sampled_per_100_steps=8,
         robot_base_offset=None,
         horizon=1000,
-        **kwargs
+        **kwargs,
     ):
         """Setup human simulation capabilities.
-        
+
         Args:
+            use_simple_human: Whether to use a simplified human model as dynamic obstacle
             base_human_pos_offset: Offset for human base position
             human_animation_names: List of human animation files
             human_animation_freq: Frequency of human animation playback
@@ -102,8 +100,9 @@ class HumanSimulationMixin:
             **kwargs: Additional arguments
         """
         macros.SIMULATION_TIMESTEP = control_sample_time
-        
+
         # Store human-specific parameters
+        self.use_simple_human = use_simple_human
         self.base_human_pos_offset = base_human_pos_offset
         self.human_animation_names = human_animation_names
         self.human_rand = human_rand
@@ -117,14 +116,14 @@ class HumanSimulationMixin:
         self.verbose = verbose
 
         if robot_base_offset is None:
-            if isinstance(getattr(self, 'robots', 'Panda'), str) or len(getattr(self, 'robots', ['Panda'])) == 1:
+            if isinstance(getattr(self, "robots", "Panda"), str) or len(getattr(self, "robots", ["Panda"])) == 1:
                 robot_base_offset = [0, 0, 0]
             else:
-                robot_base_offset = [[0, 0, 0] for robot in getattr(self, 'robots', ['Panda'])]
+                robot_base_offset = [[0, 0, 0] for robot in getattr(self, "robots", ["Panda"])]
         self.robot_base_offset = np.array(robot_base_offset)
 
         # Objects and obstacles
-        self.use_object_obs = getattr(self, 'use_object_obs', True)
+        self.use_object_obs = getattr(self, "use_object_obs", True)
         self.objects = []
         self.obstacles = []
         self.collision_obstacles_joints = dict()
@@ -184,18 +183,14 @@ class HumanSimulationMixin:
 
     def _get_arena_config(self):
         """Get environment-specific arena configuration.
-        
+
         This method should be overridden by subclasses to provide
         environment-specific configuration.
-        
+
         Returns:
             dict: Arena configuration parameters
         """
-        return {
-            "add_table": True,
-            "add_base": True,
-            "safety_margin": 0.01
-        }
+        return {"add_table": True, "add_base": True, "safety_margin": 0.01}
 
     def _setup_human_simulation_methods(self):
         """Setup human simulation methods by copying them from HumanEnv."""
@@ -232,17 +227,12 @@ class HumanSimulationMixin:
 
     @property
     def human_measurement(self) -> List[np.ndarray]:
-        return [
-            self.sim.data.get_site_xpos("Human_" + joint_element)
-            for joint_element in self.human.joint_elements
-        ]
+        return [self.sim.data.get_site_xpos("Human_" + joint_element) for joint_element in self.human.joint_elements]
 
     @property
     def human_animation_length(self) -> int:
         """Get the length of the current human animation."""
-        return self.human_animation_data[self.human_animation_id][0][
-            "Pelvis_pos_x"
-        ].shape[0]
+        return self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
 
     def _collision_detection(self):
         pass
@@ -260,8 +250,8 @@ class HumanSimulationMixin:
 
         # << OBJECTS >>
         # Setup object placement initializer
-        bin_x_half = getattr(self, 'table_full_size', (0.8, 0.8, 0.05))[0] / 2 - 0.05
-        bin_y_half = getattr(self, 'table_full_size', (0.8, 0.8, 0.05))[1] / 2 - 0.05
+        bin_x_half = getattr(self, "table_full_size", (0.8, 0.8, 0.05))[0] / 2 - 0.05
+        bin_y_half = getattr(self, "table_full_size", (0.8, 0.8, 0.05))[1] / 2 - 0.05
         self.object_placement_initializer = self._setup_placement_initializer(
             name="ObjectSampler",
             initializer=self.object_placement_initializer,
@@ -284,17 +274,14 @@ class HumanSimulationMixin:
         """Set up references to human simulation components."""
         if self.control_sample_time % self.model_timestep != 0:
             self.control_sample_time = (
-                math.floor(self.control_sample_time / float(self.model_timestep))
-                * self.model_timestep
+                math.floor(self.control_sample_time / float(self.model_timestep)) * self.model_timestep
             )
 
         simulation_step_freq = int(1.0 / float(self.model_timestep))
-        self.human_animation_step_length = (
-            simulation_step_freq / self.human_animation_freq
-        )
+        self.human_animation_step_length = simulation_step_freq / self.human_animation_freq
         assert self.human_animation_step_length >= 1, (
             "No human animation frequency faster than {} Hz is allowed".format(
-                getattr(self, 'model_freq', simulation_step_freq)
+                getattr(self, "model_freq", simulation_step_freq)
             )
         )
         self.human_joint_addr = []
@@ -303,20 +290,16 @@ class HumanSimulationMixin:
             for dim in ["_x", "_y", "_z"]:
                 joint_name = joint_element + dim
                 self.human_joint_names.append(joint_name)
-                self.human_joint_addr.append(
-                    self.sim.model.get_joint_qpos_addr(
-                        self.human.naming_prefix + joint_name
-                    )
-                )
+                self.human_joint_addr.append(self.sim.model.get_joint_qpos_addr(self.human.naming_prefix + joint_name))
 
     def reset_human_simulation(self):
         """Reset human simulation state."""
         # Quick fix for an open issue in robosuite:
         # reset the current_action values of all grippers to 0 so that actions prior to the reset have
         # no effect on the next episode
-        for robot in getattr(self, 'robots', []):
+        for robot in getattr(self, "robots", []):
             # In robosuite 1.5, all robots use FixedBaseRobot with arms dict structure
-            if hasattr(robot, 'arms') and hasattr(robot, 'has_gripper'):
+            if hasattr(robot, "arms") and hasattr(robot, "has_gripper"):
                 for arm in robot.arms:
                     if robot.has_gripper.get(arm, False):
                         robot.gripper[arm].current_action = np.zeros(robot.gripper[arm].dof)
@@ -350,16 +333,14 @@ class HumanSimulationMixin:
         self.animation_time = -1
 
         # Reset all object positions using initializer sampler if we're not directly loading from an xml
-        if not getattr(self, 'deterministic_reset', False):
+        if not getattr(self, "deterministic_reset", False):
             # Sample from the placement initializer for all objects
             human_placements = self.human_placement_initializer.sample()
             object_placements = self.object_placement_initializer.sample()
             obstacle_placements = self.obstacle_placement_initializer.sample()
             # We know we're only setting a single object (the human), so specifically set its pose
             human_pos, human_quat, _ = human_placements[self.human.name]
-            self.human_pos_offset = [
-                self.base_human_pos_offset[i] + human_pos[i] for i in range(3)
-            ]
+            self.human_pos_offset = [self.base_human_pos_offset[i] + human_pos[i] for i in range(3)]
             self.human_rot_offset = human_quat
             # Loop through all objects and reset their positions
             for obj_pos, obj_quat, obj in object_placements.values():
@@ -382,7 +363,10 @@ class HumanSimulationMixin:
         """Setup human model and placement."""
         # << HUMAN >>
         # Initialize human
-        self.human = HumanObject(name="Human")
+        if self.use_simple_human:
+            self.human = SinglePointHumanObject(name="Human")
+        else:
+            self.human = HumanObject(name="Human")
         # Placement sampler for human
         if self.human_placement_initializer is not None:
             self.human_placement_initializer.reset()
@@ -408,17 +392,17 @@ class HumanSimulationMixin:
         return obs
 
     def _check_success(self, achieved_goal=None, desired_goal=None):
-        return super()._check_success() if hasattr(super(), '_check_success') else False
+        return super()._check_success() if hasattr(super(), "_check_success") else False
 
     def _compute_reward(self, achieved_goal=None, desired_goal=None, info=None):
-        return super().reward(None) if hasattr(super(), 'reward') else 0.0
+        return super().reward(None) if hasattr(super(), "reward") else 0.0
 
     def _compute_done(self, achieved_goal=None, desired_goal=None, info=None):
         """Compute if the episode is done."""
-        if getattr(self, 'ignore_done', False):
+        if getattr(self, "ignore_done", False):
             return False
 
-        if getattr(self, 'timestep', 0) >= getattr(self, 'horizon', 1000):
+        if getattr(self, "timestep", 0) >= getattr(self, "horizon", 1000):
             return True
 
         # If we reach here, the episode is not done
