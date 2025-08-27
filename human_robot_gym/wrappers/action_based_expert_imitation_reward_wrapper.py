@@ -8,14 +8,12 @@ Author:
 Changelog:
     06.02.23 FT File creation
     13.02.23 FT Integration of requested changes
-    27.08.25 JT Changed to robosuite wrapper
 """
-from typing import List, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 import numpy as np
 
-from robosuite.environments.base import MujocoEnv
-from robosuite.wrappers import Wrapper
+from gymnasium import Wrapper, Env
 
 from human_robot_gym.demonstrations.experts.expert import Expert
 from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
@@ -50,11 +48,11 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
     """
     def __init__(
         self,
-        env: MujocoEnv,
+        env: Env,
         expert: Expert,
         alpha: float = 0,
     ):
-        assert env.action_dim == expert.action_space.shape, \
+        assert env.action_space.shape == expert.action_space.shape, \
             "Environment and expert have different action space shapes"
 
         super().__init__(env)
@@ -64,14 +62,15 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         self._imitation_rewards = None
         self._environment_rewards = None
 
-    def reset(self) -> np.ndarray:
-        """Extend environment's reset method to empty the list of environment and imitation rewards collected."""
+    def reset(
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[Any, dict[str, Any]]:
+        """Uses the :meth:`reset` of the :attr:`env` that can be overwritten to change the returned data."""
         self._imitation_rewards = []
         self._environment_rewards = []
+        return super().reset(seed=seed, options=options)
 
-        return super().reset()
-
-    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, dict]:
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, dict]:
         """Extend environment's step method to query the expert on the same observation and add an imitation reward.
 
         Args:
@@ -88,7 +87,7 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
             NotImplementedError [get_imitation_reward method not implemented in ActionBasedExpertImitationRewardWrapper]
             AssertionError [Expert observation not stored in info dict]
         """
-        obs, env_reward, done, info = super().step(action)
+        obs, env_reward, terminated, truncated, info = super().step(action)
 
         assert "previous_expert_observation" in info, "Expert observation not stored in info dict"
         expert_action = self._expert(ExpertObsWrapper.get_previous_expert_observation_from_info(info))
@@ -103,10 +102,10 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         reward = self._combine_reward(env_reward, imitation_reward)
 
         # Log the imitation and env rewards
-        if done:
+        if terminated or truncated:
             self._add_reward_to_info(info)
 
-        return obs, reward, done, info
+        return obs, reward, terminated, truncated, info
 
     def _add_reward_to_info(self, info: dict):
         """Add data to the info dict.
@@ -231,7 +230,7 @@ class JointActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRew
     """
     def __init__(
         self,
-        env: MujocoEnv,
+        env: Env,
         expert: Expert,
         alpha: float = 0,
         beta: float = 0,
@@ -349,7 +348,7 @@ class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewa
     """
     def __init__(
         self,
-        env: MujocoEnv,
+        env: Env,
         expert: Expert,
         alpha: float = 0,
         beta: float = 0,
@@ -358,7 +357,7 @@ class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewa
         m_sim_fn: str = "gaussian",
         g_sim_fn: str = "gaussian",
     ):
-        assert env.action_dim == (4,), "Environment does not have a 4-dim cartesian + gripper action space"
+        assert env.action_space.shape == (4,), "Environment does not have a 4-dim cartesian + gripper action space"
         super().__init__(env, expert, alpha)
         self._iota_m = iota_m
         self._iota_g = iota_g

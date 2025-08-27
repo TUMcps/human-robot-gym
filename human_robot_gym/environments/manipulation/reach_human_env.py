@@ -658,6 +658,7 @@ class ReachHuman(HumanEnv):
         """Visualize the goal state."""
         # arrow (type 100)
         return  # TODO goal_marker_trans is not set if robot does not inherit from pinocchio manipulator model
+        from robosuite.renderers.mjviewer.mjviewer_renderer import MjviewerRenderer
         if not isinstance(self.viewer, MjviewerRenderer):
             # Adding markers is only supported in the Mjviewer renderer
             return

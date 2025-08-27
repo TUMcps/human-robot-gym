@@ -740,7 +740,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             color = [0, 1, 0, 0.7]
         else:
             color = [0, 0, 1, 0.7]
-
+        from robosuite.renderers.mjviewer.mjviewer_renderer import MjviewerRenderer
         if not isinstance(self.viewer, MjviewerRenderer):
             # Adding markers is only supported in the Mjviewer renderer
             return

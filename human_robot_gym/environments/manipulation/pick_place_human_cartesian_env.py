@@ -354,6 +354,7 @@ class PickPlaceHumanCart(HumanEnv):
 
         self.manipulation_object = None
         self.manipulation_object_body_id = None
+        self.geom_index = None
         super().__init__(
             robots=robots,
             robot_base_offset=robot_base_offset,
@@ -771,7 +772,7 @@ class PickPlaceHumanCart(HumanEnv):
         # Absolute coordinates of object position
         @sensor(modality=obj_mod)
         def object_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return np.array(self.sim.data.get_body_xpos(self.sim.model.geom_id2name(self.manipulation_object_body_id)))
+            return np.array(self.sim.data.get_body_xpos(self.sim.model.body_id2name(self.manipulation_object_body_id)))
 
         # Vector from robot end-effector to object
         @sensor(modality=obj_mod)
@@ -884,6 +885,7 @@ class PickPlaceHumanCart(HumanEnv):
     def _visualize_goal(self):
         """Draw a sphere at the target location."""
         # sphere (type 2)
+        from robosuite.renderers.mjviewer.mjviewer_renderer import MjviewerRenderer
         if not isinstance(self.viewer, MjviewerRenderer):
             # Adding markers is only supported in the Mjviewer renderer
             return
@@ -933,6 +935,7 @@ class PickPlaceHumanCart(HumanEnv):
                 Color in the form (r, g, b, a)
         """
         # Box (type 2)
+        from robosuite.renderers.mjviewer.mjviewer_renderer import MjviewerRenderer
         if not isinstance(self.viewer, MjviewerRenderer):
             # Adding markers is only supported in the Mjviewer renderer
             return

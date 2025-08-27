@@ -473,6 +473,7 @@ class ReachHumanCart(ReachHuman):
     def _visualize_goal(self):
         """Draw a sphere at the target location."""
         # sphere (type 2)
+        from robosuite.renderers.mjviewer.mjviewer_renderer import MjviewerRenderer
         if not isinstance(self.viewer, MjviewerRenderer):
             # Adding markers is only supported in the Mjviewer renderer
             return

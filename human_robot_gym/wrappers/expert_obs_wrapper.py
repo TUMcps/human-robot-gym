@@ -134,14 +134,20 @@ class ExpertObsWrapper(Wrapper, Env):
                 ob_lst.append(np.array(obs_dict[key]).flatten())
         return np.concatenate(ob_lst)
 
-    def reset(self):
-        """Reset the environment and return flattened observation instead of normal OrderedDict.
-
-        The expert observation is internally stored as a dictionary.
+    def reset(self, seed=None, options=None):
+        """
+        Extends env reset method to return observation instead of normal OrderedDict and optionally resets seed
 
         Returns:
-            np.array: Flattened environment observation space after reset occurs
+            2-tuple:
+                - (np.array) observations from the environment
+                - (dict) an empty dictionary, as part of the standard return format
         """
+        if seed is not None:
+            if isinstance(seed, int):
+                np.random.seed(seed)
+            else:
+                raise TypeError("Seed must be an integer type!")
         obs_dict = self.env.reset()
 
         self._previous_expert_observation = None

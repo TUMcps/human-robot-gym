@@ -1117,6 +1117,7 @@ class CollaborativeStackingCart(HumanEnv):
                 Color in the form (r, g, b, a)
         """
         # Box (type 2)
+        from robosuite.renderers.mjviewer.mjviewer_renderer import MjviewerRenderer
         if not isinstance(self.viewer, MjviewerRenderer):
             # Adding markers is only supported in the Mjviewer renderer
             return
