@@ -282,6 +282,8 @@ class ReachHumanCart(ReachHuman):
     ):  # noqa: D107
         self.init_joint_pos = init_joint_pos
         self.sampling_space = np.array([[0.1, -0.5, 0.8], [0.5, 0.5, 1.3]])
+        self.geom_index = None
+
         super().__init__(
             robots=robots,
             robot_base_offset=robot_base_offset,
@@ -471,10 +473,14 @@ class ReachHumanCart(ReachHuman):
     def _visualize_goal(self):
         """Draw a sphere at the target location."""
         # sphere (type 2)
-        geom_index = self.viewer.viewer.user_scn.ngeom
-        self.viewer.viewer.user_scn.ngeom = self.viewer.viewer.user_scn.ngeom + 1
+        if not isinstance(self.viewer, MjviewerRenderer):
+            # Adding markers is only supported in the Mjviewer renderer
+            return
+        if self.geom_index is None:
+            self.geom_index = self.viewer.viewer.user_scn.ngeom
+            self.viewer.viewer.user_scn.ngeom = self.viewer.viewer.user_scn.ngeom + 1
         mujoco.mjv_initGeom(
-            self.viewer.viewer.user_scn.geoms[geom_index],
+            self.viewer.viewer.user_scn.geoms[self.geom_index],
             type=mujoco.mjtGeom.mjGEOM_SPHERE,
             size=np.array([self.goal_dist, self.goal_dist, self.goal_dist]),
             pos=self.goal_marker_trans,

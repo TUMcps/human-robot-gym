@@ -379,6 +379,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         self._mocap_body_name = "mocap_object"
 
         self._n_object_handed_over = None
+        self.geom_index = None
 
         super().__init__(
             robots=robots,
@@ -691,7 +692,7 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         Args:
             status (bool): Whether or not the equality constraint should be active.
         """
-        self.sim.model.eq_active[self._manipulation_object_weld_eq_id] = int(status)
+        self.sim.data.eq_active[self.sim.model.eq("manipulation_object_weld").id] = int(status)
 
     def _human_drop_object(self):
         """Separate the human from the object."""
@@ -740,13 +741,19 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
         else:
             color = [0, 0, 1, 0.7]
 
-        self.viewer.viewer.add_marker(
-            pos=self.target_pos,
+        if not isinstance(self.viewer, MjviewerRenderer):
+            # Adding markers is only supported in the Mjviewer renderer
+            return
+        if self.geom_index is None:
+            self.geom_index = self.viewer.viewer.user_scn.ngeom
+            self.viewer.viewer.user_scn.ngeom = self.viewer.viewer.user_scn.ngeom + 1
+        mujoco.mjv_initGeom(
+            self.viewer.viewer.user_scn.geoms[self.geom_index],
             type=2,
-            size=[self.goal_dist, self.goal_dist, self.goal_dist],
-            rgba=color,
-            label="",
-            shininess=0.0,
+            size=np.array([self.goal_dist, self.goal_dist, self.goal_dist]),
+            pos=self.target_pos,
+            mat=np.eye(3).flatten(),
+            rgba=color
         )
 
     def _visualize(self):
@@ -821,9 +828,9 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             objects=self.obstacles,
         )
 
-    def _postprocess_model(self):
+    def _load_model(self):
         """Extend super class method to add additional elements to the model before creating the sim object."""
-        super()._postprocess_model()
+        super()._load_model()
 
         # Object at the human hand (position and rotation), handover object may be welded to it
         self._add_mocap_body_to_model()
@@ -896,11 +903,6 @@ class HumanRobotHandoverCart(PickPlaceHumanCart):
             AssertionError: If any of the references could not be found.
         """
         super()._setup_references()
-        self._manipulation_object_weld_eq_id = mujoco.mj_name2id(
-            self.sim.model, mujoco.mjtObj.mjOBJ_EQUALITY, "manipulation_object_weld"
-        )
-
-        assert self._manipulation_object_weld_eq_id != -1
 
     def _setup_observables(self) -> OrderedDict[str, Observable]:
         """Extend super class method to add additional observables.

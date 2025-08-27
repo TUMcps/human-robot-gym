@@ -116,8 +116,7 @@ if __name__ == "__main__":
         t1 = time.time()
         for t in range(t_max):
             # testing environment structure
-            eef_site_name = env.sim.model.site_id2name(env.robots[0].eef_site_id[env.robots[0].arms[0]])
-            eef_pos = env.sim.data.get_site_xpos(eef_site_name)
+            eef_pos = env._eef_xpos
             goal = env.desired_goal
             action = agent()
             observation, reward, terminated, truncated, info = env.step(action)

@@ -65,6 +65,9 @@ class KeyboardController:
     def _setup_key_callback(self):
         """Set up the unified key callback system for the new MuJoCo viewer API."""
         # Track key states since MuJoCo viewer only provides press events
+        if not isinstance(self._mj_renderer, MjviewerRenderer):
+            raise ValueError("The keyboard controller is only supported for MjviewerRenderer. \
+                              Set renderer='mjviewer' when creating the environment.")
         self._key_states = {}
 
         def unified_key_callback(keycode):
@@ -92,7 +95,10 @@ class KeyboardController:
             self._mj_renderer._original_update = self._mj_renderer.update
 
         def patched_update():
-            if self._viewer is None or not hasattr(self._viewer, "custom_key_callback_initialized"):
+            if self._viewer is not None and not hasattr(self._viewer, "custom_key_callback_initialized"):
+                self._viewer.close()
+                self._mj_renderer.viewer = None  # Force re-creation of the viewer with custom callback
+            if self._viewer is None:
                 # Create the viewer with our key callback
                 self._mj_renderer.viewer = mujoco.viewer.launch_passive(
                     self._mj_renderer.env.sim.model._model,

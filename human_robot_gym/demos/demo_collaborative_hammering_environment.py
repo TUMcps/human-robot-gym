@@ -130,6 +130,7 @@ if __name__ == "__main__":
         has_offscreen_renderer=False,  # not needed since not using pixel obs
         has_renderer=True,  # make sure we can render to the screen
         render_camera=None,
+        renderer='mjviewer',
         render_collision_mesh=False,
         control_freq=5,  # control should happen fast enough so that simulation looks smooth
         hard_reset=False,
@@ -145,6 +146,12 @@ if __name__ == "__main__":
         seed=0,
     )
 
+    rsenv = CollisionPreventionWrapper(
+        env=rsenv, collision_check_fn=rsenv.check_collision_action, replace_type=0,
+    )
+    action_limits = np.array([[-0.1, -0.1, -0.1], [0.1, 0.1, 0.1]])
+    rsenv = IKPositionDeltaWrapper(env=rsenv, urdf_file=pybullet_urdf_file, action_limits=action_limits)
+    rsenv = VisualizationWrapper(rsenv)
     env = ExpertObsWrapper(
         env=rsenv,
         agent_keys=[
@@ -157,12 +164,6 @@ if __name__ == "__main__":
             "vec_eef_to_nail",
         ]
     )
-    env = CollisionPreventionWrapper(
-        env=env, collision_check_fn=env.check_collision_action, replace_type=0,
-    )
-    env = VisualizationWrapper(env)
-    action_limits = np.array([[-0.1, -0.1, -0.1], [0.1, 0.1, 0.1]])
-    env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file, action_limits=action_limits)
     kb_agent = KeyboardControllerAgentCart(env=env)
     expert = CollaborativeHammeringCartExpert(
         observation_space=env.observation_space,

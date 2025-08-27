@@ -28,9 +28,11 @@ import xml.etree.ElementTree as ET
 import mujoco
 
 import numpy as np
-from robosuite.utils.observables import Observable, sensor
+
 from scipy.spatial.transform import Rotation
 
+from robosuite.renderers.mjviewer.mjviewer_renderer import MjviewerRenderer
+from robosuite.utils.observables import Observable, sensor
 from robosuite.models.arenas import TableArena
 from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.models.objects.composite import HammerObject
@@ -398,9 +400,7 @@ class CollaborativeHammeringCart(HumanEnv):
         # On PRESENT, replace the weld by a connect eq
         self._rh_connect_eq_name = "rh_backup_eq"
 
-        self._lh_eq_id = None
-        self._rh_eq_id = None
-        self._rh_connect_eq_id = None
+        self.geom_index = None
 
         super().__init__(
             robots=robots,
@@ -802,7 +802,8 @@ class CollaborativeHammeringCart(HumanEnv):
         """Securely grasp the hammer with the robot gripper."""
         rotation_quat = rot_to_quat(Rotation.from_euler("y", np.pi / 2))
         sim_time = self.sim.data.time
-
+        robot = self.robots[0]
+        controller = robot.composite_controller.part_controllers[robot.arms[0]]
         for _ in range(100):
             self.sim.data.set_joint_qpos(
                 "hammer_joint0",
@@ -814,10 +815,8 @@ class CollaborativeHammeringCart(HumanEnv):
                 )
             )
             # Execute no-op action with gravity compensation
-            self.sim.data.ctrl[self.robots[0]._ref_joint_actuator_indexes] = self.robots[
-                0
-            ].controller.torque_compensation
-            self.robots[0].grip_action(gripper=self.robots[0].gripper, gripper_action=[1])
+            self.sim.data.ctrl[robot._ref_arm_joint_actuator_indexes] = controller.torque_compensation
+            robot.part_controllers[f'{robot.arms[0]}_gripper'].set_goal([0, 0])
             self.sim.step()
 
         # Reset time value
@@ -825,16 +824,16 @@ class CollaborativeHammeringCart(HumanEnv):
 
     def _human_drop_board_onto_table(self):
         """Make the human release the board with one hand so it lays flat on the table"""
-        self.sim.model.eq_active[self.lh_eq_id] = 0
-        self.sim.model.eq_active[self.rh_eq_id] = 0
-        self.sim.model.eq_active[self.rh_connect_eq_id] = 1
+        self.sim.data.eq_active[self.sim.model.eq(self._lh_eq_name).id] = 0
+        self.sim.data.eq_active[self.sim.model.eq(self._rh_eq_name).id] = 0
+        self.sim.data.eq_active[self.sim.model.eq(self._rh_connect_eq_name).id] = 1
         self.sim.forward()
 
     def _human_take_board_from_table(self):
         """Make the human pick up the board with the second hand."""
-        self.sim.model.eq_active[self.lh_eq_id] = 1
-        self.sim.model.eq_active[self.rh_eq_id] = 1
-        self.sim.model.eq_active[self.rh_connect_eq_id] = 0
+        self.sim.data.eq_active[self.sim.model.eq(self._lh_eq_name).id] = 1
+        self.sim.data.eq_active[self.sim.model.eq(self._rh_eq_name).id] = 1
+        self.sim.data.eq_active[self.sim.model.eq(self._rh_connect_eq_name).id] = 0
 
     def _get_default_nail_sample_space_boundaries(self) -> Tuple[float, float, float, float]:
         """Get the x and y boundaries of the nail sampling space.
@@ -860,7 +859,7 @@ class CollaborativeHammeringCart(HumanEnv):
     def _visualize_nail_sample_space(self):
         """Draw a red box to indicate the sampling space of nail placements on the board."""
         boundaries = self._get_default_nail_sample_space_boundaries()
-        body_quat = self.sim.data.get_body_xquat(self.sim.model.geom_id2name(self.board_body_id))
+        body_quat = self.sim.data.get_body_xquat(self.sim.model.body_id2name(self.board_body_id))
         offset = quat_to_rot(body_quat).apply(
             np.array(
                 [
@@ -871,21 +870,25 @@ class CollaborativeHammeringCart(HumanEnv):
             )
         )
 
-        self.viewer.viewer.add_marker(
-
-            pos=self.sim.data.get_body_xpos(self.sim.model.body_id2name(self.board_body_id)) + offset,
+        if not isinstance(self.viewer, MjviewerRenderer):
+            # Adding markers is only supported in the Mjviewer renderer
+            return
+        if self.geom_index is None:
+            self.geom_index = self.viewer.viewer.user_scn.ngeom
+            self.viewer.viewer.user_scn.ngeom = self.viewer.viewer.user_scn.ngeom + 1
+        mujoco.mjv_initGeom(
+            self.viewer.viewer.user_scn.geoms[self.geom_index],
             type=6,
-            size=[
+            size=np.array([
                 (boundaries[1] - boundaries[0]) * 0.5,
                 (boundaries[3] - boundaries[2]) * 0.5,
                 0.05,
-            ],
+            ]),
+            pos=self.sim.data.get_body_xpos(self.sim.model.body_id2name(self.board_body_id)) + offset,
             mat=quat_to_rot(
-                self.sim.data.get_body_xquat(self.sim.model.geom_id2name(self.board_body_id))
-            ).as_matrix(),
-            label="",
-            shininess=0,
-            rgba=[1, 0, 0, 0.2],
+                self.sim.data.get_body_xquat(self.sim.model.body_id2name(self.board_body_id))
+            ).as_matrix().flatten(),
+            rgba=[1, 0, 0, 0.2]
         )
 
     def _setup_arena(self):
@@ -958,9 +961,9 @@ class CollaborativeHammeringCart(HumanEnv):
             objects=self.obstacles,
         )
 
-    def _postprocess_model(self):
+    def _load_model(self):
         """Add the mocap bodies, nail, and equalities to the model before the sim is created."""
-        super()._postprocess_model()
+        super()._load_model()
 
         r_anchor = "-0.5 -0.2 0"
         l_anchor = "-0.1 0.2 0"
@@ -1162,22 +1165,6 @@ class CollaborativeHammeringCart(HumanEnv):
         self.sim.model.opt.noslip_iterations = 20
         self.board_body_id = self.sim.model.body_name2id(self.board.root_body)
         self.hammer_body_id = self.sim.model.body_name2id(self.hammer.root_body)
-
-        self.lh_eq_id = mujoco.mj_name2id(
-            self.sim.model, mujoco.mjtObj.mjOBJ_EQUALITY, self._lh_eq_name,
-        )
-
-        self.rh_eq_id = mujoco.mj_name2id(
-            self.sim.model, mujoco.mjtObj.mjOBJ_EQUALITY, self._rh_eq_name,
-        )
-
-        self.rh_connect_eq_id = mujoco.mj_name2id(
-            self.sim.model, mujoco.mjtObj.mjOBJ_EQUALITY, self._rh_connect_eq_name,
-        )
-
-        assert self.lh_eq_id != -1
-        assert self.rh_eq_id != -1
-        assert self.rh_connect_eq_id != -1
 
     def _setup_observables(self) -> OrderedDict[str, Observable]:
         """Setup environment-specific observation values."""

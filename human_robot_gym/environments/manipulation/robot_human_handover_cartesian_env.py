@@ -27,8 +27,8 @@ from dataclasses import asdict, dataclass
 import xml.etree.ElementTree as ET
 
 import numpy as np
-from scipy.spatial.transform import Rotation
 import mujoco
+from scipy.spatial.transform import Rotation
 
 from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.mjcf_utils import find_elements
@@ -380,6 +380,7 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         self._manipulation_object_weld_eq_id = None
         self._mocap_body_name = "mocap_object"
         self._manipulation_object_grip_body_name = "manipulation_object_grip"
+        self.geom_index = None
 
         super().__init__(
             robots=robots,
@@ -717,7 +718,7 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         Args:
             status (bool): Whether or not the equality constraint should be active.
         """
-        self.sim.model.eq_active[self._manipulation_object_weld_eq_id] = int(status)
+        self.sim.data.eq_active[self.sim.model.eq("manipulation_object_weld").id] = int(status)
 
     def _human_drop_object(self):
         """Separate the human from the object.
@@ -783,13 +784,19 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         else:
             color = [0, 1, 0, 0.7]
 
-        self.viewer.viewer.add_marker(
-            pos=self.target_pos,
+        if not isinstance(self.viewer, MjviewerRenderer):
+            # Adding markers is only supported in the Mjviewer renderer
+            return
+        if self.geom_index is None:
+            self.geom_index = self.viewer.viewer.user_scn.ngeom
+            self.viewer.viewer.user_scn.ngeom = self.viewer.viewer.user_scn.ngeom + 1
+        mujoco.mjv_initGeom(
+            self.viewer.viewer.user_scn.geoms[self.geom_index],
             type=2,
-            size=[self.goal_dist, self.goal_dist, self.goal_dist],
-            rgba=color,
-            label="",
-            shininess=0.0,
+            size=np.array([self.goal_dist, self.goal_dist, self.goal_dist]),
+            pos=self.target_pos,
+            mat=np.eye(3).flatten(),
+            rgba=color
         )
 
     def _visualize(self):
@@ -850,9 +857,9 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
             objects=self.obstacles,
         )
 
-    def _postprocess_model(self):
+    def _load_model(self):
         """Extend super class method to add additional elements to the model before creating the sim object."""
-        super()._postprocess_model()
+        super()._load_model()
 
         # Object at the human hand (position and rotation), handover object may be welded to it
         self._add_mocap_body_to_model()
@@ -970,9 +977,6 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
             AssertionError: If any of the references could not be found.
         """
         super()._setup_references()
-        self._manipulation_object_weld_eq_id = mujoco.mj_name2id(
-            self.sim.model, mujoco.mjtObj.mjOBJ_EQUALITY, "manipulation_object_weld"
-        )
 
         self._l_palm_contact_geom_id = self.sim.model.geom_name2id("Human_L_Palm_collision")
         self._r_palm_contact_geom_id = self.sim.model.geom_name2id("Human_R_Palm_collision")

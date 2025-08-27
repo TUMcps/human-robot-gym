@@ -32,10 +32,9 @@ from enum import Enum
 from dataclasses import asdict, dataclass
 
 import numpy as np
+import mujoco
 
 from scipy.spatial.transform import Rotation
-
-import mujoco
 
 import xml.etree.ElementTree as ET
 
@@ -429,6 +428,7 @@ class CollaborativeStackingCart(HumanEnv):
 
         self.manipulation_objects = None
         self._manipulation_objects_body_ids = None
+        self.geom_index = None
 
         super().__init__(
             robots=robots,
@@ -1001,9 +1001,9 @@ class CollaborativeStackingCart(HumanEnv):
 
         self._human_pickup_objects()
 
-    def _set_equality_status(self, equality_id: int, status: bool):
+    def _set_equality_status(self, equality_name: str, status: bool):
         """Activate/deactivate an equality constraint."""
-        self.sim.model.eq_active[equality_id] = int(status)
+        self.sim.data.eq_active[self.sim.model.eq(equality_name).id] = int(status)
 
     def _human_place_first_object(self):
         """Release the first object to place on the stack from the human's hand."""
@@ -1046,16 +1046,16 @@ class CollaborativeStackingCart(HumanEnv):
 
     def _human_drop_left_object(self):
         """Release the cube from the human's left hand."""
-        self._set_equality_status(self._l_weld_eq_id, False)
+        self._set_equality_status(self._l_weld_eq_name, False)
 
     def _human_drop_right_object(self):
         """Release the cube from the human's right hand."""
-        self._set_equality_status(self._r_weld_eq_id, False)
+        self._set_equality_status(self._r_weld_eq_name, False)
 
     def _human_pickup_objects(self):
         """Activate both constraints that connect the cubes to the human's hands."""
-        self._set_equality_status(self._l_weld_eq_id, True)
-        self._set_equality_status(self._r_weld_eq_id, True)
+        self._set_equality_status(self._l_weld_eq_name, True)
+        self._set_equality_status(self._r_weld_eq_name, True)
 
     def _get_default_object_bin_boundaries(self) -> Tuple[float, float, float, float]:
         """Get the x and y boundaries of the target sampling space.
@@ -1077,13 +1077,15 @@ class CollaborativeStackingCart(HumanEnv):
     def _visualize_next_target_location(self):
         """Draw a box to display the target location for the next cube to place."""
         if (pos := self.next_target_position) is not None:
-            self.viewer.viewer.add_marker(
-                pos=pos,
+            geom_index = self.viewer.viewer.user_scn.ngeom
+            self.viewer.viewer.user_scn.ngeom = self.viewer.viewer.user_scn.ngeom + 1
+            mujoco.mjv_initGeom(
+                self.viewer.viewer.user_scn.geoms[geom_index],
                 type=6,
-                size=[self.goal_dist, self.goal_dist, self.goal_dist],
-                rgba=[0, 1, 0, 0.3],
-                label="",
-                shininess=0.0,
+                size=np.array([self.goal_dist, self.goal_dist, self.goal_dist]),
+                pos=pos,
+                mat=np.eye(3).flatten(),
+                rgba=[0, 1, 0, 0.3]
             )
 
     def _visualize_object_sample_space(self):
@@ -1115,21 +1117,27 @@ class CollaborativeStackingCart(HumanEnv):
                 Color in the form (r, g, b, a)
         """
         # Box (type 2)
-        self.viewer.viewer.add_marker(
+        if not isinstance(self.viewer, MjviewerRenderer):
+            # Adding markers is only supported in the Mjviewer renderer
+            return
+        if self.geom_index is None:
+            self.geom_index = self.viewer.viewer.user_scn.ngeom
+            self.viewer.viewer.user_scn.ngeom = self.viewer.viewer.user_scn.ngeom + 1
+        mujoco.mjv_initGeom(
+            self.viewer.viewer.user_scn.geoms[self.geom_index],
+            type=6,
+            size=np.array([
+                (boundaries[1] - boundaries[0]) * 0.5,
+                (boundaries[3] - boundaries[2]) * 0.5,
+                (boundaries[5] - boundaries[4]) * 0.5,
+            ]),
             pos=np.array([
                 (boundaries[0] + boundaries[1]) / 2,
                 (boundaries[2] + boundaries[3]) / 2,
                 (boundaries[5] + boundaries[4]) / 2,
             ]),
-            type=6,
-            size=[
-                (boundaries[1] - boundaries[0]) * 0.5,
-                (boundaries[3] - boundaries[2]) * 0.5,
-                (boundaries[5] - boundaries[4]) * 0.5,
-            ],
-            rgba=color,
-            label="",
-            shininess=0.0,
+            mat=np.eye(3).flatten(),
+            rgba=color
         )
 
     def _setup_arena(self):
@@ -1204,9 +1212,9 @@ class CollaborativeStackingCart(HumanEnv):
             objects=self.obstacles,
         )
 
-    def _postprocess_model(self):
+    def _load_model(self):
         """Extend super class method to add additional elements to the model before creating the sim object."""
-        super()._postprocess_model()
+        super()._load_model()
 
         # Objects at the human's hands (position and rotation), cubes may be welded to it
         self._add_mocap_bodies_to_model()
@@ -1297,13 +1305,6 @@ class CollaborativeStackingCart(HumanEnv):
         self._l_cube_body_id = self.sim.model.body_name2id(self.l_cube.root_body)
         self._r_cube_body_id = self.sim.model.body_name2id(self.r_cube.root_body)
 
-        self._l_weld_eq_id = mujoco.mj_name2id(
-            self.sim.model, mujoco.mjtObj.mjOBJ_EQUALITY, self._l_weld_eq_name,
-        )
-
-        self._r_weld_eq_id = mujoco.mj_name2id(
-            self.sim.model, mujoco.mjtObj.mjOBJ_EQUALITY, self._r_weld_eq_name,
-        )
 
     def _setup_observables(self) -> OrderedDict[str, Observable]:
         """Set up observables to be used for this environment.

@@ -468,6 +468,16 @@ class HumanEnv(ManipulationEnv):
         """Get the length of the current human animation."""
         return self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
 
+    @property
+    def _eef_xpos(self) -> np.ndarray:
+        eef_site_name = self.sim.model.site_id2name(self.robots[0].eef_site_id[self.robots[0].arms[0]])
+        return self.sim.data.get_site_xpos(eef_site_name)
+
+    @property
+    def _eef_xmat(self) -> np.ndarray:
+        eef_site_name = self.sim.model.site_id2name(self.robots[0].eef_site_id[self.robots[0].arms[0]])
+        return self.sim.data.get_site_xmat(eef_site_name)
+
     def step(self, action):
         """Override base step function.
 

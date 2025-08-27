@@ -18,6 +18,7 @@ from typing import Any, Dict, Union, List, Optional, Tuple
 from dataclasses import asdict, dataclass
 
 import numpy as np
+import mujoco
 
 from robosuite.models.arenas import TableArena
 from robosuite.utils.observables import Observable, sensor
@@ -657,14 +658,19 @@ class ReachHuman(HumanEnv):
         """Visualize the goal state."""
         # arrow (type 100)
         return  # TODO goal_marker_trans is not set if robot does not inherit from pinocchio manipulator model
-        self.viewer.viewer.add_marker(
-            pos=self.goal_marker_trans,
+        if not isinstance(self.viewer, MjviewerRenderer):
+            # Adding markers is only supported in the Mjviewer renderer
+            return
+        if self.geom_index is None:
+            self.geom_index = self.viewer.viewer.user_scn.ngeom
+            self.viewer.viewer.user_scn.ngeom = self.viewer.viewer.user_scn.ngeom + 1
+        mujoco.mjv_initGeom(
+            self.viewer.viewer.user_scn.geoms[self.geom_index],
             type=100,
-            size=[0.01, 0.01, 0.2],
+            size=np.array([0.01, 0.01, 0.2]),
+            pos=self.goal_marker_trans,
             mat=self.goal_marker_rot,
-            rgba=[0.0, 1.0, 0.0, 0.7],
-            label="",
-            shininess=0.0,
+            rgba=[0.0, 1.0, 0.0, 0.7]
         )
 
     def get_environment_state(self) -> ReachHumanEnvState:
