@@ -179,12 +179,12 @@ class PickPlaceHumanCartExpert(Expert):
         """
         if self._object_delivered(obs) and self._gripper_fully_opened(obs):
             return self._move_to_above_object(obs=obs)
-        elif self._above_object(obs) and self._gripper_fully_opened(obs):
-            return self._move_to_object(obs)
         elif self._above_target(obs) and obs.object_gripped:
             return self._move_to_target(obs)
         elif obs.object_gripped:
             return self._move_to_above_target(obs)
+        elif self._above_object(obs):  # and self._gripper_fully_opened(obs):
+            return self._move_to_object(obs)
         else:
             return self._move_to_above_object(obs)
 
