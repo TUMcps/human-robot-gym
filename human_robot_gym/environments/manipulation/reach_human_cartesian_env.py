@@ -402,7 +402,8 @@ class ReachHumanCart(ReachHuman):
         if prefix + "eef_velp" in observables:
             observables[prefix + "eef_velp"].set_active(True)
 
-        _eef_velp = self.sim.data.site_xvelp[self.robots[0].eef_site_id]
+        eef_site_name = self.sim.model.site_id2name(self.robots[0].eef_site_id[self.robots[0].arms[0]])
+        _eef_velp = self.sim.data.get_site_xvelp(eef_site_name)
 
         # define observables modality
         modality = f"{prefix}proprio"
@@ -418,7 +419,9 @@ class ReachHumanCart(ReachHuman):
 
         @sensor(modality=modality)
         def goal_difference(obs_cache):
-            return self.desired_goal - np.array(self.sim.data.site_xpos[self.robots[0].eef_site_id])
+            return self.desired_goal - np.array(
+                self.sim.data.get_site_xpos(eef_site_name)
+            )
 
         sensors = [eef_velp, goal_difference]
         names = [s.__name__ for s in sensors]
@@ -443,7 +446,7 @@ class ReachHumanCart(ReachHuman):
             joint configuration (np.array)
         """
         robot = self.robots[0]
-        pos_limits = np.array(robot.controller.position_limits)
+        pos_limits = np.array(robot.composite_controller.part_controllers[robot.arms[0]].position_limits)
         goal = self.init_joint_pos
         for i in range(20):
             rand = np.random.rand(pos_limits.shape[1])

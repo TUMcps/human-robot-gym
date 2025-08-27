@@ -10,6 +10,7 @@ import numpy as np
 import pybullet as p
 from gymnasium.core import Wrapper
 from gymnasium.spaces import Box
+from scipy.spatial.transform import Rotation
 
 
 class IKPositionDeltaWrapper(Wrapper):
@@ -53,24 +54,34 @@ class IKPositionDeltaWrapper(Wrapper):
         """
         super().__init__(env)
         self.urdf_file = urdf_file
-
-        self.base_position = env.robots[0].base_pos
-        self.base_orientation = env.robots[0].base_ori
-        self.num_joints = len(env.robots[0].init_qpos)
+        unwrapped_env = env.unwrapped
+        self.base_position = unwrapped_env.robots[0].base_pos
+        self.base_orientation = unwrapped_env.robots[0].base_ori
+        self.num_joints = len(unwrapped_env.robots[0].init_qpos)
         self.end_effector_index = self.num_joints
 
         # pybullet for inverse kinematics
         self.p_client_id = p.connect(p.DIRECT)
+        
+        # Convert base orientation from rotation matrix to quaternion for PyBullet
+        if self.base_orientation.shape == (3, 3):
+            # Convert 3x3 rotation matrix to quaternion [x, y, z, w]
+            rotation = Rotation.from_matrix(self.base_orientation)
+            base_orientation_quat = rotation.as_quat()  # Returns [x, y, z, w]
+        else:
+            # Assume it's already in the correct format
+            base_orientation_quat = self.base_orientation
+            
         self.p_robot_id = p.loadURDF(
             fileName=self.urdf_file,
             basePosition=self.base_position,
-            baseOrientation=self.base_orientation,
+            baseOrientation=base_orientation_quat,
         )
         self.residual_threshold = residual_threshold
         self.max_iter = max_iter
 
         # get and maintain initial orientation
-        init_q = env.robots[0].init_qpos
+        init_q = unwrapped_env.robots[0].init_qpos
         for i in range(self.num_joints):
             p.resetJointState(self.p_robot_id, i, init_q[i])
         ee_state = p.getLinkState(self.p_robot_id, self.end_effector_index)
@@ -81,7 +92,9 @@ class IKPositionDeltaWrapper(Wrapper):
         self.target_orientation = init_ori
 
         # Redefining action space
-        self.gripper_action_dim = env.robots[0].gripper.dof
+        # Calculate gripper DOF: total action dim - robot DOF  
+        robot = unwrapped_env.robots[0]
+        self.gripper_action_dim = robot.action_dim - robot.dof
         action_lb = np.append(action_limits[0], -np.ones(self.gripper_action_dim))
         action_ub = np.append(action_limits[1], np.ones(self.gripper_action_dim))
         self.action_space = Box(low=action_lb, high=action_ub)
@@ -104,7 +117,7 @@ class IKPositionDeltaWrapper(Wrapper):
         ws_action[: self.control_dim] = action[: self.control_dim]
 
         # get pybullet end-effector position
-        q_current = self.env.robots[0].controller.joint_pos
+        q_current = self.env.unwrapped.robots[0].part_controllers['right'].joint_pos
         for i, val in enumerate(q_current):
             p.resetJointState(self.p_robot_id, i, val)
         ee_state = p.getLinkState(self.p_robot_id, self.end_effector_index)

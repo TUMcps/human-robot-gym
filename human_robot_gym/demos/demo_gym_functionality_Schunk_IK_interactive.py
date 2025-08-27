@@ -95,14 +95,13 @@ if __name__ == "__main__":
         collision_check_fn=env.check_collision_action,
         replace_type=0,
     )
-    env = VisualizationWrapper(env)
     action_limits = np.array([[-0.1, -0.1, -0.1], [0.1, 0.1, 0.1]])
     env = IKPositionDeltaWrapper(
         env=env,
         urdf_file=pybullet_urdf_file,
         action_limits=action_limits
     )
-
+    env = VisualizationWrapper(env)
     agent = KeyboardControllerAgentCart(
         env=env,
         speed=0.1,

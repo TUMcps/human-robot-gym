@@ -32,6 +32,7 @@ from human_robot_gym.environments.manipulation.tool_hang_human_env import ToolHa
 import human_robot_gym.robots  # noqa: F401
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.collision_prevention_wrapper import CollisionPreventionWrapper
+from human_robot_gym.wrappers.ik_position_delta_wrapper import IKPositionDeltaWrapper
 
 
 ENV_MAPPING = {
@@ -54,6 +55,9 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
     print(f"\n=== Testing {env_name} ===")
 
     try:
+        pybullet_urdf_file = file_path_completion(
+            "models/assets/robots/panda/panda_with_gripper.urdf"
+        )
         # Setup controller configuration (same as working demo)
         failsafe_config_path = file_path_completion(
             "controllers/failsafe_controller/config/failsafe.json"
@@ -106,6 +110,8 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
 
         # Add collision prevention wrapper
         env = CollisionPreventionWrapper(env=env, collision_check_fn=env.check_collision_action, replace_type=0)
+        
+        env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file)
 
         # Add visualization wrapper (same as working demo)
         env = VisualizationWrapper(env)

@@ -15,7 +15,6 @@ from typing import Any, Callable, Literal, Union
 import mujoco
 
 from gymnasium import Env
-from robosuite.renderers.mujoco.mujoco_py_renderer import MujocoPyRenderer
 
 from human_robot_gym.environments.manipulation.human_env import HumanEnv
 
@@ -35,7 +34,7 @@ class KeyboardController:
         self._env = env
         self._mj_renderer = self._get_mj_renderer(env)
 
-    def _get_mj_renderer(self, env: Env) -> MujocoPyRenderer:
+    def _get_mj_renderer(self, env: Env):
         """Extract the MuJoCo renderer from the environment.
 
         Args:
