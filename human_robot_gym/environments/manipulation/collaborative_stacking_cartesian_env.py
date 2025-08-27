@@ -534,12 +534,12 @@ class CollaborativeStackingCart(HumanEnv):
             (CollaborativeStackingPhase.WAIT_FOR_SECOND, "left"),
             (CollaborativeStackingPhase.WAIT_FOR_FOURTH, "right"),
         ]:
-            pos = self.sim.data.body_xpos[self._l_cube_body_id]
+            pos = self.sim.data.get_body_xpos(self.sim.model.body_id2name(self._l_cube_body_id))
         elif (self.task_phase, self.first_placing_hand) in [
             (CollaborativeStackingPhase.WAIT_FOR_SECOND, "right"),
             (CollaborativeStackingPhase.WAIT_FOR_FOURTH, "left"),
         ]:
-            pos = self.sim.data.body_xpos[self._r_cube_body_id]
+            pos = self.sim.data.get_body_xpos(self.sim.model.body_id2name(self._r_cube_body_id))
 
         # Get location one cube size above the last placed cube
         if pos is not None:
@@ -602,7 +602,10 @@ class CollaborativeStackingCart(HumanEnv):
 
         for body_id in self._manipulation_objects_body_ids:
             if (
-                self._object_to_target_dist(target, self.sim.data.body_xpos[body_id]) < self.goal_dist and
+                self._object_to_target_dist(
+                    target,
+                    self.sim.data.get_body_xpos(self.sim.model.body_id2name(body_id))
+                ) < self.goal_dist and
                 body_id not in self._object_stack_body_ids
             ):
                 return body_id
@@ -664,9 +667,10 @@ class CollaborativeStackingCart(HumanEnv):
             return False
         else:
             bottom_object_id = self._object_stack_body_ids[0]
-            min_height = self.sim.data.body_xpos[bottom_object_id][2] + self.object_full_size[2] / 2
+            bottom_object_pos = self.sim.data.get_body_xpos(self.sim.model.body_id2name(bottom_object_id))
+            min_height = bottom_object_pos[2] + self.object_full_size[2] / 2
             return any([
-                self.sim.data.body_xpos[body_id][2] < min_height
+                self.sim.data.get_body_xpos(self.sim.model.body_id2name(body_id))[2] < min_height
                 for body_id in self._object_stack_body_ids[1:]
             ])
 
@@ -1022,14 +1026,12 @@ class CollaborativeStackingCart(HumanEnv):
         else:
             cube = self.l_cube
             self._human_drop_left_object()
-
+        object_stack_body_pos = self.sim.data.get_body_xpos(self.sim.model.body_id2name(self._object_stack_body_ids[1]))
         self.sim.data.set_joint_qpos(
             cube.joints[0],
             np.concatenate(
                 [
-                    self.sim.data.body_xpos[
-                        self._object_stack_body_ids[1]
-                    ] + np.array([0, 0, self.object_full_size[2]]),
+                    object_stack_body_pos + np.array([0, 0, self.object_full_size[2]]),
                     [1, 0, 0, 0],
                 ]
             )
@@ -1356,22 +1358,22 @@ class CollaborativeStackingCart(HumanEnv):
         # Absolute coordinates of manipulation object A of the robot
         @sensor(modality=obj_mod)
         def object_a_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return self.sim.data.body_xpos[self._manipulation_objects_body_ids[0]]
+            return self.sim.data.get_body_xpos(self.sim.model.body_id2name(self._manipulation_objects_body_ids[0]))
 
         # Absolute coordinates of manipulation object B of the robot
         @sensor(modality=obj_mod)
         def object_b_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return self.sim.data.body_xpos[self._manipulation_objects_body_ids[1]]
+            return self.sim.data.get_body_xpos(self.sim.model.body_id2name(self._manipulation_objects_body_ids[1]))
 
         # Absolute coordinates of the cube from the human's left hand
         @sensor(modality=obj_mod)
         def object_l_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return self.sim.data.body_xpos[self._l_cube_body_id]
+            return self.sim.data.get_body_xpos(self.sim.model.body_id2name(self._l_cube_body_id))
 
         # Absolute coordinates of the cube from the human's right hand
         @sensor(modality=obj_mod)
         def object_r_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return self.sim.data.body_xpos[self._r_cube_body_id]
+            return self.sim.data.get_body_xpos(self.sim.model.body_id2name(self._r_cube_body_id))
 
         # Absolute coordinates of all objects to stack
         @sensor(modality=obj_mod)

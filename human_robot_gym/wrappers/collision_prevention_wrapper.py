@@ -1,29 +1,32 @@
+"""This file contains a robosuite wrapper that checks if the given action would result in a collision
+and replaces the unsafe action with another action.
+
+Author: Jakob Thumm
+Changelog:
+    27.08.25 JT Changed to robosuite wrapper
+"""
+
 import numpy as np
-import gymnasium
-from gymnasium import spaces
+from robosuite.wrappers import Wrapper
 
 
-class CollisionPreventionWrapper(gymnasium.Wrapper):
+class CollisionPreventionWrapper(Wrapper):
     """Checks if the given action would result in a collision and replaces the unsafe action with another action."""
 
     def __init__(self, env, collision_check_fn, replace_type=0, n_resamples=20):
         """Initialize the collision prevention wrapper.
 
         Args:
-            env (gym.env): The gym environment
+            env (MujocoEnv): The robosuite environment
             collision_check_fn (function): Function that checks if the action has a collision.
                 Must take action as input.
                 Must return true for collision and false for no collision.
             replace_type (int):
                 0 - replace with zero action
                 1 - resample new action from action space
-                2 - TODO: find close safe action
+                2 - find close safe action
             n_resamples (int): Number of resamples for type 1 or 2.
         """
-        assert isinstance(
-            env.action_space, spaces.Box
-        ), f"expected Box action space, got {type(env.action_space)}"
-
         super().__init__(env)
         self.collision_check_fn = collision_check_fn
         self.n_resamples = n_resamples
@@ -40,10 +43,10 @@ class CollisionPreventionWrapper(gymnasium.Wrapper):
     def step(self, action):
         """Wrap the step function with the replaced action and adds the new action to the info dict."""
         action = self.action(action)
-        obs, reward, terminated, truncated, info = self.env.step(action)
+        obs, reward, done, info = self.env.step(action)
         info["action"] = action
         info["action_resamples"] = self.action_resamples
-        return obs, reward, terminated, truncated, info
+        return obs, reward, done, info
 
     def action(self, action):
         """Replace the action if a collision is detected."""

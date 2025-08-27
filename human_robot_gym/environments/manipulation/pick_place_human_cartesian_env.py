@@ -770,7 +770,7 @@ class PickPlaceHumanCart(HumanEnv):
         # Absolute coordinates of object position
         @sensor(modality=obj_mod)
         def object_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return np.array(self.sim.data.body_xpos[self.manipulation_object_body_id])
+            return np.array(self.sim.data.get_body_xpos(self.sim.model.geom_id2name(self.manipulation_object_body_id)))
 
         # Vector from robot end-effector to object
         @sensor(modality=obj_mod)

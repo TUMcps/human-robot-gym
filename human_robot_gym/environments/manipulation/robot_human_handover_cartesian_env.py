@@ -740,9 +740,9 @@ class RobotHumanHandoverCart(PickPlaceHumanCart):
         Args:
             contact_pos (np.ndarray): Position of the contact between the object and the human's palm in world space.
         """
-        manipulation_object_pos = self.sim.data.body_xpos[self.manipulation_object_body_id]
-
-        rot = quat_to_rot(self.sim.data.body_xquat[self.manipulation_object_body_id])
+        manipulation_object_pos = self.sim.data.get_body_xpos(self.sim.model.geom_id2name(self.manipulation_object_body_id))
+        quat = self.sim.data.get_body_xquat(self.sim.model.geom_id2name(self.manipulation_object_body_id))
+        rot = quat_to_rot(quat)
 
         # Convert the global contact position to a local position within the object's local coordinate frame.
         self.sim.model.body_pos[self._manipulation_object_grip_body_id] = rot.inv().apply(

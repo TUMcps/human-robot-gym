@@ -14,6 +14,7 @@ Changelog:
 from typing import Any, Dict, Union, List, Optional, Tuple
 
 import numpy as np
+import mujoco
 
 from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import ObjectPositionSampler
@@ -470,11 +471,13 @@ class ReachHumanCart(ReachHuman):
     def _visualize_goal(self):
         """Draw a sphere at the target location."""
         # sphere (type 2)
-        self.viewer.viewer.add_marker(
+        geom_index = self.viewer.viewer.user_scn.ngeom
+        self.viewer.viewer.user_scn.ngeom = self.viewer.viewer.user_scn.ngeom + 1
+        mujoco.mjv_initGeom(
+            self.viewer.viewer.user_scn.geoms[geom_index],
+            type=mujoco.mjtGeom.mjGEOM_SPHERE,
+            size=np.array([self.goal_dist, self.goal_dist, self.goal_dist]),
             pos=self.goal_marker_trans,
-            type=2,
-            size=[self.goal_dist, self.goal_dist, self.goal_dist],
-            rgba=[0.0, 1.0, 0.0, 0.7],
-            label="",
-            shininess=0.0,
+            mat=np.eye(3).flatten(),
+            rgba=[0.0, 1.0, 0.0, 0.7]
         )

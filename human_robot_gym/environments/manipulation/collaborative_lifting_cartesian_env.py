@@ -1007,11 +1007,11 @@ class CollaborativeLiftingCart(HumanEnv):
 
         @sensor(modality=obj_mod)
         def board_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return np.array(self.sim.data.body_xpos[self.board_body_id])
+            return np.array(self.sim.data.get_body_xpos(self.sim.model.body_id2name(self.board_body_id)))
 
         @sensor(modality=obj_mod)
         def board_quat(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return T.convert_quat(self.sim.data.body_xquat[self.board_body_id], to="xyzw")
+            return T.convert_quat(self.sim.data.get_body_xquat(self.sim.model.body_id2name(self.board_body_id)), to="xyzw")
 
         @sensor(modality=goal_mod)
         def board_balance(obs_cache: Dict[str, Any]) -> np.ndarray:
@@ -1019,7 +1019,7 @@ class CollaborativeLiftingCart(HumanEnv):
                 return np.zeros(1)
             else:
                 balance = (
-                    quat_to_rot(self.sim.data.body_xquat[self.board_body_id])
+                    quat_to_rot(self.sim.data.get_body_xquat(self.sim.model.body_id2name(self.board_body_id)))
                     .apply(np.array([0, 0, 1]))
                     .dot(np.array([0, 0, 1]))
                 )
@@ -1075,7 +1075,7 @@ class CollaborativeLiftingCart(HumanEnv):
     def _visualize_board_normal(self):
         """Visualize the board's normal as a marker in the renderer."""
         balance = (
-            quat_to_rot(self.sim.data.body_xquat[self.board_body_id])
+            quat_to_rot(self.sim.data.get_body_xquat(self.sim.model.geom_id2name(self.board_body_id)))
             .apply(np.array([0, 0, 1]))
             .dot(np.array([0, 0, 1]))
         )

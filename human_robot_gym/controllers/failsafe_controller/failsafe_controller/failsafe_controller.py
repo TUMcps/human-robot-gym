@@ -320,20 +320,20 @@ class FailsafeController(JointPositionController):
     def ee_pos(self):
         """Get the end-effector position from the simulation."""
         try:
-            site_id = self.sim.model.site_name2id(self.eef_name)
-            return self.sim.data.site_xpos[site_id]
+            return self.sim.data.get_site_xpos(self.eef_name)
         except Exception:
             # Fallback: return zero position if site not found
+            print("Warning: Could not find site {} in the model.".format(self.eef_name))
             return np.zeros(3)
 
     @property
     def ee_ori_mat(self):
         """Get the end-effector orientation matrix from the simulation."""
         try:
-            site_id = self.sim.model.site_name2id(self.eef_name)
-            return self.sim.data.site_xmat[site_id].reshape(3, 3)
+            return self.sim.data.get_site_xmat(self.eef_name).reshape(3, 3)
         except Exception:
             # Fallback: return identity matrix if site not found
+            print("Warning: Could not find site {} in the model.".format(self.eef_name))
             return np.eye(3)
 
     def set_human_measurement(self, human_measurement, time):

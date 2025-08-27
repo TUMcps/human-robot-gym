@@ -3,15 +3,19 @@ for similarity between the actions of the agent and an expert.
 
 Author:
     Felix Trost (FT)
+    Jakob Thumm (JT)
 
 Changelog:
     06.02.23 FT File creation
     13.02.23 FT Integration of requested changes
+    27.08.25 JT Changed to robosuite wrapper
 """
 from typing import List, Tuple, Union
 
 import numpy as np
-from gymnasium.core import Env, Wrapper
+
+from robosuite.environments.base import MujocoEnv
+from robosuite.wrappers import Wrapper
 
 from human_robot_gym.demonstrations.experts.expert import Expert
 from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
@@ -19,10 +23,10 @@ from human_robot_gym.utils.expert_imitation_reward_utils import similarity_fn
 
 
 class ActionBasedExpertImitationRewardWrapper(Wrapper):
-    r"""Abstract super class for gym wrappers generating imitation reward
+    r"""Abstract super class for robotsuite wrappers generating imitation reward
     based on the similarity of expert and agent actions.
 
-    This is an abstract super class for gym wrappers that reward the agent
+    This is an abstract super class for robotsuite wrappers that reward the agent
     for the similarity between their actions and the ones of a given expert policy.
     Subclasses provide implementations for the get_imitation_reward method
     to use custom similarity metrics between actions.
@@ -35,7 +39,7 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         $r_i$: reward obtained from imitating the expert's actions
 
     Args:
-        env (Env): gym environment to wrap
+        env (MujocoEnv): robosuite environment to wrap
         expert (Expert): expert with same action space as the environment
         alpha (float): linear interpolation factor between
             just environment reward (`alpha = 0`) and
@@ -46,11 +50,11 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
     """
     def __init__(
         self,
-        env: Env,
+        env: MujocoEnv,
         expert: Expert,
         alpha: float = 0,
     ):
-        assert env.action_space.shape == expert.action_space.shape, \
+        assert env.action_dim == expert.action_space.shape, \
             "Environment and expert have different action space shapes"
 
         super().__init__(env)
@@ -84,7 +88,7 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
             NotImplementedError [get_imitation_reward method not implemented in ActionBasedExpertImitationRewardWrapper]
             AssertionError [Expert observation not stored in info dict]
         """
-        obs, env_reward, terminated, truncated, info = super().step(action)
+        obs, env_reward, done, info = super().step(action)
 
         assert "previous_expert_observation" in info, "Expert observation not stored in info dict"
         expert_action = self._expert(ExpertObsWrapper.get_previous_expert_observation_from_info(info))
@@ -99,11 +103,10 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         reward = self._combine_reward(env_reward, imitation_reward)
 
         # Log the imitation and env rewards
-        done = terminated or truncated
         if done:
             self._add_reward_to_info(info)
 
-        return obs, reward, terminated, truncated, info
+        return obs, reward, done, info
 
     def _add_reward_to_info(self, info: dict):
         """Add data to the info dict.
@@ -179,7 +182,7 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
 
 
 class JointActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewardWrapper):
-    r"""Action-based expert imitation reward gym wrapper for the joint position action space.
+    r"""Action-based expert imitation reward robosuite wrapper for the joint position action space.
     Implements the get_imitation_reward method with a similarity metric taylored to joint space control.
 
     The reward is given by this formula:
@@ -228,7 +231,7 @@ class JointActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRew
     """
     def __init__(
         self,
-        env: Env,
+        env: MujocoEnv,
         expert: Expert,
         alpha: float = 0,
         beta: float = 0,
@@ -303,7 +306,7 @@ class JointActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRew
 
 
 class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewardWrapper):
-    r"""Action-based expert imitation reward gym wrapper for the cartesian action space.
+    r"""Action-based expert imitation reward robosuite wrapper for the cartesian action space.
     Implements the get_imitation_reward method with a similarity metric taylored to cartesian control.
     The action space is expected to be of the form `(motion_x, motion_y, motion_z, gripper_actuation)`
 
@@ -324,7 +327,7 @@ class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewa
             For more details, see `human_robot_gym.utils.expert_imitation_reward_utils`
 
     Args:
-        env (Env): gym environment to wrap
+        env (MujocoEnv): robosuite environment to wrap
         expert (Expert): expert with a cartesian action space of the form
             `(motion_x, motion_y, motion_z, gripper_actuation)`
         alpha (float): linear interpolation factor between
@@ -346,7 +349,7 @@ class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewa
     """
     def __init__(
         self,
-        env: Env,
+        env: MujocoEnv,
         expert: Expert,
         alpha: float = 0,
         beta: float = 0,
@@ -355,7 +358,7 @@ class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewa
         m_sim_fn: str = "gaussian",
         g_sim_fn: str = "gaussian",
     ):
-        assert env.action_space.shape == (4,), "Environment does not have a 4-dim cartesian + gripper action space"
+        assert env.action_dim == (4,), "Environment does not have a 4-dim cartesian + gripper action space"
         super().__init__(env, expert, alpha)
         self._iota_m = iota_m
         self._iota_g = iota_g

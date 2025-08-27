@@ -110,7 +110,7 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
 
         # Add collision prevention wrapper
         env = CollisionPreventionWrapper(env=env, collision_check_fn=env.check_collision_action, replace_type=0)
-        
+
         env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file)
 
         # Add visualization wrapper (same as working demo)

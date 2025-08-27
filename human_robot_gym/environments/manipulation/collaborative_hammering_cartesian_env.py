@@ -860,8 +860,8 @@ class CollaborativeHammeringCart(HumanEnv):
     def _visualize_nail_sample_space(self):
         """Draw a red box to indicate the sampling space of nail placements on the board."""
         boundaries = self._get_default_nail_sample_space_boundaries()
-
-        offset = quat_to_rot(self.sim.data.body_xquat[self.board_body_id]).apply(
+        body_quat = self.sim.data.get_body_xquat(self.sim.model.geom_id2name(self.board_body_id))
+        offset = quat_to_rot(body_quat).apply(
             np.array(
                 [
                     (boundaries[1] + boundaries[0]) * 0.5,
@@ -872,7 +872,8 @@ class CollaborativeHammeringCart(HumanEnv):
         )
 
         self.viewer.viewer.add_marker(
-            pos=self.sim.data.body_xpos[self.board_body_id] + offset,
+
+            pos=self.sim.data.get_body_xpos(self.sim.model.body_id2name(self.board_body_id)) + offset,
             type=6,
             size=[
                 (boundaries[1] - boundaries[0]) * 0.5,
@@ -880,7 +881,7 @@ class CollaborativeHammeringCart(HumanEnv):
                 0.05,
             ],
             mat=quat_to_rot(
-                self.sim.data.body_xquat[self.board_body_id]
+                self.sim.data.get_body_xquat(self.sim.model.geom_id2name(self.board_body_id))
             ).as_matrix(),
             label="",
             shininess=0,
@@ -1225,12 +1226,12 @@ class CollaborativeHammeringCart(HumanEnv):
         # Absolute position of the hammer in Cartesian space
         @sensor(modality=obj_mod)
         def hammer_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return self.sim.data.body_xpos[self.hammer_body_id]
+            return self.sim.data.get_body_xpos(self.sim.model.body_id2name(self.hammer_body_id))
 
         # Rotation quaternion of the hammer
         @sensor(modality=obj_mod)
         def hammer_quat(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return self.sim.data.body_xquat[self.hammer_body_id]
+            return self.sim.data.get_body_xquat(self.sim.model.body_id2name(self.hammer_body_id))
 
         # Vector from the end-effector to the hammer
         @sensor(modality=obj_mod)
@@ -1255,12 +1256,12 @@ class CollaborativeHammeringCart(HumanEnv):
         # Absolute position of the board in Cartesian space
         @sensor(modality=obj_mod)
         def board_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return np.array(self.sim.data.body_xpos[self.board_body_id])
+            return np.array(self.sim.data.get_body_xpos(self.sim.model.body_id2name(self.board_body_id)))
 
         # Rotation quaternion of the board
         @sensor(modality=obj_mod)
         def board_quat(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return T.convert_quat(self.sim.data.body_xquat[self.board_body_id], to="xyzw")
+            return T.convert_quat(self.sim.data.get_body_xquat(self.sim.model.body_id2name(self.board_body_id)), to="xyzw")
 
         # Vector from end-effector to board
         @sensor(modality=obj_mod)
