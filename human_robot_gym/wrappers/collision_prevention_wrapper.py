@@ -51,8 +51,24 @@ class CollisionPreventionWrapper(Wrapper):
     def action(self, action):
         """Replace the action if a collision is detected."""
         if self.collision_check_fn(action):
-            action = self.replace_action(action)
+            action = self.replace_arm_only(action, self.replace_action)
             self.action_resamples += 1
+        return action
+
+    def replace_arm_only(self, action, replace_fn):
+        """Replace only the arm part of the action, keep the rest.
+
+        Args:
+            action (np.array): Action to execute
+            replace_fn (function): Function that replaces the action
+        Returns:
+            action (np.array)
+        """
+        composite_controller = self.unwrapped.robots[0].composite_controller
+        for part_name, _ in composite_controller.part_controllers.items():
+            start_idx, end_idx = composite_controller._action_split_indexes[part_name]
+            if part_name not in composite_controller.grippers.keys():
+                action[start_idx:end_idx] = replace_fn(action[start_idx:end_idx])
         return action
 
     def replace_zero(self, action):
@@ -63,7 +79,7 @@ class CollisionPreventionWrapper(Wrapper):
         Returns:
             action (np.array)
         """
-        return np.zeros([len(action)])
+        return np.zeros_like(action)
 
     def replace_random(self, action):
         """Replace the action with a random action that is not in collision.
@@ -77,7 +93,7 @@ class CollisionPreventionWrapper(Wrapper):
             action (np.array)
         """
         for _ in range(self.n_resamples):
-            action = self.env.action_space.sample()
+            action = self.env.action_space.sample()[:action.shape[0]]
             if not self.collision_check_fn(action):
                 return action
         return self.replace_zero(action)
@@ -97,7 +113,7 @@ class CollisionPreventionWrapper(Wrapper):
         """
         replace_actions = []
         for _ in range(self.n_resamples):
-            a = self.env.action_space.sample()
+            a = self.env.action_space.sample()[:action.shape[0]]
             if not self.collision_check_fn(a):
                 replace_actions += [a]
         if len(replace_actions) > 0:
