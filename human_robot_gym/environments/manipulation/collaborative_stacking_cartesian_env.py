@@ -32,10 +32,9 @@ from enum import Enum
 from dataclasses import asdict, dataclass
 
 import numpy as np
+import mujoco
 
 from scipy.spatial.transform import Rotation
-
-import mujoco
 
 import xml.etree.ElementTree as ET
 
@@ -429,6 +428,7 @@ class CollaborativeStackingCart(HumanEnv):
 
         self.manipulation_objects = None
         self._manipulation_objects_body_ids = None
+        self.geom_index = None
 
         super().__init__(
             robots=robots,
@@ -534,12 +534,12 @@ class CollaborativeStackingCart(HumanEnv):
             (CollaborativeStackingPhase.WAIT_FOR_SECOND, "left"),
             (CollaborativeStackingPhase.WAIT_FOR_FOURTH, "right"),
         ]:
-            pos = self.sim.data.body_xpos[self._l_cube_body_id]
+            pos = self.sim.data.get_body_xpos(self.sim.model.body_id2name(self._l_cube_body_id))
         elif (self.task_phase, self.first_placing_hand) in [
             (CollaborativeStackingPhase.WAIT_FOR_SECOND, "right"),
             (CollaborativeStackingPhase.WAIT_FOR_FOURTH, "left"),
         ]:
-            pos = self.sim.data.body_xpos[self._r_cube_body_id]
+            pos = self.sim.data.get_body_xpos(self.sim.model.body_id2name(self._r_cube_body_id))
 
         # Get location one cube size above the last placed cube
         if pos is not None:
@@ -602,7 +602,10 @@ class CollaborativeStackingCart(HumanEnv):
 
         for body_id in self._manipulation_objects_body_ids:
             if (
-                self._object_to_target_dist(target, self.sim.data.body_xpos[body_id]) < self.goal_dist and
+                self._object_to_target_dist(
+                    target,
+                    self.sim.data.get_body_xpos(self.sim.model.body_id2name(body_id))
+                ) < self.goal_dist and
                 body_id not in self._object_stack_body_ids
             ):
                 return body_id
@@ -664,9 +667,10 @@ class CollaborativeStackingCart(HumanEnv):
             return False
         else:
             bottom_object_id = self._object_stack_body_ids[0]
-            min_height = self.sim.data.body_xpos[bottom_object_id][2] + self.object_full_size[2] / 2
+            bottom_object_pos = self.sim.data.get_body_xpos(self.sim.model.body_id2name(bottom_object_id))
+            min_height = bottom_object_pos[2] + self.object_full_size[2] / 2
             return any([
-                self.sim.data.body_xpos[body_id][2] < min_height
+                self.sim.data.get_body_xpos(self.sim.model.body_id2name(body_id))[2] < min_height
                 for body_id in self._object_stack_body_ids[1:]
             ])
 
@@ -997,9 +1001,9 @@ class CollaborativeStackingCart(HumanEnv):
 
         self._human_pickup_objects()
 
-    def _set_equality_status(self, equality_id: int, status: bool):
+    def _set_equality_status(self, equality_name: str, status: bool):
         """Activate/deactivate an equality constraint."""
-        self.sim.model.eq_active[equality_id] = int(status)
+        self.sim.data.eq_active[self.sim.model.eq(equality_name).id] = int(status)
 
     def _human_place_first_object(self):
         """Release the first object to place on the stack from the human's hand."""
@@ -1022,14 +1026,12 @@ class CollaborativeStackingCart(HumanEnv):
         else:
             cube = self.l_cube
             self._human_drop_left_object()
-
+        object_stack_body_pos = self.sim.data.get_body_xpos(self.sim.model.body_id2name(self._object_stack_body_ids[1]))
         self.sim.data.set_joint_qpos(
             cube.joints[0],
             np.concatenate(
                 [
-                    self.sim.data.body_xpos[
-                        self._object_stack_body_ids[1]
-                    ] + np.array([0, 0, self.object_full_size[2]]),
+                    object_stack_body_pos + np.array([0, 0, self.object_full_size[2]]),
                     [1, 0, 0, 0],
                 ]
             )
@@ -1044,16 +1046,16 @@ class CollaborativeStackingCart(HumanEnv):
 
     def _human_drop_left_object(self):
         """Release the cube from the human's left hand."""
-        self._set_equality_status(self._l_weld_eq_id, False)
+        self._set_equality_status(self._l_weld_eq_name, False)
 
     def _human_drop_right_object(self):
         """Release the cube from the human's right hand."""
-        self._set_equality_status(self._r_weld_eq_id, False)
+        self._set_equality_status(self._r_weld_eq_name, False)
 
     def _human_pickup_objects(self):
         """Activate both constraints that connect the cubes to the human's hands."""
-        self._set_equality_status(self._l_weld_eq_id, True)
-        self._set_equality_status(self._r_weld_eq_id, True)
+        self._set_equality_status(self._l_weld_eq_name, True)
+        self._set_equality_status(self._r_weld_eq_name, True)
 
     def _get_default_object_bin_boundaries(self) -> Tuple[float, float, float, float]:
         """Get the x and y boundaries of the target sampling space.
@@ -1075,13 +1077,15 @@ class CollaborativeStackingCart(HumanEnv):
     def _visualize_next_target_location(self):
         """Draw a box to display the target location for the next cube to place."""
         if (pos := self.next_target_position) is not None:
-            self.viewer.viewer.add_marker(
-                pos=pos,
+            geom_index = self.viewer.viewer.user_scn.ngeom
+            self.viewer.viewer.user_scn.ngeom = self.viewer.viewer.user_scn.ngeom + 1
+            mujoco.mjv_initGeom(
+                self.viewer.viewer.user_scn.geoms[geom_index],
                 type=6,
-                size=[self.goal_dist, self.goal_dist, self.goal_dist],
-                rgba=[0, 1, 0, 0.3],
-                label="",
-                shininess=0.0,
+                size=np.array([self.goal_dist, self.goal_dist, self.goal_dist]),
+                pos=pos,
+                mat=np.eye(3).flatten(),
+                rgba=[0, 1, 0, 0.3]
             )
 
     def _visualize_object_sample_space(self):
@@ -1113,21 +1117,28 @@ class CollaborativeStackingCart(HumanEnv):
                 Color in the form (r, g, b, a)
         """
         # Box (type 2)
-        self.viewer.viewer.add_marker(
+        from robosuite.renderers.mjviewer.mjviewer_renderer import MjviewerRenderer
+        if not isinstance(self.viewer, MjviewerRenderer):
+            # Adding markers is only supported in the Mjviewer renderer
+            return
+        if self.geom_index is None:
+            self.geom_index = self.viewer.viewer.user_scn.ngeom
+            self.viewer.viewer.user_scn.ngeom = self.viewer.viewer.user_scn.ngeom + 1
+        mujoco.mjv_initGeom(
+            self.viewer.viewer.user_scn.geoms[self.geom_index],
+            type=6,
+            size=np.array([
+                (boundaries[1] - boundaries[0]) * 0.5,
+                (boundaries[3] - boundaries[2]) * 0.5,
+                (boundaries[5] - boundaries[4]) * 0.5,
+            ]),
             pos=np.array([
                 (boundaries[0] + boundaries[1]) / 2,
                 (boundaries[2] + boundaries[3]) / 2,
                 (boundaries[5] + boundaries[4]) / 2,
             ]),
-            type=6,
-            size=[
-                (boundaries[1] - boundaries[0]) * 0.5,
-                (boundaries[3] - boundaries[2]) * 0.5,
-                (boundaries[5] - boundaries[4]) * 0.5,
-            ],
-            rgba=color,
-            label="",
-            shininess=0.0,
+            mat=np.eye(3).flatten(),
+            rgba=color
         )
 
     def _setup_arena(self):
@@ -1202,9 +1213,9 @@ class CollaborativeStackingCart(HumanEnv):
             objects=self.obstacles,
         )
 
-    def _postprocess_model(self):
+    def _load_model(self):
         """Extend super class method to add additional elements to the model before creating the sim object."""
-        super()._postprocess_model()
+        super()._load_model()
 
         # Objects at the human's hands (position and rotation), cubes may be welded to it
         self._add_mocap_bodies_to_model()
@@ -1295,14 +1306,6 @@ class CollaborativeStackingCart(HumanEnv):
         self._l_cube_body_id = self.sim.model.body_name2id(self.l_cube.root_body)
         self._r_cube_body_id = self.sim.model.body_name2id(self.r_cube.root_body)
 
-        self._l_weld_eq_id = mujoco.mj_name2id(
-            self.sim.model, mujoco.mjtObj.mjOBJ_EQUALITY, self._l_weld_eq_name,
-        )
-
-        self._r_weld_eq_id = mujoco.mj_name2id(
-            self.sim.model, mujoco.mjtObj.mjOBJ_EQUALITY, self._r_weld_eq_name,
-        )
-
     def _setup_observables(self) -> OrderedDict[str, Observable]:
         """Set up observables to be used for this environment.
 
@@ -1356,22 +1359,22 @@ class CollaborativeStackingCart(HumanEnv):
         # Absolute coordinates of manipulation object A of the robot
         @sensor(modality=obj_mod)
         def object_a_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return self.sim.data.body_xpos[self._manipulation_objects_body_ids[0]]
+            return self.sim.data.get_body_xpos(self.sim.model.body_id2name(self._manipulation_objects_body_ids[0]))
 
         # Absolute coordinates of manipulation object B of the robot
         @sensor(modality=obj_mod)
         def object_b_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return self.sim.data.body_xpos[self._manipulation_objects_body_ids[1]]
+            return self.sim.data.get_body_xpos(self.sim.model.body_id2name(self._manipulation_objects_body_ids[1]))
 
         # Absolute coordinates of the cube from the human's left hand
         @sensor(modality=obj_mod)
         def object_l_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return self.sim.data.body_xpos[self._l_cube_body_id]
+            return self.sim.data.get_body_xpos(self.sim.model.body_id2name(self._l_cube_body_id))
 
         # Absolute coordinates of the cube from the human's right hand
         @sensor(modality=obj_mod)
         def object_r_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return self.sim.data.body_xpos[self._r_cube_body_id]
+            return self.sim.data.get_body_xpos(self.sim.model.body_id2name(self._r_cube_body_id))
 
         # Absolute coordinates of all objects to stack
         @sensor(modality=obj_mod)

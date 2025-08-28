@@ -8,6 +8,7 @@ Author:
 Changelog:
     05.02.23 FT File creation
 """
+
 import glfw
 import numpy as np
 from typing import Any, Callable, Literal, Union
@@ -15,7 +16,7 @@ from typing import Any, Callable, Literal, Union
 import mujoco
 
 from gymnasium import Env
-from robosuite.renderers.mujoco.mujoco_py_renderer import MujocoPyRenderer
+from robosuite.renderers.mjviewer.mjviewer_renderer import MjviewerRenderer
 
 from human_robot_gym.environments.manipulation.human_env import HumanEnv
 
@@ -28,23 +29,117 @@ class KeyboardController:
     Args:
         env (Env): gym environment
     """
+
     def __init__(
         self,
         env: Env,
     ):
-        self._env = env
-        self._mj_renderer = self._get_mj_renderer(env)
+        self.env = env
+        self._key_callbacks = {}
+        self._setup_key_callback()
 
-    def _get_mj_renderer(self, env: Env) -> MujocoPyRenderer:
+    @property
+    def _mj_renderer(self) -> MjviewerRenderer:
         """Extract the MuJoCo renderer from the environment.
 
         Args:
             env (Env): gym environment containing the renderer
 
         Returns:
-            MujocoPyRenderer: renderer
+            MjviewerRenderer: renderer
         """
-        return env.unwrapped.viewer
+        return self.env.unwrapped.viewer
+
+    @property
+    def _viewer(self):
+        """Extract the MuJoCo viewer from the environment.
+
+        Args:
+            env (Env): gym environment containing the viewer
+
+        Returns:
+            mujoco.viewer.MjViewer: viewer
+        """
+        return self._mj_renderer.viewer
+
+    def _setup_key_callback(self):
+        """Set up the unified key callback system for the new MuJoCo viewer API."""
+        # Track key states since MuJoCo viewer only provides press events
+        if not isinstance(self._mj_renderer, MjviewerRenderer):
+            raise ValueError("The keyboard controller is only supported for MjviewerRenderer. \
+                              Set renderer='mjviewer' when creating the environment.")
+        self._key_states = {}
+
+        def unified_key_callback(keycode):
+            """Unified callback that handles all key events and dispatches to registered callbacks."""
+            # For movement controls, we need to simulate press/release behavior
+            # Since MuJoCo viewer only calls on key press, we'll use PRESS for all events
+            # and let the motion callback handle the state changes
+            action = glfw.PRESS
+
+            # Check for specific key callbacks
+            if keycode in self._key_callbacks:
+                for callback in self._key_callbacks[keycode]:
+                    callback(None, keycode, None, action, None)
+
+            # Check for "any" key callbacks
+            if "any" in self._key_callbacks:
+                for callback in self._key_callbacks["any"]:
+                    callback(None, keycode, None, action, None)
+
+        # Store the unified callback for later use
+        self._unified_key_callback = unified_key_callback
+
+        # Patch the renderer's update method to include key callback on first viewer creation
+        if not hasattr(self._mj_renderer, "_original_update"):
+            self._mj_renderer._original_update = self._mj_renderer.update
+
+        def patched_update():
+            if self._viewer is not None and not hasattr(self._viewer, "custom_key_callback_initialized"):
+                self._viewer.close()
+                self._mj_renderer.viewer = None  # Force re-creation of the viewer with custom callback
+            if self._viewer is None:
+                # Create the viewer with our key callback
+                self._mj_renderer.viewer = mujoco.viewer.launch_passive(
+                    self._mj_renderer.env.sim.model._model,
+                    self._mj_renderer.env.sim.data._data,
+                    show_left_ui=False,
+                    show_right_ui=False,
+                    key_callback=self._unified_key_callback,
+                )
+
+                # Disable built-in viewer shortcuts that might interfere
+                if hasattr(self._viewer, "enable_keyboard_shortcuts"):
+                    self._viewer.enable_keyboard_shortcuts = False
+
+                # Apply the same configuration as the original update method
+                self._viewer.opt.geomgroup[0] = 0
+
+                if self._mj_renderer.camera_config is not None:
+                    self._viewer.cam.lookat = self._mj_renderer.camera_config["lookat"]
+                    self._viewer.cam.distance = self._mj_renderer.camera_config["distance"]
+                    self._viewer.cam.azimuth = self._mj_renderer.camera_config["azimuth"]
+                    self._viewer.cam.elevation = self._mj_renderer.camera_config["elevation"]
+
+                if self._mj_renderer.camera_id is not None:
+                    if self._mj_renderer.camera_id >= 0:
+                        self._viewer.cam.type = 2
+                        self._viewer.cam.fixedcamid = self._mj_renderer.camera_id
+                    else:
+                        self._viewer.cam.type = 0
+                self._viewer.custom_key_callback_initialized = True
+
+            # Always call sync (this is the main part of every update call)
+            self._viewer.sync()
+
+        # Replace the update method with our patched version
+        self._mj_renderer.update = patched_update
+        self._mj_renderer.update()
+
+    def update(self):
+        """Update the renderer initialization if necessary."""
+        if self._viewer is None or not hasattr(self._viewer, "custom_key_callback_initialized"):
+            self._setup_key_callback()
 
     def add_keypress_callback(
         self,
@@ -56,13 +151,14 @@ class KeyboardController:
         Args:
             key (int | 'any'): The associated key
                 Choosing 'any' disables the standard MjViewer hotkeys
-                (see CustomMjViewer)
             fn ((Any, int, Any, int, Any)-> None):
                 the callback to execute. The second and fourth argument
                 are relevant, specifying the key and the action
                 (press/release/repeat)
         """
-        self._mj_renderer.add_keypress_callback(key, fn)
+        if key not in self._key_callbacks:
+            self._key_callbacks[key] = []
+        self._key_callbacks[key].append(fn)
 
     def add_keyup_callback(
         self,
@@ -71,16 +167,16 @@ class KeyboardController:
     ):
         """Register a callback to the event when a key is released.
 
+        Note: In the new MuJoCo viewer API, keyup events are handled
+        as keypress events. This method exists for backward compatibility.
+
         Args:
             key (int | 'any'): The associated key
-                Choosing 'any' disables the standard MjViewer hotkeys
-                (see CustomMjViewer)
             fn ((Any, int, Any, int, Any)-> None):
-                the callback to execute. The second and fourth argument
-                are relevant, specifying the key and the action
-                (press/release/repeat)
+                the callback to execute
         """
-        self._mj_renderer.add_keyup_callback(key, fn)
+        # For backward compatibility, treat keyup as keypress
+        self.add_keypress_callback(key, fn)
 
     def add_keyrepeat_callback(
         self,
@@ -89,16 +185,16 @@ class KeyboardController:
     ):
         """Register a callback to the event when a key is repeated.
 
+        Note: In the new MuJoCo viewer API, key repeat events are handled
+        as keypress events. This method exists for backward compatibility.
+
         Args:
             key (int | 'any'): The associated key
-                Choosing 'any' disables the standard MjViewer hotkeys
-                (see CustomMjViewer)
             fn ((Any, int, Any, int, Any)-> None):
-                the callback to execute. The second and fourth argument
-                are relevant, specifying the key and the action
-                (press/release/repeat)
+                the callback to execute
         """
-        self._mj_renderer.add_keyrepeat_callback(key, fn)
+        # For backward compatibility, treat keyrepeat as keypress
+        self.add_keypress_callback(key, fn)
 
 
 class KeyboardControllerAgentCart(KeyboardController):
@@ -124,17 +220,22 @@ class KeyboardControllerAgentCart(KeyboardController):
         speed (float): Length of the 3D motion vector
         gripper_torque_scale (float): Magnitude of non-zero torque values
     """
+
     def __init__(
-            self,
-            env: Env,
-            speed: float = 0.1,
-            gripper_torque_scale: float = 1,
+        self,
+        env: Env,
+        speed: float = 0.1,
+        gripper_torque_scale: float = 1,
     ):
         super().__init__(env)
         self._speed = speed
         self._gripper_torque_scale = gripper_torque_scale
         self._dir = np.zeros(3)
         self._gripper_torque = np.zeros(1)
+
+        # Track currently pressed keys for continuous movement
+        self._pressed_keys = set()
+
         self._add_key_callbacks()
 
     def _add_key_callbacks(self):
@@ -145,7 +246,7 @@ class KeyboardControllerAgentCart(KeyboardController):
 
         self.add_keypress_callback(
             glfw.KEY_Q,
-            lambda *_: self._env.reset()
+            lambda *_: self.env.reset()
         )
 
     def motion_key_callback(
@@ -191,8 +292,16 @@ class KeyboardControllerAgentCart(KeyboardController):
         Returns:
             (np.ndarray) action parameters
         """
+        super().update()
+
+        self._dir = np.clip(self._dir, -1, 1)
+        self._gripper_torque = np.clip(self._gripper_torque, -1, 1)
         scaled_speed = self._dir * self._speed
         scaled_gripper_torque = self._gripper_torque * self._gripper_torque_scale
+
+        # Reset direction and gripper torque for next call
+        self._dir = np.zeros(3)
+        self._gripper_torque = np.zeros(1)
 
         return np.concatenate([scaled_speed, scaled_gripper_torque])
 
@@ -222,6 +331,7 @@ class AnimationDebugKeyboardController(KeyboardController):
     Raises:
         [AssertionError: "The environment must be a (wrapped) HumanEnv"]
     """
+
     def __init__(
         self,
         env: Env,
@@ -245,14 +355,14 @@ class AnimationDebugKeyboardController(KeyboardController):
         self._paused = False
 
         # Show the overlay to display the current animation time
-        self._env.unwrapped.viewer.viewer._hide_overlay = False
+        self.env.unwrapped.viewer.viewer._hide_overlay = False
 
-        self._env_compute_animation_time_fn = env.unwrapped._compute_animation_time
-        self._env_progress_animation_fn = env.unwrapped._progress_to_next_animation
+        self.env_compute_animation_time_fn = env.unwrapped._compute_animation_time
+        self.env_progress_animation_fn = env.unwrapped._progress_to_next_animation
 
         # Monkey patch to enable pausing and resuming the animation
-        self._env.unwrapped._compute_animation_time = self._compute_animation_time
-        self._env.unwrapped._progress_to_next_animation = self._progress_to_next_animation
+        self.env.unwrapped._compute_animation_time = self._compute_animation_time
+        self.env.unwrapped._progress_to_next_animation = self._progress_to_next_animation
 
         self._control_time_delay = 0
         self._control_time_delay_start = 0
@@ -271,55 +381,56 @@ class AnimationDebugKeyboardController(KeyboardController):
 
     def _add_key_callbacks(self):
         """Add callbacks for the defined keyboard shortcuts."""
+
         # Callbacks for ctrl and alt keys
-        self.add_keypress_callback(
-            glfw.KEY_LEFT_CONTROL,
-            lambda *_: self._on_left_ctrl_state_changed(True)
-        )
-        self.add_keyup_callback(
-            glfw.KEY_LEFT_CONTROL,
-            lambda *_: self._on_left_ctrl_state_changed(False)
-        )
-        self.add_keypress_callback(
-            glfw.KEY_RIGHT_CONTROL,
-            lambda *_: self._on_right_ctrl_state_changed(True)
-        )
-        self.add_keyup_callback(
-            glfw.KEY_RIGHT_CONTROL,
-            lambda *_: self._on_right_ctrl_state_changed(False)
-        )
-        self.add_keypress_callback(
-            glfw.KEY_LEFT_ALT,
-            lambda *_: self._on_left_alt_state_changed(True)
-        )
-        self.add_keyup_callback(
-            glfw.KEY_LEFT_ALT,
-            lambda *_: self._on_left_alt_state_changed(False)
-        )
-        self.add_keypress_callback(
-            glfw.KEY_RIGHT_ALT,
-            lambda *_: self._on_right_alt_state_changed(True)
-        )
-        self.add_keyup_callback(
-            glfw.KEY_RIGHT_ALT,
-            lambda *_: self._on_right_alt_state_changed(False)
-        )
+        def left_ctrl_press_callback(window, key, scancode, action, mods):
+            self._on_left_ctrl_state_changed(True)
+
+        def left_ctrl_release_callback(window, key, scancode, action, mods):
+            self._on_left_ctrl_state_changed(False)
+
+        def right_ctrl_press_callback(window, key, scancode, action, mods):
+            self._on_right_ctrl_state_changed(True)
+
+        def right_ctrl_release_callback(window, key, scancode, action, mods):
+            self._on_right_ctrl_state_changed(False)
+
+        def left_alt_press_callback(window, key, scancode, action, mods):
+            self._on_left_alt_state_changed(True)
+
+        def left_alt_release_callback(window, key, scancode, action, mods):
+            self._on_left_alt_state_changed(False)
+
+        def right_alt_press_callback(window, key, scancode, action, mods):
+            self._on_right_alt_state_changed(True)
+
+        def right_alt_release_callback(window, key, scancode, action, mods):
+            self._on_right_alt_state_changed(False)
+
+        self.add_keypress_callback(glfw.KEY_LEFT_CONTROL, left_ctrl_press_callback)
+        self.add_keyup_callback(glfw.KEY_LEFT_CONTROL, left_ctrl_release_callback)
+        self.add_keypress_callback(glfw.KEY_RIGHT_CONTROL, right_ctrl_press_callback)
+        self.add_keyup_callback(glfw.KEY_RIGHT_CONTROL, right_ctrl_release_callback)
+        self.add_keypress_callback(glfw.KEY_LEFT_ALT, left_alt_press_callback)
+        self.add_keyup_callback(glfw.KEY_LEFT_ALT, left_alt_release_callback)
+        self.add_keypress_callback(glfw.KEY_RIGHT_ALT, right_alt_press_callback)
+        self.add_keyup_callback(glfw.KEY_RIGHT_ALT, right_alt_release_callback)
 
         # Toggle between play and pause
-        self.add_keypress_callback(
-            glfw.KEY_SPACE,
-            lambda *_: self._toggle_paused()
-        )
+        def toggle_pause_callback(window, key, scancode, action, mods):
+            self._toggle_paused()
+
+        self.add_keypress_callback(glfw.KEY_SPACE, toggle_pause_callback)
 
         # Step forward and backward during pause
-        self.add_keypress_callback(
-            glfw.KEY_LEFT,
-            lambda *_: self._modify_animation_time(-1)
-        )
-        self.add_keypress_callback(
-            glfw.KEY_RIGHT,
-            lambda *_: self._modify_animation_time(1)
-        )
+        def step_backward_callback(window, key, scancode, action, mods):
+            self._modify_animation_time(False)
+
+        def step_forward_callback(window, key, scancode, action, mods):
+            self._modify_animation_time(True)
+
+        self.add_keypress_callback(glfw.KEY_LEFT, step_backward_callback)
+        self.add_keypress_callback(glfw.KEY_RIGHT, step_forward_callback)
 
     def _on_left_ctrl_state_changed(self, pressed: bool):
         """Update the state of the left ctrl key."""
@@ -358,8 +469,8 @@ class AnimationDebugKeyboardController(KeyboardController):
         self._control_time_delay_start = control_time
 
         return int(
-            self._env_compute_animation_time_fn(
-                (control_time - self._control_time_delay) % self._env.unwrapped.human_animation_length
+            self.env_compute_animation_time_fn(
+                (control_time - self._control_time_delay) % self.env.unwrapped.human_animation_length
             )
         )
 
@@ -367,7 +478,7 @@ class AnimationDebugKeyboardController(KeyboardController):
         """Wrapper function to update internal variables when a new animation is selected."""
         self._control_time_delay = 0
         self._control_time_delay_start = animation_start_time
-        return self._env_progress_animation_fn(animation_start_time)
+        return self.env_progress_animation_fn(animation_start_time)
 
     def _modify_animation_time(self, forward: bool):
         """Apply an offset to internal variables to modify the animation time during pause."""
@@ -384,8 +495,8 @@ class AnimationDebugKeyboardController(KeyboardController):
 
     def add_animation_time_overlay(self):
         """Display the current animation time in the top right corner of the screen."""
-        self._env.unwrapped.viewer.viewer.add_overlay(
-            mujoco.mjtGridPos.mjGRID_TOPRIGHT,
-            f"Animation Time_ {self._env.unwrapped.animation_time}",
+        self.env.unwrapped.viewer.viewer.add_overlay(
+            mujoco.mjtGridPos.mjGRID_TOPRIGHT.value,
+            f"Animation Time_ {self.env.unwrapped.animation_time}",
             "",
         )

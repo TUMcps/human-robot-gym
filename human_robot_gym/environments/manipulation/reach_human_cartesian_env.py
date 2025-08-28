@@ -14,6 +14,7 @@ Changelog:
 from typing import Any, Dict, Union, List, Optional, Tuple
 
 import numpy as np
+import mujoco
 
 from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import ObjectPositionSampler
@@ -281,6 +282,8 @@ class ReachHumanCart(ReachHuman):
     ):  # noqa: D107
         self.init_joint_pos = init_joint_pos
         self.sampling_space = np.array([[0.1, -0.5, 0.8], [0.5, 0.5, 1.3]])
+        self.geom_index = None
+
         super().__init__(
             robots=robots,
             robot_base_offset=robot_base_offset,
@@ -402,7 +405,8 @@ class ReachHumanCart(ReachHuman):
         if prefix + "eef_velp" in observables:
             observables[prefix + "eef_velp"].set_active(True)
 
-        _eef_velp = self.sim.data.site_xvelp[self.robots[0].eef_site_id]
+        eef_site_name = self.sim.model.site_id2name(self.robots[0].eef_site_id[self.robots[0].arms[0]])
+        _eef_velp = self.sim.data.get_site_xvelp(eef_site_name)
 
         # define observables modality
         modality = f"{prefix}proprio"
@@ -418,7 +422,9 @@ class ReachHumanCart(ReachHuman):
 
         @sensor(modality=modality)
         def goal_difference(obs_cache):
-            return self.desired_goal - np.array(self.sim.data.site_xpos[self.robots[0].eef_site_id])
+            return self.desired_goal - np.array(
+                self.sim.data.get_site_xpos(eef_site_name)
+            )
 
         sensors = [eef_velp, goal_difference]
         names = [s.__name__ for s in sensors]
@@ -443,7 +449,7 @@ class ReachHumanCart(ReachHuman):
             joint configuration (np.array)
         """
         robot = self.robots[0]
-        pos_limits = np.array(robot.controller.position_limits)
+        pos_limits = np.array(robot.composite_controller.part_controllers[robot.arms[0]].position_limits)
         goal = self.init_joint_pos
         for i in range(20):
             rand = np.random.rand(pos_limits.shape[1])
@@ -467,11 +473,18 @@ class ReachHumanCart(ReachHuman):
     def _visualize_goal(self):
         """Draw a sphere at the target location."""
         # sphere (type 2)
-        self.viewer.viewer.add_marker(
+        from robosuite.renderers.mjviewer.mjviewer_renderer import MjviewerRenderer
+        if not isinstance(self.viewer, MjviewerRenderer):
+            # Adding markers is only supported in the Mjviewer renderer
+            return
+        if self.geom_index is None:
+            self.geom_index = self.viewer.viewer.user_scn.ngeom
+            self.viewer.viewer.user_scn.ngeom = self.viewer.viewer.user_scn.ngeom + 1
+        mujoco.mjv_initGeom(
+            self.viewer.viewer.user_scn.geoms[self.geom_index],
+            type=mujoco.mjtGeom.mjGEOM_SPHERE,
+            size=np.array([self.goal_dist, self.goal_dist, self.goal_dist]),
             pos=self.goal_marker_trans,
-            type=2,
-            size=[self.goal_dist, self.goal_dist, self.goal_dist],
-            rgba=[0.0, 1.0, 0.0, 0.7],
-            label="",
-            shininess=0.0,
+            mat=np.eye(3).flatten(),
+            rgba=[0.0, 1.0, 0.0, 0.7]
         )

@@ -5,9 +5,11 @@ The wrappers below leverage this data for observation normalization or reference
 
 Author:
     Felix Trost (FT)
+    Jakob Thumm (JT)
 
 Changelog:
     17.06.23 (FT): File created
+    27.08.25 (JT): Changed to robosuite wrapper
 """
 from typing import Any, Dict, List, Optional, Tuple
 import os

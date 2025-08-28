@@ -28,9 +28,11 @@ from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 from human_robot_gym.environments.manipulation.lift_human_env import LiftHumanEnv
 from human_robot_gym.environments.manipulation.pick_place_human_env import PickPlaceCanHumanEnv
 from human_robot_gym.environments.manipulation.nut_assembly_human_env import NutAssemblySquareHumanEnv
+from human_robot_gym.environments.manipulation.tool_hang_human_env import ToolHangHumanEnv
 import human_robot_gym.robots  # noqa: F401
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.collision_prevention_wrapper import CollisionPreventionWrapper
+from human_robot_gym.wrappers.ik_position_delta_wrapper import IKPositionDeltaWrapper
 
 
 ENV_MAPPING = {
@@ -38,7 +40,7 @@ ENV_MAPPING = {
     "can": PickPlaceCanHumanEnv,
     "square": NutAssemblySquareHumanEnv,
     # "transport": -> Dual arm, leave out for now
-    # "tool_hang": -> Only available in robosuite 1.5
+    "tool_hang": ToolHangHumanEnv
 }
 
 
@@ -53,6 +55,9 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
     print(f"\n=== Testing {env_name} ===")
 
     try:
+        pybullet_urdf_file = file_path_completion(
+            "models/assets/robots/panda/panda_with_gripper.urdf"
+        )
         # Setup controller configuration (same as working demo)
         failsafe_config_path = file_path_completion(
             "controllers/failsafe_controller/config/failsafe.json"
@@ -82,7 +87,8 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
                 use_camera_obs=False,  # do not use pixel observations
                 has_offscreen_renderer=False,  # not needed since not using pixel obs
                 has_renderer=True,  # make sure we can render to the screen
-                render_camera=None,  # Let environment choose default camera
+                render_camera=None,
+                renderer="mjviewer",
                 render_collision_mesh=False,
                 reward_shaping=True,  # use dense rewards
                 control_freq=5,  # control should happen fast enough so that simulation looks smooth
@@ -92,16 +98,20 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
                 shield_type="SSM",
                 visualize_failsafe_controller=True,  # Enable failsafe visualization
                 visualize_pinocchio=False,
-                base_human_pos_offset=[0.1, 0.0, 0.0],
+                base_human_pos_offset=[0.0, 0.0, 0.0],
                 verbose=True,  # Enable verbose output for debugging
                 goal_dist=0.0001,
                 human_rand=[0.0, 0.0, 0.0],
+                human_animation_names=["SinglePoint/left_right"],
+                human_animation_freq=20
             ),
             keys=["object-state", "robot0_proprio-state"],
         )
 
         # Add collision prevention wrapper
         env = CollisionPreventionWrapper(env=env, collision_check_fn=env.check_collision_action, replace_type=0)
+
+        env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file)
 
         # Add visualization wrapper (same as working demo)
         env = VisualizationWrapper(env)
@@ -114,10 +124,7 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
             obs = env.reset()
             print("✓ Environment reset successful")
             print(
-                f"  - Observation keys: {
-                  list(obs.keys()) if isinstance(obs, dict) else '\
-                    Array shape: ' + str(obs.shape) if hasattr(obs, 'shape') else 'Single value'
-                }"
+                f"  - Observation keys: {list(obs.keys()) if isinstance(obs, dict) else 'Array shape: ' + str(obs.shape) if hasattr(obs, 'shape') else 'Single value'}"  # noqa: E501
             )
 
             total_reward = 0

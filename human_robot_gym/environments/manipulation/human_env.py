@@ -461,12 +461,26 @@ class HumanEnv(ManipulationEnv):
 
     @property
     def human_measurement(self) -> List[np.ndarray]:
-        return [self.sim.data.get_site_xpos("Human_" + joint_element) for joint_element in self.human.joint_elements]
+        return [
+            self.sim.data.get_site_xpos(
+                f"{self.human.name}_" + joint_element
+            ) for joint_element in self.human.joint_elements
+        ]
 
     @property
     def human_animation_length(self) -> int:
         """Get the length of the current human animation."""
         return self.human_animation_data[self.human_animation_id][0]["Pelvis_pos_x"].shape[0]
+
+    @property
+    def _eef_xpos(self) -> np.ndarray:
+        eef_site_name = self.sim.model.site_id2name(self.robots[0].eef_site_id[self.robots[0].arms[0]])
+        return self.sim.data.get_site_xpos(eef_site_name)
+
+    @property
+    def _eef_xmat(self) -> np.ndarray:
+        eef_site_name = self.sim.model.site_id2name(self.robots[0].eef_site_id[self.robots[0].arms[0]])
+        return self.sim.data.get_site_xmat(eef_site_name)
 
     def step(self, action):
         """Override base step function.
@@ -1405,6 +1419,7 @@ class HumanEnv(ManipulationEnv):
                         base_pos=robot.base_pos,
                         base_orientation=base_quat,  # Use quaternion instead of rotation matrix
                         shield_type=self.shield_type,
+                        mocap_file=self.human.mocap_file,
                         control_sample_time=self.control_sample_time,
                         naming_prefix=robot.robot_model.naming_prefix,
                         part_name=robot.arms[0],
@@ -1530,7 +1545,7 @@ class HumanEnv(ManipulationEnv):
             def human_joint_pos(obs_cache):
                 return np.concatenate(
                     [
-                        self.sim.data.get_site_xpos("Human_" + joint_element)
+                        self.sim.data.get_site_xpos(f"{self.human.name}_" + joint_element)
                         for joint_element in self.human.obs_joint_elements
                     ],
                     axis=-1,
