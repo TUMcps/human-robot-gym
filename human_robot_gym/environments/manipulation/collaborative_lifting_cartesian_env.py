@@ -366,7 +366,10 @@ class CollaborativeLiftingCart(HumanEnv):
         Returns:
             bool: Whether or not the human holds the board.
         """
-        return bool(self.sim.data.eq_active[self.sim.model.eq(self._lh_connect_name).id]) and bool(self.sim.data.eq_active[self.sim.model.eq(self._rh_connect_name).id])
+        return bool(
+            self.sim.data.eq_active[
+                self.sim.model.eq(self._lh_connect_name).id]) and bool(
+                    self.sim.data.eq_active[self.sim.model.eq(self._rh_connect_name).id])
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
         """Step the simulation forward one timestep.
@@ -1002,7 +1005,9 @@ class CollaborativeLiftingCart(HumanEnv):
 
         @sensor(modality=obj_mod)
         def board_quat(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return T.convert_quat(self.sim.data.get_body_xquat(self.sim.model.body_id2name(self.board_body_id)), to="xyzw")
+            return T.convert_quat(
+                self.sim.data.get_body_xquat(self.sim.model.body_id2name(self.board_body_id)), to="xyzw"
+            )
 
         @sensor(modality=goal_mod)
         def board_balance(obs_cache: Dict[str, Any]) -> np.ndarray:

@@ -26,7 +26,7 @@ class BaseNutAssemblyHumanEnv(RoboSuiteHumanEnv, NutAssembly):
 
     def __init__(self, **kwargs):
         """Initialize NutAssembly environment with human simulation.
-        
+
         Args:
             **kwargs: All parameters for human simulation and robosuite NutAssembly
         """
@@ -35,7 +35,7 @@ class BaseNutAssemblyHumanEnv(RoboSuiteHumanEnv, NutAssembly):
             robosuite_env_class=NutAssembly,
             arena_config={
                 "add_table": True,
-                "add_base": True, 
+                "add_base": True,
                 "safety_margin": 0.01
             },
             **kwargs

@@ -12,8 +12,6 @@ Changelog:
     XX.XX.XX JT Created generic RoboSuiteHumanEnv to eliminate code duplication
 """
 
-from typing import Any, Dict, Union, List, Optional, Tuple
-
 from robosuite.models.tasks import ManipulationTask
 
 from human_robot_gym.environments.manipulation.human_simulation_mixin import HumanSimulationMixin

@@ -21,17 +21,11 @@ Changelog:
 
 import argparse
 import json
-import sys
-import os
 import numpy as np
 from copy import deepcopy
 
 import torch
 
-# Add robomimic to path
-sys.path.insert(0, '/home/jakob/Promotion/code/robomimic')
-
-import robomimic
 import robomimic.utils.file_utils as FileUtils
 import robomimic.utils.torch_utils as TorchUtils
 import robomimic.utils.env_utils as EnvUtils
@@ -49,50 +43,46 @@ from human_robot_gym.wrappers.collision_prevention_wrapper import CollisionPreve
 
 class SafetyEnvFactory:
     """Factory to create human-robot-gym environments with safety features."""
-    
+
     def __init__(self):
         self.env_mapping = {
             "LiftHumanEnv": "LiftHumanEnv",
-            "CanHumanEnv": "CanHumanEnv", 
+            "CanHumanEnv": "CanHumanEnv",
             "SquareHumanEnv": "SquareHumanEnv",
             "ToolHangHumanEnv": "ToolHangHumanEnv",
         }
-    
+
     def create_safe_env(self, env_name, max_steps=400, render=False):
         """
         Create a human-robot-gym environment with safety features.
-        
+
         Args:
             env_name (str): Name of the environment (e.g., "LiftHumanEnv")
             max_steps (int): Maximum steps per episode
             render (bool): Whether to enable rendering
-            
+
         Returns:
             env: Wrapped environment with safety features
         """
         print(f"Creating safe environment: {env_name}")
-        
+
         # Setup controller configuration (same as working demo)
-        failsafe_config_path = file_path_completion(
-            "controllers/failsafe_controller/config/failsafe.json"
-        )
+        failsafe_config_path = file_path_completion("controllers/failsafe_controller/config/failsafe.json")
         robot_config_path = file_path_completion("models/robots/config/panda.json")
-        
+
         # Load the failsafe controller config from file
-        with open(failsafe_config_path, 'r') as f:
+        with open(failsafe_config_path, "r") as f:
             failsafe_config = json.load(f)
-        
+
         # Load robot-specific limits
-        with open(robot_config_path, 'r') as f:
+        with open(robot_config_path, "r") as f:
             robot_config = json.load(f)
-        
+
         # Merge robot limits into failsafe config
-        controller_config = {'body_parts': {'right': {}}}
-        controller_config['body_parts']['right'] = merge_configs(
-            failsafe_config['body_parts']['right'], robot_config
-        )
+        controller_config = {"body_parts": {"right": {}}}
+        controller_config["body_parts"]["right"] = merge_configs(failsafe_config["body_parts"]["right"], robot_config)
         controller_configs = [controller_config]
-        
+
         # Create environment using the same pattern as working demo
         env = GymWrapper(
             suite.make(
@@ -118,78 +108,65 @@ class SafetyEnvFactory:
                 goal_dist=0.0001,
                 human_rand=[0.0, 0.0, 0.0],
                 human_animation_names=["SinglePoint/left_right"],
-                human_animation_freq=20
+                human_animation_freq=20,
             ),
             keys=["object-state", "robot0_proprio-state"],
         )
-        
+
         # Add collision prevention wrapper
-        env = CollisionPreventionWrapper(
-            env=env, 
-            collision_check_fn=env.check_collision_action, 
-            replace_type=0
-        )
-        
+        env = CollisionPreventionWrapper(env=env, collision_check_fn=env.check_collision_action, replace_type=0)
+
         # Add visualization wrapper (same as working demo)
         env = VisualizationWrapper(env)
-        
+
         return env
 
 
 # Monkey patch the env_from_checkpoint function to use our safety factory
 def create_safe_env_from_checkpoint(
-    ckpt_path=None, 
-    ckpt_dict=None, 
-    env_name=None, 
-    render=False, 
-    render_offscreen=False, 
-    verbose=False
+    ckpt_path=None, ckpt_dict=None, env_name=None, render=False, render_offscreen=False, verbose=False
 ):
     """
     Creates an environment using safety features, overriding robomimic's default behavior.
     """
     ckpt_dict = FileUtils.maybe_dict_from_checkpoint(ckpt_path=ckpt_path, ckpt_dict=ckpt_dict)
-    
+
     # Get configuration info from checkpoint
     config, _ = FileUtils.config_from_checkpoint(ckpt_dict=ckpt_dict)
     rollout_horizon = config.experiment.rollout.horizon
-    
+
     # If no env_name provided, try to get from checkpoint metadata
     if env_name is None:
         env_meta = ckpt_dict.get("env_metadata", {})
         env_name = env_meta.get("env_name", "LiftHumanEnv")  # Default fallback
-    
+
     # Map robomimic environment names to our human-robot-gym names
     env_name_mapping = {
         "Lift": "LiftHumanEnv",
-        "PickPlaceCan": "CanHumanEnv", 
+        "PickPlaceCan": "CanHumanEnv",
         "NutAssemblySquare": "SquareHumanEnv",
         "ToolHang": "ToolHangHumanEnv",
     }
-    
+
     # Use mapping if available, otherwise use env_name as-is
     mapped_env_name = env_name_mapping.get(env_name, env_name)
-    
+
     if verbose:
         print(f"Creating safe environment: {mapped_env_name}")
         print(f"Original env_name: {env_name}")
         print(f"Rollout horizon: {rollout_horizon}")
-    
+
     # Create safe environment
     factory = SafetyEnvFactory()
-    env = factory.create_safe_env(
-        env_name=mapped_env_name,
-        max_steps=rollout_horizon,
-        render=render
-    )
-    
+    env = factory.create_safe_env(env_name=mapped_env_name, max_steps=rollout_horizon, render=render)
+
     # Apply any additional wrappers from robomimic config
     env = EnvUtils.wrap_env_from_config(env, config=config)
-    
+
     if verbose:
         print("============= Created Safe Environment =============")
         print(env)
-    
+
     return env, ckpt_dict
 
 
@@ -203,7 +180,7 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
 
     policy.start_episode()
     obs = env.reset()
-    
+
     # Try to get state dict - some environments may not support this
     try:
         state_dict = env.get_state()
@@ -213,20 +190,19 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
         state_dict = {"states": None}
         print("Warning: Environment doesn't support get_state() - using None")
 
-    results = {}
+    #  results = {}
     video_count = 0  # video frame counter
-    total_reward = 0.
+    total_reward = 0.0
     safety_interventions = 0
     collisions = 0
-    
+
     traj = dict(actions=[], rewards=[], dones=[], states=[], initial_state_dict=state_dict)
     if return_obs:
         # store observations too
         traj.update(dict(obs=[], next_obs=[]))
-        
+
     try:
         for step_i in range(horizon):
-
             # get action from policy
             act = policy(ob=obs)
 
@@ -235,9 +211,9 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
 
             # compute reward
             total_reward += r
-            
+
             # Check for success - handle different info structures
-            if hasattr(env, 'is_success'):
+            if hasattr(env, "is_success"):
                 success = env.is_success()["task"]
             elif isinstance(info, dict) and "n_goal_reached" in info:
                 success = info.get("n_goal_reached", 0) > 0
@@ -253,27 +229,27 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
 
             # visualization
             if render:
-                if hasattr(env, 'render'):
+                if hasattr(env, "render"):
                     try:
                         if camera_names and len(camera_names) > 0:
                             env.render(mode="human", camera_name=camera_names[0])
                         else:
                             env.render(mode="human")
-                    except:
+                    except:  # noqa: E722
                         # Fallback rendering
                         env.render()
-                        
+
             if video_writer is not None:
                 if video_count % video_skip == 0:
                     video_img = []
                     for cam_name in camera_names:
                         try:
                             video_img.append(env.render(mode="rgb_array", height=512, width=512, camera_name=cam_name))
-                        except:
+                        except:  # noqa: E722
                             # Fallback if camera rendering fails
                             video_img.append(np.zeros((512, 512, 3), dtype=np.uint8))
                     if video_img:
-                        video_img = np.concatenate(video_img, axis=1) # concatenate horizontally
+                        video_img = np.concatenate(video_img, axis=1)  # concatenate horizontally
                         video_writer.append_data(video_img)
                 video_count += 1
 
@@ -282,14 +258,11 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
             traj["rewards"].append(r)
             traj["dones"].append(done)
             if state_dict["states"] is not None:
-                try:
-                    current_state = env.get_state()
-                    traj["states"].append(current_state["states"])
-                except:
-                    traj["states"].append(state_dict["states"])
+                current_state = env.get_state()
+                traj["states"].append(current_state["states"])
             else:
                 traj["states"].append(None)
-                
+
             if return_obs:
                 traj["obs"].append(obs)
                 traj["next_obs"].append(next_obs)
@@ -300,26 +273,24 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
 
             # update for next iter
             obs = deepcopy(next_obs)
-            try:
-                state_dict = env.get_state()
-            except:
-                pass
+            state_dict = env.get_state()
 
     except Exception as e:
         print("WARNING: got rollout exception {}".format(e))
 
     # Include safety metrics in stats
     stats = dict(
-        Return=total_reward, 
-        Horizon=(step_i + 1), 
+        Return=total_reward,
+        Horizon=(step_i + 1),
         Success_Rate=float(success),
         Safety_Interventions=safety_interventions,
-        Collisions=collisions
+        Collisions=collisions,
     )
 
     if return_obs:
         # convert list of dict to dict of list for obs dictionaries (for convenient writes to hdf5 dataset)
         from robomimic.utils.tensor_utils import list_of_flat_dict_to_dict_of_list
+
         traj["obs"] = list_of_flat_dict_to_dict_of_list(traj["obs"])
         traj["next_obs"] = list_of_flat_dict_to_dict_of_list(traj["next_obs"])
 
@@ -343,8 +314,8 @@ def run_trained_agent_with_safety(args):
     Main function adapted from robomimic's run_trained_agent.py
     """
     # some arg checking
-    write_video = (args.video_path is not None)
-    assert not (args.render and write_video) # either on-screen or video but not both
+    write_video = args.video_path is not None
+    assert not (args.render and write_video)  # either on-screen or video but not both
     if args.render:
         # on-screen rendering can only support one camera
         assert len(args.camera_names) == 1
@@ -368,10 +339,10 @@ def run_trained_agent_with_safety(args):
 
     # create environment using our safety factory
     env, _ = create_safe_env_from_checkpoint(
-        ckpt_dict=ckpt_dict, 
-        env_name=args.env_name, 
-        render=args.render, 
-        render_offscreen=(args.video_path is not None), 
+        ckpt_dict=ckpt_dict,
+        env_name=args.env_name,
+        render=args.render,
+        render_offscreen=(args.video_path is not None),
         verbose=True,
     )
 
@@ -384,24 +355,25 @@ def run_trained_agent_with_safety(args):
     video_writer = None
     if write_video:
         import imageio
+
         video_writer = imageio.get_writer(args.video_path, fps=20)
 
     rollout_stats = []
     for i in range(rollout_num_episodes):
-        print(f"\n=== Rollout {i+1}/{rollout_num_episodes} ===")
+        print(f"\n=== Rollout {i + 1}/{rollout_num_episodes} ===")
         stats, traj = rollout(
-            policy=policy, 
-            env=env, 
-            horizon=rollout_horizon, 
-            render=args.render, 
-            video_writer=video_writer, 
-            video_skip=args.video_skip, 
+            policy=policy,
+            env=env,
+            horizon=rollout_horizon,
+            render=args.render,
+            video_writer=video_writer,
+            video_skip=args.video_skip,
             return_obs=False,  # Don't store obs to save memory
             camera_names=args.camera_names,
         )
         rollout_stats.append(stats)
-        
-        print(f"Episode {i+1} Stats:")
+
+        print(f"Episode {i + 1} Stats:")
         print(f"  Return: {stats['Return']:.3f}")
         print(f"  Horizon: {stats['Horizon']}")
         print(f"  Success: {stats['Success_Rate']}")
@@ -410,17 +382,18 @@ def run_trained_agent_with_safety(args):
 
     # Compute averages
     from robomimic.utils.tensor_utils import list_of_flat_dict_to_dict_of_list
+
     rollout_stats = list_of_flat_dict_to_dict_of_list(rollout_stats)
-    avg_rollout_stats = { k : np.mean(rollout_stats[k]) for k in rollout_stats }
+    avg_rollout_stats = {k: np.mean(rollout_stats[k]) for k in rollout_stats}
     avg_rollout_stats["Num_Success"] = np.sum(rollout_stats["Success_Rate"])
-    
-    print("\n" + "="*50)
+
+    print("\n" + "=" * 50)
     print("FINAL RESULTS")
-    print("="*50)
+    print("=" * 50)
     print("Average Rollout Stats:")
     print(json.dumps(avg_rollout_stats, indent=4))
-    
-    print(f"\nSafety Summary:")
+
+    print("\nSafety Summary:")
     print(f"  Total Safety Interventions: {np.sum(rollout_stats['Safety_Interventions'])}")
     print(f"  Total Collisions: {np.sum(rollout_stats['Collisions'])}")
     print(f"  Average Safety Interventions per Episode: {avg_rollout_stats['Safety_Interventions']:.2f}")
@@ -432,7 +405,7 @@ def run_trained_agent_with_safety(args):
 
     # Close environment
     env.close()
-    
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run trained robomimic agents with human-robot-gym safety")
@@ -472,7 +445,7 @@ if __name__ == "__main__":
     # Whether to render rollouts to screen
     parser.add_argument(
         "--render",
-        action='store_true',
+        action="store_true",
         help="on-screen rendering",
     )
 
@@ -496,7 +469,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--camera_names",
         type=str,
-        nargs='+',
+        nargs="+",
         default=["agentview"],
         help="(optional) camera name(s) to use for rendering on-screen or to video",
     )

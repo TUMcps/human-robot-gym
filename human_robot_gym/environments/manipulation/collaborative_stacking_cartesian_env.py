@@ -1306,7 +1306,6 @@ class CollaborativeStackingCart(HumanEnv):
         self._l_cube_body_id = self.sim.model.body_name2id(self.l_cube.root_body)
         self._r_cube_body_id = self.sim.model.body_name2id(self.r_cube.root_body)
 
-
     def _setup_observables(self) -> OrderedDict[str, Observable]:
         """Set up observables to be used for this environment.
 

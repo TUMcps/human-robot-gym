@@ -9,7 +9,6 @@ Author: Rafael Cabral
 from typing import Optional
 import numpy as np
 import pybullet as p
-from gymnasium.spaces import Box
 from scipy.spatial.transform import Rotation
 from robosuite.wrappers import Wrapper
 from robosuite.environments.base import MujocoEnv

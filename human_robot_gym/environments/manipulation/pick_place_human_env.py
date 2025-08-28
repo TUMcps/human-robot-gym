@@ -26,7 +26,7 @@ class BasePickPlaceHumanEnv(RoboSuiteHumanEnv, PickPlace):
 
     def __init__(self, **kwargs):
         """Initialize PickPlace environment with human simulation.
-        
+
         Args:
             **kwargs: All parameters for human simulation and robosuite PickPlace
         """
@@ -35,7 +35,7 @@ class BasePickPlaceHumanEnv(RoboSuiteHumanEnv, PickPlace):
             robosuite_env_class=PickPlace,
             arena_config={
                 "add_table": False,  # PickPlace has its own table handling
-                "add_base": True, 
+                "add_base": True,
                 "safety_margin": 0.01
             },
             **kwargs

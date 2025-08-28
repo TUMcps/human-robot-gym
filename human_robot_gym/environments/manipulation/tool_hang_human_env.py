@@ -26,7 +26,7 @@ class ToolHangHumanEnv(RoboSuiteHumanEnv, ToolHang):
 
     def __init__(self, **kwargs):
         """Initialize ToolHang environment with human simulation.
-        
+
         Args:
             **kwargs: All parameters for human simulation and robosuite ToolHang
         """
@@ -35,7 +35,7 @@ class ToolHangHumanEnv(RoboSuiteHumanEnv, ToolHang):
             robosuite_env_class=ToolHang,
             arena_config={
                 "add_table": True,
-                "add_base": True, 
+                "add_base": True,
                 "safety_margin": 0.01
             },
             **kwargs

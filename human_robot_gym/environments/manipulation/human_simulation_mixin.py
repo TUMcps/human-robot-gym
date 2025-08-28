@@ -227,7 +227,11 @@ class HumanSimulationMixin:
 
     @property
     def human_measurement(self) -> List[np.ndarray]:
-        return [self.sim.data.get_site_xpos(f"{self.human.name}_" + joint_element) for joint_element in self.human.joint_elements]
+        return [
+          self.sim.data.get_site_xpos(
+            f"{self.human.name}_" + joint_element
+          ) for joint_element in self.human.joint_elements
+        ]
 
     @property
     def human_animation_length(self) -> int:

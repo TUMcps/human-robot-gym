@@ -1248,7 +1248,9 @@ class CollaborativeHammeringCart(HumanEnv):
         # Rotation quaternion of the board
         @sensor(modality=obj_mod)
         def board_quat(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return T.convert_quat(self.sim.data.get_body_xquat(self.sim.model.body_id2name(self.board_body_id)), to="xyzw")
+            return T.convert_quat(
+                self.sim.data.get_body_xquat(self.sim.model.body_id2name(self.board_body_id)), to="xyzw"
+            )
 
         # Vector from end-effector to board
         @sensor(modality=obj_mod)
