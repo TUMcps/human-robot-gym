@@ -3,15 +3,17 @@ for similarity between the actions of the agent and an expert.
 
 Author:
     Felix Trost (FT)
+    Jakob Thumm (JT)
 
 Changelog:
     06.02.23 FT File creation
     13.02.23 FT Integration of requested changes
 """
-from typing import List, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 import numpy as np
-from gymnasium.core import Env, Wrapper
+
+from gymnasium import Wrapper, Env
 
 from human_robot_gym.demonstrations.experts.expert import Expert
 from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
@@ -19,10 +21,10 @@ from human_robot_gym.utils.expert_imitation_reward_utils import similarity_fn
 
 
 class ActionBasedExpertImitationRewardWrapper(Wrapper):
-    r"""Abstract super class for gym wrappers generating imitation reward
+    r"""Abstract super class for robotsuite wrappers generating imitation reward
     based on the similarity of expert and agent actions.
 
-    This is an abstract super class for gym wrappers that reward the agent
+    This is an abstract super class for robotsuite wrappers that reward the agent
     for the similarity between their actions and the ones of a given expert policy.
     Subclasses provide implementations for the get_imitation_reward method
     to use custom similarity metrics between actions.
@@ -35,7 +37,7 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         $r_i$: reward obtained from imitating the expert's actions
 
     Args:
-        env (Env): gym environment to wrap
+        env (MujocoEnv): robosuite environment to wrap
         expert (Expert): expert with same action space as the environment
         alpha (float): linear interpolation factor between
             just environment reward (`alpha = 0`) and
@@ -60,14 +62,15 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         self._imitation_rewards = None
         self._environment_rewards = None
 
-    def reset(self) -> np.ndarray:
-        """Extend environment's reset method to empty the list of environment and imitation rewards collected."""
+    def reset(
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[Any, dict[str, Any]]:
+        """Uses the :meth:`reset` of the :attr:`env` that can be overwritten to change the returned data."""
         self._imitation_rewards = []
         self._environment_rewards = []
+        return super().reset(seed=seed, options=options)
 
-        return super().reset()
-
-    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, dict]:
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, dict]:
         """Extend environment's step method to query the expert on the same observation and add an imitation reward.
 
         Args:
@@ -99,8 +102,7 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
         reward = self._combine_reward(env_reward, imitation_reward)
 
         # Log the imitation and env rewards
-        done = terminated or truncated
-        if done:
+        if terminated or truncated:
             self._add_reward_to_info(info)
 
         return obs, reward, terminated, truncated, info
@@ -179,7 +181,7 @@ class ActionBasedExpertImitationRewardWrapper(Wrapper):
 
 
 class JointActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewardWrapper):
-    r"""Action-based expert imitation reward gym wrapper for the joint position action space.
+    r"""Action-based expert imitation reward robosuite wrapper for the joint position action space.
     Implements the get_imitation_reward method with a similarity metric taylored to joint space control.
 
     The reward is given by this formula:
@@ -303,7 +305,7 @@ class JointActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRew
 
 
 class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewardWrapper):
-    r"""Action-based expert imitation reward gym wrapper for the cartesian action space.
+    r"""Action-based expert imitation reward robosuite wrapper for the cartesian action space.
     Implements the get_imitation_reward method with a similarity metric taylored to cartesian control.
     The action space is expected to be of the form `(motion_x, motion_y, motion_z, gripper_actuation)`
 
@@ -324,7 +326,7 @@ class CartActionBasedExpertImitationRewardWrapper(ActionBasedExpertImitationRewa
             For more details, see `human_robot_gym.utils.expert_imitation_reward_utils`
 
     Args:
-        env (Env): gym environment to wrap
+        env (MujocoEnv): robosuite environment to wrap
         expert (Expert): expert with a cartesian action space of the form
             `(motion_x, motion_y, motion_z, gripper_actuation)`
         alpha (float): linear interpolation factor between

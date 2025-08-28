@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, OrderedDict, Tuple, Union
 from dataclasses import asdict, dataclass
 
 import numpy as np
+import mujoco
 
 from robosuite.models.arenas import TableArena
 from robosuite.models.objects.primitive.box import BoxObject
@@ -353,6 +354,7 @@ class PickPlaceHumanCart(HumanEnv):
 
         self.manipulation_object = None
         self.manipulation_object_body_id = None
+        self.geom_index = None
         super().__init__(
             robots=robots,
             robot_base_offset=robot_base_offset,
@@ -770,7 +772,7 @@ class PickPlaceHumanCart(HumanEnv):
         # Absolute coordinates of object position
         @sensor(modality=obj_mod)
         def object_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return np.array(self.sim.data.body_xpos[self.manipulation_object_body_id])
+            return np.array(self.sim.data.get_body_xpos(self.sim.model.body_id2name(self.manipulation_object_body_id)))
 
         # Vector from robot end-effector to object
         @sensor(modality=obj_mod)
@@ -883,13 +885,20 @@ class PickPlaceHumanCart(HumanEnv):
     def _visualize_goal(self):
         """Draw a sphere at the target location."""
         # sphere (type 2)
-        self.viewer.viewer.add_marker(
-            pos=self.target_pos,
+        from robosuite.renderers.mjviewer.mjviewer_renderer import MjviewerRenderer
+        if not isinstance(self.viewer, MjviewerRenderer):
+            # Adding markers is only supported in the Mjviewer renderer
+            return
+        if self.geom_index is None:
+            self.geom_index = self.viewer.viewer.user_scn.ngeom
+            self.viewer.viewer.user_scn.ngeom = self.viewer.viewer.user_scn.ngeom + 1
+        mujoco.mjv_initGeom(
+            self.viewer.viewer.user_scn.geoms[self.geom_index],
             type=2,
-            size=[self.goal_dist, self.goal_dist, self.goal_dist],
-            rgba=[0.0, 1.0, 0.0, 0.7],
-            label="",
-            shininess=0.0,
+            size=np.array([self.goal_dist, self.goal_dist, self.goal_dist]),
+            pos=self.target_pos,
+            mat=np.eye(3).flatten(),
+            rgba=[0.0, 1.0, 0.0, 0.7]
         )
 
     def _visualize_object_sample_space(self):
@@ -926,21 +935,28 @@ class PickPlaceHumanCart(HumanEnv):
                 Color in the form (r, g, b, a)
         """
         # Box (type 2)
-        self.viewer.viewer.add_marker(
+        from robosuite.renderers.mjviewer.mjviewer_renderer import MjviewerRenderer
+        if not isinstance(self.viewer, MjviewerRenderer):
+            # Adding markers is only supported in the Mjviewer renderer
+            return
+        if self.geom_index is None:
+            self.geom_index = self.viewer.viewer.user_scn.ngeom
+            self.viewer.viewer.user_scn.ngeom = self.viewer.viewer.user_scn.ngeom + 1
+        mujoco.mjv_initGeom(
+            self.viewer.viewer.user_scn.geoms[self.geom_index],
+            type=6,
+            size=np.array([
+                (boundaries[1] - boundaries[0]) * 0.5,
+                (boundaries[3] - boundaries[2]) * 0.5,
+                (boundaries[5] - boundaries[4]) * 0.5,
+            ]),
             pos=np.array([
                 (boundaries[0] + boundaries[1]) / 2,
                 (boundaries[2] + boundaries[3]) / 2,
                 (boundaries[5] + boundaries[4]) / 2,
             ]),
-            type=6,
-            size=[
-                (boundaries[1] - boundaries[0]) * 0.5,
-                (boundaries[3] - boundaries[2]) * 0.5,
-                (boundaries[5] - boundaries[4]) * 0.5,
-            ],
-            rgba=color,
-            label="",
-            shininess=0.0,
+            mat=np.eye(3).flatten(),
+            rgba=color
         )
 
     def get_environment_state(self) -> PickPlaceHumanCartEnvState:

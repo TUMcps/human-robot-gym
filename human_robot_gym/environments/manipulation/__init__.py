@@ -25,3 +25,7 @@ from human_robot_gym.environments.manipulation.pick_place_human_env import (  # 
 from human_robot_gym.environments.manipulation.nut_assembly_human_env import (  # noqa: F401
     NutAssemblySquareHumanEnv,
 )
+
+from human_robot_gym.environments.manipulation.tool_hang_human_env import (  # noqa: F401
+    ToolHangHumanEnv,
+)

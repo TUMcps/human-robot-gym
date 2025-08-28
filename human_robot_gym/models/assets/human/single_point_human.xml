@@ -1,0 +1,39 @@
+<mujoco model="single_point_human">
+  <size njmax="8000" nconmax="4000"/>
+  <default>
+    <joint damping="0.0" armature="0.01" stiffness="0.0" limited="true"/>
+    <geom group="1" conaffinity="7" condim="1" contype="7" margin="0.001
+    " rgba="0.8 0.6 .4 1"/>
+  </default>
+  <size njmax="1000"/>
+  <asset>
+    <texture file="../textures/jeans.png" type="cube" name="tex-jeans"/>
+    <material name="jeans" reflectance="0.0" shininess="0.0" specular="0.2" texrepeat="1 1" texture="tex-jeans" />
+    <texture file="../textures/skin.png" type="cube" name="tex-skin"/>
+    <material name="skin" reflectance="0.0" shininess="0.0" specular="0.2" texrepeat="1 1" texture="tex-skin" />
+  </asset>
+  <worldbody>
+    <body>
+        <body name="object" mocap="true">
+            <!-- quat="-0.5 -0.5 0.5 0.5" -->
+            <body name="Pelvis" pos="0.0 0.0 0.0" quat="1.0000 0.0000 0.0000 0.0000">
+                <inertial pos="0 0 0" mass="1" diaginertia="1 1 1" />
+                <site name="Pelvis" pos="0 0 0" size="0.000000001 0.000000001 0.000000001" rgba="1 0 0 0.5" type="sphere" group="1"/>
+                <!--<geom group="1" name="Pelvis_visual" type="mesh" mesh="Pelvis" contype="0" conaffinity="1"/>-->
+                <geom group="0" name="Pelvis_collsion" type="sphere" pos="0 0 0" size="0.000000001 0.000000001 0.000000001" contype="0" conaffinity="1" material="jeans"/>
+                <body name="Head" pos="0.0 0.0 0.0" quat="1.0000 0.0000 0.0000 0.0000">
+                    <inertial pos="0 0 0" mass="1" diaginertia="1 1 1" />
+                    <site name="Head" pos="0.0 0.0 0.0" size="0.000000001 0.000000001 0.000000001" rgba="1 0 0 0.5" type="sphere" group="1"/>
+                    <joint name="Head_z" type="hinge" pos="0.0 0.0 0.0" axis="0.0000 0.0000 1.0000" range="-360.0000 360.0000"/>
+                    <joint name="Head_y" type="hinge" pos="0.0 0.0 0.0" axis="0.0000 1.0000 0.0000" range="-360.0000 360.0000"/>
+                    <joint name="Head_x" type="hinge" pos="0.0 0.0 0.0" axis="1.0000 0.0000 0.0000" range="-360.0000 360.0000"/>
+                    <geom group="0" name="Head_collision" type="sphere" pos="0 0 0" size="0.000000001 0.000000001 0.000000001" contype="0" conaffinity="1" material="jeans"/>
+                </body>
+            </body>
+        </body>
+        <site rgba="0 0 0 0" size="0.005" pos="0.0 0.0 0.0" name="bottom_site"/>
+        <site rgba="0 0 0 0" size="0.005" pos="0.0 0.0 1.8" name="top_site"/>
+        <site rgba="0 0 0 0" size="0.005" pos="0.5 0.5 0.0" name="horizontal_radius_site"/>
+    </body>
+  </worldbody>
+</mujoco>

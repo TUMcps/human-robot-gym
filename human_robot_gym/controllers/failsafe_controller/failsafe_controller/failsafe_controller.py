@@ -121,6 +121,7 @@ class FailsafeController(JointPositionController):
         base_pos=[0.0, 0.0, 0.0],
         base_orientation=[0.0, 0.0, 0.0, 1.0],
         shield_type="SSM",
+        mocap_file="mujoco_mocap.yaml",
         input_max=1,
         input_min=-1,
         output_max=0.05,
@@ -190,7 +191,7 @@ class FailsafeController(JointPositionController):
                 f"{dir_path}/../sara-shield/safety_shield/config/trajectory_parameters_{robot_name}.yaml"
             ),
             robot_config_file=f"{dir_path}/../sara-shield/safety_shield/config/robot_parameters_{robot_name}.yaml",
-            mocap_config_file=dir_path + "/../sara-shield/safety_shield/config/mujoco_mocap.yaml",
+            mocap_config_file=dir_path + f"/../sara-shield/safety_shield/config/{mocap_file}",
             init_x=base_pos[0],
             init_y=base_pos[1],
             init_z=base_pos[2],
@@ -319,20 +320,20 @@ class FailsafeController(JointPositionController):
     def ee_pos(self):
         """Get the end-effector position from the simulation."""
         try:
-            site_id = self.sim.model.site_name2id(self.eef_name)
-            return self.sim.data.site_xpos[site_id]
+            return self.sim.data.get_site_xpos(self.eef_name)
         except Exception:
             # Fallback: return zero position if site not found
+            print("Warning: Could not find site {} in the model.".format(self.eef_name))
             return np.zeros(3)
 
     @property
     def ee_ori_mat(self):
         """Get the end-effector orientation matrix from the simulation."""
         try:
-            site_id = self.sim.model.site_name2id(self.eef_name)
-            return self.sim.data.site_xmat[site_id].reshape(3, 3)
+            return self.sim.data.get_site_xmat(self.eef_name).reshape(3, 3)
         except Exception:
             # Fallback: return identity matrix if site not found
+            print("Warning: Could not find site {} in the model.".format(self.eef_name))
             return np.eye(3)
 
     def set_human_measurement(self, human_measurement, time):

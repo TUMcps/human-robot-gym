@@ -1,4 +1,4 @@
-"""This file contains a gym wrapper that can be used to record data from an environment by storing
+"""This file contains a robosuite wrapper that can be used to record data from an environment by storing
 the state representations, observations, actions and expert observations in a dataset directory.
 
 Inside the dataset folder, subfolders for each episode are created. The names of these folders follows
@@ -11,22 +11,25 @@ Modified version of robosuite.wrappers.DataCollectionWrapper.
 
 Author:
     Felix Trost (FT)
+    Jakob Thumm (JT)
 
 Changelog:
     15.06.23 FT file created
+    27.08.25 JT Changed to robosuite wrapper
 """
 import os
 from typing import Any, Dict, Tuple
 
 import numpy as np
 
-import gymnasium
+from robosuite.wrappers import Wrapper
+from robosuite.environments.base import MujocoEnv
 
 from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
 from human_robot_gym.environments.manipulation.human_env import HumanEnv
 
 
-class DatasetCollectionWrapper(gymnasium.Wrapper):
+class DatasetCollectionWrapper(Wrapper):
     """This wrapper can be used to record data from an environment by storing the state representations,
     observations, actions and expert observations in a dataset directory.
 
@@ -42,7 +45,7 @@ class DatasetCollectionWrapper(gymnasium.Wrapper):
     Requires the wrapped environment to be a HumanEnv.
 
     Args:
-        env (gymnasium.Env): The environment to monitor.
+        env (MujocoEnv): The environment to monitor.
         directory (str): Where to store the dataset.
         start_episode (int): The index of the first episode. Defaults to 0.
         store_expert_observations (bool): Whether to store expert observations. Defaults to False.
@@ -53,7 +56,7 @@ class DatasetCollectionWrapper(gymnasium.Wrapper):
     """
     def __init__(
         self,
-        env: gymnasium.Env,
+        env: MujocoEnv,
         directory: str,
         start_episode: int = 0,
         store_expert_observations: bool = False,

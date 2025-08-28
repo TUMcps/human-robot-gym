@@ -123,6 +123,7 @@ if __name__ == "__main__":
         has_offscreen_renderer=False,  # not needed since not using pixel obs
         has_renderer=True,  # make sure we can render to the screen
         render_camera=None,
+        renderer='mjviewer',
         render_collision_mesh=False,
         reward_shaping=False,  # use dense rewards
         control_freq=5,  # control should happen fast enough so that simulation looks smooth
@@ -139,8 +140,14 @@ if __name__ == "__main__":
         object_at_target_reward=0,
     )
 
+    env = CollisionPreventionWrapper(
+        env=rsenv, collision_check_fn=rsenv.check_collision_action, replace_type=0,
+    )
+    env = VisualizationWrapper(env)
+    action_limits = np.array([[-0.1, -0.1, -0.1], [0.1, 0.1, 0.1]])
+    env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file, action_limits=action_limits)
     env = ExpertObsWrapper(
-        env=rsenv,
+        env=env,
         agent_keys=[
             "dist_eef_to_human_head",
             "dist_eef_to_human_lh",
@@ -153,12 +160,6 @@ if __name__ == "__main__":
             "robot0_gripper_qpos",
         ]
     )
-    env = CollisionPreventionWrapper(
-        env=env, collision_check_fn=env.check_collision_action, replace_type=0,
-    )
-    env = VisualizationWrapper(env)
-    action_limits = np.array([[-0.1, -0.1, -0.1], [0.1, 0.1, 0.1]])
-    env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file, action_limits=action_limits)
     kb_agent = KeyboardControllerAgentCart(env=env)
     expert = PickPlaceHumanCartExpert(
         observation_space=env.observation_space,

@@ -44,30 +44,38 @@ if __name__ == "__main__":
     controller_config['body_parts']['right'] = merge_configs(failsafe_config['body_parts']['right'], robot_config)
     controller_configs = [controller_config]
 
+    rsenv = suite.make(
+        "ReachHuman",
+        robots="Schunk",  # use Sawyer robot
+        robot_base_offset=[0, 0, 0],
+        use_camera_obs=False,  # do not use pixel observations
+        has_offscreen_renderer=False,  # not needed since not using pixel obs
+        has_renderer=True,  # make sure we can render to the screen
+        render_camera=None,
+        renderer="mjviewer",
+        render_collision_mesh=False,
+        reward_shaping=True,  # use dense rewards
+        control_freq=5,  # control should happen fast enough so that simulation looks smooth
+        hard_reset=False,
+        horizon=100,
+        controller_configs=controller_configs,
+        shield_type="SSM",
+        visualize_failsafe_controller=True,
+        visualize_pinocchio=False,
+        base_human_pos_offset=[1.0, 0.0, 0.0],
+        verbose=True,
+        goal_dist=0.0001,
+        human_rand=[1.0, 0.5, 0.2]
+    )
+
+    env = CollisionPreventionWrapper(
+        env=rsenv, collision_check_fn=rsenv.check_collision_action, replace_type=0
+    )
+
+    env = VisualizationWrapper(env)
+
     env = ExpertObsWrapper(
-        suite.make(
-            "ReachHuman",
-            robots="Schunk",  # use Sawyer robot
-            robot_base_offset=[0, 0, 0],
-            use_camera_obs=False,  # do not use pixel observations
-            has_offscreen_renderer=False,  # not needed since not using pixel obs
-            has_renderer=True,  # make sure we can render to the screen
-            render_camera=None,
-            renderer="mjviewer",
-            render_collision_mesh=False,
-            reward_shaping=True,  # use dense rewards
-            control_freq=5,  # control should happen fast enough so that simulation looks smooth
-            hard_reset=False,
-            horizon=100,
-            controller_configs=controller_configs,
-            shield_type="SSM",
-            visualize_failsafe_controller=True,
-            visualize_pinocchio=False,
-            base_human_pos_offset=[1.0, 0.0, 0.0],
-            verbose=True,
-            goal_dist=0.0001,
-            human_rand=[1.0, 0.5, 0.2]
-        ),
+        env=env,
         agent_keys=[
             "object-state",
             "robot0_proprio-state",
@@ -77,12 +85,6 @@ if __name__ == "__main__":
             "goal_difference"
         ]
     )
-
-    env = CollisionPreventionWrapper(
-        env=env, collision_check_fn=env.check_collision_action, replace_type=0
-    )
-
-    env = VisualizationWrapper(env)
 
     expert = ReachHumanExpert(
         observation_space=env.observation_space,

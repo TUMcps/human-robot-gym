@@ -65,43 +65,44 @@ if __name__ == "__main__":
     controller_config['body_parts']['right'] = merge_configs(failsafe_config['body_parts']['right'], robot_config)
     controller_configs = [controller_config]
 
-    env = GymWrapper(
-        env=suite.make(
-            "ReachHumanCart",
-            robots="Schunk",  # use Schunk robot
-            robot_base_offset=[0.0, 0, 0],
-            use_camera_obs=False,  # do not use pixel observations
-            has_offscreen_renderer=False,  # not needed since not using pixel obs
-            has_renderer=True,  # make sure we can render to the screen
-            render_camera=None,
-            renderer="mjviewer",
-            render_collision_mesh=False,
-            reward_shaping=False,  # use dense rewards
-            control_freq=5,  # control should happen fast enough so that simulation looks smooth
-            hard_reset=False,
-            horizon=1000,
-            controller_configs=controller_configs,
-            shield_type="SSM",
-            visualize_failsafe_controller=False,
-            visualize_pinocchio=False,
-            base_human_pos_offset=[0.0, 0.0, 0.0],
-            init_joint_pos=np.array([0, 0.0, -np.pi / 2, 0, -np.pi / 2, 0]),
-            verbose=True,
-        ),
-        keys=["object-state", "goal_difference"]
+    rsenv = suite.make(
+        "ReachHumanCart",
+        robots="Schunk",  # use Schunk robot
+        robot_base_offset=[0.0, 0, 0],
+        use_camera_obs=False,  # do not use pixel observations
+        has_offscreen_renderer=False,  # not needed since not using pixel obs
+        has_renderer=True,  # make sure we can render to the screen
+        render_camera=None,
+        renderer="mjviewer",
+        render_collision_mesh=False,
+        reward_shaping=False,  # use dense rewards
+        control_freq=5,  # control should happen fast enough so that simulation looks smooth
+        hard_reset=False,
+        horizon=1000,
+        controller_configs=controller_configs,
+        shield_type="SSM",
+        visualize_failsafe_controller=False,
+        visualize_pinocchio=False,
+        base_human_pos_offset=[0.0, 0.0, 0.0],
+        init_joint_pos=np.array([0, 0.0, -np.pi / 2, 0, -np.pi / 2, 0]),
+        verbose=True,
     )
-    env = CollisionPreventionWrapper(
-        env=env,
-        collision_check_fn=env.check_collision_action,
+    rsenv = CollisionPreventionWrapper(
+        env=rsenv,
+        collision_check_fn=rsenv.check_collision_action,
         replace_type=0,
     )
-    env = VisualizationWrapper(env)
     action_limits = np.array([[-0.1, -0.1, -0.1], [0.1, 0.1, 0.1]])
-    env = IKPositionDeltaWrapper(
-        env=env,
+    rsenv = IKPositionDeltaWrapper(
+        env=rsenv,
         urdf_file=pybullet_urdf_file,
         action_limits=action_limits
     )
+    rsenv = VisualizationWrapper(rsenv)
+    env = GymWrapper(rsenv, keys=[
+            "object-state",
+            "goal_difference"
+          ])
 
     agent = KeyboardControllerAgentCart(
         env=env,
@@ -115,7 +116,7 @@ if __name__ == "__main__":
         t1 = time.time()
         for t in range(t_max):
             # testing environment structure
-            eef_pos = env.sim.data.site_xpos[env.robots[0].eef_site_id]
+            eef_pos = env._eef_xpos
             goal = env.desired_goal
             action = agent()
             observation, reward, terminated, truncated, info = env.step(action)

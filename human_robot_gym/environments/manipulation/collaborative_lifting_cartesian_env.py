@@ -311,6 +311,7 @@ class CollaborativeLiftingCart(HumanEnv):
 
         self._lh_connect_name = "lh_mocap_object_connect"
         self._rh_connect_name = "rh_mocap_object_connect"
+        self.geom_index = None
 
         super().__init__(
             robots=robots,
@@ -365,7 +366,10 @@ class CollaborativeLiftingCart(HumanEnv):
         Returns:
             bool: Whether or not the human holds the board.
         """
-        return bool(self.sim.model.eq_active[self.eq_l_id]) and bool(self.sim.model.eq_active[self.eq_r_id])
+        return bool(
+            self.sim.data.eq_active[
+                self.sim.model.eq(self._lh_connect_name).id]) and bool(
+                    self.sim.data.eq_active[self.sim.model.eq(self._rh_connect_name).id])
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
         """Step the simulation forward one timestep.
@@ -609,8 +613,9 @@ class CollaborativeLiftingCart(HumanEnv):
 
     def _toggle_grip_equalities_active(self, active: bool):
         """Toggle the status of the equalities connecting the mocap objects at the human's hands with the board."""
-        self.sim.model.eq_active[self.eq_l_id] = active
-        self.sim.model.eq_active[self.eq_r_id] = active
+        self.sim.data.eq_active[self.sim.model.eq(self._lh_connect_name).id] = int(active)
+        self.sim.data.eq_active[self.sim.model.eq(self._rh_connect_name).id] = int(active)
+        self.sim.forward()
 
     def human_pickup_board(self):
         """Activate the equalities connecting the mocap objects at the human's hands with the board."""
@@ -695,7 +700,7 @@ class CollaborativeLiftingCart(HumanEnv):
             self._reset_animation()
             self.sim.step()
             obs, _, done, _ = self.step(
-                np.concatenate([[0 for _ in range(self.action_dim - 1)], [1]])
+                np.concatenate([[0 for _ in range(self.action_space.shape - 1)], [1]])
             )
 
             if done:
@@ -768,11 +773,11 @@ class CollaborativeLiftingCart(HumanEnv):
             objects=self.obstacles,
         )
 
-    def _postprocess_model(self):
+    def _load_model(self):
         """Extend super class method to add elements to the model before creating the sim object."""
-        super()._postprocess_model()
+        super()._load_model()
 
-        r_anchor = "-0.45 -0.25, 0"
+        r_anchor = "-0.45 -0.25 0"
         l_anchor = "-0.45 0.25 0"
 
         self._add_mocap_bodies_to_model(l_anchor_pos=l_anchor, r_anchor_pos=r_anchor)
@@ -951,17 +956,6 @@ class CollaborativeLiftingCart(HumanEnv):
         super()._setup_references()
 
         self.board_body_id = self.sim.model.body_name2id(self.board.root_body)
-        self.eq_l_id = mujoco.mj_name2id(
-            self.sim.model,
-            mujoco.mjtObj.mjOBJ_EQUALITY,
-            self._lh_connect_name,
-        )
-
-        self.eq_r_id = mujoco.mj_name2id(
-            self.sim.model,
-            mujoco.mjtObj.mjOBJ_EQUALITY,
-            self._rh_connect_name,
-        )
 
     def _setup_observables(self) -> OrderedDict[str, Observable]:
         """Extend super class method to set up additional observables.
@@ -1007,11 +1001,13 @@ class CollaborativeLiftingCart(HumanEnv):
 
         @sensor(modality=obj_mod)
         def board_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return np.array(self.sim.data.body_xpos[self.board_body_id])
+            return np.array(self.sim.data.get_body_xpos(self.sim.model.body_id2name(self.board_body_id)))
 
         @sensor(modality=obj_mod)
         def board_quat(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return T.convert_quat(self.sim.data.body_xquat[self.board_body_id], to="xyzw")
+            return T.convert_quat(
+                self.sim.data.get_body_xquat(self.sim.model.body_id2name(self.board_body_id)), to="xyzw"
+            )
 
         @sensor(modality=goal_mod)
         def board_balance(obs_cache: Dict[str, Any]) -> np.ndarray:
@@ -1019,7 +1015,7 @@ class CollaborativeLiftingCart(HumanEnv):
                 return np.zeros(1)
             else:
                 balance = (
-                    quat_to_rot(self.sim.data.body_xquat[self.board_body_id])
+                    quat_to_rot(self.sim.data.get_body_xquat(self.sim.model.body_id2name(self.board_body_id)))
                     .apply(np.array([0, 0, 1]))
                     .dot(np.array([0, 0, 1]))
                 )
@@ -1075,7 +1071,7 @@ class CollaborativeLiftingCart(HumanEnv):
     def _visualize_board_normal(self):
         """Visualize the board's normal as a marker in the renderer."""
         balance = (
-            quat_to_rot(self.sim.data.body_xquat[self.board_body_id])
+            quat_to_rot(self.sim.data.get_body_xquat(self.sim.model.body_id2name(self.board_body_id)))
             .apply(np.array([0, 0, 1]))
             .dot(np.array([0, 0, 1]))
         )
@@ -1083,13 +1079,18 @@ class CollaborativeLiftingCart(HumanEnv):
         balance = (balance - self.min_balance) / (1 - self.min_balance)
 
         color = np.array([1, 0, 0, 0.3]) * (1 - balance) + np.array([0, 1, 0, 0.3]) * balance
-
-        self.viewer.viewer.add_marker(
-            pos=self.sim.data.get_body_xpos(self.board.root_body),
+        from robosuite.renderers.mjviewer.mjviewer_renderer import MjviewerRenderer
+        if not isinstance(self.viewer, MjviewerRenderer):
+            # Adding markers is only supported in the Mjviewer renderer
+            return
+        if self.geom_index is None:
+            self.geom_index = self.viewer.viewer.user_scn.ngeom
+            self.viewer.viewer.user_scn.ngeom = self.viewer.viewer.user_scn.ngeom + 1
+        mujoco.mjv_initGeom(
+            self.viewer.viewer.user_scn.geoms[self.geom_index],
             type=100,
-            size=[0.005, 0.005, 0.5],
-            mat=quat_to_rot(self.sim.data.get_body_xquat(self.board.root_body)).as_matrix(),
-            rgba=color,
-            label="",
-            shininess=0.0,
+            size=np.array([0.005, 0.005, 0.5]),
+            pos=self.sim.data.get_body_xpos(self.board.root_body),
+            mat=quat_to_rot(self.sim.data.get_body_xquat(self.board.root_body)).as_matrix().flatten(),
+            rgba=color
         )
