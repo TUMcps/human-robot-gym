@@ -96,6 +96,7 @@ class PickPlaceHumanCartExpert(Expert):
         vertical_epsilon: float = 0.015,
         goal_dist: float = 0.08,
         gripper_fully_opened_threshold: float = 0.02,
+        enforce_gripper_fully_opened: bool = False,
         release_when_delivered: bool = True,
         delta_time: float = 0.01,
         seed: Optional[int] = None,
@@ -111,6 +112,7 @@ class PickPlaceHumanCartExpert(Expert):
         # TODO fix init_qpos values and use gripper dependent values
         # self._gripper_fully_opened_threshold = gripper_model.init_qpos[0] - gripper_model.init_qpos[1]
         self._gripper_fully_opened_threshold = gripper_fully_opened_threshold
+        self._enforce_gripper_fully_opened = enforce_gripper_fully_opened
         self._horizontal_epsilon = horizontal_epsilon
         self._vertical_epsilon = vertical_epsilon
         self._goal_dist = goal_dist
@@ -183,7 +185,7 @@ class PickPlaceHumanCartExpert(Expert):
             return self._move_to_target(obs)
         elif obs.object_gripped:
             return self._move_to_above_target(obs)
-        elif self._above_object(obs):  # and self._gripper_fully_opened(obs):
+        elif self._above_object(obs) and (not self._enforce_gripper_fully_opened or self._gripper_fully_opened(obs)):
             return self._move_to_object(obs)
         else:
             return self._move_to_above_object(obs)

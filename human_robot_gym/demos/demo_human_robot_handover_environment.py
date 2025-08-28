@@ -173,6 +173,7 @@ if __name__ == "__main__":
         observation_space=env.observation_space,
         action_space=env.action_space,
         signal_to_noise_ratio=0.99,
+        enforce_gripper_fully_opened=True
     )
 
     env = CartActionBasedExpertImitationRewardWrapper(
@@ -211,7 +212,7 @@ if __name__ == "__main__":
         observation = env.reset()
         t1 = time.time()
         t = 0
-        while True:
+        while t < 100:
             t += 1
             expert_observation = expert_obs_wrapper.current_expert_observation
 
