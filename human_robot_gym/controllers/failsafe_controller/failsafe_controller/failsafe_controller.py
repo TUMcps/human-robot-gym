@@ -429,6 +429,8 @@ class FailsafeController(JointPositionController):
         Returns:
             list[capsule]
         """
+        if self.shield_type == ShieldType.OFF:
+            return []
         self.robot_cap_in = self.safety_shield.getRobotReachCapsules()
         if len(self.robot_capsules) == 0:
             for cap in self.robot_cap_in:
@@ -452,6 +454,8 @@ class FailsafeController(JointPositionController):
         Returns:
             list[capsule]
         """
+        if self.shield_type == ShieldType.OFF:
+            return []
         self.human_cap_in = self.safety_shield.getHumanReachCapsules(0)
         if len(self.human_capsules) == 0:
             for cap in self.human_cap_in:
