@@ -12,6 +12,7 @@ import pybullet as p
 from scipy.spatial.transform import Rotation
 from robosuite.wrappers import Wrapper
 from robosuite.environments.base import MujocoEnv
+import robosuite.utils.transform_utils as T
 
 
 class IKPositionDeltaWrapper(Wrapper):
@@ -33,7 +34,10 @@ class IKPositionDeltaWrapper(Wrapper):
         x_position_limits: Optional[np.ndarray] = None,
         residual_threshold: float = 1e-3,
         max_iter: int = 50,
-        **kwargs
+        use_orientation: bool = False,
+        goal_update_mode: str = "achieved",
+        input_ref_frame: str = "world",
+        **kwargs,
     ):  # noqa: D107
         """Initialize the position delta wrapper.
 
@@ -41,7 +45,8 @@ class IKPositionDeltaWrapper(Wrapper):
             env (gym.env): The gym environment
             urdf_file (string): path to robot urdf file, used for inverse kinematics.
                 Should not start with fixed joints to work as expected.
-            action_limits (2D numpy array (2, 3)): limits the action to [[mins], [maxs]].
+            action_limits (2D numpy array (2, X)): limits the action to [[mins], [maxs]].
+                X is 3 if use_orientation is False, else 6.
             x_output_max (double): limits the end effector velocity.
                 Maximum L1 distance of cartesian position delta.
                 If this value is not 1, the action does not represent the delta position anymore.
@@ -52,6 +57,9 @@ class IKPositionDeltaWrapper(Wrapper):
                 between target and actual end effector position is below residual_threshold,
                 or until max_iter is reached.
             max_iter (int): maximum number of iterations in IK solution.
+            use_orientation (bool): Whether to use orientation control.
+            goal_update_mode (str): How to update goals - "achieved" or "desired".
+            input_ref_frame (str): Reference frame for actions - "world" or "base".
         """
         super().__init__(env)
         self.robot = self.unwrapped.robots[0]
@@ -81,6 +89,9 @@ class IKPositionDeltaWrapper(Wrapper):
         )
         self.residual_threshold = residual_threshold
         self.max_iter = max_iter
+        self.use_orientation = use_orientation
+        self.goal_update_mode = goal_update_mode
+        self.input_ref_frame = input_ref_frame
 
         # get and maintain initial orientation
         init_q = self.robot.init_qpos
@@ -90,8 +101,21 @@ class IKPositionDeltaWrapper(Wrapper):
         init_ori = ee_state[5]  # worldLinkFrameOrientation as quaternion [x y z w]
 
         # Control dimension
-        self.control_dim = 3
+        self.control_dim = 6 if self.use_orientation else 3
         self.target_orientation = init_ori
+
+        # Initialize goals for orientation tracking
+        self.goal_ori = None
+
+        # Store initial end-effector pose for reference
+        ee_state = p.getLinkState(self.p_robot_id, self.end_effector_index)
+        init_pos = ee_state[4]  # worldLinkFramePosition [x y z]
+        init_ori_quat = ee_state[5]  # worldLinkFrameOrientation as quaternion [x y z w]
+
+        # Convert quaternion to rotation matrix for consistency with robosuite
+        init_ori_mat = T.quat2mat(init_ori_quat)
+        self.ref_ori_mat = init_ori_mat
+        self.ref_pos = np.array(init_pos)
 
         # Redefining action space
         # Calculate gripper DOF: total action dim - robot DOF
@@ -128,21 +152,27 @@ class IKPositionDeltaWrapper(Wrapper):
         ws_action[: self.control_dim] = action[: self.control_dim]
 
         # get pybullet end-effector position
-        q_current = self.robot.part_controllers['right'].joint_pos
+        q_current = self.robot.part_controllers["right"].joint_pos
         for i, val in enumerate(q_current):
             p.resetJointState(self.p_robot_id, i, val)
         ee_state = p.getLinkState(self.p_robot_id, self.end_effector_index)
         ee_pos = ee_state[4]  # worldLinkFramePosition [x y z]
-
+        ee_ori_quat = ee_state[5]  # worldLinkFrameOrientation as quaternion [x y z w]
         # scale action from [-1, 1] to output range
         ws_action *= self.x_output_max
 
         # calculate and clip target position
-        target_position = ee_pos + ws_action
+        target_position = ee_pos + ws_action[0:3]
         if self.x_position_limits:
-            target_position = np.clip(
-                target_position, self.x_position_limits[0], self.x_position_limits[1]
-            )
+            target_position = np.clip(target_position, self.x_position_limits[0], self.x_position_limits[1])
+
+        # Calculate target orientation if using orientation control
+        if self.use_orientation:
+            # Get orientation delta from action
+            ori_delta = action[3:6] * self.x_output_max  # scale orientation action
+            # Compute goal orientation using delta
+            self.target_orientation = self.compute_goal_ori(ori_delta, ee_ori_quat)
+        # else keep using the initial fixed orientation
 
         # inverse kinematics, selectively damped least squares
         joint_poses = p.calculateInverseKinematics(
@@ -160,7 +190,45 @@ class IKPositionDeltaWrapper(Wrapper):
 
         # handle gripper action
         if len(action) > self.control_dim:
-            q_action = np.append(q_action, action[self.control_dim:])
+            q_action = np.append(q_action, action[self.control_dim :])
 
         next_obs, reward, done, info = super().step(q_action)
         return next_obs, reward, done, info
+
+    def compute_goal_ori(self, delta, current_ori_quat):
+        """
+        Compute new goal orientation, given a delta to update.
+
+        Args:
+            delta (np.array): Desired relative change in orientation, in axis-angle form [ax, ay, az]
+
+        Returns:
+            np.array: updated goal orientation as quaternion [x, y, z, w] for PyBullet
+        """
+        if self.goal_ori is None:
+            # Initialize goal orientation to current orientation
+            if self.input_ref_frame == "world":
+                self.goal_ori = T.quat2mat(current_ori_quat)
+            else:  # base frame not fully implemented yet
+                self.goal_ori = T.quat2mat(current_ori_quat)
+
+        # Convert axis-angle delta to rotation matrix
+        quat_delta = T.axisangle2quat(delta)
+        rotation_mat_delta = T.quat2mat(quat_delta)
+
+        if self.goal_update_mode == "desired":
+            # Update goal orientation relative to current desired goal
+            new_goal_ori = np.dot(rotation_mat_delta, self.goal_ori)
+        elif self.goal_update_mode == "achieved":
+            # Update goal orientation relative to current achieved orientation
+            current_ori_mat = T.quat2mat(current_ori_quat)
+            new_goal_ori = np.dot(rotation_mat_delta, current_ori_mat)
+        else:
+            raise ValueError(f"Invalid goal_update_mode: {self.goal_update_mode}")
+
+        # Store the updated goal orientation
+        self.goal_ori = new_goal_ori
+
+        # Convert back to quaternion for PyBullet
+        goal_quat = T.mat2quat(new_goal_ori)
+        return goal_quat

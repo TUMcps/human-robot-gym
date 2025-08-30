@@ -39,35 +39,28 @@ if __name__ == "__main__":
     controller_config['body_parts']['right'] = merge_configs(failsafe_config['body_parts']['right'], robot_config)
     controller_configs = [controller_config]
 
-    env = GymWrapper(
-        suite.make(
-            "ReachHuman",
-            robots="Panda",  # use Sawyer robot
-            robot_base_offset=[0, 0, 0],
-            use_camera_obs=False,  # do not use pixel observations
-            has_offscreen_renderer=False,  # not needed since not using pixel obs
-            has_renderer=True,  # make sure we can render to the screen
-            render_camera=None,
-            renderer="mjviewer",
-            render_collision_mesh=False,
-            reward_shaping=True,  # use dense rewards
-            control_freq=5,  # control should happen fast enough so that simulation looks smooth
-            hard_reset=False,
-            horizon=1000,
-            controller_configs=controller_configs,
-            shield_type="SSM",
-            visualize_failsafe_controller=True,
-            visualize_pinocchio=False,
-            base_human_pos_offset=[0.1, 0.0, 0.0],
-            verbose=True,
-            goal_dist=0.0001,
-            human_rand=[0.0, 0.0, 0.0]
-        ),
-        keys=[
-            "object-state",
-            "robot0_proprio-state",
-            "goal_difference"
-        ]
+    env = suite.make(
+        "ReachHuman",
+        robots="Panda",  # use Sawyer robot
+        robot_base_offset=[0, 0, 0],
+        use_camera_obs=False,  # do not use pixel observations
+        has_offscreen_renderer=False,  # not needed since not using pixel obs
+        has_renderer=True,  # make sure we can render to the screen
+        render_camera=None,
+        renderer="mjviewer",
+        render_collision_mesh=False,
+        reward_shaping=True,  # use dense rewards
+        control_freq=5,  # control should happen fast enough so that simulation looks smooth
+        hard_reset=False,
+        horizon=1000,
+        controller_configs=controller_configs,
+        shield_type="SSM",
+        visualize_failsafe_controller=True,
+        visualize_pinocchio=False,
+        base_human_pos_offset=[0.1, 0.0, 0.0],
+        verbose=True,
+        goal_dist=0.0001,
+        human_rand=[0.0, 0.0, 0.0]
     )
 
     env = CollisionPreventionWrapper(
@@ -75,6 +68,15 @@ if __name__ == "__main__":
     )
 
     env = VisualizationWrapper(env)
+
+    env = GymWrapper(
+        env,
+        keys=[
+            "object-state",
+            "robot0_proprio-state",
+            "goal_difference"
+        ]
+    )
 
     t_max = 100
     for i_episode in range(20):
