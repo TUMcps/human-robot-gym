@@ -37,6 +37,9 @@ class IKPositionDeltaWrapper(Wrapper):
         use_orientation: bool = False,
         goal_update_mode: str = "achieved",
         input_ref_frame: str = "world",
+        action_scale: Optional[float] = None,
+        input_min: float = -1.0,
+        input_max: float = 1.0,
         **kwargs,
     ):  # noqa: D107
         """Initialize the position delta wrapper.
@@ -123,6 +126,10 @@ class IKPositionDeltaWrapper(Wrapper):
         self.action_lb = np.append(action_limits[0], -np.ones(self.gripper_action_dim))
         self.action_ub = np.append(action_limits[1], np.ones(self.gripper_action_dim))
 
+        self.action_scale = action_scale
+        self.input_min = input_min
+        self.input_max = input_max
+
         # Cartesian action limits and x
         self.x_output_max = x_output_max
         self.x_position_limits = x_position_limits
@@ -146,6 +153,7 @@ class IKPositionDeltaWrapper(Wrapper):
         and apply action to the environment.
         """
         # Clip action to action space
+        action = self.scale_action(action)
         action = np.clip(action, self.action_spec[0], self.action_spec[1])
 
         ws_action = np.zeros(self.control_dim)
@@ -232,3 +240,24 @@ class IKPositionDeltaWrapper(Wrapper):
         # Convert back to quaternion for PyBullet
         goal_quat = T.mat2quat(new_goal_ori)
         return goal_quat
+
+    def scale_action(self, action):
+        """
+        Clips @action to be within self.input_min and self.input_max, and then re-scale the values to be within
+        the range self.output_min and self.output_max
+
+        Args:
+            action (Iterable): Actions to scale
+
+        Returns:
+            np.array: Re-scaled action
+        """
+
+        if self.action_scale is None:
+            self.action_scale = abs(self.action_ub - self.action_lb) / abs(self.input_max - self.input_min)
+            self.action_output_transform = (self.action_ub + self.action_lb) / 2.0
+            self.action_input_transform = (self.input_max + self.input_min) / 2.0
+        action = np.clip(action, self.input_min, self.input_max)
+        transformed_action = (action - self.action_input_transform) * self.action_scale + self.action_output_transform
+
+        return transformed_action
