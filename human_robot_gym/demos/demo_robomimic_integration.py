@@ -79,33 +79,30 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
         controller_configs = [controller_config]
 
         # Create environment using the same pattern as working demo
-        env = GymWrapper(
-            suite.make(
-                env_name,
-                robots="Panda",
-                robot_base_offset=[0, 0, 0],
-                use_camera_obs=False,  # do not use pixel observations
-                has_offscreen_renderer=False,  # not needed since not using pixel obs
-                has_renderer=True,  # make sure we can render to the screen
-                render_camera=None,
-                renderer="mjviewer",
-                render_collision_mesh=False,
-                reward_shaping=True,  # use dense rewards
-                control_freq=5,  # control should happen fast enough so that simulation looks smooth
-                horizon=max_steps,
-                hard_reset=False,
-                controller_configs=controller_configs,
-                shield_type="SSM",
-                visualize_failsafe_controller=True,  # Enable failsafe visualization
-                visualize_pinocchio=False,
-                base_human_pos_offset=[0.0, 0.0, 0.0],
-                verbose=True,  # Enable verbose output for debugging
-                goal_dist=0.0001,
-                human_rand=[0.0, 0.0, 0.0],
-                human_animation_names=["SinglePoint/left_right"],
-                human_animation_freq=20
-            ),
-            keys=["object-state", "robot0_proprio-state"],
+        env = suite.make(
+            env_name,
+            robots="Panda",
+            robot_base_offset=[0, 0, 0],
+            use_camera_obs=False,  # do not use pixel observations
+            has_offscreen_renderer=False,  # not needed since not using pixel obs
+            has_renderer=True,  # make sure we can render to the screen
+            render_camera=None,
+            renderer="mjviewer",
+            render_collision_mesh=False,
+            reward_shaping=True,  # use dense rewards
+            control_freq=5,  # control should happen fast enough so that simulation looks smooth
+            horizon=max_steps,
+            hard_reset=False,
+            controller_configs=controller_configs,
+            shield_type="SSM",
+            visualize_failsafe_controller=True,  # Enable failsafe visualization
+            visualize_pinocchio=False,
+            base_human_pos_offset=[0.0, 0.0, 0.0],
+            verbose=True,  # Enable verbose output for debugging
+            goal_dist=0.0001,
+            human_rand=[0.0, 0.0, 0.0],
+            human_animation_names=["SinglePoint/left_right"],
+            human_animation_freq=20
         )
 
         # Add collision prevention wrapper
@@ -115,6 +112,8 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
 
         # Add visualization wrapper (same as working demo)
         env = VisualizationWrapper(env)
+        
+        env = GymWrapper(env, keys=["object-state", "robot0_proprio-state"])
         print(f"✓ Successfully created {env_name}")
 
         for episode in range(num_episodes):
