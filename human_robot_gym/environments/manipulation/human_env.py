@@ -15,6 +15,7 @@ Changelog:
     05.09.23 FT new reward function interface
 """
 
+from ast import Not
 from typing import Any, Dict, Union, List, Optional, Tuple
 from dataclasses import dataclass
 from enum import IntFlag
@@ -48,6 +49,12 @@ from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model impo
 )
 from human_robot_gym.controllers.failsafe_controller.failsafe_controller import (
     FailsafeController,
+)
+from human_robot_gym.controllers.parts.gripper.simple_waypoint_grip import (
+    SimpleWaypointGripController
+)
+from human_robot_gym.controllers.parts.gripper.composite_controller_patch import (
+    apply_composite_controller_patch
 )
 import human_robot_gym.models.objects.obstacle as obstacle
 
@@ -292,6 +299,8 @@ class HumanEnv(ManipulationEnv):
         render_visual_mesh: bool = True,
         render_gpu_device_id: int = -1,
         control_freq: float = 10,
+        use_waypoints_action: bool = False,
+        n_waypoints: int = 1,
         horizon: int = 1000,
         ignore_done: bool = False,
         hard_reset: bool = True,
@@ -346,6 +355,7 @@ class HumanEnv(ManipulationEnv):
         self.robot_base_offset = np.array(robot_base_offset)
         # Failsafe controller settings
         self.failsafe_controller = None
+        self.gripper_controllers = None
         self.control_sample_time = control_sample_time
         # Currently, we always use the failsafe controller.
         # If you want to use a different kind of controller, you can set this to False.
@@ -355,6 +365,19 @@ class HumanEnv(ManipulationEnv):
         self.visualize_failsafe_controller = visualize_failsafe_controller
         self.safe_vel = safe_vel
         self.self_collision_safety = self_collision_safety
+        self.use_waypoints_action = use_waypoints_action
+        self.n_waypoints = n_waypoints
+        total_control_steps = 1.0/(control_freq*control_sample_time)
+        self.n_control_steps_per_waypoint = np.floor(total_control_steps/n_waypoints)
+        if self.use_waypoints_action and not self.use_failsafe_controller:
+            raise NotImplementedError(
+                "Waypoints action is only implemented together with the failsafe controller. \
+                  You can use ShieldType.OFF to deactivate the failsafe controller."
+            )
+
+        # Apply composite controller monkey patch if using waypoint actions
+        if self.use_waypoints_action:
+            apply_composite_controller_patch()
 
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
@@ -443,7 +466,11 @@ class HumanEnv(ManipulationEnv):
 
         # Override robot controller
         self._create_new_controller()
-        self._override_controller()
+        self._override_controller(
+            override_failsafe=self.use_failsafe_controller,
+            override_gripper=self.use_waypoints_action,
+            override_action_split=True,
+        )
         # Set the correct position of the robot model if pinocchio is used.
         self._reset_pin_models()
         # Setup collision variables
@@ -1393,7 +1420,12 @@ class HumanEnv(ManipulationEnv):
         )
 
     def _create_new_controller(self):
-        """Create a new failsafe controller for all robots."""
+        """Create the failsafe and gripper controllers for all robots."""
+        self._create_new_failsafe_controller()
+        self._create_new_waypoint_gripper_controllers()
+
+    def _create_new_failsafe_controller(self):
+        """Create the failsafe controllers for all robots."""
         if self.use_failsafe_controller:
             self.failsafe_controller = []
             for i in range(len(self.robots)):
@@ -1416,6 +1448,8 @@ class HumanEnv(ManipulationEnv):
                         qpos_limits=arm_config["qpos_limits"],
                         init_qpos=robot.init_qpos,
                         robot_name=arm_config["robot_name"],
+                        use_waypoints_action=self.use_waypoints_action,
+                        n_waypoints=self.n_waypoints,
                         base_pos=robot.base_pos,
                         base_orientation=base_quat,  # Use quaternion instead of rotation matrix
                         shield_type=self.shield_type,
@@ -1436,17 +1470,57 @@ class HumanEnv(ManipulationEnv):
         else:
             self.failsafe_controller = None
 
-    def _override_controller(self):
+    def _create_new_waypoint_gripper_controllers(self):
+        """Create the waypoint gripper controllers for all robots."""
+        if self.use_waypoints_action:
+            self.gripper_controllers = []
+            for robot in self.robots:
+                self.gripper_controllers.append(
+                    SimpleWaypointGripController(
+                        interpolator=None,
+                        n_waypoints=self.n_waypoints,
+                        n_control_steps_per_waypoint=self.n_control_steps_per_waypoint,
+                        **robot.composite_controller.part_controller_config[f'{robot.arms[0]}_gripper'],
+                    )
+                )
+        else:
+            self.gripper_controllers = None
+
+    def _override_controller(
+            self,
+            override_failsafe: bool = True,
+            override_gripper: bool = True,
+            override_action_split: bool = True):
+        """Manually override the controller with the failsafe controller."""
+        if override_failsafe:
+            self._override_failsafe_controller()
+        if override_gripper:
+            self._override_gripper_controller()
+        if override_action_split:
+            self._override_composite_controller_action_split()
+
+    def _override_failsafe_controller(self):
         """Manually override the controller with the failsafe controller."""
         if self.failsafe_controller is not None:
             for i, robot in enumerate(self.robots):
                 robot.composite_controller.part_controllers[robot.arms[0]] = self.failsafe_controller[i]
 
+    def _override_gripper_controller(self):
+        """Manually override the gripper controller with the waypoint gripper controller."""
+        if self.gripper_controllers is not None:
+            for i, robot in enumerate(self.robots):
+                robot.composite_controller.part_controllers[f"{robot.arms[0]}_gripper"] = self.gripper_controllers[i]
+
+    def _override_composite_controller_action_split(self):
+        """Set up the action split indices for the composite controller."""
+        for robot in self.robots:
+            robot.composite_controller.setup_action_split_idx()
+
     def _reset_controller(self):
         """Reset all failsafe controllers."""
         if self.use_failsafe_controller:
             if self.failsafe_controller is None or self.hard_reset or self.deterministic_reset:
-                self._create_new_controller()
+                self._create_new_failsafe_controller()
             else:
                 for i in range(len(self.failsafe_controller)):
                     # Convert 3x3 rotation matrix to quaternion [x, y, z, w] for reset call
@@ -1459,9 +1533,21 @@ class HumanEnv(ManipulationEnv):
                         base_orientation=base_quat,
                         shield_type=self.shield_type,
                     )
-            self._override_controller()
         else:
             self.failsafe_controller = None
+        if self.use_waypoints_action:
+            if self.gripper_controllers is None or self.hard_reset or self.deterministic_reset:
+                self._create_new_waypoint_gripper_controllers()
+            else:
+                for i in range(len(self.gripper_controllers)):
+                    self.gripper_controllers[i].reset()
+        else:
+            self.gripper_controllers = None
+        self._override_controller(
+            override_failsafe=self.use_failsafe_controller,
+            override_gripper=self.use_waypoints_action,
+            override_action_split=True
+        )
 
     def _set_human_measurement(self, human_measurement, time):
         """Set the human measurement in the failsafe controller.
@@ -1636,6 +1722,12 @@ class HumanEnv(ManipulationEnv):
 
         self._reset_controller()
         self._reset_pin_models()
+
+        if self.use_waypoints_action:
+            self._action_dim = 0
+            # Reset robot and update action space dimension along the way
+            for robot in self.robots:
+                self._action_dim += robot.action_dim
 
         # Reset collision information
         self.previous_robot_collisions = dict()

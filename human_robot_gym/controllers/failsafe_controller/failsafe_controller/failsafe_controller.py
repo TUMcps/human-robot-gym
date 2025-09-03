@@ -118,6 +118,8 @@ class FailsafeController(JointPositionController):
         actuator_range,
         init_qpos,
         robot_name,
+        use_waypoints_action: bool = False,
+        n_waypoints: int = 1,
         base_pos=[0.0, 0.0, 0.0],
         base_orientation=[0.0, 0.0, 0.0, 1.0],
         shield_type="SSM",
@@ -162,6 +164,16 @@ class FailsafeController(JointPositionController):
             qpos_limits=qpos_limits,
             interpolator=interpolator,
         )
+
+        self.use_waypoints_action = use_waypoints_action
+        self.n_waypoints = n_waypoints
+        if self.use_waypoints_action:
+            self.control_dim = len(joint_indexes["joints"]) * self.n_waypoints
+            self.input_min = np.tile(self.input_min, n_waypoints)
+            self.output_min = np.tile(self.output_min, n_waypoints)
+            self.input_max = np.tile(self.input_max, n_waypoints)
+            self.output_max = np.tile(self.output_max, n_waypoints)
+
         # Control dimension
         dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -210,11 +222,6 @@ class FailsafeController(JointPositionController):
         self.command_vel = [0.0 for i in init_qpos]
         self.robot_cap_in = []
         self.human_cap_in = []
-        # Debug path following
-
-        # self.desired_pos_dbg = np.zeros([1000, 6])
-        # self.joint_pos_dbg = np.zeros([1000, 6])
-        # self.dbg_c = 0
 
     def reset(self,
               base_pos=[0.0, 0.0, 0.0],
@@ -288,6 +295,28 @@ class FailsafeController(JointPositionController):
         # Update state
         self.update()
 
+        # If we use waypoints, we directly pass the waypoints to the safety shield.
+        # No deltas used and no scaling of actions here!
+        if self.use_waypoints_action:
+            # Convert to 2D list of list of joint positions
+            if self.position_limits is not None:
+                action = np.clip(
+                    action,
+                    np.tile(self.position_limits[0], self.n_waypoints),
+                    np.tile(self.position_limits[1], self.n_waypoints)
+                )
+            action_2D = np.reshape(action, (self.n_waypoints, int(len(action)/self.n_waypoints)))
+            if int(len(action)/self.n_waypoints) < 7:
+                # Add a zero to all actions to have 7 dimensions for ruckig trajectory planning
+                action_2D = np.hstack((action_2D, np.zeros((self.n_waypoints, 1))))
+            elif int(len(action)/self.n_waypoints) > 7:
+                raise NotImplementedError(
+                    f"Change DOF in planning_utils_ruckig_pro.cc to {int(len(action)/self.n_waypoints)}")
+            self.goal_qpos = action_2D[0]  # First waypoint is the immediate goal
+            self.safety_shield.newLongTermTrajectoryFromWaypoints(action_2D)
+            return
+
+        # Normal operation
         # Parse action based on the impedance mode, and update kp / kd as necessary
         jnt_dim = len(self.qpos_index)
 
@@ -468,3 +497,7 @@ class FailsafeController(JointPositionController):
                 )
 
         return self.human_capsules
+
+    @property
+    def name(self):
+        return "FAILSAFE"

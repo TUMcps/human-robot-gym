@@ -20,9 +20,6 @@ class IKPositionDeltaWrapper(Wrapper):
 
     Maps a delta position action to a delta joint angle action
     through inverse kinematics using pybullet.
-
-    *Note*: Uses the gym wrapper instead of the robosuite wrapper,
-    given that I did not find out, how to redifine the action space with the latter.
     """
 
     def __init__(
@@ -70,7 +67,7 @@ class IKPositionDeltaWrapper(Wrapper):
         # unwrapped_env = env.unwrapped
         self.base_position = self.robot.base_pos
         self.base_orientation = self.robot.base_ori
-        self.num_joints = len(self.robot.init_qpos)
+        self.num_joints = len(self.robot.arm_joint_indexes)
         self.end_effector_index = self.num_joints
 
         # pybullet for inverse kinematics
@@ -122,7 +119,10 @@ class IKPositionDeltaWrapper(Wrapper):
 
         # Redefining action space
         # Calculate gripper DOF: total action dim - robot DOF
-        self.gripper_action_dim = self.robot.action_dim - self.robot.dof
+        if len(self.robot.gripper) > 0:
+            self.gripper_action_dim = self.robot.gripper[self.robot.arms[0]].dof
+        else:
+            self.gripper_action_dim = 0
         self.action_lb = np.append(action_limits[0], -np.ones(self.gripper_action_dim))
         self.action_ub = np.append(action_limits[1], np.ones(self.gripper_action_dim))
 
@@ -156,41 +156,13 @@ class IKPositionDeltaWrapper(Wrapper):
         action = self.scale_action(action)
         action = np.clip(action, self.action_spec[0], self.action_spec[1])
 
-        ws_action = np.zeros(self.control_dim)
-        ws_action[: self.control_dim] = action[: self.control_dim]
-
-        # get pybullet end-effector position
+        # Get current joint positions
         q_current = self.robot.part_controllers["right"].joint_pos
-        for i, val in enumerate(q_current):
-            p.resetJointState(self.p_robot_id, i, val)
-        ee_state = p.getLinkState(self.p_robot_id, self.end_effector_index)
-        ee_pos = ee_state[4]  # worldLinkFramePosition [x y z]
-        ee_ori_quat = ee_state[5]  # worldLinkFrameOrientation as quaternion [x y z w]
-        # scale action from [-1, 1] to output range
-        ws_action *= self.x_output_max
 
-        # calculate and clip target position
-        target_position = ee_pos + ws_action[0:3]
-        if self.x_position_limits:
-            target_position = np.clip(target_position, self.x_position_limits[0], self.x_position_limits[1])
-
-        # Calculate target orientation if using orientation control
-        if self.use_orientation:
-            # Get orientation delta from action
-            ori_delta = action[3:6] * self.x_output_max  # scale orientation action
-            # Compute goal orientation using delta
-            self.target_orientation = self.compute_goal_ori(ori_delta, ee_ori_quat)
-        # else keep using the initial fixed orientation
+        target_position, target_orientation = self.compute_goal_pose(action, q_current)
 
         # inverse kinematics, selectively damped least squares
-        joint_poses = p.calculateInverseKinematics(
-            bodyUniqueId=self.p_robot_id,
-            endEffectorLinkIndex=self.end_effector_index,
-            targetPosition=target_position,
-            targetOrientation=self.target_orientation,
-            residualThreshold=self.residual_threshold,
-            maxNumIterations=self.max_iter,
-        )
+        joint_poses = self.inverse_kinematics_step(target_position, target_orientation)
         q_goal = np.array(joint_poses[: self.num_joints])
 
         # joint delta action
@@ -202,6 +174,64 @@ class IKPositionDeltaWrapper(Wrapper):
 
         next_obs, reward, done, info = super().step(q_action)
         return next_obs, reward, done, info
+
+    def compute_goal_pose(self, delta, q_current):
+        """
+        Compute new goal pose, given a delta to update.
+
+        Args:
+            delta (np.array): Desired relative change in position [dx, dy, dz, (optional) dax, day, daz]
+            q_current (np.array): Current joint positions
+
+        Returns:
+            target_position (np.array): updated goal position [x, y, z]
+        target_orientation (np.array): updated goal orientation as quaternion [x, y, z, w]
+        """
+        # Reset pybullet to current joint positions
+        for i, val in enumerate(q_current):
+            p.resetJointState(self.p_robot_id, i, val)
+        # get pybullet EEF state
+        ee_state = p.getLinkState(self.p_robot_id, self.end_effector_index)
+        ee_pos = ee_state[4]  # worldLinkFramePosition [x y z]
+        ee_ori_quat = ee_state[5]  # worldLinkFrameOrientation as quaternion [x y z w]
+
+        # Position
+        position_delta = delta[:3]
+        # scale action from [-1, 1] to output range
+        position_delta *= self.x_output_max
+        # calculate and clip target position
+        target_position = ee_pos + position_delta
+        if self.x_position_limits:
+            target_position = np.clip(target_position, self.x_position_limits[0], self.x_position_limits[1])
+
+        # Calculate target orientation if using orientation control
+        target_orientation = self.target_orientation
+        if self.use_orientation:
+            # Get orientation delta from action
+            ori_delta = delta[3:6] * self.x_output_max  # scale orientation action
+            # Compute goal orientation using delta
+            target_orientation = self.compute_goal_ori(ori_delta, ee_ori_quat)
+
+        return target_position, target_orientation
+
+    def inverse_kinematics_step(self, target_position, target_orientation):
+        """Apply inverse kinematics to reach a target position and orientation.
+
+        Args:
+            target_position (np.array): Desired target position [x, y, z]
+            target_orientation (np.array): Desired target orientation as quaternion [x, y, z, w]
+
+        Returns:
+            desired joint positions to reach the target pose.
+        """
+        return p.calculateInverseKinematics(
+            bodyUniqueId=self.p_robot_id,
+            endEffectorLinkIndex=self.end_effector_index,
+            targetPosition=target_position,
+            targetOrientation=target_orientation,
+            residualThreshold=self.residual_threshold,
+            maxNumIterations=self.max_iter,
+        )
 
     def compute_goal_ori(self, delta, current_ori_quat):
         """
