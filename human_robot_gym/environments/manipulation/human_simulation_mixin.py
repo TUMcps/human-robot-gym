@@ -33,6 +33,9 @@ from human_robot_gym.utils.animation_utils import load_human_animation_data
 from human_robot_gym.controllers.failsafe_controller.failsafe_controller import FailsafeController  # noqa: F401
 
 from human_robot_gym.environments.manipulation.human_env import HumanEnv, COLLISION_TYPE
+from human_robot_gym.controllers.parts.gripper.composite_controller_patch import (
+    apply_composite_controller_patch
+)
 
 
 class HumanSimulationMixin:
@@ -66,11 +69,14 @@ class HumanSimulationMixin:
         shield_type="SSM",
         visualize_failsafe_controller=False,
         visualize_pinocchio=False,
+        control_freq: float = 10,
         control_sample_time: float = 0.004,
         goal_dist=0.1,
         n_goals_sampled_per_100_steps=8,
         robot_base_offset=None,
         horizon=1000,
+        use_waypoints_action: bool = False,
+        n_waypoints: int = 1,
         **kwargs,
     ):
         """Setup human simulation capabilities.
@@ -132,12 +138,27 @@ class HumanSimulationMixin:
 
         # Failsafe controller settings
         self.failsafe_controller = None
+        self.gripper_controllers = None
         self.control_sample_time = control_sample_time
         self.use_failsafe_controller = True
         self.shield_type = shield_type
         self.visualize_failsafe_controller = visualize_failsafe_controller
         self.safe_vel = safe_vel
         self.self_collision_safety = self_collision_safety
+
+        # Handle waypoints action settings
+        self.use_waypoints_action = use_waypoints_action
+        self.n_waypoints = n_waypoints
+        total_control_steps = 1.0/(control_freq*control_sample_time)
+        self.n_control_steps_per_waypoint = np.floor(total_control_steps/n_waypoints)
+        if self.use_waypoints_action and not self.use_failsafe_controller:
+            raise NotImplementedError(
+                "Waypoints action is only implemented together with the failsafe controller. \
+                  You can use ShieldType.OFF to deactivate the failsafe controller."
+            )
+        # Apply composite controller monkey patch if using waypoint actions
+        if self.use_waypoints_action:
+            apply_composite_controller_patch()
 
         # Safety parameters
         self.shield_type = shield_type
@@ -181,6 +202,24 @@ class HumanSimulationMixin:
         # Setup human simulation methods
         self._setup_human_simulation_methods()
 
+    def _post_setup_human_simulation(self):
+        """Post-setup steps for human simulation."""
+        self._create_new_controller()
+        self._override_controller(
+            override_failsafe=self.use_failsafe_controller,
+            override_gripper=self.use_waypoints_action,
+            override_action_split=True,
+        )
+        # Set the correct position of the robot model if pinocchio is used.
+        self._reset_pin_models()
+        # Setup collision variables
+        self._setup_collision_info()
+
+        self.n_collisions_robot = 0
+        self.n_collisions_static = 0
+        self.n_collisions_human = 0
+        self.n_collisions_critical = 0
+
     def _get_arena_config(self):
         """Get environment-specific arena configuration.
 
@@ -207,7 +246,12 @@ class HumanSimulationMixin:
         self._set_origin = HumanEnv._set_origin.__get__(self, type(self))
         self._set_mujoco_camera = HumanEnv._set_mujoco_camera.__get__(self, type(self))
         self._create_new_controller = HumanEnv._create_new_controller.__get__(self, type(self))
+        self._create_new_failsafe_controller = HumanEnv._create_new_failsafe_controller.__get__(self, type(self))
+        self._create_new_waypoint_gripper_controllers = HumanEnv._create_new_waypoint_gripper_controllers.__get__(self, type(self))  # noqa: E501
         self._override_controller = HumanEnv._override_controller.__get__(self, type(self))
+        self._override_failsafe_controller = HumanEnv._override_failsafe_controller.__get__(self, type(self))
+        self._override_gripper_controller = HumanEnv._override_gripper_controller.__get__(self, type(self))
+        self._override_composite_controller_action_split = HumanEnv._override_composite_controller_action_split.__get__(self, type(self))  # noqa: E501
         self._reset_controller = HumanEnv._reset_controller.__get__(self, type(self))
         self._set_human_measurement = HumanEnv._set_human_measurement.__get__(self, type(self))
         self._reset_pin_models = HumanEnv._reset_pin_models.__get__(self, type(self))

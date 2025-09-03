@@ -20,6 +20,7 @@ Changelog:
 
 import robosuite as suite
 from robosuite.wrappers import GymWrapper
+import numpy as np
 
 
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
@@ -33,6 +34,7 @@ import human_robot_gym.robots  # noqa: F401
 from human_robot_gym.wrappers.visualization_wrapper import VisualizationWrapper
 from human_robot_gym.wrappers.collision_prevention_wrapper import CollisionPreventionWrapper
 from human_robot_gym.wrappers.ik_position_delta_wrapper import IKPositionDeltaWrapper
+from human_robot_gym.wrappers.ik_waypoints_delta_wrapper import IKWayPointsDeltaWrapper
 
 
 ENV_MAPPING = {
@@ -40,7 +42,7 @@ ENV_MAPPING = {
     "can": PickPlaceCanHumanEnv,
     "square": NutAssemblySquareHumanEnv,
     # "transport": -> Dual arm, leave out for now
-    "tool_hang": ToolHangHumanEnv
+    "tool_hang": ToolHangHumanEnv,
 }
 
 
@@ -55,28 +57,28 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
     print(f"\n=== Testing {env_name} ===")
 
     try:
-        pybullet_urdf_file = file_path_completion(
-            "models/assets/robots/panda/panda_with_gripper.urdf"
-        )
+        pybullet_urdf_file = file_path_completion("models/assets/robots/panda/panda_with_gripper.urdf")
         # Setup controller configuration (same as working demo)
-        failsafe_config_path = file_path_completion(
-            "controllers/failsafe_controller/config/failsafe.json"
-        )
+        failsafe_config_path = file_path_completion("controllers/failsafe_controller/config/failsafe.json")
         robot_config_path = file_path_completion("models/robots/config/panda.json")
 
         # Load the failsafe controller config from file
         import json
-        with open(failsafe_config_path, 'r') as f:
+
+        with open(failsafe_config_path, "r") as f:
             failsafe_config = json.load(f)
 
         # Load robot-specific limits
-        with open(robot_config_path, 'r') as f:
+        with open(robot_config_path, "r") as f:
             robot_config = json.load(f)
 
         # Merge robot limits into failsafe config
-        controller_config = {'body_parts': {'right': {}}}
-        controller_config['body_parts']['right'] = merge_configs(failsafe_config['body_parts']['right'], robot_config)
+        controller_config = {"body_parts": {"right": {}}}
+        controller_config["body_parts"]["right"] = merge_configs(failsafe_config["body_parts"]["right"], robot_config)
         controller_configs = [controller_config]
+
+        use_waypoints_action = True
+        n_waypoints = 5
 
         # Create environment using the same pattern as working demo
         env = suite.make(
@@ -90,7 +92,9 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
             renderer="mjviewer",
             render_collision_mesh=False,
             reward_shaping=True,  # use dense rewards
-            control_freq=5,  # control should happen fast enough so that simulation looks smooth
+            control_freq=5,
+            use_waypoints_action=use_waypoints_action,
+            n_waypoints=n_waypoints,
             horizon=max_steps,
             hard_reset=False,
             controller_configs=controller_configs,
@@ -102,17 +106,30 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
             goal_dist=0.0001,
             human_rand=[0.0, 0.0, 0.0],
             human_animation_names=["SinglePoint/left_right"],
-            human_animation_freq=20
+            human_animation_freq=20,
         )
 
         # Add collision prevention wrapper
-        env = CollisionPreventionWrapper(env=env, collision_check_fn=env.check_collision_action, replace_type=0)
+        if not use_waypoints_action:
+            env = CollisionPreventionWrapper(env=env, collision_check_fn=env.check_collision_action, replace_type=0)
 
-        env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file)
+        action_limits = np.array([[-0.05, -0.05, -0.05, -0.5, -0.5, -0.5], [0.05, 0.05, 0.05, 0.5, 0.5, 0.5]])
+        if use_waypoints_action:
+            env = IKWayPointsDeltaWrapper(
+                env=env,
+                urdf_file=pybullet_urdf_file,
+                use_orientation=True,
+                action_limits=action_limits,
+                n_waypoints=n_waypoints,
+            )
+        else:
+            env = IKPositionDeltaWrapper(
+                env=env, urdf_file=pybullet_urdf_file, use_orientation=True, action_limits=action_limits
+            )
 
         # Add visualization wrapper (same as working demo)
         env = VisualizationWrapper(env)
-        
+
         env = GymWrapper(env, keys=["object-state", "robot0_proprio-state"])
         print(f"✓ Successfully created {env_name}")
 

@@ -13,7 +13,7 @@ from robosuite.wrappers import Wrapper
 class CollisionPreventionWrapper(Wrapper):
     """Checks if the given action would result in a collision and replaces the unsafe action with another action."""
 
-    def __init__(self, env, collision_check_fn, replace_type=0, n_resamples=20):
+    def __init__(self, env, collision_check_fn, replace_type=0, n_resamples=20, n_waypoints=1):
         """Initialize the collision prevention wrapper.
 
         Args:
@@ -27,6 +27,8 @@ class CollisionPreventionWrapper(Wrapper):
                 2 - find close safe action
             n_resamples (int): Number of resamples for type 1 or 2.
         """
+        if n_waypoints > 1:
+            raise NotImplementedError("Collision prevention for waypoint actions is not implemented yet.")
         super().__init__(env)
         self.collision_check_fn = collision_check_fn
         self.n_resamples = n_resamples
