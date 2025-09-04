@@ -20,6 +20,7 @@ Changelog:
 
 import robosuite as suite
 from robosuite.wrappers import GymWrapper
+from robosuite.controllers.composite.composite_controller_factory import refactor_composite_controller_config
 import numpy as np
 
 
@@ -46,7 +47,7 @@ ENV_MAPPING = {
 }
 
 
-def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 100):
+def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 100, use_failsafe_controller: bool = False):
     """Test a robomimic environment with human safety features.
 
     Args:
@@ -57,26 +58,31 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
     print(f"\n=== Testing {env_name} ===")
 
     try:
-        pybullet_urdf_file = file_path_completion("models/assets/robots/panda/panda_with_gripper.urdf")
-        # Setup controller configuration (same as working demo)
-        failsafe_config_path = file_path_completion("controllers/failsafe_controller/config/failsafe.json")
-        robot_config_path = file_path_completion("models/robots/config/panda.json")
+        if use_failsafe_controller:
+            pybullet_urdf_file = file_path_completion("models/assets/robots/panda/panda_with_gripper.urdf")
+            # Setup controller configuration (same as working demo)
+            failsafe_config_path = file_path_completion("controllers/failsafe_controller/config/failsafe.json")
+            robot_config_path = file_path_completion("models/robots/config/panda.json")
 
-        # Load the failsafe controller config from file
-        import json
+            # Load the failsafe controller config from file
+            import json
 
-        with open(failsafe_config_path, "r") as f:
-            failsafe_config = json.load(f)
+            with open(failsafe_config_path, "r") as f:
+                failsafe_config = json.load(f)
 
-        # Load robot-specific limits
-        with open(robot_config_path, "r") as f:
-            robot_config = json.load(f)
+            # Load robot-specific limits
+            with open(robot_config_path, "r") as f:
+                robot_config = json.load(f)
 
-        # Merge robot limits into failsafe config
-        controller_config = {"body_parts": {"right": {}}}
-        controller_config["body_parts"]["right"] = merge_configs(failsafe_config["body_parts"]["right"], robot_config)
-        controller_configs = [controller_config]
-
+            # Merge robot limits into failsafe config
+            controller_config = {"body_parts": {"right": {}}}
+            controller_config["body_parts"]["right"] = merge_configs(failsafe_config["body_parts"]["right"], robot_config)
+            controller_configs = [controller_config]
+        else:
+            arm_controller_config = suite.load_part_controller_config(default_controller="OSC_POSE")
+            controller_configs = refactor_composite_controller_config(
+                arm_controller_config, "Panda", ["right"]
+            )
         use_waypoints_action = False
         n_waypoints = 1
 
@@ -98,8 +104,9 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
             horizon=max_steps,
             hard_reset=False,
             controller_configs=controller_configs,
+            use_failsafe_controller=use_failsafe_controller,
             shield_type="SSM",
-            visualize_failsafe_controller=True,  # Enable failsafe visualization
+            visualize_failsafe_controller=use_failsafe_controller,
             visualize_pinocchio=False,
             base_human_pos_offset=[0.0, 0.0, 0.0],
             verbose=True,  # Enable verbose output for debugging
@@ -112,23 +119,23 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
             safe_vel=0.01
         )
 
-        # Add collision prevention wrapper
-        if not use_waypoints_action:
-            env = CollisionPreventionWrapper(env=env, collision_check_fn=env.check_collision_action, replace_type=0)
-
-        action_limits = np.array([[-0.05, -0.05, -0.05, -0.5, -0.5, -0.5], [0.05, 0.05, 0.05, 0.5, 0.5, 0.5]])
-        if use_waypoints_action:
-            env = IKWayPointsDeltaWrapper(
-                env=env,
-                urdf_file=pybullet_urdf_file,
-                use_orientation=True,
-                action_limits=action_limits,
-                n_waypoints=n_waypoints,
-            )
-        else:
-            env = IKPositionDeltaWrapper(
-                env=env, urdf_file=pybullet_urdf_file, use_orientation=True, action_limits=action_limits
-            )
+        if use_failsafe_controller:
+            # Add collision prevention wrapper
+            if not use_waypoints_action:
+                env = CollisionPreventionWrapper(env=env, collision_check_fn=env.check_collision_action, replace_type=0)
+            action_limits = np.array([[-0.05, -0.05, -0.05, -0.5, -0.5, -0.5], [0.05, 0.05, 0.05, 0.5, 0.5, 0.5]])
+            if use_waypoints_action:
+                env = IKWayPointsDeltaWrapper(
+                    env=env,
+                    urdf_file=pybullet_urdf_file,
+                    use_orientation=True,
+                    action_limits=action_limits,
+                    n_waypoints=n_waypoints,
+                )
+            else:
+                env = IKPositionDeltaWrapper(
+                    env=env, urdf_file=pybullet_urdf_file, use_orientation=True, action_limits=action_limits
+                )
 
         # Add visualization wrapper (same as working demo)
         env = VisualizationWrapper(env)

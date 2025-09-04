@@ -45,6 +45,7 @@ class RoboSuiteHumanEnv(HumanSimulationMixin):
         seed=0,
         verbose=False,
         # Safety-specific parameters
+        use_failsafe_controller=True,
         shield_type="SSM",
         visualize_failsafe_controller=False,
         visualize_pinocchio=False,
@@ -110,6 +111,7 @@ class RoboSuiteHumanEnv(HumanSimulationMixin):
             collision_debounce_delay=collision_debounce_delay,
             seed=seed,
             verbose=verbose,
+            use_failsafe_controller=use_failsafe_controller,
             shield_type=shield_type,
             visualize_failsafe_controller=visualize_failsafe_controller,
             visualize_pinocchio=visualize_pinocchio,
