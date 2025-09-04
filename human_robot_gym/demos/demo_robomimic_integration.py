@@ -77,8 +77,8 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
         controller_config["body_parts"]["right"] = merge_configs(failsafe_config["body_parts"]["right"], robot_config)
         controller_configs = [controller_config]
 
-        use_waypoints_action = True
-        n_waypoints = 5
+        use_waypoints_action = False
+        n_waypoints = 1
 
         # Create environment using the same pattern as working demo
         env = suite.make(
@@ -107,6 +107,9 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
             human_rand=[0.0, 0.0, 0.0],
             human_animation_names=["SinglePoint/left_right"],
             human_animation_freq=20,
+            simple_collision_detection=True,
+            simple_collision_threshold=0.15,
+            safe_vel=0.01
         )
 
         # Add collision prevention wrapper
@@ -144,26 +147,26 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
             )
 
             total_reward = 0
-            collisions = 0
+            critical_collisions = 0
             safety_interventions = 0
 
             for step in range(max_steps):
                 # Random action for testing
-                action = env.action_space.sample()
+                action = np.array([0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 1.0])  # env.action_space.sample()
 
                 # Step environment
                 obs, reward, terminated, truncated, info = env.step(action)
                 total_reward += reward
 
                 # Track safety metrics
-                if info.get("collision", False):
-                    collisions += 1
-                if info.get("failsafe_interventions", 0) > safety_interventions:
-                    safety_interventions = info["failsafe_interventions"]
+                if info.get("n_collisions_critical", False):
+                    critical_collisions += 1
+                if info.get("n_failsafe_interventions", 0) > safety_interventions:
+                    safety_interventions = info["n_failsafe_interventions"]
 
                 # Print progress every 20 steps
                 if step % 20 == 0:
-                    print(f"  Step {step}: reward={reward:.3f}, collision={info.get('collision', False)}")
+                    print(f"  Step {step}: reward={reward:.3f}, n critical collisions={critical_collisions}")
 
                 if terminated or truncated:
                     print(f"  Episode finished at step {step}")
@@ -171,7 +174,7 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
 
             print("✓ Episode completed:")
             print(f"  - Total reward: {total_reward:.3f}")
-            print(f"  - Collisions: {collisions}")
+            print(f"  - N critical collisions: {critical_collisions}")
             print(f"  - Safety interventions: {safety_interventions}")
             print(f"  - Success: {info.get('n_goal_reached', 0) > 0}")
 

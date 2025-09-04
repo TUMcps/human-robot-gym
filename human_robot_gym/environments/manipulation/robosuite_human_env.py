@@ -57,6 +57,8 @@ class RoboSuiteHumanEnv(HumanSimulationMixin):
         # Environment-specific configuration
         arena_config=None,
         robot_base_offset=None,
+        simple_collision_detection=False,
+        simple_collision_threshold=0.2,
         **kwargs,
     ):
         """Initialize RoboSuite environment with human simulation.
@@ -84,6 +86,10 @@ class RoboSuiteHumanEnv(HumanSimulationMixin):
             arena_config: Environment-specific arena configuration
             **kwargs: Additional arguments passed to robosuite environment
         """
+        if simple_collision_detection:
+            self._collision_detection = self._collision_detection_simple.__get__(self, type(self))
+            self.collision_threshold = simple_collision_threshold
+            print(f"Using simple collision detection with threshold {self.collision_threshold}m")
         # Store the robosuite environment class
         self.robosuite_env_class = robosuite_env_class
 
@@ -260,3 +266,40 @@ class RoboSuiteHumanEnv(HumanSimulationMixin):
             mujoco_robots=[robot.robot_model for robot in self.robots],
             mujoco_objects=self.model.mujoco_objects + [self.human] + self.obstacles,
         )
+
+    def _collision_detection_simple(self):
+        """Detect true collisions in the simulation between the robot and the environment.
+
+        Returns:
+            CollisionType
+        """
+        eef_site_id = self.robots[0].eef_site_id[self.robots[0].arms[0]]
+        # Get EEF position
+        eef_pos = self.sim.data.site_xpos[eef_site_id]
+        # Get human hand position
+        all_joint_pos = self.human_measurement
+        # Check distance
+        for human_pos in all_joint_pos:
+            if np.linalg.norm(eef_pos - human_pos) < self.collision_threshold:
+                robot_geom_velocity = self.sim.data.get_site_xvelp(self.sim.model.site_id2name(eef_site_id))
+
+                if self.verbose:
+                    print(f"Robot speed: {robot_geom_velocity}")
+
+                vel_safe = self._check_vel_safe(
+                    v_arr=robot_geom_velocity,
+                    threshold=self.safe_vel,
+                )
+
+                if vel_safe:
+                    self.collision_type |= COLLISION_TYPE.HUMAN
+                    self.has_collision_human = True
+                    if self.verbose:
+                        print("Robot at safe speed.")
+                else:
+                    self.collision_type |= COLLISION_TYPE.HUMAN_CRIT
+                    self.has_collision_critical = True
+                    if self.verbose:
+                        print("Robot too fast during collision!")
+                break
+        return self.collision_type

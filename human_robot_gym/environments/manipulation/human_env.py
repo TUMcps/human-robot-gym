@@ -476,11 +476,6 @@ class HumanEnv(ManipulationEnv):
         # Setup collision variables
         self._setup_collision_info()
 
-        self.n_collisions_robot = 0
-        self.n_collisions_static = 0
-        self.n_collisions_human = 0
-        self.n_collisions_critical = 0
-
     @property
     def human_animation_id(self) -> int:
         """Get the current human animation id in the random list of human animation ids."""
@@ -560,7 +555,7 @@ class HumanEnv(ManipulationEnv):
                     for robot in self.robots:
                         if robot.composite_controller.part_controllers[robot.arms[0]].get_safety() is False:
                             failsafe_intervention = True
-                            self.failsafe_interventions += 1
+                            self.n_failsafe_interventions += 1
                 # Step the simulation n times
                 for n in range(int(self.control_sample_time / self.model_timestep)):
                     self._control_human(force_update=True)
@@ -786,6 +781,7 @@ class HumanEnv(ManipulationEnv):
                 * failsafe_intervention: whether the failsafe controller intervened
                     in this step
         """
+        self._update_collision_info()
         n_collisions = (
             self.n_collisions_static + self.n_collisions_robot + self.n_collisions_human + self.n_collisions_critical
         )
@@ -799,7 +795,7 @@ class HumanEnv(ManipulationEnv):
             "n_collisions_human": self.n_collisions_human,
             "n_collisions_critical": self.n_collisions_critical,
             "timeout": (self.timestep >= self.horizon),
-            "failsafe_interventions": self.failsafe_interventions,
+            "n_failsafe_interventions": self.n_failsafe_interventions,
             "n_goal_reached": self.n_goal_reached,
         }
         return info
@@ -958,6 +954,38 @@ class HumanEnv(ManipulationEnv):
         self.human_collision_geoms = {self.sim.model.geom_name2id(item) for item in self.human.contact_geoms}
 
         self.whitelisted_collision_geoms = set()
+        self._reset_collision_info()
+
+    def _reset_collision_info(self):
+        """Reset collision information."""
+        self.n_collisions_robot = 0
+        self.n_collisions_static = 0
+        self.n_collisions_human = 0
+        self.n_collisions_critical = 0
+        self.n_failsafe_interventions = 0
+        self.has_collision_robot = False
+        self.has_collision_static = False
+        self.has_collision_human = False
+        self.has_collision_critical = False
+        self.has_failsafe_intervention = False
+
+    def _update_collision_info(self):
+        """Update collision information."""
+        if self.has_collision_robot:
+            self.n_collisions_robot += 1
+            self.has_collision_robot = False
+        if self.has_collision_static:
+            self.n_collisions_static += 1
+            self.has_collision_static = False
+        if self.has_collision_human:
+            self.n_collisions_human += 1
+            self.has_collision_human = False
+        if self.has_collision_critical:
+            self.n_collisions_critical += 1
+            self.has_collision_critical = False
+        if self.has_failsafe_intervention:
+            self.n_failsafe_interventions += 1
+            self.has_failsafe_intervention = False
 
     def _check_action_safety(self, robot_model, q):
         """Check if the robot would collide with the environment in the end position of the given action.
@@ -1005,7 +1033,7 @@ class HumanEnv(ManipulationEnv):
             )
 
         self.collision_type |= COLLISION_TYPE.ROBOT
-        self.n_collisions_robot += 1
+        self.has_collision_robot = True
 
     def _on_human_collision_detected(self, robot_contact_geom: int, human_contact_geom: int):
         """Perform bookkeeping when a human-robot collision is detected."""
@@ -1048,12 +1076,12 @@ class HumanEnv(ManipulationEnv):
 
         if vel_safe:
             self.collision_type |= COLLISION_TYPE.HUMAN
-            self.n_collisions_human += 1
+            self.has_collision_human = True
             if self.verbose:
                 print("Robot at safe speed.")
         else:
             self.collision_type |= COLLISION_TYPE.HUMAN_CRIT
-            self.n_collisions_critical += 1
+            self.has_collision_critical = True
             if self.verbose:
                 print("Robot too fast during collision!")
 
@@ -1080,7 +1108,7 @@ class HumanEnv(ManipulationEnv):
             )
         self.has_collision = True
         self.collision_type |= COLLISION_TYPE.STATIC
-        self.n_collisions_static += 1
+        self.has_collision_static = True
 
     def _on_collision_detected(self, contact_type: COLLISION_TYPE, robot_contact_geom: int, other_contact_geom: int):
         """Perform bookkeeping when a collision is detected."""
@@ -1734,11 +1762,8 @@ class HumanEnv(ManipulationEnv):
         self.has_collision = False
         self.goal_reached = False
         self.collision_type = COLLISION_TYPE.NULL
-        self.failsafe_interventions = 0
-        self.n_collisions_static = 0
-        self.n_collisions_robot = 0
-        self.n_collisions_human = 0
-        self.n_collisions_critical = 0
+
+        self._reset_collision_info()
         self.n_goal_reached = 0
 
         self.collision_debounce_timer = 0
