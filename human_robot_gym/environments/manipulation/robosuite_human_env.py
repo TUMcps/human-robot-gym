@@ -49,7 +49,6 @@ class RoboSuiteHumanEnv(HumanSimulationMixin):
         visualize_failsafe_controller=False,
         visualize_pinocchio=False,
         control_sample_time: float = 0.004,
-        control_freq: float = 10,
         use_waypoints_action: bool = False,
         n_waypoints: int = 1,
         # Goal-related parameters
@@ -109,7 +108,6 @@ class RoboSuiteHumanEnv(HumanSimulationMixin):
             visualize_failsafe_controller=visualize_failsafe_controller,
             visualize_pinocchio=visualize_pinocchio,
             control_sample_time=control_sample_time,
-            control_freq=control_freq,
             use_waypoints_action=use_waypoints_action,
             n_waypoints=n_waypoints,
             goal_dist=goal_dist,

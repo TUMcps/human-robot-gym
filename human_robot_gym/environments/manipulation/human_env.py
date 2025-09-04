@@ -1220,7 +1220,7 @@ class HumanEnv(ManipulationEnv):
         self._set_origin()
 
         # Modify default agentview camera
-        self._set_mujoco_camera()
+        # self._set_mujoco_camera()
 
         # << OBJECTS >>
         # Objects are elements that can be moved around and manipulated.

@@ -291,7 +291,7 @@ class HumanSimulationMixin:
         self._set_origin()
 
         # Modify default agentview camera
-        self._set_mujoco_camera()
+        # self._set_mujoco_camera()
 
         # Get environment-specific configuration
         arena_config = self._get_arena_config()
