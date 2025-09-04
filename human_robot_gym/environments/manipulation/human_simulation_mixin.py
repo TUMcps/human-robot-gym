@@ -66,6 +66,7 @@ class HumanSimulationMixin:
         collision_debounce_delay=0.01,
         seed=0,
         verbose=False,
+        use_failsafe_controller=True,
         shield_type="SSM",
         visualize_failsafe_controller=False,
         visualize_pinocchio=False,
@@ -140,7 +141,7 @@ class HumanSimulationMixin:
         self.failsafe_controller = None
         self.gripper_controllers = None
         self.control_sample_time = control_sample_time
-        self.use_failsafe_controller = True
+        self.use_failsafe_controller = use_failsafe_controller
         self.shield_type = shield_type
         self.visualize_failsafe_controller = visualize_failsafe_controller
         self.safe_vel = safe_vel

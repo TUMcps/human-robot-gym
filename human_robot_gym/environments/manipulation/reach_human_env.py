@@ -266,8 +266,8 @@ class ReachHuman(HumanEnv):
             1,
         )
 
-        self.goal_marker_trans = None
-        self.goal_marker_rot = None
+        self.goal_marker_trans = np.array([0.0, 0.0, 0.0])
+        self.goal_marker_rot = np.array([1.0, 0.0, 0.0, 0.0])  # is quat correct?
         # object placement initializer
         self.object_placement_initializer = object_placement_initializer
         self.obstacle_placement_initializer = obstacle_placement_initializer

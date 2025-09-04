@@ -311,6 +311,7 @@ class HumanEnv(ManipulationEnv):
         camera_segmentations: Optional[Union[str, List[str], List[List[str]]]] = None,
         renderer: str = "mujoco",
         renderer_config: Dict[str, Any] = None,
+        use_failsafe_controller: bool = True,
         shield_type: str = "SSM",
         visualize_failsafe_controller: bool = False,
         visualize_pinocchio: bool = False,
@@ -360,7 +361,7 @@ class HumanEnv(ManipulationEnv):
         # Currently, we always use the failsafe controller.
         # If you want to use a different kind of controller, you can set this to False.
         # If you want to deactivate the failsafe controller, set shield_type to "OFF"
-        self.use_failsafe_controller = True
+        self.use_failsafe_controller = use_failsafe_controller
         self.shield_type = shield_type
         self.visualize_failsafe_controller = visualize_failsafe_controller
         self.safe_vel = safe_vel

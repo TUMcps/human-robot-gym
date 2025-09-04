@@ -335,7 +335,14 @@ class ReachHumanCart(ReachHuman):
             joint configuration (np.array)
         """
         robot = self.robots[0]
-        pos_limits = np.array(robot.composite_controller.part_controllers[robot.arms[0]].position_limits)
+        controller = robot.composite_controller.part_controllers[robot.arms[0]]
+        if hasattr(controller, "position_limits") and controller.position_limits is not None:
+            pos_limits = np.array(controller.position_limits)
+        else:
+            pos_limits = np.array([
+              - np.pi/2.0 * np.ones_like(controller.joint_index),
+              np.pi/2.0 * np.ones_like(controller.joint_index)
+            ])
         goal = self.init_joint_pos
         for i in range(20):
             rand = np.random.rand(pos_limits.shape[1])
