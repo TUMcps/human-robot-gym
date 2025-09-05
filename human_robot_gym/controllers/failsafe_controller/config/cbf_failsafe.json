@@ -3,7 +3,7 @@
     "body_parts": {
         "right": {
             "type": "JOINT_POSITION",
-            "min_distance": 0.3,
+            "min_distance": 0.5,
             "class_k_type": "linear",
             "class_k_scale": 3.0,
             "opti_solver": "qpoases",
