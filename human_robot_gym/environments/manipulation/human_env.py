@@ -47,8 +47,8 @@ from human_robot_gym.utils.animation_utils import load_human_animation_data
 from human_robot_gym.models.robots.manipulators.pinocchio_manipulator_model import (
     PinocchioManipulatorModel,
 )
-from human_robot_gym.controllers.failsafe_controller.failsafe_controller import (
-    FailsafeController,
+from human_robot_gym.controllers.failsafe_controller.failsafe_controller.safety_controller_factory import (
+    create_safety_controller,
 )
 from human_robot_gym.controllers.parts.gripper.simple_waypoint_grip import (
     SimpleWaypointGripController
@@ -1462,40 +1462,49 @@ class HumanEnv(ManipulationEnv):
                 robot = self.robots[i]
                 arm_config = robot.part_controller_config.get(robot.arms[0], {})
 
-                # Create FailsafeController with required parameters
+                # Create safety controller using factory pattern
                 # Convert 3x3 rotation matrix to quaternion [x, y, z, w]
                 from scipy.spatial.transform import Rotation as R
 
                 base_quat = R.from_matrix(robot.base_ori).as_quat()  # Returns [x, y, z, w]
 
-                self.failsafe_controller.append(
-                    FailsafeController(
-                        sim=arm_config["sim"],
-                        eef_name=arm_config["ref_name"],  # Use ref_name as eef_name
-                        joint_indexes=arm_config["joint_indexes"],
-                        actuator_range=arm_config["actuator_range"],
-                        qpos_limits=arm_config["qpos_limits"],
-                        init_qpos=robot.init_qpos,
-                        robot_name=arm_config["robot_name"],
-                        use_waypoints_action=self.use_waypoints_action,
-                        n_waypoints=self.n_waypoints,
-                        base_pos=robot.base_pos,
-                        base_orientation=base_quat,  # Use quaternion instead of rotation matrix
-                        shield_type=self.shield_type,
-                        mocap_file=self.human.mocap_file,
-                        control_sample_time=self.control_sample_time,
-                        naming_prefix=robot.robot_model.naming_prefix,
-                        part_name=robot.arms[0],
-                        lite_physics=robot.lite_physics,
-                        **{
-                            k: v
-                            for k, v in robot.composite_controller_config.get("body_parts", {})
-                            .get(robot.arms[0], {})
-                            .items()
-                            if k in ["input_max", "input_min", "output_max", "output_min", "kp", "damping_ratio"]
-                        },
-                    )
+                # Prepare controller configuration
+                controller_config = {
+                    "sim": arm_config["sim"],
+                    "eef_name": arm_config["ref_name"],  # Use ref_name as eef_name
+                    "joint_indexes": arm_config["joint_indexes"],
+                    "actuator_range": arm_config["actuator_range"],
+                    "qpos_limits": arm_config["qpos_limits"],
+                    "init_qpos": robot.init_qpos,
+                    "robot_name": arm_config["robot_name"],
+                    "use_waypoints_action": self.use_waypoints_action,
+                    "n_waypoints": self.n_waypoints,
+                    "base_pos": robot.base_pos,
+                    "base_orientation": base_quat,  # Use quaternion instead of rotation matrix
+                    "mocap_file": self.human.mocap_file,
+                    "control_sample_time": self.control_sample_time,
+                    "naming_prefix": robot.robot_model.naming_prefix,
+                    "part_name": robot.arms[0],
+                    "lite_physics": robot.lite_physics,
+                }
+
+                # Add controller-specific parameters from robot config
+                controller_config.update({
+                    k: v
+                    for k, v in robot.composite_controller_config.get("body_parts", {})
+                    .get(robot.arms[0], {})
+                    .items()
+                    if k in ["input_max", "input_min", "output_max", "output_min", "kp", "damping_ratio",
+                            "min_distance", "class_k_type", "class_k_scale", "opti_solver"]  # Add CBF-specific params
+                })
+
+                # Create controller using factory
+                controller = create_safety_controller(
+                    shield_type=self.shield_type,
+                    **controller_config
                 )
+                
+                self.failsafe_controller.append(controller)
         else:
             self.failsafe_controller = None
 
@@ -1624,6 +1633,8 @@ class HumanEnv(ManipulationEnv):
             OrderedDict: Dictionary mapping observable names to its corresponding Observable object
         """
         observables = super()._setup_observables()
+        if not hasattr(self.robots[0].gripper[self.robots[0].arms[0]], "qpos_range") and self.verbose:
+            print("Gripper has no qpos_range attribute. Gripper aperture observable is not normalized!")
 
         # low-level object information
         if self.use_object_obs:
@@ -1643,8 +1654,6 @@ class HumanEnv(ManipulationEnv):
                 if f"{pf}gripper_qpos" in obs_cache:
                     gripper_qpos = obs_cache[f"{pf}gripper_qpos"]
                     if not hasattr(robot.gripper[arm], "qpos_range"):
-                        if self.verbose:
-                            print("Gripper has no qpos_range attribute. Gripper aperture observable is not normalized!")
                         return np.mean(gripper_qpos)
 
                     gripper_qpos_range = robot.gripper[arm].qpos_range

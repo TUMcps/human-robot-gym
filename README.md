@@ -57,6 +57,10 @@ Optional:
   ```
   pip install .[training]
   ```
+ - Install CasADi for CBF (Control Barrier Function) safety controller:
+  ```
+  pip install .[cbf]
+  ```
 
 *Post Install:*
 Run the setup macros script that robosuite asks you to build. E.g.:

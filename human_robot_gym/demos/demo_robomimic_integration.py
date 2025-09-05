@@ -47,7 +47,13 @@ ENV_MAPPING = {
 }
 
 
-def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 100, use_failsafe_controller: bool = False):
+def test_robomimic_env(
+      env_name: str,
+      num_episodes: int = 5,
+      max_steps: int = 100,
+      use_failsafe_controller: bool = False,
+      shield_type: str = "SSM"
+):
     """Test a robomimic environment with human safety features.
 
     Args:
@@ -59,14 +65,13 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
 
     try:
         if use_failsafe_controller:
-            pybullet_urdf_file = file_path_completion("models/assets/robots/panda/panda_with_gripper.urdf")
-            # Setup controller configuration (same as working demo)
-            failsafe_config_path = file_path_completion("controllers/failsafe_controller/config/failsafe.json")
+            pybullet_urdf_file = file_path_completion("models/assets/robots/panda/panda_with_gripper.urdf") 
             robot_config_path = file_path_completion("models/robots/config/panda.json")
-
-            # Load the failsafe controller config from file
             import json
-
+            if shield_type == "CBF":
+                failsafe_config_path = file_path_completion("controllers/failsafe_controller/config/cbf_failsafe.json")
+            else:
+                failsafe_config_path = file_path_completion("controllers/failsafe_controller/config/failsafe.json")
             with open(failsafe_config_path, "r") as f:
                 failsafe_config = json.load(f)
 
@@ -105,7 +110,7 @@ def test_robomimic_env(env_name: str, num_episodes: int = 5, max_steps: int = 10
             hard_reset=False,
             controller_configs=controller_configs,
             use_failsafe_controller=use_failsafe_controller,
-            shield_type="SSM",
+            shield_type=shield_type,
             visualize_failsafe_controller=use_failsafe_controller,
             visualize_pinocchio=False,
             base_human_pos_offset=[0.0, 0.0, 0.0],
@@ -225,7 +230,7 @@ def main():
     print("  ✓ Safety intervention monitoring")
 
 
-def test_environment_variants():
+def test_environment_variants(use_failsafe_controller: bool = False, shield_type: str = "SSM"):
     """Test different variants of robomimic environments."""
     print("\n=== Testing Environment Variants ===")
 
@@ -234,7 +239,8 @@ def test_environment_variants():
     ]
 
     for variant in variants:
-        test_robomimic_env(variant, num_episodes=5, max_steps=100)
+        test_robomimic_env(variant, num_episodes=5, max_steps=100,
+                           use_failsafe_controller=use_failsafe_controller, shield_type=shield_type)
 
 
 if __name__ == "__main__":
@@ -244,16 +250,25 @@ if __name__ == "__main__":
     parser.add_argument("--single-env", type=str, help="Test a single environment (e.g., LiftHumanEnv)")
     parser.add_argument("--max-steps", type=int, default=50, help="Maximum steps per episode")
     parser.add_argument("--episodes", type=int, default=1, help="Number of episodes per environment")
+    parser.add_argument("--shield-type", type=str, default="SSM", choices=["OFF", "SSM", "PFL", "CBF", "OSC"], help="Type of safety shield to use")
 
     args = parser.parse_args()
+
+    if args.shield_type == "OSC":
+        use_failsafe_controller = False
+        shield_type = "OFF"
+    else:
+        use_failsafe_controller = True
+        shield_type = args.shield_type
 
     if args.single_env:
         print(f"Testing single environment: {args.single_env}")
         print("=" * 50)
-        test_robomimic_env(args.single_env, num_episodes=args.episodes, max_steps=args.max_steps)
+        test_robomimic_env(args.single_env, num_episodes=args.episodes, max_steps=args.max_steps,
+                           use_failsafe_controller=use_failsafe_controller, shield_type=shield_type)
     else:
         # Run basic tests
         main()
 
         # Optionally test variants
-        test_environment_variants()
+        test_environment_variants(use_failsafe_controller=use_failsafe_controller, shield_type=shield_type)

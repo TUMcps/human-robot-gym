@@ -3,8 +3,23 @@
 import os
 from robosuite.environments.base import make
 
-from human_robot_gym.controllers.failsafe_controller.failsafe_controller import (
-    FailsafeController,
+# Import safety controllers and factory
+from human_robot_gym.controllers.failsafe_controller.failsafe_controller.safety_controller_base import (
+    SafetyController,
+)
+from human_robot_gym.controllers.failsafe_controller.failsafe_controller.sara_shield_controller import (
+    SaraShieldController,
+)
+from human_robot_gym.controllers.failsafe_controller.failsafe_controller.cbf_safety_controller import (
+    CBFSafetyController,
+)
+from human_robot_gym.controllers.failsafe_controller.failsafe_controller.safety_controller_factory import (
+    create_safety_controller,
+)
+
+# Keep old import for backwards compatibility
+from human_robot_gym.controllers.failsafe_controller.failsafe_controller.sara_shield_controller import (
+    SaraShieldController as FailsafeController,  # Alias for backwards compatibility
 )
 
 from human_robot_gym.environments.manipulation.human_env import HumanEnv

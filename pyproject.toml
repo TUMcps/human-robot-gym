@@ -57,6 +57,9 @@ training = [
     "hydra-core",
     "hydra-ray-launcher",
 ]
+cbf = [
+    "casadi",
+]
 dev = [
     "pydocstyle",
     "flake8", 

@@ -48,6 +48,9 @@ python setup.py install
 
 # Install main package
 pip install -e .
+
+# Optional: Install CBF safety controller support
+pip install -e .[cbf]  # Installs CasADi for Control Barrier Function controller
 ```
 
 ### Testing & Quality
