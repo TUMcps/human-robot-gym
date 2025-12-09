@@ -8,6 +8,5 @@ docker run -it \
     --net=host \
     --privileged \
     --volume="$(pwd):/home/human-robot-gym/" \
-    --volume="/home/$USER/.mujoco/:/home/.mujoco/" \
     human-robot-gym-build/$USER:v1 \
     bash

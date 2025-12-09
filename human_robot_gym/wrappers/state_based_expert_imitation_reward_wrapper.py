@@ -25,8 +25,8 @@ Changelog:
 from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
-from gym.core import Env
-from gym.spaces import Box
+from gymnasium.core import Env
+from gymnasium.spaces import Box
 
 from human_robot_gym.demonstrations.experts import ReachHumanExpert
 from human_robot_gym.demonstrations.experts import PickPlaceHumanCartExpert
@@ -129,7 +129,7 @@ class StateBasedExpertImitationRewardWrapper(DatasetRSIWrapper):
             NotImplementedError [get_imitation_reward method not implemented in StateBasedExpertImitationRewardWrapper]
             AssertionError [Expert observation not stored in info dict]
         """
-        observation, env_reward, done, info = super().step(action)
+        observation, env_reward, terminated, truncated, info = super().step(action)
 
         # Obtain the expert observations for comparison
         demonstration_obs_dict = self._dic["expert_observations"][self._dataset_ep_step_idx]
@@ -147,7 +147,7 @@ class StateBasedExpertImitationRewardWrapper(DatasetRSIWrapper):
                 policy_obs_dict=policy_obs_dict,
             )
 
-            done = done or should_terminate_early
+            terminated = terminated or should_terminate_early
 
             info["early_termination"] = int(should_terminate_early)
 
@@ -165,13 +165,14 @@ class StateBasedExpertImitationRewardWrapper(DatasetRSIWrapper):
         reward = self._combine_reward(env_reward, imitation_reward)
 
         # Log the imitation and env rewards
+        done = terminated or truncated
         if done:
             if self._verbose:
                 print(f"Expert ep len: {self._dataset_transition_count}, agent: {self._dataset_ep_step_idx + 1}")
 
             self._add_reward_to_info(info)
 
-        return observation, reward, done, info
+        return observation, reward, terminated, truncated, info
 
     def _add_reward_to_info(self, info: Dict[str, Any]):
         """Add the following data to the info dict:

@@ -25,5 +25,5 @@ policy_kwargs:
   log_std_init: -2.7
   full_std: true
   use_expln: false
-  squash_output: true
+  squash_output: false
 verbose: 1

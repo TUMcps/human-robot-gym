@@ -13,8 +13,6 @@ import robosuite as suite
 import time
 import numpy as np  # noqa: F401
 
-from robosuite.controllers import load_controller_config
-
 from human_robot_gym.demonstrations.experts import ReachHumanExpert
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 import human_robot_gym.environments.manipulation.reach_human_env  # noqa: F401
@@ -35,37 +33,57 @@ def create_video(source, fps=60, output_name='output'):
 
 if __name__ == "__main__":
     # Notice how the environment is wrapped by the wrapper
-    controller_config = dict()
-    controller_conig_path = file_path_completion("controllers/failsafe_controller/config/failsafe.json")
-    robot_conig_path = file_path_completion("models/robots/config/schunk.json")
-    controller_config = load_controller_config(custom_fpath=controller_conig_path)
-    robot_config = load_controller_config(custom_fpath=robot_conig_path)
-    controller_config = merge_configs(controller_config, robot_config)
+    failsafe_config_path = file_path_completion(
+        "controllers/failsafe_controller/config/failsafe.json"
+    )
+    robot_config_path = file_path_completion("models/robots/config/schunk.json")
+
+    # Load the failsafe controller config from file
+    import json
+    with open(failsafe_config_path, 'r') as f:
+        failsafe_config = json.load(f)
+
+    # Load robot-specific limits
+    with open(robot_config_path, 'r') as f:
+        robot_config = json.load(f)
+
+    # Merge robot limits into failsafe config
+    controller_config = {'body_parts': {'right': {}}}
+    controller_config['body_parts']['right'] = merge_configs(failsafe_config['body_parts']['right'], robot_config)
     controller_configs = [controller_config]
 
+    rsenv = suite.make(
+        "ReachHuman",
+        robots="Schunk",  # use Sawyer robot
+        robot_base_offset=[0, 0, 0],
+        use_camera_obs=False,  # do not use pixel observations
+        has_offscreen_renderer=False,  # not needed since not using pixel obs
+        has_renderer=True,  # make sure we can render to the screen
+        render_camera=None,
+        renderer="mjviewer",
+        render_collision_mesh=False,
+        reward_shaping=True,  # use dense rewards
+        control_freq=5,  # control should happen fast enough so that simulation looks smooth
+        hard_reset=False,
+        horizon=100,
+        controller_configs=controller_configs,
+        shield_type="SSM",
+        visualize_failsafe_controller=True,
+        visualize_pinocchio=False,
+        base_human_pos_offset=[1.0, 0.0, 0.0],
+        verbose=True,
+        goal_dist=0.0001,
+        human_rand=[1.0, 0.5, 0.2]
+    )
+
+    env = CollisionPreventionWrapper(
+        env=rsenv, collision_check_fn=rsenv.check_collision_action, replace_type=0
+    )
+
+    env = VisualizationWrapper(env)
+
     env = ExpertObsWrapper(
-        suite.make(
-            "ReachHuman",
-            robots="Schunk",  # use Sawyer robot
-            robot_base_offset=[0, 0, 0],
-            use_camera_obs=False,  # do not use pixel observations
-            has_offscreen_renderer=False,  # not needed since not using pixel obs
-            has_renderer=True,  # make sure we can render to the screen
-            render_camera=None,
-            render_collision_mesh=False,
-            reward_shaping=True,  # use dense rewards
-            control_freq=5,  # control should happen fast enough so that simulation looks smooth
-            hard_reset=False,
-            horizon=1000,
-            controller_configs=controller_configs,
-            shield_type="SSM",
-            visualize_failsafe_controller=True,
-            visualize_pinocchio=False,
-            base_human_pos_offset=[1.0, 0.0, 0.0],
-            verbose=True,
-            goal_dist=0.0001,
-            human_rand=[1.0, 0.5, 0.2]
-        ),
+        env=env,
         agent_keys=[
             "object-state",
             "robot0_proprio-state",
@@ -75,13 +93,6 @@ if __name__ == "__main__":
             "goal_difference"
         ]
     )
-
-    env = CollisionPreventionWrapper(
-        env=env, collision_check_fn=env.check_collision_action, replace_type=0
-    )
-
-    env = VisualizationWrapper(env) # render_mode='rgb_array')
-    # env.monitor.start('/tmp/cartpole-experiment-1', force=True)
 
     expert = ReachHumanExpert(
         observation_space=env.observation_space,
@@ -99,7 +110,8 @@ if __name__ == "__main__":
             expert_observation = expert_obs_wrapper.current_expert_observation
             action = expert(expert_observation)
 
-            observation, reward, done, info = env.step(action)
+            observation, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
             print("Reward: {}".format(reward))
             if done or t == t_max:
                 print("Episode finished after {} timesteps".format(t + 1))

@@ -10,6 +10,7 @@ Author
 Changelog:
     07.07.23 FT File creation
 """
+
 from typing import Any, Dict, List, Optional, OrderedDict, Tuple, Union
 
 import xml.etree.ElementTree as ET
@@ -18,7 +19,7 @@ import numpy as np
 from robosuite.utils.observables import Observable, sensor
 from scipy.spatial.transform import Rotation
 
-import mujoco_py
+import mujoco
 
 from robosuite.models.arenas import TableArena
 from robosuite.models.objects.primitive.box import BoxObject
@@ -212,6 +213,7 @@ class CollaborativeLiftingCart(HumanEnv):
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
+
     def __init__(
         self,
         robots: Union[str, List[str]],
@@ -309,6 +311,7 @@ class CollaborativeLiftingCart(HumanEnv):
 
         self._lh_connect_name = "lh_mocap_object_connect"
         self._rh_connect_name = "rh_mocap_object_connect"
+        self.geom_index = None
 
         super().__init__(
             robots=robots,
@@ -363,7 +366,10 @@ class CollaborativeLiftingCart(HumanEnv):
         Returns:
             bool: Whether or not the human holds the board.
         """
-        return bool(self.sim.model.eq_active[self.eq_l_id]) and bool(self.sim.model.eq_active[self.eq_r_id])
+        return bool(
+            self.sim.data.eq_active[
+                self.sim.model.eq(self._lh_connect_name).id]) and bool(
+                    self.sim.data.eq_active[self.sim.model.eq(self._rh_connect_name).id])
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
         """Step the simulation forward one timestep.
@@ -407,7 +413,7 @@ class CollaborativeLiftingCart(HumanEnv):
             [
                 [observation["board_balance"]],
                 [observation["board_gripped"]],
-                observation[f"{self.robots[0].robot_model.naming_prefix}eef_pos"]
+                observation[f"{self.robots[0].robot_model.naming_prefix}eef_pos"],
             ]
         ).tolist()
 
@@ -426,11 +432,7 @@ class CollaborativeLiftingCart(HumanEnv):
         """
         return []
 
-    def _check_success(
-        self,
-        achieved_goal: List[float],
-        desired_goal: List[float]
-    ) -> bool:
+    def _check_success(self, achieved_goal: List[float], desired_goal: List[float]) -> bool:
         """The task is successful, if the animation is finished
         and the episode was not terminated before due to unbalance.
 
@@ -595,15 +597,9 @@ class CollaborativeLiftingCart(HumanEnv):
         lh_quat = rot_to_quat(lh_rot * Rotation.from_euler("y", -np.pi / 2))
         rh_quat = rot_to_quat(rh_rot * Rotation.from_euler("y", np.pi / 2))
 
-        self.sim.data.set_mocap_pos(
-            self._lh_mocap_body_name,
-            self.sim.data.get_site_xpos(self.human.left_hand)
-        )
+        self.sim.data.set_mocap_pos(self._lh_mocap_body_name, self.sim.data.get_site_xpos(self.human.left_hand))
 
-        self.sim.data.set_mocap_pos(
-            self._rh_mocap_body_name,
-            self.sim.data.get_site_xpos(self.human.right_hand)
-        )
+        self.sim.data.set_mocap_pos(self._rh_mocap_body_name, self.sim.data.get_site_xpos(self.human.right_hand))
 
         self.sim.data.set_mocap_quat(
             self._lh_mocap_body_name,
@@ -617,8 +613,9 @@ class CollaborativeLiftingCart(HumanEnv):
 
     def _toggle_grip_equalities_active(self, active: bool):
         """Toggle the status of the equalities connecting the mocap objects at the human's hands with the board."""
-        self.sim.model.eq_active[self.eq_l_id] = active
-        self.sim.model.eq_active[self.eq_r_id] = active
+        self.sim.data.eq_active[self.sim.model.eq(self._lh_connect_name).id] = int(active)
+        self.sim.data.eq_active[self.sim.model.eq(self._rh_connect_name).id] = int(active)
+        self.sim.forward()
 
     def human_pickup_board(self):
         """Activate the equalities connecting the mocap objects at the human's hands with the board."""
@@ -653,7 +650,7 @@ class CollaborativeLiftingCart(HumanEnv):
                     self.table_offset + np.array([0, 0, 0.05]) + self.human_pos_offset,
                     [0, 0, 0, 1],
                 ]
-            )
+            ),
         )
 
     def _progress_to_next_animation(self, animation_start_time: float):
@@ -673,7 +670,7 @@ class CollaborativeLiftingCart(HumanEnv):
         Specifies the initial joint angles of the robot to grasp the object in the beginning of the episode.
         """
         # Set the desired new initial joint angles before resetting the robot.
-        self.robots[0].init_qpos = np.array([0, np.pi * 19 / 48, -np.pi / 2 - 5 * np.pi/48, 0, np.pi / 2, -np.pi / 4])
+        self.robots[0].init_qpos = np.array([0, np.pi * 19 / 48, -np.pi / 2 - 5 * np.pi / 48, 0, np.pi / 2, -np.pi / 4])
 
         super()._reset_internal()
 
@@ -702,12 +699,9 @@ class CollaborativeLiftingCart(HumanEnv):
         for i in range(5):
             self._reset_animation()
             self.sim.step()
-            obs, _, done, _ = self.step(np.concatenate(
-                [
-                    [0 for _ in range(self.action_dim - 1)],
-                    [1],
-                ]
-            ))
+            obs, _, done, _ = self.step(
+                np.concatenate([[0 for _ in range(self.action_space.shape - 1)], [1]])
+            )
 
             if done:
                 if self.verbose:
@@ -770,11 +764,7 @@ class CollaborativeLiftingCart(HumanEnv):
         )
 
         # << OBSTACLES >>
-        self._setup_collision_objects(
-            add_table=True,
-            add_base=True,
-            safety_margin=0.0
-        )
+        self._setup_collision_objects(add_table=True, add_base=True, safety_margin=0.0)
         # Obstacles are elements that the robot should avoid.
         self.obstacles = []
         self.obstacle_placement_initializer = self._setup_placement_initializer(
@@ -783,11 +773,11 @@ class CollaborativeLiftingCart(HumanEnv):
             objects=self.obstacles,
         )
 
-    def _postprocess_model(self):
+    def _load_model(self):
         """Extend super class method to add elements to the model before creating the sim object."""
-        super()._postprocess_model()
+        super()._load_model()
 
-        r_anchor = "-0.45 -0.25, 0"
+        r_anchor = "-0.45 -0.25 0"
         l_anchor = "-0.45 0.25 0"
 
         self._add_mocap_bodies_to_model(l_anchor_pos=l_anchor, r_anchor_pos=r_anchor)
@@ -795,10 +785,7 @@ class CollaborativeLiftingCart(HumanEnv):
         self._add_connect_equalities_to_model()
 
     def _add_mocap_bodies_to_model(
-        self,
-        l_anchor_pos: str,
-        r_anchor_pos: str,
-        visualize: bool = False
+        self, l_anchor_pos: str, r_anchor_pos: str, visualize: bool = False
     ) -> Tuple[ET.Element, ET.Element]:
         """Add two mocap objects to the model. These are used to keep the board at the human's hands.
 
@@ -827,27 +814,31 @@ class CollaborativeLiftingCart(HumanEnv):
         )
 
         if visualize:
-            lh_mocap_object.append(ET.Element(
-                "geom",
-                name=f"{self._lh_mocap_body_name}_g0_vis",
-                type="box",
-                size="0.05 0.05 0.05",
-                contype="0",
-                conaffinity="0",
-                group="1",
-                rgba="0 1 1 0.5",
-            ))
+            lh_mocap_object.append(
+                ET.Element(
+                    "geom",
+                    name=f"{self._lh_mocap_body_name}_g0_vis",
+                    type="box",
+                    size="0.05 0.05 0.05",
+                    contype="0",
+                    conaffinity="0",
+                    group="1",
+                    rgba="0 1 1 0.5",
+                )
+            )
 
-            rh_mocap_object.append(ET.Element(
-                "geom",
-                name=f"{self._rh_mocap_body_name}_g0_vis",
-                type="box",
-                size="0.05 0.05 0.05",
-                contype="0",
-                conaffinity="0",
-                group="1",
-                rgba="1 0 1 0.5",
-            ))
+            rh_mocap_object.append(
+                ET.Element(
+                    "geom",
+                    name=f"{self._rh_mocap_body_name}_g0_vis",
+                    type="box",
+                    size="0.05 0.05 0.05",
+                    contype="0",
+                    conaffinity="0",
+                    group="1",
+                    rgba="1 0 1 0.5",
+                )
+            )
 
         self.model.worldbody.extend(
             [
@@ -859,10 +850,7 @@ class CollaborativeLiftingCart(HumanEnv):
         return lh_mocap_object, rh_mocap_object
 
     def _add_grips_to_board(
-        self,
-        l_anchor_pos: str,
-        r_anchor_pos: str,
-        visualize: bool = False
+        self, l_anchor_pos: str, r_anchor_pos: str, visualize: bool = False
     ) -> Tuple[ET.Element, ET.Element]:
         """Add two bodies to the board that are connected to the mocap objects at the human's hands.
 
@@ -874,12 +862,7 @@ class CollaborativeLiftingCart(HumanEnv):
         Returns:
             Tuple[ET.Element, ET.Element]: The nodes for both grips.
         """
-        box_elem = find_elements(
-            root=self.model.root,
-            tags="body",
-            attribs={"name": "board_main"},
-            return_first=True
-        )
+        box_elem = find_elements(root=self.model.root, tags="body", attribs={"name": "board_main"}, return_first=True)
 
         l_grip = ET.Element(
             "body",
@@ -894,27 +877,31 @@ class CollaborativeLiftingCart(HumanEnv):
         )
 
         if visualize:
-            l_grip.append(ET.Element(
-                "geom",
-                name=f"{self._lh_grip_body_name}_g0_vis",
-                type="box",
-                size="0.05 0.05 0.05",
-                contype="0",
-                conaffinity="0",
-                group="1",
-                rgba="0 1 0 0.5",
-            ))
+            l_grip.append(
+                ET.Element(
+                    "geom",
+                    name=f"{self._lh_grip_body_name}_g0_vis",
+                    type="box",
+                    size="0.05 0.05 0.05",
+                    contype="0",
+                    conaffinity="0",
+                    group="1",
+                    rgba="0 1 0 0.5",
+                )
+            )
 
-            r_grip.append(ET.Element(
-                "geom",
-                name=f"{self._rh_grip_body_name}_g0_vis",
-                type="box",
-                size="0.05 0.05 0.05",
-                contype="0",
-                conaffinity="0",
-                group="1",
-                rgba="1 0 0 0.5",
-            ))
+            r_grip.append(
+                ET.Element(
+                    "geom",
+                    name=f"{self._rh_grip_body_name}_g0_vis",
+                    type="box",
+                    size="0.05 0.05 0.05",
+                    contype="0",
+                    conaffinity="0",
+                    group="1",
+                    rgba="1 0 0 0.5",
+                )
+            )
 
         box_elem.append(l_grip)
         box_elem.append(r_grip)
@@ -961,9 +948,7 @@ class CollaborativeLiftingCart(HumanEnv):
         """Extend the super method by white-listing the board object for collision detection."""
         super()._setup_collision_info()
         self.whitelisted_collision_geoms = self.whitelisted_collision_geoms.union(
-            {
-                self.sim.model.geom_name2id(geom_name) for geom_name in self.board.contact_geoms
-            }
+            {self.sim.model.geom_name2id(geom_name) for geom_name in self.board.contact_geoms}
         )
 
     def _setup_references(self):
@@ -971,13 +956,6 @@ class CollaborativeLiftingCart(HumanEnv):
         super()._setup_references()
 
         self.board_body_id = self.sim.model.body_name2id(self.board.root_body)
-        self.eq_l_id = mujoco_py.functions.mj_name2id(
-            self.sim.model, mujoco_py.const.OBJ_EQUALITY, self._lh_connect_name,
-        )
-
-        self.eq_r_id = mujoco_py.functions.mj_name2id(
-            self.sim.model, mujoco_py.const.OBJ_EQUALITY, self._rh_connect_name,
-        )
 
     def _setup_observables(self) -> OrderedDict[str, Observable]:
         """Extend super class method to set up additional observables.
@@ -1023,20 +1001,24 @@ class CollaborativeLiftingCart(HumanEnv):
 
         @sensor(modality=obj_mod)
         def board_pos(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return np.array(self.sim.data.body_xpos[self.board_body_id])
+            return np.array(self.sim.data.get_body_xpos(self.sim.model.body_id2name(self.board_body_id)))
 
         @sensor(modality=obj_mod)
         def board_quat(obs_cache: Dict[str, Any]) -> np.ndarray:
-            return T.convert_quat(self.sim.data.body_xquat[self.board_body_id], to="xyzw")
+            return T.convert_quat(
+                self.sim.data.get_body_xquat(self.sim.model.body_id2name(self.board_body_id)), to="xyzw"
+            )
 
         @sensor(modality=goal_mod)
         def board_balance(obs_cache: Dict[str, Any]) -> np.ndarray:
             if "board_quat" not in obs_cache:
                 return np.zeros(1)
             else:
-                balance = quat_to_rot(self.sim.data.body_xquat[self.board_body_id]).apply(
-                    np.array([0, 0, 1])
-                ).dot(np.array([0, 0, 1]))
+                balance = (
+                    quat_to_rot(self.sim.data.get_body_xquat(self.sim.model.body_id2name(self.board_body_id)))
+                    .apply(np.array([0, 0, 1]))
+                    .dot(np.array([0, 0, 1]))
+                )
                 return balance
 
         @sensor(modality=goal_mod)
@@ -1059,9 +1041,7 @@ class CollaborativeLiftingCart(HumanEnv):
             if "robot0_eef_quat" not in obs_cache or "board_quat" not in obs_cache:
                 return np.zeros(4)
 
-            quat = rot_to_quat(
-                quat_to_rot(obs_cache["board_quat"]) * quat_to_rot(obs_cache["robot0_eef_quat"]).inv()
-            )
+            quat = rot_to_quat(quat_to_rot(obs_cache["board_quat"]) * quat_to_rot(obs_cache["robot0_eef_quat"]).inv())
             return T.convert_quat(np.array(quat), "xyzw")
 
         sensors = [
@@ -1090,20 +1070,27 @@ class CollaborativeLiftingCart(HumanEnv):
 
     def _visualize_board_normal(self):
         """Visualize the board's normal as a marker in the renderer."""
-        balance = quat_to_rot(self.sim.data.body_xquat[self.board_body_id]).apply(
-            np.array([0, 0, 1])
-        ).dot(np.array([0, 0, 1]))
+        balance = (
+            quat_to_rot(self.sim.data.get_body_xquat(self.sim.model.body_id2name(self.board_body_id)))
+            .apply(np.array([0, 0, 1]))
+            .dot(np.array([0, 0, 1]))
+        )
 
         balance = (balance - self.min_balance) / (1 - self.min_balance)
 
         color = np.array([1, 0, 0, 0.3]) * (1 - balance) + np.array([0, 1, 0, 0.3]) * balance
-
-        self.viewer.viewer.add_marker(
-            pos=self.sim.data.get_body_xpos(self.board.root_body),
+        from robosuite.renderers.mjviewer.mjviewer_renderer import MjviewerRenderer
+        if not isinstance(self.viewer, MjviewerRenderer):
+            # Adding markers is only supported in the Mjviewer renderer
+            return
+        if self.geom_index is None:
+            self.geom_index = self.viewer.viewer.user_scn.ngeom
+            self.viewer.viewer.user_scn.ngeom = self.viewer.viewer.user_scn.ngeom + 1
+        mujoco.mjv_initGeom(
+            self.viewer.viewer.user_scn.geoms[self.geom_index],
             type=100,
-            size=[0.005, 0.005, 0.5],
-            mat=quat_to_rot(self.sim.data.get_body_xquat(self.board.root_body)).as_matrix(),
-            rgba=color,
-            label="",
-            shininess=0.0,
+            size=np.array([0.005, 0.005, 0.5]),
+            pos=self.sim.data.get_body_xpos(self.board.root_body),
+            mat=quat_to_rot(self.sim.data.get_body_xquat(self.board.root_body)).as_matrix().flatten(),
+            rgba=color
         )

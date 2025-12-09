@@ -11,16 +11,39 @@ Changelog:
     2.5.22 JT Formatted docstrings
 """
 import numpy as np
-import gym
+import gymnasium
 
-from stable_baselines3.common.utils import safe_mean
-from stable_baselines3.common.evaluation import evaluate_policy
-from stable_baselines3.common.vec_env import (
-    VecEnv,
-    sync_envs_normalization,
-)
+try:
+    from stable_baselines3.common.utils import safe_mean
+    from stable_baselines3.common.evaluation import evaluate_policy
+    from stable_baselines3.common.vec_env import (
+        VecEnv,
+        sync_envs_normalization,
+    )
+    HAS_SB3 = True
+except ImportError:
+    HAS_SB3 = False
+    # Define placeholder functions/classes for when SB3 is not available
+    VecEnv = object
+    safe_mean = None
+    evaluate_policy = None
+    sync_envs_normalization = None
 
-from wandb.integration.sb3 import WandbCallback
+try:
+    from wandb.integration.sb3 import WandbCallback
+    HAS_WANDB_SB3 = True
+except ImportError:
+    HAS_WANDB_SB3 = False
+    # Define placeholder class for when wandb SB3 integration is not available
+
+    class WandbCallback:
+        def __init__(self, *args, **kwargs):
+            if not HAS_SB3:
+                raise ImportError("stable-baselines3 is required for WandbCallback.\
+                  Install with: pip install stable-baselines3")
+            if not HAS_WANDB_SB3:
+                raise ImportError("wandb SB3 integration is required for WandbCallback.\
+                  Install with: pip install wandb[sb3]")
 
 from typing import Any, Dict, List, Tuple, Union
 import time
@@ -55,7 +78,7 @@ class CustomWandbCallback(WandbCallback):
 
     def __init__(
         self,
-        eval_env: Union[gym.Env, VecEnv],
+        eval_env: Union[gymnasium.Env, VecEnv],
         verbose: int = 0,
         model_save_path: str = None,
         model_save_freq: int = 0,

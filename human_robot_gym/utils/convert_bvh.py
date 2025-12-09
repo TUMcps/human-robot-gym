@@ -10,6 +10,7 @@ Contributors:
 Changelog:
     2.5.22 JT Formatted docstrings
 """
+
 import argparse
 import os
 import numpy as np
@@ -77,7 +78,7 @@ if __name__ == "__main__":
     data = {}
     channel_dict = {}
     base_idx = mocap.get_joint_channels_index("hip")
-    for (i, channel_name) in enumerate(mocap.joint_channels("hip")):
+    for i, channel_name in enumerate(mocap.joint_channels("hip")):
         channel_dict[channel_name] = base_idx + i
 
     data["Pelvis_pos_x"] = frames[:, channel_dict["Xposition"]] / 100
@@ -105,16 +106,22 @@ if __name__ == "__main__":
             mocap_name = mujoco_to_mocap_names[joint_name]
             base_idx = mocap.get_joint_channels_index(mocap_name)
             channel_dict = {}
-            for (i, channel_name) in enumerate(mocap.joint_channels(mocap_name)):
+            for i, channel_name in enumerate(mocap.joint_channels(mocap_name)):
                 channel_dict[channel_name] = base_idx + i
             data[joint_name + "_x"] = np.clip(
-                np.radians(frames[:, channel_dict["Xrotation"]]), -1.56, 1.56
+                np.radians(frames[:, channel_dict["Xrotation"]]),
+                -2.5,
+                2.5,  # -1.56, 1.56
             )
             data[joint_name + "_y"] = np.clip(
-                np.radians(frames[:, channel_dict["Yrotation"]]), -1.56, 1.56
+                np.radians(frames[:, channel_dict["Yrotation"]]),
+                -2.5,
+                2.5,  # -1.56, 1.56
             )
             data[joint_name + "_z"] = np.clip(
-                np.radians(frames[:, channel_dict["Zrotation"]]), -1.56, 1.56
+                np.radians(frames[:, channel_dict["Zrotation"]]),
+                -2.5,
+                2.5,  # -1.56, 1.56
             )
         else:
             data[joint_name + "_x"] = np.zeros(data["Pelvis_pos_x"].shape)

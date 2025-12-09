@@ -216,7 +216,7 @@ def collect_data(
         i = 0
         while not done:
             i += 1
-            obs, reward, done, info = env.step(expert(expert_obs_wrapper.current_expert_observation))
+            obs, reward, terminated, truncated, info = env.step(expert(expert_obs_wrapper.current_expert_observation))
             observations.append(obs)
             ret += reward
 

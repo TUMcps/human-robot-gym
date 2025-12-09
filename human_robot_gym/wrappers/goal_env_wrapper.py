@@ -17,8 +17,8 @@ Changelog:
     2.5.22 JT Formatted docstrings
 """
 import numpy as np
-from gym import spaces
-from gym.core import Env
+from gymnasium import spaces
+from gymnasium.core import Env
 
 from robosuite.wrappers import Wrapper
 
@@ -30,11 +30,11 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
     The main point of goal environments is that both the desired and achieved goal are
     part of the observation.
     The observation must have the following form:
-    gym.spaces.Dict({
+    gymnasium.spaces.Dict({
 
-        - '`observation`': gym.spaces.Box,
-        - '`achieved_goal`': gym.spaces.Box,
-        - '`desired_goal`': gym.spaces.Box
+        - '`observation`': gymnasium.spaces.Box,
+        - '`achieved_goal`': gymnasium.spaces.Box,
+        - '`desired_goal`': gymnasium.spaces.Box
 
     })
 
@@ -120,12 +120,20 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
         obs = {"observation": observation, "achieved_goal": a_g, "desired_goal": d_g}
         return obs
 
-    def reset(self):
-        """Extend env reset method to return flattened observation instead of normal OrderedDict.
+    def reset(self, seed=None, options=None):
+        """
+        Extends env reset method to return observation instead of normal OrderedDict and optionally resets seed
 
         Returns:
-            np.array: Flattened environment observation space after reset occurs
+            2-tuple:
+                - (np.array) observations from the environment
+                - (dict) an empty dictionary, as part of the standard return format
         """
+        if seed is not None:
+            if isinstance(seed, int):
+                np.random.seed(seed)
+            else:
+                raise TypeError("Seed must be an integer type!")
         ob_dict = self.env.reset()
         return self._flatten_obs(ob_dict)
 

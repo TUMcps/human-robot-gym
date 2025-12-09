@@ -27,7 +27,7 @@ class HumanObject(MujocoXMLObject):
         name (str): Name of the human object.
     """
 
-    def __init__(self, name):  # noqa: D107
+    def __init__(self, name, mocap_file="mujoco_mocap.yaml"):  # noqa: D107
         super().__init__(
             xml_path_completion("human/human.xml"),
             name=name,
@@ -35,6 +35,7 @@ class HumanObject(MujocoXMLObject):
             obj_type="all",
             duplicate_collision_geoms=True,
         )
+        self.mocap_file = mocap_file
         self._setup_joint_names()
 
     @property

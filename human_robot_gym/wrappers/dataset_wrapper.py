@@ -5,9 +5,11 @@ The wrappers below leverage this data for observation normalization or reference
 
 Author:
     Felix Trost (FT)
+    Jakob Thumm (JT)
 
 Changelog:
     17.06.23 (FT): File created
+    27.08.25 (JT): Changed to robosuite wrapper
 """
 from typing import Any, Dict, List, Optional, Tuple
 import os
@@ -15,13 +17,13 @@ import os
 import numpy as np
 import pandas as pd
 
-import gym
+import gymnasium
 
 from human_robot_gym.utils.mjcf_utils import file_path_completion
 from human_robot_gym.wrappers.expert_obs_wrapper import ExpertObsWrapper
 
 
-class DatasetWrapper(gym.Wrapper):
+class DatasetWrapper(gymnasium.Wrapper):
     """Base class for wrappers leveraging datasets created by the
     `human_robot_gym/training/create_expert_dataset.py` script.
 
@@ -29,12 +31,12 @@ class DatasetWrapper(gym.Wrapper):
     Be careful when using large datasets or many parallel environments as large amounts of memory might be required.
 
     Args:
-        env (gym.Env): The environment to wrap
+        env (gymnasium.Env): The environment to wrap
         dataset_name (str): The name of the dataset to use
     """
     def __init__(
         self,
-        env: gym.Env,
+        env: gymnasium.Env,
         dataset_name: str,
     ):
         super().__init__(env=env)
@@ -92,7 +94,7 @@ class DatasetRSIWrapper(DatasetWrapper):
     episode trajectories.
 
     Args:
-        env (gym.Env): The environment to wrap
+        env (gymnasium.Env): The environment to wrap
         dataset_name (str): The name of the dataset to use
         rsi_prob (float): The probability of performing RSI on reset calls.
         If set to 0, the environment is always initialized from the first state of a random episode.
@@ -100,7 +102,7 @@ class DatasetRSIWrapper(DatasetWrapper):
     """
     def __init__(
         self,
-        env: gym.Env,
+        env: gymnasium.Env,
         dataset_name: str,
         rsi_prob: float = 0,
     ):
@@ -144,11 +146,11 @@ class DatasetRSIWrapper(DatasetWrapper):
             Tuple[np.ndarray, float, bool, Dict[str, Any]]: The next observation, the reward, whether the episode is
                 done, and additional info
         """
-        obs, reward, done, info = super().step(action)
+        obs, reward, terminated, truncated, info = super().step(action)
 
         self._dataset_ep_step_idx = min(self._dataset_ep_step_idx + 1, self._dataset_transition_count)
 
-        return obs, reward, done, info
+        return obs, reward, terminated, truncated, info
 
     def _get_initial_dataset_ep_step_idx(self) -> int:
         if np.random.rand() < self._rsi_prob:
@@ -157,7 +159,7 @@ class DatasetRSIWrapper(DatasetWrapper):
             return 0
 
 
-class DatasetObsNormWrapper(gym.Wrapper):
+class DatasetObsNormWrapper(gymnasium.Wrapper):
     r"""Wrapper for normalizing observations based on dataset statistics.
 
     Obtains mean and std of per observation value from the dataset and normalizes observations accordingly.
@@ -179,7 +181,7 @@ class DatasetObsNormWrapper(gym.Wrapper):
             normed_obs = tanh(squash_factor * normed_obs)
 
     Args:
-        env (gym.Env): The environment to wrap
+        env (gymnasium.Env): The environment to wrap
         mean (Optional[np.ndarray]): The mean to use for normalization.
         std (Optional[np.ndarray]): The std to use for normalization.
         dataset_name (Optional[str]): If `mean` or `std` are not provided,
@@ -195,7 +197,7 @@ class DatasetObsNormWrapper(gym.Wrapper):
     """
     def __init__(
         self,
-        env: gym.Env,
+        env: gymnasium.Env,
         dataset_name: Optional[str] = None,
         mean: Optional[np.ndarray] = None,
         std: Optional[np.ndarray] = None,
@@ -245,7 +247,7 @@ class DatasetObsNormWrapper(gym.Wrapper):
 
         # Without squashing, the observation space is not guaranteed to be bounded in [-1, 1]
         if squash_factor is not None:
-            self.observation_space = gym.spaces.Box(
+            self.observation_space = gymnasium.spaces.Box(
                 low=-1.0,
                 high=1.0,
                 shape=self.observation_space.shape,

@@ -6,10 +6,12 @@ while employing the failsafe control pipeline for safe online reinforcement lear
 Author: Rafael Cabral
 """
 
+from typing import Optional
 import numpy as np
 import pybullet as p
-from gym.core import Wrapper
-from gym.spaces import Box
+from scipy.spatial.transform import Rotation
+from robosuite.wrappers import Wrapper
+from robosuite.environments.base import MujocoEnv
 
 
 class IKPositionDeltaWrapper(Wrapper):
@@ -24,13 +26,13 @@ class IKPositionDeltaWrapper(Wrapper):
 
     def __init__(
         self,
-        env,
-        urdf_file,
-        action_limits=np.array([[-0.15, -0.15, -0.15], [0.15, 0.15, 0.15]]),
-        x_output_max=1,
-        x_position_limits=None,
-        residual_threshold=1e-3,
-        max_iter=50,
+        env: MujocoEnv,
+        urdf_file: str,
+        action_limits: np.ndarray = np.array([[-0.15, -0.15, -0.15], [0.15, 0.15, 0.15]]),
+        x_output_max: float = 1.0,
+        x_position_limits: Optional[np.ndarray] = None,
+        residual_threshold: float = 1e-3,
+        max_iter: int = 50,
         **kwargs
     ):  # noqa: D107
         """Initialize the position delta wrapper.
@@ -52,25 +54,36 @@ class IKPositionDeltaWrapper(Wrapper):
             max_iter (int): maximum number of iterations in IK solution.
         """
         super().__init__(env)
+        self.robot = self.unwrapped.robots[0]
         self.urdf_file = urdf_file
-
-        self.base_position = env.robots[0].base_pos
-        self.base_orientation = env.robots[0].base_ori
-        self.num_joints = len(env.robots[0].init_qpos)
+        # unwrapped_env = env.unwrapped
+        self.base_position = self.robot.base_pos
+        self.base_orientation = self.robot.base_ori
+        self.num_joints = len(self.robot.init_qpos)
         self.end_effector_index = self.num_joints
 
         # pybullet for inverse kinematics
         self.p_client_id = p.connect(p.DIRECT)
+
+        # Convert base orientation from rotation matrix to quaternion for PyBullet
+        if self.base_orientation.shape == (3, 3):
+            # Convert 3x3 rotation matrix to quaternion [x, y, z, w]
+            rotation = Rotation.from_matrix(self.base_orientation)
+            base_orientation_quat = rotation.as_quat()  # Returns [x, y, z, w]
+        else:
+            # Assume it's already in the correct format
+            base_orientation_quat = self.base_orientation
+
         self.p_robot_id = p.loadURDF(
             fileName=self.urdf_file,
             basePosition=self.base_position,
-            baseOrientation=self.base_orientation,
+            baseOrientation=base_orientation_quat,
         )
         self.residual_threshold = residual_threshold
         self.max_iter = max_iter
 
         # get and maintain initial orientation
-        init_q = env.robots[0].init_qpos
+        init_q = self.robot.init_qpos
         for i in range(self.num_joints):
             p.resetJointState(self.p_robot_id, i, init_q[i])
         ee_state = p.getLinkState(self.p_robot_id, self.end_effector_index)
@@ -81,14 +94,25 @@ class IKPositionDeltaWrapper(Wrapper):
         self.target_orientation = init_ori
 
         # Redefining action space
-        self.gripper_action_dim = env.robots[0].gripper.dof
-        action_lb = np.append(action_limits[0], -np.ones(self.gripper_action_dim))
-        action_ub = np.append(action_limits[1], np.ones(self.gripper_action_dim))
-        self.action_space = Box(low=action_lb, high=action_ub)
+        # Calculate gripper DOF: total action dim - robot DOF
+        self.gripper_action_dim = self.robot.action_dim - self.robot.dof
+        self.action_lb = np.append(action_limits[0], -np.ones(self.gripper_action_dim))
+        self.action_ub = np.append(action_limits[1], np.ones(self.gripper_action_dim))
 
         # Cartesian action limits and x
         self.x_output_max = x_output_max
         self.x_position_limits = x_position_limits
+
+    @property
+    def action_spec(self):
+        """Override the action space to be cartesian position delta.
+
+        Returns:
+            2-tuple:
+                - (np.array) minimum (low) action values
+                - (np.array) maximum (high) action values
+        """
+        return (self.action_lb, self.action_ub)
 
     def step(self, action):
         """Transform and apply the action to the environment.
@@ -98,13 +122,13 @@ class IKPositionDeltaWrapper(Wrapper):
         and apply action to the environment.
         """
         # Clip action to action space
-        action = np.clip(action, self.action_space.low, self.action_space.high)
+        action = np.clip(action, self.action_spec[0], self.action_spec[1])
 
         ws_action = np.zeros(self.control_dim)
         ws_action[: self.control_dim] = action[: self.control_dim]
 
         # get pybullet end-effector position
-        q_current = self.env.robots[0].controller.joint_pos
+        q_current = self.robot.part_controllers['right'].joint_pos
         for i, val in enumerate(q_current):
             p.resetJointState(self.p_robot_id, i, val)
         ee_state = p.getLinkState(self.p_robot_id, self.end_effector_index)

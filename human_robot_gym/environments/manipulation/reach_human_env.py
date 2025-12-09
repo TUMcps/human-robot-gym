@@ -13,13 +13,14 @@ Changelog:
     15.7.22 JB added optional stop at collision
     16.05.23 FT Formatted docstrings
 """
+
 from typing import Any, Dict, Union, List, Optional, Tuple
 from dataclasses import asdict, dataclass
 
 import numpy as np
+import mujoco
 
 from robosuite.models.arenas import TableArena
-from robosuite.models.objects.primitive.box import BoxObject
 from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.placement_samplers import ObjectPositionSampler
 
@@ -50,6 +51,7 @@ class ReachHumanEnvState(HumanEnvState):
             iterated over and the corresponding target_position is used.
         desired_goals_index (int): Index of the current desired goal in the list of target_position.
     """
+
     desired_goals: List[np.ndarray]
     desired_goals_index: int
 
@@ -237,6 +239,7 @@ class ReachHuman(HumanEnv):
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
+
     def __init__(
         self,
         robots: Union[str, List[str]],
@@ -404,9 +407,9 @@ class ReachHuman(HumanEnv):
             # if goal is reached, calculate a new goal.
             self._desired_goals_index = (self._desired_goals_index + 1) % self._n_goals_to_sample_at_resets
             if isinstance(self.robots[0].robot_model, PinocchioManipulatorModel):
-                (self.goal_marker_trans, self.goal_marker_rot) = self.robots[
-                    0
-                ].robot_model.get_eef_transformation(self._desired_goals[self._desired_goals_index])
+                (self.goal_marker_trans, self.goal_marker_rot) = self.robots[0].robot_model.get_eef_transformation(
+                    self._desired_goals[self._desired_goals_index]
+                )
             self.goal_reached = False
         if self.has_renderer:
             self._visualize_goal()
@@ -455,11 +458,9 @@ class ReachHuman(HumanEnv):
         Returns:
             float: dense environment reward
         """
-        return -0.1 * np.sqrt(np.sum((np.array(achieved_goal) - np.array(desired_goal))**2))
+        return -0.1 * np.sqrt(np.sum((np.array(achieved_goal) - np.array(desired_goal)) ** 2))
 
-    def _check_success(
-        self, achieved_goal: List[float], desired_goal: List[float]
-    ) -> bool:
+    def _check_success(self, achieved_goal: List[float], desired_goal: List[float]) -> bool:
         """Check if the desired goal was reached.
 
         Checks if all robot joints are at the desired position.
@@ -472,14 +473,10 @@ class ReachHuman(HumanEnv):
         Returns:
             True if success
         """
-        dist = np.sqrt(
-            np.sum([(a - g) ** 2 for (a, g) in zip(achieved_goal, desired_goal)])
-        )
+        dist = np.sqrt(np.sum([(a - g) ** 2 for (a, g) in zip(achieved_goal, desired_goal)]))
         return dist <= self.goal_dist
 
-    def _get_achieved_goal_from_obs(
-        self, observation: Union[List[float], Dict]
-    ) -> List[float]:
+    def _get_achieved_goal_from_obs(self, observation: Union[List[float], Dict]) -> List[float]:
         """
         Extract the achieved goal from the observation.
 
@@ -494,9 +491,7 @@ class ReachHuman(HumanEnv):
         prefix = self.robots[0].robot_model.naming_prefix
         return observation[prefix + "joint_pos"]
 
-    def _get_desired_goal_from_obs(
-        self, observation: Union[List[float], Dict]
-    ) -> List[float]:
+    def _get_desired_goal_from_obs(self, observation: Union[List[float], Dict]) -> List[float]:
         """Extract the desired goal from the observation.
 
         The desired goal is a desired goal joint position.
@@ -521,9 +516,9 @@ class ReachHuman(HumanEnv):
         self._desired_goals_index = 0
 
         if isinstance(self.robots[0].robot_model, PinocchioManipulatorModel):
-            (self.goal_marker_trans, self.goal_marker_rot) = self.robots[
-                0
-            ].robot_model.get_eef_transformation(self._desired_goals[self._desired_goals_index])
+            (self.goal_marker_trans, self.goal_marker_rot) = self.robots[0].robot_model.get_eef_transformation(
+                self._desired_goals[self._desired_goals_index]
+            )
 
     def _sample_valid_pos(self):
         """Randomly sample a new valid joint configuration
@@ -533,7 +528,13 @@ class ReachHuman(HumanEnv):
             joint configuration (np.array)
         """
         robot = self.robots[0]
-        pos_limits = np.array(robot.controller.position_limits)
+        arm_controller = robot.part_controllers.get("right")
+        if arm_controller and hasattr(arm_controller, "position_limits"):
+            pos_limits = arm_controller.position_limits
+        else:
+            # Fallback to default limits if controller doesn't have them
+            pos_limits = np.array([[-0.05, -0.05, -0.05, -0.5, -0.5, -0.5], [0.05, 0.05, 0.05, 0.5, 0.5, 0.5]])
+
         goal = np.zeros(pos_limits.shape[1])
         for i in range(20):
             rand = np.random.rand(pos_limits.shape[1])
@@ -560,7 +561,7 @@ class ReachHuman(HumanEnv):
         self.mujoco_arena = TableArena(
             table_full_size=self.table_full_size,
             table_offset=self.table_offset,
-            xml=xml_path_completion("arenas/table_arena.xml")
+            xml=xml_path_completion("arenas/table_arena.xml"),
         )
 
         # Arena always gets set to zero origin
@@ -573,29 +574,17 @@ class ReachHuman(HumanEnv):
         # Objects are elements that can be moved around and manipulated.
         # Create objects
         # Box example
-        box_size = np.array([0.05, 0.05, 0.05])
-        box = BoxObject(
-            name="smallBox",
-            size=box_size * 0.5,
-            rgba=[0.1, 0.7, 0.3, 1],
-        )
-        self.objects = [box]
+        self.objects = []  # [box]
         # Placement sampler for objects
-        bin_x_half = self.table_full_size[0] / 2 - 0.05
-        bin_y_half = self.table_full_size[1] / 2 - 0.05
         self.object_placement_initializer = self._setup_placement_initializer(
             name="ObjectSampler",
             initializer=self.object_placement_initializer,
             objects=self.objects,
-            x_range=[-bin_x_half, bin_x_half],
-            y_range=[-bin_y_half, bin_y_half],
+            x_range=[0.6, 0.6],  # [-bin_x_half, bin_x_half],
+            y_range=[0.3, 0.3],  # [-bin_y_half, bin_y_half],
         )
         # << OBSTACLES >>
-        self._setup_collision_objects(
-            add_table=True,
-            add_base=True,
-            safety_margin=0.01
-        )
+        self._setup_collision_objects(add_table=True, add_base=True, safety_margin=0.01)
         # Obstacles are elements that the robot should avoid.
         self.obstacles = []
         self.obstacle_placement_initializer = self._setup_placement_initializer(
@@ -672,14 +661,20 @@ class ReachHuman(HumanEnv):
         """Visualize the goal state."""
         # arrow (type 100)
         return  # TODO goal_marker_trans is not set if robot does not inherit from pinocchio manipulator model
-        self.viewer.viewer.add_marker(
-            pos=self.goal_marker_trans,
+        from robosuite.renderers.mjviewer.mjviewer_renderer import MjviewerRenderer
+        if not isinstance(self.viewer, MjviewerRenderer):
+            # Adding markers is only supported in the Mjviewer renderer
+            return
+        if self.geom_index is None:
+            self.geom_index = self.viewer.viewer.user_scn.ngeom
+            self.viewer.viewer.user_scn.ngeom = self.viewer.viewer.user_scn.ngeom + 1
+        mujoco.mjv_initGeom(
+            self.viewer.viewer.user_scn.geoms[self.geom_index],
             type=100,
-            size=[0.01, 0.01, 0.2],
+            size=np.array([0.01, 0.01, 0.2]),
+            pos=self.goal_marker_trans,
             mat=self.goal_marker_rot,
-            rgba=[0.0, 1.0, 0.0, 0.7],
-            label="",
-            shininess=0.0,
+            rgba=[0.0, 1.0, 0.0, 0.7]
         )
 
     def get_environment_state(self) -> ReachHumanEnvState:
@@ -706,9 +701,9 @@ class ReachHuman(HumanEnv):
         self._desired_goals_index = state.desired_goals_index
 
         if isinstance(self.robots[0].robot_model, PinocchioManipulatorModel):
-            (self.goal_marker_trans, self.goal_marker_rot) = self.robots[
-                0
-            ].robot_model.get_eef_transformation(self._desired_goals[self._desired_goals_index])
+            (self.goal_marker_trans, self.goal_marker_rot) = self.robots[0].robot_model.get_eef_transformation(
+                self._desired_goals[self._desired_goals_index]
+            )
 
         if self.has_renderer:
             self._visualize_goal()

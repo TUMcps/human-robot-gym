@@ -45,7 +45,7 @@ RUN apt-get update --fix-missing && \
         unzip \
         curl \
         g++ \
-        gcc-9 \
+        gcc \
         clang \
         libgtest-dev \
         libgmock-dev \
@@ -99,15 +99,6 @@ ENV HOME_PATH=/root
 #-------------------------------------------------------------------------------------------------------------
 FROM branch-${MODE} AS final
 
-# Pull mujoco
-RUN mkdir $HOME_PATH/.mujoco
-WORKDIR $HOME_PATH/.mujoco
-RUN curl -LJO https://mujoco.org/download/mujoco210-linux-x86_64.tar.gz && \
-    tar -xvf mujoco210-linux-x86_64.tar.gz && \
-    rm mujoco210-linux-x86_64.tar.gz
-
-RUN echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME_PATH/.mujoco/mujoco210/bin" >> $HOME_PATH/.bashrc
-
 WORKDIR $HOME_PATH
 
 ARG USERNAME=root
@@ -128,10 +119,10 @@ RUN rm -rf build && \
 # See https://pythonspeed.com/articles/activate-conda-dockerfile/
 SHELL ["conda", "run", "--no-capture-output", "-n", "hrgym", "/bin/bash", "-c"]
 RUN export EIGEN3_INCLUDE_DIR="/eigen-3.4.0" && \
-    python setup.py install
+    pip install .
 
 WORKDIR $HOME_PATH
 SHELL ["/bin/bash", "-c"]
 
 ENTRYPOINT ["/bin/bash", "-c"]
-CMD ["cd human-robot-gym; conda run --no-capture-output -n hrgym pip install -e .; /bin/bash"]
+CMD ["cd human-robot-gym; conda run --no-capture-output -n hrgym pip install -e .[training]; /bin/bash"]

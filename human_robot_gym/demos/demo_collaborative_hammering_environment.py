@@ -89,9 +89,6 @@ import robosuite as suite
 import time
 import numpy as np
 import glfw
-
-from robosuite.controllers import load_controller_config
-
 from human_robot_gym.utils.mjcf_utils import file_path_completion, merge_configs
 from human_robot_gym.utils.cart_keyboard_controller import KeyboardControllerAgentCart
 from human_robot_gym.utils.env_util import ExpertObsWrapper
@@ -107,14 +104,23 @@ if __name__ == "__main__":
     pybullet_urdf_file = file_path_completion(
         "models/assets/robots/schunk/robot_pybullet.urdf"
     )
-    controller_config = dict()
-    controller_conig_path = file_path_completion(
+    failsafe_config_path = file_path_completion(
         "controllers/failsafe_controller/config/failsafe.json"
     )
-    robot_conig_path = file_path_completion("models/robots/config/schunk.json")
-    controller_config = load_controller_config(custom_fpath=controller_conig_path)
-    robot_config = load_controller_config(custom_fpath=robot_conig_path)
-    controller_config = merge_configs(controller_config, robot_config)
+    robot_config_path = file_path_completion("models/robots/config/schunk.json")
+
+    # Load the failsafe controller config from file
+    import json
+    with open(failsafe_config_path, 'r') as f:
+        failsafe_config = json.load(f)
+
+    # Load robot-specific limits
+    with open(robot_config_path, 'r') as f:
+        robot_config = json.load(f)
+
+    # Merge robot limits into failsafe config
+    controller_config = {'body_parts': {'right': {}}}
+    controller_config['body_parts']['right'] = merge_configs(failsafe_config['body_parts']['right'], robot_config)
     controller_configs = [controller_config]
 
     rsenv = suite.make(
@@ -124,6 +130,7 @@ if __name__ == "__main__":
         has_offscreen_renderer=False,  # not needed since not using pixel obs
         has_renderer=True,  # make sure we can render to the screen
         render_camera=None,
+        renderer='mjviewer',
         render_collision_mesh=False,
         control_freq=5,  # control should happen fast enough so that simulation looks smooth
         hard_reset=False,
@@ -139,6 +146,12 @@ if __name__ == "__main__":
         seed=0,
     )
 
+    rsenv = CollisionPreventionWrapper(
+        env=rsenv, collision_check_fn=rsenv.check_collision_action, replace_type=0,
+    )
+    action_limits = np.array([[-0.1, -0.1, -0.1], [0.1, 0.1, 0.1]])
+    rsenv = IKPositionDeltaWrapper(env=rsenv, urdf_file=pybullet_urdf_file, action_limits=action_limits)
+    rsenv = VisualizationWrapper(rsenv)
     env = ExpertObsWrapper(
         env=rsenv,
         agent_keys=[
@@ -151,12 +164,6 @@ if __name__ == "__main__":
             "vec_eef_to_nail",
         ]
     )
-    env = CollisionPreventionWrapper(
-        env=env, collision_check_fn=env.check_collision_action, replace_type=0,
-    )
-    env = VisualizationWrapper(env)
-    action_limits = np.array([[-0.1, -0.1, -0.1], [0.1, 0.1, 0.1]])
-    env = IKPositionDeltaWrapper(env=env, urdf_file=pybullet_urdf_file, action_limits=action_limits)
     kb_agent = KeyboardControllerAgentCart(env=env)
     expert = CollaborativeHammeringCartExpert(
         observation_space=env.observation_space,
@@ -202,7 +209,8 @@ if __name__ == "__main__":
             if rsenv.task_phase.value > 1:
                 action = action * 0.0 + np.array([0, 0, 1, 0])
 
-            observation, reward, done, info = env.step(action)
+            observation, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
             if done:
                 print("Episode finished after {} timesteps".format(t + 1))
                 break

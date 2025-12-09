@@ -13,8 +13,8 @@ from typing import Union, List
 
 from robosuite.wrappers.gym_wrapper import GymWrapper
 from robosuite.environments.base import make
-from gym import Env
-from gym.envs.registration import spec
+from gymnasium import Env
+from gymnasium.envs.registration import spec
 
 
 def make_gym(env: str, robots: Union[str, List[str]], id: str, **kwargs) -> Env:

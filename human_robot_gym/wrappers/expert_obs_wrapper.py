@@ -17,7 +17,7 @@ import numpy as np
 
 from robosuite.environments import MujocoEnv
 from robosuite.wrappers import Wrapper
-from gym import Env, spaces
+from gymnasium import Env, spaces
 
 
 class ExpertObsWrapper(Wrapper, Env):
@@ -134,14 +134,20 @@ class ExpertObsWrapper(Wrapper, Env):
                 ob_lst.append(np.array(obs_dict[key]).flatten())
         return np.concatenate(ob_lst)
 
-    def reset(self):
-        """Reset the environment and return flattened observation instead of normal OrderedDict.
-
-        The expert observation is internally stored as a dictionary.
+    def reset(self, seed=None, options=None):
+        """
+        Extends env reset method to return observation instead of normal OrderedDict and optionally resets seed
 
         Returns:
-            np.array: Flattened environment observation space after reset occurs
+            2-tuple:
+                - (np.array) observations from the environment
+                - (dict) an empty dictionary, as part of the standard return format
         """
+        if seed is not None:
+            if isinstance(seed, int):
+                np.random.seed(seed)
+            else:
+                raise TypeError("Seed must be an integer type!")
         obs_dict = self.env.reset()
 
         self._previous_expert_observation = None
@@ -152,7 +158,7 @@ class ExpertObsWrapper(Wrapper, Env):
             obs_dict=obs_dict,
         )
 
-    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
         """Step environment and return flattened observation instead of normal OrderedDict.
 
         Expert observations from before and after the environment step are added to the info dictionary.
@@ -160,10 +166,11 @@ class ExpertObsWrapper(Wrapper, Env):
         Args:
             action (np.array): Action to take in environment
         Returns:
-            4-tuple:
+            5-tuple:
                 - (np.array) flattened observations from the environment
                 - (float) reward from the environment
-                - (bool) whether the current episode is completed or not
+                - (bool) whether the episode terminated
+                - (bool) whether the episode was truncated
                 - (dict) misc information
         """
         obs_dict, reward, done, info = self.env.step(action)
@@ -179,7 +186,7 @@ class ExpertObsWrapper(Wrapper, Env):
             obs_dict=obs_dict,
         )
 
-        return flat_agent_obs, reward, done, info
+        return flat_agent_obs, reward, done, False, info
 
     def seed(self, seed: Optional[float] = None):
         """Set numpy seed.
