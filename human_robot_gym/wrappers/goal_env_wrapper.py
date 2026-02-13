@@ -144,15 +144,16 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
             action (np.array): Action to take in environment
 
         Returns:
-            4-tuple:
+            5-tuple:
 
                 - (np.array) flattened observations from the environment
                 - (float) reward from the environment
-                - (bool) whether the current episode is completed or not
+                - (bool) whether the current episode is terminated
+                - (bool) whether the current episode is truncated
                 - (dict) misc information
         """
-        ob_dict, reward, done, info = self.env.step(action)
-        return self._flatten_obs(ob_dict), reward, done, info
+        ob_dict, reward, terminated, truncated, info = self.env.step(action)
+        return self._flatten_obs(ob_dict), reward, terminated, truncated, info
 
     def seed(self, seed=None):
         """Set numpy seed.
@@ -186,7 +187,7 @@ class GoalEnvironmentGymWrapper(Wrapper, Env):
             float: The reward that corresponds to the provided achieved goal w.r.t. to the desired
             goal. Note that the following should always hold true:
 
-                - `ob, reward, done, info = env.step()`
+                - `ob, reward, terminated, truncated, info = env.step()`
                 - `assert reward == env.compute_reward(ob[achieved_goal], ob[goal], info)`
 
         """
