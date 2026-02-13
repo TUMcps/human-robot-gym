@@ -173,7 +173,7 @@ class ExpertObsWrapper(Wrapper, Env):
                 - (bool) whether the episode was truncated
                 - (dict) misc information
         """
-        obs_dict, reward, done, info = self.env.step(action)
+        obs_dict, reward, terminated, truncated, info = self.env.step(action)
 
         self._previous_expert_observation = self._current_expert_observation
         self._current_expert_observation = {key: obs_dict[key] for key in self.expert_keys if key in obs_dict}
@@ -186,7 +186,7 @@ class ExpertObsWrapper(Wrapper, Env):
             obs_dict=obs_dict,
         )
 
-        return flat_agent_obs, reward, done, False, info
+        return flat_agent_obs, reward, terminated, truncated, info
 
     def seed(self, seed: Optional[float] = None):
         """Set numpy seed.

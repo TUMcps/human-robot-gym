@@ -177,29 +177,30 @@ class DatasetCollectionWrapper(Wrapper):
         Returns:
             np.ndarray: Environment observation space after reset occurs
         """
-        obs = super().reset()
+        obs, info = super().reset()
         self._start_new_episode()
         self.observations = [obs]
-        return obs
+        return obs, info
 
-    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
         """Extends vanilla step() function call to accommodate data collection
 
         Args:
             action (np.array): Action to take in environment
 
         Returns:
-            4-tuple:
+            5-tuple:
                 - (np.ndarray) observations from the environment
                 - (float) reward from the environment
-                - (bool) whether the current episode is completed or not
+                - (bool) whether the current episode is terminated
+                - (bool) whether the current episode is truncated
                 - (Dict[str, Any]) misc information
         """
         # on the first time step, make directories for logging
         if not self.has_interaction:
             self._on_first_interaction()
 
-        obs, rew, done, info = super().step(action)
+        obs, rew, terminated, truncated, info = super().step(action)
         self.t += 1
 
         # collect the current simulation state
@@ -212,7 +213,7 @@ class DatasetCollectionWrapper(Wrapper):
         if self._store_expert_observations:
             self.expert_observations.append(ExpertObsWrapper.get_current_expert_observation_from_info(info))
 
-        return obs, rew, done, info
+        return obs, rew, terminated, truncated, info
 
     def close(self):
         """Override close method in order to flush left over data"""

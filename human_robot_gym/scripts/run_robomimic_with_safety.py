@@ -207,7 +207,7 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
             act = policy(ob=obs)
 
             # play action
-            next_obs, r, done, info = env.step(act)
+            next_obs, r, terminated, truncated, info = env.step(act)
 
             # compute reward
             total_reward += r
@@ -256,7 +256,7 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
             # collect transition
             traj["actions"].append(act)
             traj["rewards"].append(r)
-            traj["dones"].append(done)
+            traj["dones"].append(terminated or truncated)
             if state_dict["states"] is not None:
                 current_state = env.get_state()
                 traj["states"].append(current_state["states"])
@@ -268,7 +268,7 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
                 traj["next_obs"].append(next_obs)
 
             # break if done or if success
-            if done or success:
+            if terminated or truncated or success:
                 break
 
             # update for next iter
