@@ -23,6 +23,6 @@ class VisualizationWrapper(Wrapper):
 
     def step(self, action):
         """Step the environment and render the visualization."""
-        observation, reward, done, info = self.env.step(action)
+        observation, reward, terminated, truncated, info = self.env.step(action)
         self.unwrapped.render()
-        return observation, reward, done, info
+        return observation, reward, terminated, truncated, info
